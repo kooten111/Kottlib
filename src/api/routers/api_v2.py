@@ -24,6 +24,7 @@ from ...database import (
     get_user_by_username,
     get_reading_progress,
     get_continue_reading,
+    update_reading_progress,
 )
 
 logger = logging.getLogger(__name__)
@@ -165,8 +166,22 @@ async def get_folder_v2(
                 folder_id=None
             ).all()
 
+        # Get user for reading progress
+        user = get_user_by_username(session, 'admin')
+
         comics_list = []
         for comic in comics:
+            # Get reading progress for this comic
+            current_page = 0
+            is_read = False
+            has_been_opened = False
+            if user:
+                progress = get_reading_progress(session, user.id, comic.id)
+                if progress:
+                    current_page = progress.current_page
+                    is_read = progress.is_completed
+                    has_been_opened = current_page > 0
+
             # Match YACReader's exact field names for v2 API
             comics_list.append({
                 "type": "comic",
@@ -178,14 +193,14 @@ async def get_folder_v2(
                 "file_size": str(comic.size if hasattr(comic, 'size') else 0),
                 "hash": comic.hash,
                 "path": comic.path if hasattr(comic, 'path') else comic.filename,
-                "current_page": 0,  # TODO: get from reading progress
+                "current_page": current_page,
                 "num_pages": comic.num_pages,
-                "read": False,  # TODO: get from reading progress
+                "read": is_read,
                 "manga": (comic.reading_direction == 'rtl') if hasattr(comic, 'reading_direction') else False,
                 "file_type": 1,  # 1 = comic (vs 0 = folder)
                 "cover_size_ratio": 0.0,
                 "number": 0,
-                "has_been_opened": False
+                "has_been_opened": has_been_opened
             })
 
         # Sort comics
@@ -438,6 +453,89 @@ async def get_comic_page_v2(
                 media_type=content_type,
                 headers={"Cache-Control": "public, max-age=86400"}
             )
+
+
+# ============================================================================
+# Comic Update (v2) - Save Reading Progress
+# ============================================================================
+
+@router.post("/library/{library_id}/comic/{comic_id}/update")
+async def update_comic_progress_v2(
+    library_id: int,
+    comic_id: int,
+    request: Request
+):
+    """
+    Update comic reading progress (v2)
+
+    YACReader format (plain text body):
+    Line 1: currentPage:{page_number}
+    Line 2 (optional): {next_comic_id}
+    Line 3 (optional): {timestamp}\t{image_filters_json}
+    """
+    db = request.app.state.db
+
+    # Get raw body as text (YACReader sends plain text, not JSON/form data)
+    try:
+        body_bytes = await request.body()
+        body_text = body_bytes.decode('utf-8')
+        logger.info(f"v2 API: Raw body received: {repr(body_text)}")
+    except Exception as e:
+        logger.error(f"v2 API: Failed to read body: {e}")
+        raise HTTPException(status_code=400, detail="Failed to read request body")
+
+    # Parse YACReader format: "currentPage:5\nnextComicId\n..."
+    current_page = None
+    if body_text.strip():
+        lines = body_text.split('\n')
+        if len(lines) > 0 and lines[0].strip():
+            # Line 1: "currentPage:5"
+            first_line = lines[0].strip()
+            if ':' in first_line:
+                parts = first_line.split(':', 1)
+                if parts[0] == 'currentPage':
+                    try:
+                        current_page = int(parts[1])
+                        logger.info(f"v2 API: Parsed currentPage: {current_page}")
+                    except ValueError:
+                        logger.error(f"v2 API: Invalid currentPage value: {parts[1]}")
+
+    if current_page is None:
+        logger.error(f"v2 API: Could not parse currentPage from body: {repr(body_text)}")
+        raise HTTPException(status_code=400, detail="Invalid format - expected 'currentPage:{number}'")
+
+    with db.get_session() as session:
+        # Get comic to verify it exists and get num_pages
+        comic = get_comic_by_id(session, comic_id)
+        if not comic:
+            raise HTTPException(status_code=404, detail="Comic not found")
+
+        # Use comic's num_pages as default (form data doesn't usually include this)
+        total_pages = comic.num_pages
+
+        # Get user (using admin for now - TODO: get from session)
+        user = get_user_by_username(session, 'admin')
+        if not user:
+            raise HTTPException(status_code=500, detail="User not found")
+
+        # Update reading progress
+        logger.info(f"v2 API: Updating progress for comic {comic_id}: page {current_page}/{total_pages}")
+        progress = update_reading_progress(
+            session,
+            user.id,
+            comic_id,
+            current_page,
+            total_pages
+        )
+
+        # Return success response
+        return JSONResponse({
+            "success": True,
+            "current_page": progress.current_page,
+            "total_pages": progress.total_pages,
+            "progress_percent": progress.progress_percent,
+            "is_completed": progress.is_completed
+        })
 
 
 # ============================================================================
