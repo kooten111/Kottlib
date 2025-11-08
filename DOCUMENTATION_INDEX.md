@@ -167,8 +167,8 @@ Example usage of the Python client library.
 ### For Users
 
 1. **Installation**: See [README.md](README.md) - Setup instructions
-2. **Configuration**: Coming soon
-3. **Migration**: See [PROJECT_OVERVIEW.md](docs/PROJECT_OVERVIEW.md#migration-path)
+2. **Configuration**: See [CONFIGURATION.md](CONFIGURATION.md) - Configuration guide
+3. **Compatibility**: See [YACREADER_API_COMPATIBILITY.md](YACREADER_API_COMPATIBILITY.md) - YACReader compatibility status
 
 ### For API Developers
 
@@ -190,7 +190,6 @@ Example usage of the Python client library.
 - [x] Create FastAPI server
 - [x] Implement legacy API v1
 
-**Documentation**: [PHASE1_COMPLETE.md](PHASE1_COMPLETE.md)
 **Status**: All components implemented and tested!
 
 ### Phase 2: Mobile UX ✅ COMPLETE
@@ -200,17 +199,27 @@ Example usage of the Python client library.
 - [x] Reading progress tracking
 - [x] Custom cover selection
 
-**Documentation**: [PHASE2_COMPLETE.md](PHASE2_COMPLETE.md)
 **Status**: All mobile UX improvements implemented!
 
-### Phase 3: Web UI
+### Phase 3: YACReader Compatibility 🚧 IN PROGRESS
+
+- [x] Database schema extended (43 new fields)
+- [x] V1 line endings fixed (CRLF)
+- [x] Comic navigation (previousComic/nextComic)
+- [ ] Session management
+- [ ] Metadata scanner integration
+- [ ] Full API compatibility
+
+**Documentation**: See [YACREADER_API_COMPATIBILITY.md](YACREADER_API_COMPATIBILITY.md) for detailed status
+
+### Phase 4: Web UI 📋 PLANNED
+
 - [ ] Basic comic reader
 - [ ] Library browser
 - [ ] Admin panel
 
-**Documentation**: Coming after Phase 2
+### Phase 5: Advanced Features 🎯 FUTURE
 
-### Phase 4: Advanced Features
 - [ ] Series auto-detection
 - [ ] Collections
 - [ ] Smart search
@@ -222,28 +231,24 @@ Example usage of the Python client library.
 
 ## 📊 Project Status
 
-**Current Phase**: Phase 2 Complete ✅
+**Current Phase**: Phase 3 (YACReader Compatibility) 🚧
 
-**Next Phase**: Phase 3 (Web UI)
-
-**Documentation Status**:
-- ✅ API reverse engineering
-- ✅ Architecture design
-- ✅ Feature specifications
-- ✅ Design decisions documented
-- ✅ Mobile control analysis
-- ✅ Implementation roadmap
-- ✅ Phase 1 completion docs
-- ✅ Phase 2 completion docs
+**Progress**:
+- ✅ Phase 1: Foundation - Complete
+- ✅ Phase 2: Mobile UX - Complete
+- 🚧 Phase 3: YACReader Compatibility - 60% complete
+- 📋 Phase 4: Web UI - Planned
+- 🎯 Phase 5: Advanced Features - Future
 
 **Code Status**:
 - ✅ Python client library
 - ✅ Comic loader
-- ✅ Database layer
+- ✅ Database layer (extended for compatibility)
 - ✅ FastAPI server
-- ✅ Legacy API v1
+- ✅ Legacy API v1 (basic compatibility)
 - ✅ Mobile UX improvements
-- ⏳ Web UI (next)
+- 🚧 YACReader full compatibility (in progress)
+- ⏳ Web UI (planned)
 
 ---
 
@@ -284,6 +289,6 @@ If you can't find what you need:
 
 ---
 
-**Last Updated**: 2025-11-08
-**Documentation Version**: 2.0
-**Project Status**: Phase 2 Complete (Mobile UX)
+**Last Updated**: 2025-11-09
+**Documentation Version**: 2.1
+**Project Status**: Phase 3 In Progress (YACReader Compatibility)

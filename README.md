@@ -80,7 +80,7 @@ The launcher will:
 5. Scan comics (optional)
 6. Start the server
 
-**See [GETTING_STARTED.md](GETTING_STARTED.md) for detailed walkthrough.**
+**See [DOCUMENTATION_INDEX.md](DOCUMENTATION_INDEX.md) for detailed documentation.**
 
 ### After First Run
 
@@ -183,10 +183,9 @@ For advanced users:
 
 ## Documentation
 
-- **[GETTING_STARTED.md](GETTING_STARTED.md)** - Step-by-step beginner guide
-- **[QUICKSTART.md](QUICKSTART.md)** - Quick reference
-- **[CONFIGURATION.md](CONFIGURATION.md)** - Complete configuration guide
-- **[PHASE1_COMPLETE.md](PHASE1_COMPLETE.md)** - What's implemented
+- **[DOCUMENTATION_INDEX.md](DOCUMENTATION_INDEX.md)** - Complete documentation index
+- **[CONFIGURATION.md](CONFIGURATION.md)** - Configuration guide
+- **[YACREADER_API_COMPATIBILITY.md](YACREADER_API_COMPATIBILITY.md)** - YACReader compatibility status
 - **[docs/PROJECT_OVERVIEW.md](docs/PROJECT_OVERVIEW.md)** - Full project overview
 - **[docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)** - System architecture
 - **[docs/YACLIB_API.md](docs/YACLIB_API.md)** - API reference
