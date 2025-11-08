@@ -14,34 +14,49 @@ This document captures key design decisions for YACLib Enhanced.
 - Easier to add new functionality
 - Still maintain backward compatibility with mobile apps via legacy API
 
-## 2. Per-Library Metadata Storage
+## 2. Centralized Application Database
 
-**Decision**: Store metadata and thumbnails in `.yacreaderlibrary/` folder within each library root.
+**Decision**: Store all metadata in a centralized application database, not in comic folders.
 
 **Structure**:
 ```
+# Application data (Linux example)
+~/.local/share/yaclib/
+├── yaclib.db               # SQLite database with ALL libraries
+└── covers/
+    ├── {hash}.jpg          # JPEG for mobile (300px)
+    └── {hash}.webp         # WebP for web (400px)
+
+# Library folders (clean - just comics!)
 /mnt/Blue/Ebooks_Comics/Manga/
-├── .yacreaderlibrary/
-│   ├── library.ydb
-│   ├── covers/
-│   └── custom_covers/
-├── Series/
-└── ...
+├── Series A/
+│   └── Issue 01.cbz
+└── Series B/
+    └── Issue 01.cbz
 ```
 
+**Platform-specific paths**:
+- **Linux**: `~/.local/share/yaclib/` or `~/.config/yaclib/`
+- **macOS**: `~/Library/Application Support/YACLib/`
+- **Windows**: `%APPDATA%\YACLib\`
+
 **Rationale**:
-- Matches YACReader's existing structure
-- Easy migration from YACReader
-- Self-contained libraries (portable)
-- Database stays with the data it describes
-- Easy backup (backup the library folder)
-- Multi-library support (each has its own DB)
+- Clean comic folders (no hidden metadata cluttering user directories)
+- Single database for all libraries (simpler management)
+- Centralized backup location
+- Standard application data location
+- Easier to find and manage configuration
+- Can reference multiple library paths from one database
 
 **Alternatives Considered**:
-- ❌ Centralized database at `/var/lib/yaclib/`
-  - Harder to back up
-  - Less portable
-  - Library moves break references
+- ❌ Per-library database in comic folders (`.yaclib/` subdirectory)
+  - Clutters user's comic directories with hidden folders
+  - Multiple databases harder to manage
+  - Confusing for users
+- ❌ Reuse YACReader's `.yacreaderlibrary/` folder
+  - Unnecessary coupling to YACReader
+  - Still clutters comic folders
+  - Mobile app only needs HTTP API, not database compatibility
 
 ## 3. Dual-Format Thumbnail System
 
@@ -84,27 +99,38 @@ This document captures key design decisions for YACLib Enhanced.
 
 ## 5. Database Strategy
 
-**Decision**: Use existing YACReader SQLite database (`library.ydb`) with optional extensions.
+**Decision**: Use our own modern SQLite schema, with YACReader import tool.
 
-**Two-Tier Approach**:
+**Schema Design**:
+- Clean, normalized design optimized for our features
+- Support for users, collections, reading lists, series detection
+- Reading progress tracking per user
+- Statistics and preferences
+- Extensible metadata system
 
-### Tier 1: Compatible Mode
-- Use `library.ydb` directly (read/write)
-- Add new tables for extended features
-- Maintain YACReader compatibility
-- Can switch back to YACReader if needed
-
-### Tier 2: Enhanced Mode (Optional)
-- Separate `/var/lib/yaclib/enhanced.db`
-- For features that don't fit YACReader schema
-- User management, collections, advanced features
-- Linked via library_id and comic_hash
+**YACReader Migration**:
+- Dedicated import tool (`tools/import_yacreader.py`)
+- Reads YACReader's `library.ydb` and converts to our format
+- Imports comics, folders, covers, and reading progress
+- One-time migration, not ongoing sync
 
 **Rationale**:
-- Maximum compatibility
-- Gradual migration path
-- Can use YACReader and YACLib Enhanced simultaneously (for testing)
-- Easy rollback if needed
+- **Mobile app doesn't need database compatibility** - it only uses HTTP API
+- Freedom to design optimal schema for features
+- No constraints from YACReader's legacy schema
+- Better support for modern features (users, collections, series)
+- Cleaner codebase without compatibility shims
+- Import tool provides easy migration path for existing YACReader users
+
+**Alternatives Considered**:
+- ❌ Reuse YACReader database format
+  - Unnecessary for mobile app compatibility
+  - Limits feature development
+  - Couples us to their schema evolution
+- ❌ Dual database system (compatibility + enhanced)
+  - Added complexity
+  - Synchronization issues
+  - Not needed since mobile app only uses API
 
 ## 6. Technology Stack
 
