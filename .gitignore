@@ -45,9 +45,11 @@ tests/testlibs
 metadata/
 *.db
 *.db-journal
+*.db.backup-*
 thumbnails/
 temp/
 logs/
+covers/
 
 # Environment variables
 .env

@@ -193,13 +193,15 @@ Example usage of the Python client library.
 **Documentation**: [PHASE1_COMPLETE.md](PHASE1_COMPLETE.md)
 **Status**: All components implemented and tested!
 
-### Phase 2: Mobile UX
-- [ ] Folders-first sorting
-- [ ] Continue reading list
-- [ ] Reading progress tracking
-- [ ] Custom cover selection
+### Phase 2: Mobile UX ✅ COMPLETE
 
-**Documentation**: See [IMPROVEMENTS_AND_FEATURES.md](docs/IMPROVEMENTS_AND_FEATURES.md)
+- [x] Folders-first sorting
+- [x] Continue reading list
+- [x] Reading progress tracking
+- [x] Custom cover selection
+
+**Documentation**: [PHASE2_COMPLETE.md](PHASE2_COMPLETE.md)
+**Status**: All mobile UX improvements implemented!
 
 ### Phase 3: Web UI
 - [ ] Basic comic reader
@@ -220,9 +222,9 @@ Example usage of the Python client library.
 
 ## 📊 Project Status
 
-**Current Phase**: Design Complete ✅
+**Current Phase**: Phase 2 Complete ✅
 
-**Next Phase**: Implementation Phase 1 (Foundation)
+**Next Phase**: Phase 3 (Web UI)
 
 **Documentation Status**:
 - ✅ API reverse engineering
@@ -231,12 +233,17 @@ Example usage of the Python client library.
 - ✅ Design decisions documented
 - ✅ Mobile control analysis
 - ✅ Implementation roadmap
+- ✅ Phase 1 completion docs
+- ✅ Phase 2 completion docs
 
 **Code Status**:
-- ✅ Python client library (working!)
-- ⏳ Comic loader (next)
-- ⏳ Database layer (next)
-- ⏳ FastAPI server (next)
+- ✅ Python client library
+- ✅ Comic loader
+- ✅ Database layer
+- ✅ FastAPI server
+- ✅ Legacy API v1
+- ✅ Mobile UX improvements
+- ⏳ Web UI (next)
 
 ---
 
@@ -278,5 +285,5 @@ If you can't find what you need:
 ---
 
 **Last Updated**: 2025-11-08
-**Documentation Version**: 1.0
-**Project Status**: Design Phase Complete
+**Documentation Version**: 2.0
+**Project Status**: Phase 2 Complete (Mobile UX)

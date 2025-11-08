@@ -33,6 +33,7 @@ from .database import (
     get_comic_by_hash,
     get_comics_in_library,
     get_comics_in_folder,
+    get_sibling_comics,
     # Folder operations
     create_folder,
     get_folder_by_id,
@@ -49,6 +50,16 @@ from .database import (
     cleanup_expired_sessions,
     # Statistics
     get_library_stats,
+    # Reading Progress operations
+    update_reading_progress,
+    get_reading_progress,
+    get_continue_reading,
+    get_recently_completed,
+    # Cover operations
+    create_cover,
+    get_cover,
+    get_best_cover,
+    delete_cover,
 )
 
 __all__ = [
@@ -78,6 +89,7 @@ __all__ = [
     'get_comic_by_hash',
     'get_comics_in_library',
     'get_comics_in_folder',
+    'get_sibling_comics',
     'create_folder',
     'get_folder_by_id',
     'get_folder_by_path',
@@ -90,4 +102,12 @@ __all__ = [
     'update_session_activity',
     'cleanup_expired_sessions',
     'get_library_stats',
+    'update_reading_progress',
+    'get_reading_progress',
+    'get_continue_reading',
+    'get_recently_completed',
+    'create_cover',
+    'get_cover',
+    'get_best_cover',
+    'delete_cover',
 ]

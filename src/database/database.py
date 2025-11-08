@@ -15,7 +15,7 @@ from sqlalchemy import create_engine, select, func
 from sqlalchemy.orm import Session, sessionmaker
 from sqlalchemy.pool import StaticPool
 
-from .models import Base, Library, Folder, Comic, Cover, User, Session as DBSession
+from .models import Base, Library, Folder, Comic, Cover, User, Session as DBSession, ReadingProgress
 import logging
 
 logger = logging.getLogger(__name__)
@@ -275,6 +275,43 @@ def get_comics_in_folder(session: Session, folder_id: int) -> List[Comic]:
     return session.query(Comic).filter_by(folder_id=folder_id).all()
 
 
+def get_sibling_comics(session: Session, comic_id: int) -> tuple[Optional[int], Optional[int]]:
+    """
+    Get the previous and next comic IDs in the same folder.
+    Returns (previous_comic_id, next_comic_id)
+
+    Comics are ordered alphabetically by filename within the folder.
+    This matches YACReader's navigation behavior.
+    """
+    comic = get_comic_by_id(session, comic_id)
+    if not comic:
+        return (None, None)
+
+    # Get all comics in the same folder, ordered by filename
+    comics = (
+        session.query(Comic)
+        .filter_by(folder_id=comic.folder_id)
+        .order_by(Comic.filename)
+        .all()
+    )
+
+    # Find current comic's position
+    current_index = None
+    for i, c in enumerate(comics):
+        if c.id == comic_id:
+            current_index = i
+            break
+
+    if current_index is None:
+        return (None, None)
+
+    # Get previous and next
+    prev_id = comics[current_index - 1].id if current_index > 0 else None
+    next_id = comics[current_index + 1].id if current_index < len(comics) - 1 else None
+
+    return (prev_id, next_id)
+
+
 # ============================================================================
 # Folder Operations
 # ============================================================================
@@ -407,3 +444,266 @@ def get_library_stats(session: Session, library_id: int) -> dict:
         'comic_count': comic_count or 0,
         'folder_count': folder_count or 0,
     }
+
+
+# ============================================================================
+# Reading Progress Operations
+# ============================================================================
+
+def update_reading_progress(
+    session: Session,
+    user_id: int,
+    comic_id: int,
+    current_page: int,
+    total_pages: int
+) -> ReadingProgress:
+    """
+    Update or create reading progress for a comic
+
+    Args:
+        session: Database session
+        user_id: User ID
+        comic_id: Comic ID
+        current_page: Current page number (0-indexed)
+        total_pages: Total number of pages
+
+    Returns:
+        ReadingProgress object
+    """
+    now = int(time.time())
+
+    # Calculate progress percentage
+    progress_percent = (current_page / total_pages * 100) if total_pages > 0 else 0
+    is_completed = current_page >= total_pages - 1  # Last page
+
+    # Get existing progress or create new
+    progress = session.query(ReadingProgress).filter_by(
+        user_id=user_id,
+        comic_id=comic_id
+    ).first()
+
+    if progress:
+        # Update existing
+        progress.current_page = current_page
+        progress.total_pages = total_pages
+        progress.progress_percent = progress_percent
+        progress.last_read_at = now
+
+        if is_completed and not progress.is_completed:
+            progress.is_completed = True
+            progress.completed_at = now
+    else:
+        # Create new
+        progress = ReadingProgress(
+            user_id=user_id,
+            comic_id=comic_id,
+            current_page=current_page,
+            total_pages=total_pages,
+            progress_percent=progress_percent,
+            is_completed=is_completed,
+            started_at=now,
+            last_read_at=now,
+            completed_at=now if is_completed else None
+        )
+        session.add(progress)
+
+    session.commit()
+    session.refresh(progress)
+
+    logger.debug(f"Updated reading progress for comic {comic_id}: page {current_page}/{total_pages}")
+    return progress
+
+
+def get_reading_progress(
+    session: Session,
+    user_id: int,
+    comic_id: int
+) -> Optional[ReadingProgress]:
+    """Get reading progress for a specific comic"""
+    return session.query(ReadingProgress).filter_by(
+        user_id=user_id,
+        comic_id=comic_id
+    ).first()
+
+
+def get_continue_reading(
+    session: Session,
+    user_id: int,
+    limit: int = 10
+) -> List[tuple[ReadingProgress, Comic]]:
+    """
+    Get recently read comics for "continue reading" feature
+
+    Args:
+        session: Database session
+        user_id: User ID
+        limit: Maximum number of results (default: 10)
+
+    Returns:
+        List of tuples (ReadingProgress, Comic) ordered by most recently read
+    """
+    results = session.query(ReadingProgress, Comic).join(
+        Comic, ReadingProgress.comic_id == Comic.id
+    ).filter(
+        ReadingProgress.user_id == user_id,
+        ReadingProgress.is_completed == False  # Only in-progress comics
+    ).order_by(
+        ReadingProgress.last_read_at.desc()
+    ).limit(limit).all()
+
+    return results
+
+
+def get_recently_completed(
+    session: Session,
+    user_id: int,
+    limit: int = 10
+) -> List[tuple[ReadingProgress, Comic]]:
+    """
+    Get recently completed comics
+
+    Args:
+        session: Database session
+        user_id: User ID
+        limit: Maximum number of results (default: 10)
+
+    Returns:
+        List of tuples (ReadingProgress, Comic) ordered by most recently completed
+    """
+    results = session.query(ReadingProgress, Comic).join(
+        Comic, ReadingProgress.comic_id == Comic.id
+    ).filter(
+        ReadingProgress.user_id == user_id,
+        ReadingProgress.is_completed == True
+    ).order_by(
+        ReadingProgress.completed_at.desc()
+    ).limit(limit).all()
+
+    return results
+
+
+# ============================================================================
+# Cover Operations
+# ============================================================================
+
+def create_cover(
+    session: Session,
+    comic_id: int,
+    cover_type: str,
+    page_number: int,
+    jpeg_path: str,
+    webp_path: Optional[str] = None
+) -> Cover:
+    """
+    Create a new cover entry
+
+    Args:
+        session: Database session
+        comic_id: Comic ID
+        cover_type: Type of cover ('auto' or 'custom')
+        page_number: Page number used for cover (0-indexed)
+        jpeg_path: Path to JPEG thumbnail
+        webp_path: Path to WebP thumbnail (optional)
+
+    Returns:
+        Cover object
+    """
+    now = int(time.time())
+
+    # Check if cover of this type already exists
+    existing_cover = session.query(Cover).filter_by(
+        comic_id=comic_id,
+        type=cover_type
+    ).first()
+
+    if existing_cover:
+        # Update existing
+        existing_cover.page_number = page_number
+        existing_cover.jpeg_path = jpeg_path
+        existing_cover.webp_path = webp_path
+        existing_cover.generated_at = now
+        session.commit()
+        session.refresh(existing_cover)
+        return existing_cover
+
+    # Create new
+    cover = Cover(
+        comic_id=comic_id,
+        type=cover_type,
+        page_number=page_number,
+        jpeg_path=jpeg_path,
+        webp_path=webp_path,
+        generated_at=now
+    )
+
+    session.add(cover)
+    session.commit()
+    session.refresh(cover)
+
+    logger.debug(f"Created {cover_type} cover for comic {comic_id} from page {page_number}")
+    return cover
+
+
+def get_cover(session: Session, comic_id: int, cover_type: str = 'auto') -> Optional[Cover]:
+    """
+    Get cover for a comic
+
+    Args:
+        session: Database session
+        comic_id: Comic ID
+        cover_type: Type of cover ('auto' or 'custom')
+
+    Returns:
+        Cover object or None
+    """
+    return session.query(Cover).filter_by(
+        comic_id=comic_id,
+        type=cover_type
+    ).first()
+
+
+def get_best_cover(session: Session, comic_id: int) -> Optional[Cover]:
+    """
+    Get the best cover for a comic (custom if available, otherwise auto)
+
+    Args:
+        session: Database session
+        comic_id: Comic ID
+
+    Returns:
+        Cover object or None
+    """
+    # Try custom first
+    custom = get_cover(session, comic_id, 'custom')
+    if custom:
+        return custom
+
+    # Fall back to auto
+    return get_cover(session, comic_id, 'auto')
+
+
+def delete_cover(session: Session, comic_id: int, cover_type: str):
+    """
+    Delete a cover
+
+    Args:
+        session: Database session
+        comic_id: Comic ID
+        cover_type: Type of cover to delete
+    """
+    cover = get_cover(session, comic_id, cover_type)
+    if cover:
+        # Delete files
+        jpeg_path = Path(cover.jpeg_path)
+        if jpeg_path.exists():
+            jpeg_path.unlink()
+
+        if cover.webp_path:
+            webp_path = Path(cover.webp_path)
+            if webp_path.exists():
+                webp_path.unlink()
+
+        # Delete from database
+        session.delete(cover)
+        session.commit()
+        logger.debug(f"Deleted {cover_type} cover for comic {comic_id}")
