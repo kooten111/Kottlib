@@ -1,219 +1,268 @@
 # YACLib Enhanced
 
-A complete replacement for YACReaderLibrary Server, written in Python, that maintains 100% backward compatibility with existing YACReader mobile apps while adding powerful new features for both mobile and web users.
+**Modern comic library server with one-command setup.**
 
-## 🎯 Project Goals
+✨ 100% compatible with YACReader mobile apps
+✨ Zero configuration required
+✨ Just run `./yaclib.py`
 
-1. **100% Mobile App Compatibility** - Existing iOS/Android apps work without modification
-2. **Enhanced Mobile UX** - Folders-first sorting, continue reading, progress tracking
-3. **Modern Web UI** - Beautiful web-based comic reader and library manager
-4. **Advanced Features** - Series detection, collections, smart search, statistics
-5. **Better Performance** - Smart caching, page preloading, bandwidth awareness
+```bash
+git clone https://github.com/yourusername/yaclib-enhanced.git
+cd yaclib-enhanced
+./yaclib.py
+```
+
+**Done!** Visit http://localhost:8081/docs
+
+---
+
+## What is YACLib Enhanced?
+
+A complete replacement for YACReaderLibrary Server, written in Python, that:
+- Maintains 100% backward compatibility with YACReader mobile apps
+- Provides a modern API and web interface
+- Makes setup incredibly simple
+
+**No complex configuration. No dependencies to manually install. Just works.**
 
 ## Features
 
-### Current
-- ✅ Complete Python client library for YACServer API
-- ✅ Session management and automatic retry logic
-- ✅ Async comic loading with smart wait times
-- ✅ Full API documentation
+### Phase 1: Foundation ✅ **COMPLETE**
 
-### Planned
+- ✅ **Comic Loader** - Read CBZ, CBR, CB7 files
+- ✅ **Dual Thumbnails** - JPEG (mobile) + WebP (web)
+- ✅ **Database Layer** - SQLAlchemy ORM with modern schema
+- ✅ **FastAPI Server** - Production-ready async server
+- ✅ **Legacy API** - YACReader mobile app compatible
+- ✅ **Modern API** - JSON REST endpoints
+- ✅ **Configuration System** - YAML-based config
+- ✅ **One-Command Setup** - Interactive launcher
+
+### Phase 2: Mobile UX 📋 **NEXT**
+
+- 📋 Folders-first sorting
+- 📋 Continue reading list
+- 📋 Reading progress tracking
+- 📋 Custom cover selection
+
+### Phase 3: Web UI 🚧 **PLANNED**
+
 - 🚧 Modern web-based comic reader
-- 🚧 Library management (scan, upload, organize)
-- 🚧 Enhanced metadata editing
-- 🚧 Collections and reading lists
-- 🚧 Search and filtering
+- 🚧 Library management UI
+- 🚧 Metadata editing
 - 🚧 Admin panel
 
-## Architecture
+### Phase 4: Advanced Features 🎯 **FUTURE**
 
-```
-┌──────────────────┐
-│  Mobile Apps     │ ← Existing YACReader iOS/Android apps
-│  (iOS/Android)   │   (Full compatibility maintained)
-└────────┬─────────┘
-         │ Legacy API
-         ▼
-┌─────────────────────────────────────────┐
-│  YACLib Enhanced Server (Python)        │
-│  ┌────────────┐  ┌────────────────────┐ │
-│  │ Legacy     │  │ Modern REST API    │ │
-│  │ Proxy      │  │ (Web UI)           │ │
-│  └─────┬──────┘  └──────┬─────────────┘ │
-└────────┼─────────────────┼───────────────┘
-         │                 │
-         └────────┬────────┘
-                  ▼
-    ┌──────────────────────────┐
-    │ YACReaderLibrary Server  │
-    │ (Original C++/Qt)        │
-    └──────────────────────────┘
-```
+- 🎯 Series auto-detection
+- 🎯 Collections and reading lists
+- 🎯 Smart search with FTS
+- 🎯 Reading statistics
 
 ## Quick Start
 
-### Installation
+### For New Users
 
 ```bash
-# Clone the repository
+# 1. Clone
 git clone https://github.com/yourusername/yaclib-enhanced.git
 cd yaclib-enhanced
 
-# Create virtual environment
-python3 -m venv venv
-source venv/bin/activate  # On Windows: venv\Scripts\activate
-
-# Install dependencies
-pip install -r requirements.txt
+# 2. Run
+./yaclib.py
 ```
 
-### Using the Python Client
+The launcher will:
+1. Check Python 3.11+
+2. Install dependencies (if needed)
+3. Guide you through setup
+4. Help configure libraries
+5. Scan comics (optional)
+6. Start the server
+
+**See [GETTING_STARTED.md](GETTING_STARTED.md) for detailed walkthrough.**
+
+### After First Run
+
+Just run:
+```bash
+./yaclib.py
+```
+
+Your configuration is saved in `config.yml`.
+
+## Usage Examples
+
+### Connect YACReader Mobile App
+
+1. Start server: `./yaclib.py`
+2. In YACReader mobile app, add server: `http://<your-ip>:8081`
+3. Browse your libraries!
+
+### Access API
+
+Visit http://localhost:8081/docs for interactive API documentation.
+
+**REST Endpoints:**
+- `GET /api/v1/libraries` - List all libraries
+- `GET /api/v1/libraries/{id}` - Get library details
+- `POST /api/v1/libraries` - Create library
+
+**Legacy Endpoints (mobile apps):**
+- `GET /library/` - List libraries
+- `GET /library/{lib_id}/folder/{folder_id}` - Browse folder
+- `GET /library/{lib_id}/comic/{comic_id}` - Get comic info
+- `GET /library/{lib_id}/comic/{comic_id}/page/{num}` - Get page
+
+### Use Python Client
 
 ```python
 from client.yaclib import YACLibClient
 
-# Connect to your YACServer
 with YACLibClient("http://192.168.1.5:25565") as client:
-    # Open a comic
     metadata = client.open_comic(library_id=2, comic_id=188)
-    print(f"Opened: {metadata.path}")
     print(f"Pages: {metadata.num_pages}")
 
-    # Get cover
-    cover = client.get_cover(metadata.library_id, metadata.hash)
-    with open('cover.jpg', 'wb') as f:
-        f.write(cover)
-
-    # Read pages
-    for page_num in range(metadata.num_pages):
-        page_data = client.get_page(
-            metadata.library_id,
-            metadata.comic_id,
-            page_num
-        )
-        # Do something with page_data
+    page = client.get_page(2, 188, 0)
+    with open('page.jpg', 'wb') as f:
+        f.write(page)
 ```
 
-See [examples/basic_usage.py](examples/basic_usage.py) for more examples.
+See [examples/basic_usage.py](examples/basic_usage.py).
 
-### Running Examples
+## Configuration
+
+### Simple: Use the Launcher
+
+The interactive launcher (`./yaclib.py`) handles everything on first run.
+
+### Advanced: Edit Config File
+
+After first run, edit `config.yml`:
+
+```yaml
+server:
+  host: "0.0.0.0"
+  port: 8081
+  log_level: "info"
+
+libraries:
+  - name: "Comics"
+    path: "/mnt/Comics"
+    auto_scan: true
+    settings:
+      default_reading_direction: "ltr"
+
+  - name: "Manga"
+    path: "/mnt/Manga"
+    auto_scan: true
+    settings:
+      default_reading_direction: "rtl"
+```
+
+See [CONFIGURATION.md](CONFIGURATION.md) for complete guide.
+
+### CLI Tool
+
+For advanced users:
 
 ```bash
-cd yaclib-enhanced
-python examples/basic_usage.py all
+# Manage config
+./yaclib-cli.py config init
+./yaclib-cli.py config show
+
+# Manage libraries
+./yaclib-cli.py library add "Comics" /mnt/Comics
+./yaclib-cli.py library scan Comics
+./yaclib-cli.py library list
+
+# Server control
+./yaclib-cli.py server start
+./yaclib-cli.py server info
 ```
 
 ## Documentation
 
-- [YACLibrary API Documentation](docs/YACLIB_API.md) - Complete reverse-engineered API docs
-- [Architecture Design](docs/ARCHITECTURE.md) - System architecture and design decisions
+- **[GETTING_STARTED.md](GETTING_STARTED.md)** - Step-by-step beginner guide
+- **[QUICKSTART.md](QUICKSTART.md)** - Quick reference
+- **[CONFIGURATION.md](CONFIGURATION.md)** - Complete configuration guide
+- **[PHASE1_COMPLETE.md](PHASE1_COMPLETE.md)** - What's implemented
+- **[docs/PROJECT_OVERVIEW.md](docs/PROJECT_OVERVIEW.md)** - Full project overview
+- **[docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)** - System architecture
+- **[docs/YACLIB_API.md](docs/YACLIB_API.md)** - API reference
 
 ## Project Structure
 
 ```
 yaclib-enhanced/
-├── docs/                    # Documentation
-│   ├── YACLIB_API.md       # YACServer API reference
-│   └── ARCHITECTURE.md     # Architecture design
+├── yaclib.py              ⭐ Main launcher (run this!)
+├── yaclib-cli.py          # CLI tool
+├── config.yml             # Your config (created on first run)
 ├── src/
-│   ├── client/             # Python client library
-│   │   └── yaclib.py
-│   ├── api/                # FastAPI server (planned)
-│   └── web/                # Web UI (planned)
-├── examples/               # Usage examples
-│   └── basic_usage.py
-├── tests/                  # Tests
-└── requirements.txt        # Python dependencies
+│   ├── api/               # FastAPI server
+│   ├── database/          # Database layer
+│   ├── scanner/           # Comic loader & thumbnails
+│   ├── client/            # Python client library
+│   └── config.py          # Configuration management
+├── examples/              # Example scripts
+└── docs/                  # Documentation
+
+~/.local/share/yaclib/     # Database & thumbnails (Linux)
+├── yaclib.db
+└── covers/
 ```
 
-## Development Roadmap
+## Requirements
 
-### Phase 1: Core Infrastructure ✅
-- [x] Reverse engineer YACServer API
-- [x] Create Python client library
-- [x] Document API protocol
-- [x] Design architecture
-- [ ] Basic FastAPI proxy server
-- [ ] Database access layer
+- **Python 3.11+**
+- **Linux, macOS, or Windows**
+- Comics in CBZ, CBR, or CB7 format
 
-### Phase 2: Web Reader 🚧
-- [ ] Basic comic reader UI
-- [ ] Page navigation
-- [ ] Zoom/pan controls
-- [ ] Keyboard shortcuts
-- [ ] Reading progress tracking
+The launcher installs all Python dependencies automatically.
 
-### Phase 3: Library Management 📋
-- [ ] File system scanner
-- [ ] Comic upload
-- [ ] Metadata editing
-- [ ] Library organization
-- [ ] Admin panel
+## Development Status
 
-### Phase 4: Enhanced Features 🎯
-- [ ] Advanced search
-- [ ] Collections/tags
-- [ ] Reading lists
-- [ ] Recommendations
-- [ ] Multi-user support
-- [ ] Authentication
+**Phase 1: Foundation** - ✅ **COMPLETE**
 
-## API Client Reference
+All core infrastructure is implemented and tested:
+- Comic loading and processing
+- Database and storage
+- API server (legacy + modern)
+- Thumbnail generation
+- Configuration system
+- One-command setup
 
-### YACLibClient
-
-Main client class for interacting with YACServer.
-
-**Methods**:
-- `open_comic(library_id, comic_id)` - Open a comic for reading
-- `get_page(library_id, comic_id, page_num)` - Get a page image
-- `get_all_pages(library_id, comic_id, start, end)` - Get multiple pages
-- `get_cover(library_id, hash)` - Get cover image
-- `update_reading_progress(library_id, comic_id, page)` - Update progress
-
-### YACLibAsyncClient
-
-Enhanced client with better async handling.
-
-**Additional Methods**:
-- `is_comic_loaded()` - Check if comic is ready
-- `wait_for_comic_load(timeout)` - Wait for loading to complete
+**Ready for Phase 2** - Mobile UX improvements!
 
 ## Contributing
 
-Contributions are welcome! Please feel free to submit issues or pull requests.
-
-## YACServer Protocol Notes
-
-### Important Discoveries
-
-1. **Session-based**: Each client needs a session cookie
-2. **Async loading**: Comics load in background (wait 2-5 seconds after opening)
-3. **Page caching**: Pages are cached in server memory per session
-4. **Auto-retry**: Client implements smart retry logic for loading pages
-
-### Typical Flow
-
-```
-1. GET /library/{id}/comic/{id}/remote  → Open comic, get metadata
-2. Wait 3 seconds                        → Let comic load
-3. GET /library/{id}/comic/{id}/page/0/remote → Get first page
-4. GET /library/{id}/comic/{id}/page/1/remote → Get second page
-...
-```
+Contributions welcome! Please:
+1. Check [docs/PROJECT_OVERVIEW.md](docs/PROJECT_OVERVIEW.md) for architecture
+2. Follow existing code style
+3. Add tests for new features
+4. Update documentation
 
 ## License
 
-MIT License - See LICENSE file for details
+MIT License - See LICENSE file for details.
 
 ## Acknowledgments
 
 - [YACReader](https://www.yacreader.com/) - Original comic reader and server
-- Built with reverse engineering the YACReaderLibrary Server protocol
+- Built by reverse-engineering the YACReaderLibrary Server protocol
 
 ## Related Projects
 
-- [YACReader](https://github.com/YACReader/yacreader) - Original desktop and server application
+- [YACReader](https://github.com/YACReader/yacreader) - Original desktop & server
 - [YACReader iOS](https://apps.apple.com/app/yacreader/id635717885) - Official iOS app
 - [YACReader Android](https://play.google.com/store/apps/details?id=com.yacreader.yacreader) - Official Android app
+
+---
+
+**Get started in seconds:**
+
+```bash
+./yaclib.py
+```
+
+That's it! 🚀
