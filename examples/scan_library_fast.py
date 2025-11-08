@@ -103,7 +103,7 @@ def main():
     print(f"Errors:              {result.errors}")
     print(f"Time elapsed:        {result.duration:.2f}s")
 
-    if result.comics_found > 0:
+    if result.duration > 0 and result.comics_found > 0:
         rate = result.comics_found / result.duration
         print(f"Processing rate:     {rate:.1f} comics/sec")
 

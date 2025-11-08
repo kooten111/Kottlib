@@ -134,6 +134,13 @@ async def get_folder_v2(
 
                 first_comic_hash = first_comic.hash if first_comic else ""
 
+                try:
+                    relative_path = str(Path(folder.path).relative_to(library.path))
+                except ValueError:
+                    relative_path = folder.name # Fallback
+
+                api_path = f"/{relative_path}"
+
                 child_folders.append({
                     "type": "folder",
                     "id": str(folder.id),
@@ -148,7 +155,7 @@ async def get_folder_v2(
                     "added": 0,
                     "updated": 0,
                     "parent_id": str(folder.parent_id) if folder.parent_id is not None else "0",
-                    "path": folder.name
+                    "path": api_path 
                 })
 
         # Sort folders alphabetically
@@ -181,8 +188,12 @@ async def get_folder_v2(
                     current_page = progress.current_page
                     is_read = progress.is_completed
                     has_been_opened = current_page > 0
+            try:
+                relative_path = str(Path(comic.path).relative_to(library.path))
+            except ValueError:
+                relative_path = comic.filename
 
-            # Match YACReader's exact field names for v2 API
+            api_path = f"/{relative_path}"
             comics_list.append({
                 "type": "comic",
                 "id": str(comic.id),
@@ -192,7 +203,7 @@ async def get_folder_v2(
                 "file_name": comic.filename,
                 "file_size": str(comic.size if hasattr(comic, 'size') else 0),
                 "hash": comic.hash,
-                "path": comic.path if hasattr(comic, 'path') else comic.filename,
+                "path": api_path, # <-- *** THIS IS FIX #1 ***
                 "current_page": current_page,
                 "num_pages": comic.num_pages,
                 "read": is_read,
@@ -255,6 +266,8 @@ async def get_comic_fullinfo_v2(
             raise HTTPException(status_code=404, detail="Comic not found")
 
         library = get_library_by_id(session, library_id)
+        if not library:
+            raise HTTPException(status_code=404, detail="Library not found")
 
         # Get reading progress
         current_page = 0
@@ -265,6 +278,17 @@ async def get_comic_fullinfo_v2(
             if progress:
                 current_page = progress.current_page
                 is_read = progress.is_completed
+
+        # --- START FIX 2 ---
+        try:
+            # Calculate the relative path from the library root
+            relative_path = str(Path(comic.path).relative_to(library.path))
+        except ValueError:
+            relative_path = comic.filename  # Fallback
+        
+        # Prepend a slash as the API requires
+        api_path = f"/{relative_path}"
+        # --- END FIX 2 ---
 
         # Build full comic info response matching YACReader format
         response = {
@@ -277,7 +301,7 @@ async def get_comic_fullinfo_v2(
             "file_name": comic.filename,
             "file_size": str(0),  # TODO: get actual file size
             "hash": comic.hash,
-            "path": comic.path or comic.filename,
+            "path": api_path, # <-- *** THIS IS FIX #2 ***
             "current_page": current_page,
             "num_pages": comic.num_pages,
             "read": is_read,
@@ -333,6 +357,8 @@ async def open_comic_remote_v2(
             raise HTTPException(status_code=404, detail="Comic not found")
 
         library = get_library_by_id(session, library_id)
+        if not library:
+            raise HTTPException(status_code=404, detail="Library not found")
 
         # Get reading progress
         current_page = 0
@@ -346,6 +372,14 @@ async def open_comic_remote_v2(
 
         # Get previous/next comic for navigation
         prev_comic_id, next_comic_id = get_sibling_comics(session, comic_id)
+
+        # --- START FIX 3 ---
+        try:
+            relative_path = str(Path(comic.path).relative_to(library.path))
+        except ValueError:
+            relative_path = comic.filename
+        api_path = f"/{relative_path}"
+        # --- END FIX 3 ---
 
         # Build plain text response in YACReader format
         lines = []
@@ -361,7 +395,7 @@ async def open_comic_remote_v2(
         # Comic info (matching comic.toTXT() format)
         lines.append(f"comicid:{comic_id}")
         lines.append(f"hash:{comic.hash}")
-        lines.append(f"path:{comic.path or comic.filename}")
+        lines.append(f"path:{api_path}") # <-- *** THIS IS FIX #3 ***
         lines.append(f"numpages:{comic.num_pages}")
         lines.append(f"rating:0")
         lines.append(f"currentPage:{current_page}")
