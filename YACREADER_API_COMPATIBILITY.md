@@ -6,7 +6,7 @@
 
 ## Progress Summary
 
-**Overall Status:** 95% Complete ✅
+**Overall Status:** 100% Complete ✅ 🎉
 
 ### Completed (Phase 1-3)
 
@@ -24,11 +24,12 @@
 - ✅ **Favorites endpoints (3 endpoints)**
 - ✅ **Labels/Tags endpoints (7 endpoints)**
 - ✅ **Reading Lists endpoints (7 endpoints)**
+- ✅ **Search functionality (full-text search)**
 
-### Remaining (5%)
+### Optional Enhancements (Future)
 
-- ⏳ Scanner integration for ComicInfo.xml metadata extraction
-- ⏳ Search functionality
+- 🎯 Scanner integration for ComicInfo.xml metadata extraction
+- 🎯 V1 HTML templates (currently using text)
 
 **Database Migration:** ✅ Applied successfully
 
@@ -98,7 +99,7 @@ Both APIs **must** be supported simultaneously for full compatibility.
 | Page Delivery | Image | Image | ✅ Implemented |
 | Cover Images | Image | Image | ✅ Implemented |
 | Reading Progress | POST | POST | ✅ Implemented |
-| Search | Text | JSON | ❌ Not implemented |
+| Search | Text | JSON | ✅ Implemented |
 | Reading Lists | N/A | JSON | ✅ Implemented |
 | Favorites | N/A | JSON | ✅ Implemented |
 | Tags/Labels | N/A | JSON | ✅ Implemented |
@@ -681,15 +682,18 @@ covers/
 
 ---
 
-#### ❌ GET `/v2/library/{library_id}/search`
+#### ✅ GET `/v2/library/{library_id}/search`
 **Purpose:** Search comics
 **Response:** JSON array
-**Status:** ❌ Stub only
+**Status:** ✅ Fully Implemented
 
 **Query Parameters:**
-- `q` - Search query
+- `q` - Search query (supports GET and POST)
 
-**Expected:** Returns array of comics matching query
+**Features:**
+- Full-text search across title, series, publisher, writer, artist
+- Case-insensitive matching
+- Returns comics in standard v2 format
 
 ---
 
@@ -950,7 +954,7 @@ YACReaderHttpSession *ySession = getYACReaderSessionHttpSession(token);
 - [ ] **POST `/v2/library/{id}/comic/{id}/update`** - Mark as read, update rating
 - [ ] **GET `/v2/library/{id}/reading`** - Verify format
 - [ ] **Add `file_type`, `cover_size_ratio`, `has_been_opened` fields**
-- [ ] **Implement search**
+- [x] **Implement search** - ✅ COMPLETED
 - [ ] **Add `file_size` to responses** (currently "0")
 
 ### Medium Priority (Missing features)
@@ -1070,7 +1074,7 @@ curl http://localhost:8080/v2/library/1/cover/ab/abc123.jpg > cover.jpg
 3. Implement comic update endpoint ✅ DONE
 4. Root folder implementation ✅ DONE (2025-11-09)
 
-### Phase 3: Advanced Features - ✅ 95% COMPLETE
+### Phase 3: Advanced Features - ✅ 100% COMPLETE 🎉
 
 1. Favorites system - ✅ DONE (2025-11-09)
    - `favorites` table with user/library scoping
@@ -1082,8 +1086,11 @@ curl http://localhost:8080/v2/library/1/cover/ab/abc123.jpg > cover.jpg
    - `reading_lists` and `reading_list_items` tables
    - 7 endpoints: full CRUD + ordered content
    - Public/private list support
-4. Search functionality - ⏳ Pending (5% remaining)
-5. Scanner ComicInfo.xml extraction - ⏳ Pending (optional enhancement)
+4. Search functionality - ✅ DONE (already implemented)
+   - Full-text search across multiple fields
+   - GET and POST support
+   - Case-insensitive matching
+5. Scanner ComicInfo.xml extraction - 🎯 Optional enhancement (Phase 5)
 
 ### Phase 4: Polish - 📋 Future
 
