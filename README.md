@@ -31,33 +31,45 @@ A complete replacement for YACReaderLibrary Server, written in Python, that:
 
 - ✅ **Comic Loader** - Read CBZ, CBR, CB7 files
 - ✅ **Dual Thumbnails** - JPEG (mobile) + WebP (web)
-- ✅ **Database Layer** - SQLAlchemy ORM with modern schema
+- ✅ **Database Layer** - SQLAlchemy ORM with extended YACReader schema
 - ✅ **FastAPI Server** - Production-ready async server
 - ✅ **Legacy API** - YACReader mobile app compatible
 - ✅ **Modern API** - JSON REST endpoints
 - ✅ **Configuration System** - YAML-based config
 - ✅ **One-Command Setup** - Interactive launcher
 
-### Phase 2: Mobile UX 📋 **NEXT**
+### Phase 2: Mobile UX ✅ **COMPLETE**
 
-- 📋 Folders-first sorting
-- 📋 Continue reading list
-- 📋 Reading progress tracking
-- 📋 Custom cover selection
+- ✅ **Folders-first sorting** - Proper folder hierarchy
+- ✅ **Continue reading list** - Track reading progress
+- ✅ **Reading progress tracking** - Per-user progress
+- ✅ **Custom cover selection** - Database ready
 
-### Phase 3: Web UI 🚧 **PLANNED**
+### Phase 3: YACReader Compatibility 🚧 **90% COMPLETE**
 
-- 🚧 Modern web-based comic reader
-- 🚧 Library management UI
-- 🚧 Metadata editing
-- 🚧 Admin panel
+- ✅ **Database schema** - 43 new fields + 5 tables
+- ✅ **Session management** - Multi-user support
+- ✅ **File size reporting** - Actual sizes, not "0"
+- ✅ **Library UUIDs** - In all V2 responses
+- ✅ **Root folder convention** - `__ROOT__` folders
+- ✅ **Multi-library support** - Same file in multiple libraries
+- ⏳ **ComicInfo.xml extraction** - Scanner integration pending
+- ⏳ **Search functionality** - Pending
+- ⏳ **Favorites/Tags/Lists** - Database ready, endpoints pending
 
-### Phase 4: Advanced Features 🎯 **FUTURE**
+### Phase 4: Web UI 📋 **PLANNED**
+
+- 📋 Modern web-based comic reader
+- 📋 Library management UI
+- 📋 Metadata editing
+- 📋 Admin panel
+
+### Phase 5: Advanced Features 🎯 **FUTURE**
 
 - 🎯 Series auto-detection
-- 🎯 Collections and reading lists
 - 🎯 Smart search with FTS
 - 🎯 Reading statistics
+- 🎯 Enhanced collections
 
 ## Quick Start
 
@@ -221,17 +233,24 @@ The launcher installs all Python dependencies automatically.
 
 ## Development Status
 
-**Phase 1: Foundation** - ✅ **COMPLETE**
+**Current Phase:** Phase 3 - YACReader Compatibility (90% complete)
 
-All core infrastructure is implemented and tested:
-- Comic loading and processing
-- Database and storage
-- API server (legacy + modern)
-- Thumbnail generation
-- Configuration system
-- One-command setup
+**Completed:**
+- ✅ Phase 1: Foundation - All core infrastructure
+- ✅ Phase 2: Mobile UX - Reading progress, folder navigation
+- ✅ Phase 3 (90%): YACReader Compatibility
+  - Database schema extended
+  - Session management
+  - Root folder implementation
+  - Multi-library support
+  - Bug fixes (folder recursion, cross-library contamination)
 
-**Ready for Phase 2** - Mobile UX improvements!
+**Remaining (10%):**
+- Scanner ComicInfo.xml metadata extraction
+- Search functionality
+- Favorites/Tags/Reading Lists endpoints
+
+**See [YACREADER_API_COMPATIBILITY.md](YACREADER_API_COMPATIBILITY.md) for detailed compatibility status.**
 
 ## Contributing
 

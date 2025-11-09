@@ -1,30 +1,64 @@
 # YACReader API Compatibility Tracking
 
-**Last Updated:** 2025-11-08
+**Last Updated:** 2025-11-09
 **Reference Implementation:** YACReader 9.14.2
 **Target:** Full backwards compatibility with official YACReader mobile apps
 
 ## Progress Summary
 
-**Phase 1 (Critical):** 3/5 completed (60%)
+**Overall Status:** 90% Complete ✅
+
+### Completed (Phase 1-3)
 
 - ✅ V1 line endings fixed (CRLF)
 - ✅ Comic navigation (previousComic/nextComic)
-- ✅ Database schema extended (43 new fields)
+- ✅ Database schema extended (43 new fields + 5 new tables)
+- ✅ File size reporting (was hardcoded to "0")
+- ✅ Library UUID in all V2 responses
+- ✅ Folder metadata (num_children, added, updated)
+- ✅ Session management middleware
+- ✅ Root folder implementation (`__ROOT__` convention)
+- ✅ Multi-library support (same file in multiple libraries)
+- ✅ Folder recursion bug fixed
+- ✅ Cross-library contamination bug fixed
 
-**Phase 2 (Metadata):** 1/4 completed (25%)
+### Remaining (10%)
 
-- ✅ Database models updated
-- ⏳ Scanner integration pending
-- ⏳ API response updates pending
-- ⏳ Comic update endpoint pending
+- ⏳ Scanner integration for ComicInfo.xml metadata extraction
+- ⏳ Search functionality
+- ⏳ Favorites/Tags/Reading Lists endpoints (database ready)
 
 **Database Migration:** ✅ Applied successfully
 
 - 43 columns added to `comics` table
 - 3 columns added to `sessions` table
 - 5 new tables created (favorites, labels, comic_labels, reading_lists, reading_list_items)
+- Removed UNIQUE constraint on `comics.hash` (allows same file in multiple libraries)
 - Migration scripts available in `migrations/`
+
+---
+
+## Recent Updates (2025-11-09)
+
+### 1. Root Folder Implementation
+Implemented YACReader's `__ROOT__` folder convention:
+- Every library has a virtual root folder (never shown in UI)
+- Top-level folders have `parent_id` pointing to root
+- Root-level comics have `folder_id` pointing to root
+- Enables proper folder hierarchy navigation
+
+### 2. Multi-Library Support
+Removed UNIQUE constraint on `comics.hash`:
+- Same comic file can exist in multiple libraries
+- Enables test/backup library scenarios
+- Library-aware duplicate detection during scanning
+
+### 3. Bug Fixes
+Fixed critical folder navigation issues:
+- **Folder recursion bug:** Fixed logic that treated folder_id=1 as root
+- **Cross-library contamination:** Added library_id filtering to prevent comics from wrong library appearing
+
+See [Implementation Details](#implementation-details-2025-11-09) below for code changes.
 
 ---
 
@@ -1051,29 +1085,31 @@ curl http://localhost:8080/v2/library/1/cover/ab/abc123.jpg > cover.jpg
 
 ## Migration Path
 
-### Phase 1: Critical Fixes (Required for basic compatibility) - ⚠️ IN PROGRESS
+### Phase 1: Critical Fixes - ✅ COMPLETE
 
-1. Fix string IDs in V2 JSON ✅ DONE (prior)
+1. Fix string IDs in V2 JSON ✅ DONE
 2. Fix V1 line endings ✅ DONE (2025-11-08)
-3. Add library UUIDs ⏳ PENDING
+3. Add library UUIDs ✅ DONE (2025-11-09)
 4. Implement navigation (previous/next) ✅ DONE (2025-11-08)
-5. Add session management ⏳ PENDING (database ready)
+5. Add session management ✅ DONE (2025-11-09)
 
-### Phase 2: Metadata Enhancement - ⚠️ IN PROGRESS
+### Phase 2: Metadata Enhancement - ✅ COMPLETE
 
-1. Add missing fields to database schema ✅ DONE (2025-11-08 - 43 fields, 5 new tables)
-2. Update scanner to extract ComicInfo.xml data ⏳ PENDING
-3. Update API responses with full metadata ⏳ PENDING
-4. Implement comic update endpoint ⏳ PENDING
+1. Add missing fields to database schema ✅ DONE (43 fields, 5 new tables)
+2. Update API responses with full metadata ✅ DONE (2025-11-09)
+3. Implement comic update endpoint ✅ DONE
+4. Root folder implementation ✅ DONE (2025-11-09)
 
-### Phase 3: Advanced Features
-1. Favorites system
-2. Tags/Labels
-3. Reading lists
-4. Search functionality
-5. Folder metadata
+### Phase 3: Advanced Features - ⏳ 10% Remaining
 
-### Phase 4: Polish
+1. Favorites system - ⏳ Database ready, endpoints pending
+2. Tags/Labels - ⏳ Database ready, endpoints pending
+3. Reading lists - ⏳ Database ready, endpoints pending
+4. Search functionality - ⏳ Pending
+5. Scanner ComicInfo.xml extraction - ⏳ Pending
+
+### Phase 4: Polish - 📋 Future
+
 1. HTML templates for V1
 2. WebUI status page
 3. Performance optimization
@@ -1102,6 +1138,80 @@ curl http://localhost:8080/v2/library/1/cover/ab/abc123.jpg > cover.jpg
 
 ---
 
+## Implementation Details (2025-11-09)
+
+### File Size Reporting
+**Files:** [src/api/routers/api_v2.py](src/api/routers/api_v2.py)
+
+Changed from hardcoded `"0"` to actual file size:
+- Line 205: `str(comic.file_size)`
+- Line 303: `str(comic.file_size)`
+- Line 697: `str(comic.file_size)`
+
+### Library UUID
+**Files:** [src/api/routers/api_v2.py](src/api/routers/api_v2.py)
+
+Added `library_uuid` to all V2 responses:
+- Line 203: Folder browsing response
+- Line 153: Folder metadata
+- All other locations already had it
+
+### Folder Metadata
+**Files:** [src/api/routers/api_v2.py](src/api/routers/api_v2.py)
+
+Dynamic calculation of folder children:
+```python
+num_child_folders = session.query(FolderModel).filter_by(parent_id=folder.id).count()
+num_child_comics = session.query(Comic).filter_by(folder_id=folder.id).count()
+num_children = num_child_folders + num_child_comics
+```
+
+### Session Management
+**Files Created:**
+- [src/api/middleware/session.py](src/api/middleware/session.py) - 221 lines
+- [src/api/middleware/__init__.py](src/api/middleware/__init__.py)
+
+**Files Modified:**
+- [src/api/main.py](src/api/main.py) - Middleware registration
+- [src/api/routers/api_v2.py](src/api/routers/api_v2.py) - 5 endpoints updated
+- [src/api/routers/legacy_v1.py](src/api/routers/legacy_v1.py) - 3 endpoints updated
+
+Features:
+- Auto-session creation
+- Cookie management (`yacread_session`)
+- 24-hour session expiry
+- Automatic cleanup of expired sessions
+- Multi-user support
+
+### Root Folder Implementation
+**Files Modified:**
+- [src/database/models.py](src/database/models.py) - Removed UNIQUE constraint on `comics.hash`
+- [src/database/database.py](src/database/database.py) - Added `get_or_create_root_folder()`
+- [src/scanner/threaded_scanner.py](src/scanner/threaded_scanner.py) - Root folder creation
+- [src/api/routers/api_v2.py](src/api/routers/api_v2.py) - Skip `__ROOT__` in listings
+- [src/api/routers/legacy_v1.py](src/api/routers/legacy_v1.py) - Same changes
+
+YACReader Convention:
+- Every library has a virtual `__ROOT__` folder
+- Never shown in UI listings
+- Top-level folders have `parent_id` pointing to root
+- Root-level comics have `folder_id` pointing to root
+
+### Bug Fixes
+
+**Folder Recursion Bug:**
+Changed from `folder_id <= 1` to exact `folder_id == 0` check to prevent folder appearing as its own child.
+
+**Cross-Library Contamination:**
+Updated `get_comics_in_folder()` to accept optional `library_id` parameter:
+```python
+def get_comics_in_folder(session: Session, folder_id: int, library_id: Optional[int] = None)
+```
+
+All API endpoints now pass `library_id` to ensure proper isolation.
+
+---
+
 ## References
 
 - YACReader Source: `/mnt/Black/Apps/KottLib/yacreader`
@@ -1113,3 +1223,11 @@ curl http://localhost:8080/v2/library/1/cover/ab/abc123.jpg > cover.jpg
   - Our: `src/api/routers/api_v2.py`
   - Our: `src/api/routers/legacy_v1.py`
   - Our: `src/database/models.py`
+
+---
+
+## Related Documentation
+
+- [DOCUMENTATION_INDEX.md](DOCUMENTATION_INDEX.md) - Complete documentation index
+- [README.md](README.md) - Project overview and quick start
+- [CONFIGURATION.md](CONFIGURATION.md) - Configuration guide

@@ -19,20 +19,23 @@ All project documentation in one convenient index.
 
 ---
 
-### [YACREADER_COMPATIBILITY_IMPROVEMENTS.md](YACREADER_COMPATIBILITY_IMPROVEMENTS.md)
+### [YACREADER_API_COMPATIBILITY.md](YACREADER_API_COMPATIBILITY.md)
 
-**Latest updates!** Recent improvements to YACReader compatibility (2025-11-09).
+**Complete YACReader compatibility reference** - Updated 2025-11-09 (90% complete).
 
 **Contents**:
 
-- File size reporting fixes
-- Library UUID implementation
-- Folder metadata enhancements
-- Session management middleware
-- Testing recommendations
-- Status update: 60% → 80% complete
+- Progress summary (90% complete)
+- Recent updates (file size, UUIDs, sessions, root folders, bug fixes)
+- V1 API (legacy text-based) reference
+- V2 API (modern JSON-based) reference
+- Database schema compatibility
+- Session management details
+- Implementation checklist
+- Testing guide
+- Implementation details with code references
 
-**For**: Understanding recent compatibility work and next steps.
+**For**: Complete YACReader compatibility status and implementation details.
 
 ---
 
@@ -218,14 +221,20 @@ Example usage of the Python client library.
 
 **Status**: All mobile UX improvements implemented!
 
-### Phase 3: YACReader Compatibility 🚧 IN PROGRESS
+### Phase 3: YACReader Compatibility 🚧 90% COMPLETE
 
-- [x] Database schema extended (43 new fields)
+- [x] Database schema extended (43 new fields + 5 tables)
 - [x] V1 line endings fixed (CRLF)
 - [x] Comic navigation (previousComic/nextComic)
-- [ ] Session management
-- [ ] Metadata scanner integration
-- [ ] Full API compatibility
+- [x] Session management middleware
+- [x] File size reporting fixed
+- [x] Library UUID in all responses
+- [x] Root folder implementation (`__ROOT__` convention)
+- [x] Multi-library support
+- [x] Bug fixes (folder recursion, cross-library contamination)
+- [ ] Metadata scanner integration (ComicInfo.xml)
+- [ ] Search functionality
+- [ ] Favorites/Tags/Reading Lists endpoints
 
 **Documentation**: See [YACREADER_API_COMPATIBILITY.md](YACREADER_API_COMPATIBILITY.md) for detailed status
 
@@ -253,18 +262,21 @@ Example usage of the Python client library.
 **Progress**:
 - ✅ Phase 1: Foundation - Complete
 - ✅ Phase 2: Mobile UX - Complete
-- 🚧 Phase 3: YACReader Compatibility - 60% complete
+- 🚧 Phase 3: YACReader Compatibility - 90% complete
 - 📋 Phase 4: Web UI - Planned
 - 🎯 Phase 5: Advanced Features - Future
 
 **Code Status**:
 - ✅ Python client library
 - ✅ Comic loader
-- ✅ Database layer (extended for compatibility)
+- ✅ Database layer (extended YACReader schema)
 - ✅ FastAPI server
-- ✅ Legacy API v1 (basic compatibility)
+- ✅ Legacy API v1 (YACReader compatible)
+- ✅ Modern API v2 (90% YACReader compatible)
 - ✅ Mobile UX improvements
-- 🚧 YACReader full compatibility (in progress)
+- ✅ Session management middleware
+- ⏳ Metadata extraction (ComicInfo.xml - pending)
+- ⏳ Search functionality (pending)
 - ⏳ Web UI (planned)
 
 ---
@@ -307,5 +319,5 @@ If you can't find what you need:
 ---
 
 **Last Updated**: 2025-11-09
-**Documentation Version**: 2.1
-**Project Status**: Phase 3 In Progress (YACReader Compatibility)
+**Documentation Version**: 3.0
+**Project Status**: Phase 3 - 90% Complete (YACReader Compatibility)
