@@ -23,12 +23,14 @@ from ...database import (
     get_sibling_comics,
     get_covers_dir,
     get_user_by_username,
+    get_user_by_id,
     update_reading_progress,
     get_reading_progress,
     get_continue_reading,
     create_cover,
     get_best_cover,
 )
+from ..middleware import get_current_user_id
 
 logger = logging.getLogger(__name__)
 
@@ -146,16 +148,61 @@ async def get_folder_content(
 
         # Get folders
         folders = get_folders_in_library(session, library_id)
+
+        # YACReader convention (from source code db_helper.cpp:1540):
+        # - Folder ID=1 is typically a special root folder (never shown)
+        # - parentId=1 or parentId=None means "top-level folder"
+        # - Requesting folder_id=0 or folder_id=1 means "show library root"
+        #
+        # NOTE: Our scanner creates folders with parent_id=None for top-level
+        # YACReader uses parent_id=1 for top-level and reserves folder id=1 as root
+        # We support both conventions for compatibility
+
+        is_root_request = (folder_id <= 1)  # 0 or 1 both mean root
+
         child_folders = []
         for folder in folders:
-            if folder.parent_id == folder_id or (folder_id == 0 and folder.parent_id is None):
-                child_folders.append(folder)
+            # Skip root folder (marked with __ROOT__ name) - never show in listings
+            if folder.name == "__ROOT__":
+                continue
+
+            if is_root_request:
+                # Root level request - show top-level folders (parent_id=None or points to __ROOT__)
+                if folder.parent_id is not None and folder.parent_id != 1:
+                    # Check if parent is a root folder
+                    parent = next((f for f in folders if f.id == folder.parent_id), None)
+                    if parent and parent.name != "__ROOT__":
+                        # Parent is not root, skip this folder
+                        continue
+            else:
+                # Specific folder request - show its children only
+                if folder.parent_id != folder_id:
+                    continue
+            child_folders.append(folder)
 
         # Sort folders alphabetically by name
         child_folders.sort(key=lambda f: f.name.lower())
 
-        # Get comics
-        comics = get_comics_in_folder(session, folder_id) if folder_id > 0 else []
+        # Get comics (filter by library to avoid cross-library issues)
+        if is_root_request:
+            # Root level - get comics in the __ROOT__ folder for this library
+            # Find the root folder ID (marked with __ROOT__ name)
+            from ...database.models import Comic
+            root_folder = next((f for f in folders if f.name == "__ROOT__"), None)
+            if root_folder:
+                # Get comics with folder_id pointing to root folder
+                comics = session.query(Comic).filter(
+                    Comic.library_id == library_id,
+                    (Comic.folder_id == root_folder.id) | (Comic.folder_id == None)
+                ).all()
+            else:
+                # Fallback: no root folder found, get comics with folder_id=None
+                comics = session.query(Comic).filter(
+                    Comic.library_id == library_id,
+                    Comic.folder_id == None
+                ).all()
+        else:
+            comics = get_comics_in_folder(session, folder_id, library_id=library_id)
         comics_list = list(comics)
 
         # Sort comics based on sort mode
@@ -221,10 +268,14 @@ async def get_comic_info(
 
         library = get_library_by_id(session, library_id)
 
-        # Get reading progress (use admin user for now)
+        # Get reading progress
         current_page = 0
         is_read = 0
-        user = get_user_by_username(session, 'admin')
+        user_id = get_current_user_id(request)
+        if user_id:
+            user = get_user_by_id(session, user_id)
+        else:
+            user = get_user_by_username(session, 'admin')
         if user:
             progress = get_reading_progress(session, user.id, comic_id)
             if progress:
@@ -473,10 +524,12 @@ async def set_current_page(
         if not comic:
             raise HTTPException(status_code=404, detail="Comic not found")
 
-        # For now, use the default admin user (user_id=1)
-        # In production, this would use the authenticated user from the session
-        # TODO: Get user from session cookie
-        user = get_user_by_username(session, 'admin')
+        # Get user from session
+        user_id = get_current_user_id(request)
+        if user_id:
+            user = get_user_by_id(session, user_id)
+        else:
+            user = get_user_by_username(session, 'admin')
         if not user:
             # If no admin user, just acknowledge without storing
             logger.warning("No admin user found, cannot store reading progress")
@@ -514,8 +567,12 @@ async def continue_reading_list(
     db = request.app.state.db
 
     with db.get_session() as session:
-        # Get admin user (for now)
-        user = get_user_by_username(session, 'admin')
+        # Get user from session
+        user_id = get_current_user_id(request)
+        if user_id:
+            user = get_user_by_id(session, user_id)
+        else:
+            user = get_user_by_username(session, 'admin')
         if not user:
             # Return empty list if no user
             return PlainTextResponse(format_v1_response("type:continue-reading\ncode:0\n\n"))

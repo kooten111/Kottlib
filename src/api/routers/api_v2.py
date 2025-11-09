@@ -22,10 +22,12 @@ from ...database import (
     get_sibling_comics,
     get_covers_dir,
     get_user_by_username,
+    get_user_by_id,
     get_reading_progress,
     get_continue_reading,
     update_reading_progress,
 )
+from ..middleware import get_current_user_id
 
 logger = logging.getLogger(__name__)
 
@@ -121,60 +123,113 @@ async def get_folder_v2(
 
         # Get folders
         folders = get_folders_in_library(session, library_id)
+        logger.debug(f"v2 API: Found {len(folders)} total folders in library {library_id}")
         child_folders = []
+
         for folder in folders:
-            # Handle root folder (id=0 or id=1)
-            if folder.parent_id == folder_id or (folder_id <= 1 and folder.parent_id is None):
-                # Get first comic in this folder for the cover
-                from ...database.models import Comic
-                first_comic = session.query(Comic).filter_by(
-                    library_id=library_id,
-                    folder_id=folder.id
-                ).order_by(Comic.filename).first()
+            # YACReader convention (from source code db_helper.cpp:1540):
+            # - Folder ID=1 is typically a special root folder (never shown)
+            # - parentId=1 or parentId=None means "top-level folder"
+            # - Requesting folder_id=0 or folder_id=1 means "show library root"
+            #
+            # NOTE: Our scanner creates folders with parent_id=None for top-level
+            # YACReader uses parent_id=1 for top-level and reserves folder id=1 as root
+            # We support both conventions for compatibility
 
-                first_comic_hash = first_comic.hash if first_comic else ""
+            # Skip root folder (marked with __ROOT__ name) - never show in listings
+            if folder.name == "__ROOT__":
+                continue
 
-                try:
-                    relative_path = str(Path(folder.path).relative_to(library.path))
-                except ValueError:
-                    relative_path = folder.name # Fallback
+            is_root_request = (folder_id <= 1)  # 0 or 1 both mean root
 
-                api_path = f"/{relative_path}"
+            if is_root_request:
+                # Root level request - show top-level folders (parent_id=None or parent_id != self)
+                # After migration, top-level folders have parent_id pointing to __ROOT__ folder
+                if folder.parent_id is not None and folder.parent_id != 1:
+                    # Check if parent is a root folder
+                    parent = next((f for f in folders if f.id == folder.parent_id), None)
+                    if parent and parent.name != "__ROOT__":
+                        # Parent is not root, skip this folder
+                        continue
+            else:
+                # Specific folder request - show its children only
+                if folder.parent_id != folder_id:
+                    continue
 
-                child_folders.append({
-                    "type": "folder",
-                    "id": str(folder.id),
-                    "library_id": str(library_id),
-                    "folder_name": folder.name,
-                    "num_children": 0,  # TODO: count children
-                    "first_comic_hash": first_comic_hash,
-                    "finished": False,
-                    "completed": False,
-                    "custom_image": False,
-                    "file_type": 0,
-                    "added": 0,
-                    "updated": 0,
-                    "parent_id": str(folder.parent_id) if folder.parent_id is not None else "0",
-                    "path": api_path 
-                })
+            # Get first comic in this folder for the cover
+            from ...database.models import Comic, Folder as FolderModel
+            first_comic = session.query(Comic).filter_by(
+                library_id=library_id,
+                folder_id=folder.id
+            ).order_by(Comic.filename).first()
+
+            first_comic_hash = first_comic.hash if first_comic else ""
+
+            # Count child folders and comics
+            num_child_folders = session.query(FolderModel).filter_by(parent_id=folder.id).count()
+            num_child_comics = session.query(Comic).filter_by(folder_id=folder.id).count()
+            num_children = num_child_folders + num_child_comics
+
+            try:
+                relative_path = str(Path(folder.path).relative_to(library.path))
+            except ValueError:
+                relative_path = folder.name # Fallback
+
+            api_path = f"/{relative_path}"
+
+            child_folders.append({
+                "type": "folder",
+                "id": str(folder.id),
+                "library_id": str(library_id),
+                "library_uuid": library.uuid,
+                "folder_name": folder.name,
+                "num_children": num_children,
+                "first_comic_hash": first_comic_hash,
+                "finished": False,
+                "completed": False,
+                "custom_image": False,
+                "file_type": 0,
+                "added": folder.created_at,
+                "updated": folder.updated_at,
+                "parent_id": str(folder.parent_id) if folder.parent_id is not None else "0",
+                "path": api_path
+            })
 
         # Sort folders alphabetically
         child_folders.sort(key=lambda f: f['folder_name'].lower())
+        logger.info(f"v2 API: Returning {len(child_folders)} folders for folder_id={folder_id}")
 
         # Get comics - need to handle root folder specially
-        if folder_id > 1:
-            # Normal folder
-            comics = get_comics_in_folder(session, folder_id)
-        else:
-            # Root folder (0 or 1) - get comics with no folder_id
-            from ...database.models import Comic
-            comics = session.query(Comic).filter_by(
-                library_id=library_id,
-                folder_id=None
-            ).all()
+        # folder_id <= 1 means root (0 or 1)
+        from ...database.models import Comic
+        is_root_request = (folder_id <= 1)
 
-        # Get user for reading progress
-        user = get_user_by_username(session, 'admin')
+        if is_root_request:
+            # Root folder request - get comics in the __ROOT__ folder for this library
+            # Find the root folder ID (marked with __ROOT__ name)
+            root_folder = next((f for f in folders if f.name == "__ROOT__"), None)
+            if root_folder:
+                # Get comics with folder_id pointing to root folder
+                comics = session.query(Comic).filter(
+                    Comic.library_id == library_id,
+                    (Comic.folder_id == root_folder.id) | (Comic.folder_id == None)
+                ).all()
+            else:
+                # Fallback: no root folder found, get comics with folder_id=None
+                comics = session.query(Comic).filter(
+                    Comic.library_id == library_id,
+                    Comic.folder_id == None
+                ).all()
+        else:
+            # Specific folder - get its comics (filter by library to avoid cross-library issues)
+            comics = get_comics_in_folder(session, folder_id, library_id=library_id)
+
+        # Get user for reading progress (from session or default to admin)
+        user_id = get_current_user_id(request)
+        if user_id:
+            user = get_user_by_id(session, user_id)
+        else:
+            user = get_user_by_username(session, 'admin')
 
         comics_list = []
         for comic in comics:
@@ -200,8 +255,9 @@ async def get_folder_v2(
                 "comic_info_id": str(comic.id),  # Using comic id as comic_info_id
                 "parent_id": str(comic.folder_id) if comic.folder_id is not None else "0",
                 "library_id": str(library_id),
+                "library_uuid": library.uuid,
                 "file_name": comic.filename,
-                "file_size": str(comic.size if hasattr(comic, 'size') else 0),
+                "file_size": str(comic.file_size),
                 "hash": comic.hash,
                 "path": api_path, # <-- *** THIS IS FIX #1 ***
                 "current_page": current_page,
@@ -220,11 +276,14 @@ async def get_folder_v2(
         elif sort == "date_added":
             comics_list.sort(key=lambda c: c.get('created_at', 0), reverse=True)
 
-        logger.info(f"v2 API: Returning {len(child_folders)} folders and {len(comics_list)} comics")
+        total_items = len(child_folders) + len(comics_list)
+        logger.info(f"v2 API: Returning {len(child_folders)} folders and {len(comics_list)} comics (total: {total_items} items)")
 
         # Return combined list (folders first)
         # Return as array - some apps expect this format
-        return JSONResponse(child_folders + comics_list)
+        result = child_folders + comics_list
+        logger.debug(f"v2 API: Response contains {len(result)} items")
+        return JSONResponse(result)
 
 
 @router.get("/library/{library_id}/folder/{folder_id}/content")
@@ -272,7 +331,11 @@ async def get_comic_fullinfo_v2(
         # Get reading progress
         current_page = 0
         is_read = False
-        user = get_user_by_username(session, 'admin')
+        user_id = get_current_user_id(request)
+        if user_id:
+            user = get_user_by_id(session, user_id)
+        else:
+            user = get_user_by_username(session, 'admin')
         if user:
             progress = get_reading_progress(session, user.id, comic_id)
             if progress:
@@ -299,7 +362,7 @@ async def get_comic_fullinfo_v2(
             "library_id": str(library_id),
             "library_uuid": library.uuid if library else "",
             "file_name": comic.filename,
-            "file_size": str(0),  # TODO: get actual file size
+            "file_size": str(comic.file_size),
             "hash": comic.hash,
             "path": api_path, # <-- *** THIS IS FIX #2 ***
             "current_page": current_page,
@@ -363,7 +426,11 @@ async def open_comic_remote_v2(
         # Get reading progress
         current_page = 0
         is_read = 0
-        user = get_user_by_username(session, 'admin')
+        user_id = get_current_user_id(request)
+        if user_id:
+            user = get_user_by_id(session, user_id)
+        else:
+            user = get_user_by_username(session, 'admin')
         if user:
             progress = get_reading_progress(session, user.id, comic_id)
             if progress:
@@ -547,8 +614,13 @@ async def update_comic_progress_v2(
         # Use comic's num_pages as default (form data doesn't usually include this)
         total_pages = comic.num_pages
 
-        # Get user (using admin for now - TODO: get from session)
-        user = get_user_by_username(session, 'admin')
+        # Get user from session
+        user_id = get_current_user_id(request)
+        if user_id:
+            user = get_user_by_id(session, user_id)
+        else:
+            user = get_user_by_username(session, 'admin')
+
         if not user:
             raise HTTPException(status_code=500, detail="User not found")
 
@@ -662,8 +734,12 @@ async def get_reading_list(
         if not library:
             raise HTTPException(status_code=404, detail="Library not found")
 
-        # Get user (admin for now)
-        user = get_user_by_username(session, 'admin')
+        # Get user from session
+        user_id = get_current_user_id(request)
+        if user_id:
+            user = get_user_by_id(session, user_id)
+        else:
+            user = get_user_by_username(session, 'admin')
         if not user:
             return JSONResponse([])
 
@@ -693,7 +769,7 @@ async def get_reading_list(
                 "library_id": str(library_id),
                 "library_uuid": library.uuid if library else "",
                 "file_name": comic.filename,
-                "file_size": str(comic.size if hasattr(comic, 'size') else 0),
+                "file_size": str(comic.file_size),
                 "hash": comic.hash,
                 "path": api_path,
                 "current_page": progress.current_page,

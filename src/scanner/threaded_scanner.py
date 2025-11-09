@@ -21,6 +21,7 @@ try:
         get_comic_by_hash,
         create_folder,
         get_folder_by_path,
+        get_or_create_root_folder,
         get_covers_dir,
     )
     from .comic_loader import open_comic, is_comic_file
@@ -37,6 +38,7 @@ except ImportError:
         get_comic_by_hash,
         create_folder,
         get_folder_by_path,
+        get_or_create_root_folder,
         get_covers_dir,
     )
     from scanner.comic_loader import open_comic, is_comic_file
@@ -127,12 +129,12 @@ class ThreadedScanner:
                 duration=time.time() - start_time
             )
 
-        # Create folders in database first
-        folder_map = self._create_folders(library_path, folders)
+        # Create folders in database first (including root folder)
+        folder_map, root_folder_id = self._create_folders(library_path, folders)
 
         # Phase 2: Process comics in parallel (slow, multi-threaded)
         logger.info(f"Phase 2: Processing comics with {self.max_workers} workers...")
-        self._process_comics_parallel(comic_files, folder_map, total_comics)
+        self._process_comics_parallel(comic_files, folder_map, root_folder_id, total_comics)
 
         duration = time.time() - start_time
 
@@ -190,33 +192,51 @@ class ThreadedScanner:
         scan_dir(library_path)
         return comic_files, folders
 
-    def _create_folders(self, library_path: Path, folder_paths: List[Path]) -> dict:
+    def _create_folders(self, library_path: Path, folder_paths: List[Path]) -> Tuple[dict, int]:
         """
         Create all folders in database and return mapping
+
+        YACReader compatibility: Creates a root folder (ID=1) for the library,
+        and sets all top-level folders to have parent_id=1.
 
         Args:
             library_path: Library root path
             folder_paths: List of folder paths to create
 
         Returns:
-            Dict mapping folder path to folder ID
+            Tuple of (folder_map, root_folder_id)
+            - folder_map: Dict mapping folder path to folder ID
+            - root_folder_id: ID of the root folder for this library
         """
         folder_map = {}
+        root_folder_id = None
 
         # Sort folders by depth to create parents first
         sorted_folders = sorted(folder_paths, key=lambda p: len(p.parts))
 
         with self.db.get_session() as session:
+            # First, ensure root folder exists (YACReader convention)
+            root_folder = get_or_create_root_folder(session, self.library_id, str(library_path))
+            root_folder_id = root_folder.id
+            logger.debug(f"Root folder ID={root_folder_id} for library {self.library_id}")
+
             for folder_path in sorted_folders:
                 # Get or create folder
                 folder = get_folder_by_path(session, self.library_id, str(folder_path))
 
                 if not folder:
                     # Find parent folder ID
-                    parent_id = None
                     parent_path = folder_path.parent
-                    if parent_path != library_path and str(parent_path) in folder_map:
+
+                    if parent_path == library_path:
+                        # This is a top-level folder - parent is root
+                        parent_id = root_folder_id
+                    elif str(parent_path) in folder_map:
+                        # This is a subfolder - parent is another folder
                         parent_id = folder_map[str(parent_path)]
+                    else:
+                        # Fallback: parent not found, make it top-level
+                        parent_id = root_folder_id
 
                     folder = create_folder(
                         session,
@@ -228,20 +248,24 @@ class ThreadedScanner:
 
                 folder_map[str(folder_path)] = folder.id
 
-        return folder_map
+        return folder_map, root_folder_id
 
     def _process_comics_parallel(
         self,
         comic_files: List[Tuple[Path, Optional[Path]]],
         folder_map: dict,
+        root_folder_id: int,
         total: int
     ):
         """
         Process comics in parallel using thread pool
 
+        YACReader compatibility: Comics at library root get folder_id set to root_folder_id.
+
         Args:
             comic_files: List of (comic_path, parent_folder_path) tuples
             folder_map: Mapping of folder paths to folder IDs
+            root_folder_id: ID of the root folder (for comics at library root)
             total: Total number of comics (for progress)
         """
         # Use thread pool to process comics in parallel
@@ -249,7 +273,13 @@ class ThreadedScanner:
             # Submit all tasks
             futures = []
             for comic_path, parent_folder in comic_files:
-                folder_id = folder_map.get(str(parent_folder)) if parent_folder else None
+                if parent_folder:
+                    # Comic is in a subfolder
+                    folder_id = folder_map.get(str(parent_folder))
+                else:
+                    # Comic is at library root - use root folder ID (YACReader convention)
+                    folder_id = root_folder_id
+
                 future = executor.submit(self._process_single_comic, comic_path, folder_id)
                 futures.append(future)
 
@@ -284,9 +314,10 @@ class ThreadedScanner:
             # Calculate hash
             file_hash = calculate_file_hash(comic_path)
 
-            # Check if already in database (use separate session per thread)
+            # Check if already in database FOR THIS LIBRARY (use separate session per thread)
+            # Pass library_id to allow same file in different libraries
             with self.db.get_session() as session:
-                existing = get_comic_by_hash(session, file_hash)
+                existing = get_comic_by_hash(session, file_hash, library_id=self.library_id)
                 if existing:
                     with self._lock:
                         self._comics_skipped += 1

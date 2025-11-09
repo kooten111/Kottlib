@@ -19,6 +19,23 @@ All project documentation in one convenient index.
 
 ---
 
+### [YACREADER_COMPATIBILITY_IMPROVEMENTS.md](YACREADER_COMPATIBILITY_IMPROVEMENTS.md)
+
+**Latest updates!** Recent improvements to YACReader compatibility (2025-11-09).
+
+**Contents**:
+
+- File size reporting fixes
+- Library UUID implementation
+- Folder metadata enhancements
+- Session management middleware
+- Testing recommendations
+- Status update: 60% → 80% complete
+
+**For**: Understanding recent compatibility work and next steps.
+
+---
+
 ### [ARCHITECTURE.md](docs/ARCHITECTURE.md)
 System architecture and component design.
 

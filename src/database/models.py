@@ -84,7 +84,7 @@ class Comic(Base):
     folder_id: Mapped[Optional[int]] = mapped_column(ForeignKey('folders.id', ondelete='SET NULL'), nullable=True)
     path: Mapped[str] = mapped_column(String, nullable=False)
     filename: Mapped[str] = mapped_column(String, nullable=False)
-    hash: Mapped[str] = mapped_column(String, unique=True, nullable=False)
+    hash: Mapped[str] = mapped_column(String, nullable=False)  # Removed unique=True to allow same file in different libraries
 
     # File metadata
     file_size: Mapped[int] = mapped_column(Integer, nullable=False)

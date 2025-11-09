@@ -260,9 +260,19 @@ def get_comic_by_id(session: Session, comic_id: int) -> Optional[Comic]:
     return session.query(Comic).filter_by(id=comic_id).first()
 
 
-def get_comic_by_hash(session: Session, file_hash: str) -> Optional[Comic]:
-    """Get comic by file hash"""
-    return session.query(Comic).filter_by(hash=file_hash).first()
+def get_comic_by_hash(session: Session, file_hash: str, library_id: Optional[int] = None) -> Optional[Comic]:
+    """
+    Get comic by file hash
+
+    Args:
+        session: Database session
+        file_hash: File hash to search for
+        library_id: Optional library ID to filter by (allows same file in different libraries)
+    """
+    query = session.query(Comic).filter_by(hash=file_hash)
+    if library_id is not None:
+        query = query.filter_by(library_id=library_id)
+    return query.first()
 
 
 def get_comics_in_library(session: Session, library_id: int) -> List[Comic]:
@@ -270,9 +280,19 @@ def get_comics_in_library(session: Session, library_id: int) -> List[Comic]:
     return session.query(Comic).filter_by(library_id=library_id).all()
 
 
-def get_comics_in_folder(session: Session, folder_id: int) -> List[Comic]:
-    """Get all comics in a folder"""
-    return session.query(Comic).filter_by(folder_id=folder_id).all()
+def get_comics_in_folder(session: Session, folder_id: int, library_id: Optional[int] = None) -> List[Comic]:
+    """
+    Get all comics in a folder
+
+    Args:
+        session: Database session
+        folder_id: ID of the folder
+        library_id: Optional library ID to filter by (recommended to avoid cross-library issues)
+    """
+    query = session.query(Comic).filter_by(folder_id=folder_id)
+    if library_id is not None:
+        query = query.filter_by(library_id=library_id)
+    return query.all()
 
 
 def get_sibling_comics(session: Session, comic_id: int) -> tuple[Optional[int], Optional[int]]:
@@ -359,6 +379,73 @@ def get_folder_by_path(session: Session, library_id: int, path: str) -> Optional
 def get_folders_in_library(session: Session, library_id: int) -> List[Folder]:
     """Get all folders in a library"""
     return session.query(Folder).filter_by(library_id=library_id).all()
+
+
+def get_or_create_root_folder(session: Session, library_id: int, library_path: str) -> Folder:
+    """
+    Get or create the virtual root folder (ID=1) for a library.
+
+    YACReader convention: Every library has a virtual root folder with ID=1
+    that acts as a container for top-level folders and comics, but is never
+    shown in the UI.
+
+    Args:
+        session: Database session
+        library_id: Library ID
+        library_path: Path to the library root
+
+    Returns:
+        Root folder (ID=1 for the library)
+    """
+    # Check if root folder already exists (ID=1)
+    root = session.query(Folder).filter_by(id=1, library_id=library_id).first()
+
+    if root:
+        return root
+
+    # Check if ANY folder with ID=1 exists (might be from another library)
+    existing_id_1 = session.query(Folder).filter_by(id=1).first()
+
+    if existing_id_1:
+        # ID=1 is taken by another library's root folder
+        # This is OK - each library can have its own root folder
+        # But we need to find this library's root folder (parent_id=None with special marker)
+        root = session.query(Folder).filter_by(
+            library_id=library_id,
+            parent_id=None,
+            name="__ROOT__"
+        ).first()
+
+        if root:
+            return root
+
+    # Create new root folder
+    now = int(time.time())
+
+    # Try to create with ID=1
+    root = Folder(
+        library_id=library_id,
+        parent_id=None,  # Root has no parent
+        path=str(Path(library_path).resolve()),
+        name="__ROOT__",  # Special marker name
+        created_at=now,
+        updated_at=now
+    )
+
+    session.add(root)
+    session.flush()  # Flush to get the auto-generated ID
+
+    # Check if we got ID=1
+    if root.id == 1:
+        session.commit()
+        logger.debug(f"Created root folder with ID=1 for library {library_id}")
+        return root
+    else:
+        # We didn't get ID=1, this means another library already has it
+        # Keep this root folder but mark it specially
+        logger.debug(f"Created root folder with ID={root.id} for library {library_id} (ID=1 taken)")
+        session.commit()
+        return root
 
 
 def get_subfolders(session: Session, parent_id: int) -> List[Folder]:

@@ -16,6 +16,7 @@ from fastapi.responses import JSONResponse
 
 from ..database import Database, get_default_db_path
 from ..config import get_config
+from .middleware import SessionMiddleware
 
 # Load configuration
 config = get_config()
@@ -77,9 +78,13 @@ app = FastAPI(
 
 
 # ============================================================================
-# CORS Configuration
+# Middleware Configuration
 # ============================================================================
 
+# Session management middleware (YACReader compatibility)
+app.add_middleware(SessionMiddleware, auto_create_session=True)
+
+# CORS middleware
 app.add_middleware(
     CORSMiddleware,
     allow_origins=config.server.cors_origins,
