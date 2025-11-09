@@ -119,6 +119,46 @@ Proposed improvements and feature specifications.
 
 ---
 
+### [WEB_UI_PLAN.md](docs/WEB_UI_PLAN.md)
+
+**Complete Web UI planning document** - Modern, responsive design.
+
+**Contents**:
+
+- Design philosophy and principles
+- Technology stack (SvelteKit + Tailwind CSS)
+- Architecture overview
+- Feature breakdown (Reader, Browser, Search, Admin)
+- UI component specifications
+- Page layouts and wireframes
+- Implementation phases (12-week plan)
+- Technical decisions
+- API integration details
+- Performance and accessibility targets
+
+**For**: Web UI development planning and implementation guide.
+
+---
+
+### [METADATA_ENRICHMENT.md](docs/METADATA_ENRICHMENT.md)
+
+**Automated metadata enrichment system** - For collections without embedded metadata.
+
+**Contents**:
+
+- Problem statement (41k+ items without metadata)
+- Filename parsing strategies
+- Online database integration (AniList, Comic Vine)
+- Fuzzy matching algorithms
+- Batch processing workflow
+- Admin UI for review and approval
+- Performance optimization (rate limiting, caching)
+- Implementation timeline
+
+**For**: Automatically enriching large collections with metadata from online sources.
+
+---
+
 ### [SERVER_CONTROL_ANALYSIS.md](docs/SERVER_CONTROL_ANALYSIS.md)
 Analysis of server-side control over mobile app UI.
 
@@ -259,14 +299,31 @@ Example usage of the Python client library.
 - [ ] Library browser
 - [ ] Admin panel
 
+**Documentation**: See [WEB_UI_PLAN.md](docs/WEB_UI_PLAN.md) for detailed planning
+
 ### Phase 5: Advanced Features 🎯 FUTURE
+
+**Metadata Enrichment** (High Priority for large collections):
+
+- [ ] Filename parsing (extract series, volume, year)
+- [ ] AniList integration (manga metadata)
+- [ ] Comic Vine integration (Western comics)
+- [ ] Fuzzy matching & auto-tagging
+- [ ] Batch processing (41k+ items)
+- [ ] Manual review interface
+- [ ] Cover image downloads
+
+**Other Features**:
 
 - [ ] Series auto-detection
 - [ ] Collections
 - [ ] Smart search
 - [ ] Statistics
 
-**Documentation**: See [IMPROVEMENTS_AND_FEATURES.md](docs/IMPROVEMENTS_AND_FEATURES.md)
+**Documentation**:
+
+- See [METADATA_ENRICHMENT.md](docs/METADATA_ENRICHMENT.md) for enrichment system
+- See [IMPROVEMENTS_AND_FEATURES.md](docs/IMPROVEMENTS_AND_FEATURES.md) for other features
 
 ---
 
