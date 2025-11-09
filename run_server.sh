@@ -109,14 +109,67 @@ fi
 echo ""
 echo "Starting YACLib Enhanced Server..."
 echo ""
-echo "Server will be available at:"
-echo "  - http://localhost:8081"
-echo "  - API docs: http://localhost:8081/docs"
-echo ""
-echo "Press Ctrl+C to stop the server"
+
+# Check if Node.js is installed for Web UI
+if command -v node &> /dev/null; then
+    NODE_VERSION=$(node --version)
+    echo -e "${GREEN}✓ Node.js ${NODE_VERSION} found${NC}"
+
+    # Check if web UI dependencies are installed
+    if [ -d "webui/node_modules" ]; then
+        echo -e "${GREEN}✓ Web UI dependencies found${NC}"
+    else
+        echo -e "${YELLOW}Installing Web UI dependencies...${NC}"
+        cd webui
+        npm install
+        cd ..
+        echo -e "${GREEN}✓ Web UI dependencies installed${NC}"
+    fi
+
+    # Start Web UI in background
+    echo "Starting Web UI frontend..."
+    cd webui
+    npm run dev > ../webui.log 2>&1 &
+    WEBUI_PID=$!
+    cd ..
+    echo -e "${GREEN}✓ Web UI started (PID: $WEBUI_PID)${NC}"
+
+    echo ""
+    echo "Servers will be available at:"
+    echo "  - Web UI: http://localhost:5173"
+    echo "  - API Backend: http://localhost:8081"
+    echo "  - API docs: http://localhost:8081/docs"
+    echo ""
+else
+    echo -e "${YELLOW}Warning: Node.js not found. Web UI will not start.${NC}"
+    echo "Install Node.js to use the Web UI:"
+    echo "  - Arch/Manjaro: sudo pacman -S nodejs npm"
+    echo "  - Ubuntu/Debian: sudo apt install nodejs npm"
+    echo "  - macOS: brew install node"
+    echo ""
+    echo "Server will be available at:"
+    echo "  - API Backend: http://localhost:8081"
+    echo "  - API docs: http://localhost:8081/docs"
+    echo ""
+fi
+
+echo "Press Ctrl+C to stop the servers"
 echo ""
 
-# Start server
+# Cleanup function to kill Web UI when backend stops
+cleanup() {
+    echo ""
+    echo "Stopping servers..."
+    if [ ! -z "$WEBUI_PID" ]; then
+        kill $WEBUI_PID 2>/dev/null
+        echo "Web UI stopped"
+    fi
+    exit 0
+}
+
+trap cleanup INT TERM
+
+# Start backend server
 python -m uvicorn src.api.main:app \
     --host 0.0.0.0 \
     --port 8081 \

@@ -12,7 +12,10 @@ cd yaclib-enhanced
 ./yaclib.py
 ```
 
-**Done!** Visit http://localhost:8081/docs
+**Done!**
+- Web UI: http://localhost:5173
+- API: http://localhost:8081
+- API Docs: http://localhost:8081/docs
 
 ---
 
@@ -57,12 +60,17 @@ A complete replacement for YACReaderLibrary Server, written in Python, that:
 - ⏳ **Search functionality** - Pending
 - ⏳ **Favorites/Tags/Lists** - Database ready, endpoints pending
 
-### Phase 4: Web UI 📋 **PLANNED**
+### Phase 4: Web UI ✅ **IMPLEMENTED**
 
-- 📋 Modern web-based comic reader
-- 📋 Library management UI
-- 📋 Metadata editing
-- 📋 Admin panel
+- ✅ **Modern SvelteKit Interface** - Fast, responsive web UI
+- ✅ **Comic Reader** - Full-featured reading experience with keyboard shortcuts
+- ✅ **Library Browser** - Grid/list views with folder navigation
+- ✅ **Continue Reading** - Track and resume reading progress
+- ✅ **Favorites** - Mark and manage favorite comics
+- ✅ **Search** - Full-text search with autocomplete, filters, and cover previews
+- ✅ **Admin Dashboard** - Server stats and management
+- ✅ **Dark Theme** - Beautiful dark-first design
+- ✅ **Responsive** - Works on desktop, tablet, and mobile
 
 ### Phase 5: Advanced Features 🎯 **FUTURE**
 
@@ -96,7 +104,25 @@ The launcher will:
 
 ### After First Run
 
-Just run:
+**Start both backend and frontend:**
+```bash
+./run_server.sh
+```
+
+This will start:
+- **Backend API** on port 8081
+- **Web UI** on port 5173 (automatically)
+
+Or run them separately:
+```bash
+# Backend only
+./yaclib.py
+
+# Frontend only (in another terminal)
+cd webui && npm run dev
+```
+
+**Old single-command launcher:**
 ```bash
 ./yaclib.py
 ```

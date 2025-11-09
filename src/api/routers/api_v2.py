@@ -27,6 +27,7 @@ from ...database import (
     get_continue_reading,
     update_reading_progress,
 )
+from ...database.models import Comic
 from ..middleware import get_current_user_id
 
 logger = logging.getLogger(__name__)
@@ -86,13 +87,44 @@ async def get_libraries(request: Request):
 
         result = []
         for lib in libraries:
+            # Count comics in library
+            comic_count = session.query(Comic).filter(Comic.library_id == lib.id).count()
+
             result.append({
                 "name": lib.name,
                 "id": lib.id,
-                "uuid": lib.uuid
+                "uuid": lib.uuid,
+                "path": lib.path,
+                "comicCount": comic_count
             })
 
         return JSONResponse(result)
+
+
+@router.get("/library/{library_id}/info")
+async def get_library_info(library_id: int, request: Request):
+    """
+    Get library information (v2 JSON format)
+
+    Returns detailed library info
+    """
+    db = request.app.state.db
+
+    with db.get_session() as session:
+        library = get_library_by_id(session, library_id)
+        if not library:
+            raise HTTPException(status_code=404, detail="Library not found")
+
+        # Count comics in library
+        comic_count = session.query(Comic).filter(Comic.library_id == library.id).count()
+
+        return JSONResponse({
+            "name": library.name,
+            "id": library.id,
+            "uuid": library.uuid,
+            "path": library.path,
+            "comicCount": comic_count
+        })
 
 
 # ============================================================================
