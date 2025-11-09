@@ -8,6 +8,13 @@ export async function getComic(libraryId, comicId) {
 }
 
 /**
+ * Get comic info (alias for getComic)
+ */
+export async function getComicInfo(libraryId, comicId) {
+	return getComic(libraryId, comicId);
+}
+
+/**
  * Get comic page image
  */
 export async function getComicPage(libraryId, comicId, page) {
@@ -16,11 +23,23 @@ export async function getComicPage(libraryId, comicId, page) {
 
 /**
  * Update comic reading progress
+ * Note: YACReader API expects plain text format "currentPage:N", not JSON
  */
 export async function updateReadingProgress(libraryId, comicId, currentPage) {
-	return api.post(`/library/${libraryId}/comic/${comicId}/update`, {
-		currentPage
+	const response = await fetch(`/v2/library/${libraryId}/comic/${comicId}/update`, {
+		method: 'POST',
+		credentials: 'include',
+		headers: {
+			'Content-Type': 'text/plain'
+		},
+		body: `currentPage:${currentPage}`
 	});
+
+	if (!response.ok) {
+		throw new Error(`Failed to update progress: ${response.statusText}`);
+	}
+
+	return response.json();
 }
 
 /**
