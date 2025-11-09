@@ -11,7 +11,7 @@ This script:
 import sys
 from pathlib import Path
 
-sys.path.insert(0, str(Path(__file__).parent / "src"))
+sys.path.insert(0, str(Path(__file__).parent.parent.parent / "src"))
 
 from database import Database, get_default_db_path, get_all_libraries
 from database.models import Folder, Comic

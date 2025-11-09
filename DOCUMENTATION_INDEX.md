@@ -160,6 +160,15 @@ See [examples/basic_usage.py](examples/basic_usage.py) for more examples.
 
 ---
 
+### Scripts & Tools
+
+- **[scripts/scan_library.py](scripts/scan_library.py)** - Single-threaded library scanner
+- **[scripts/scan_library_fast.py](scripts/scan_library_fast.py)** - Multi-threaded scanner for large libraries
+- **[tools/import_yacreader.py](tools/import_yacreader.py)** - Import data from YACReader
+- **[tools/debug_folders.py](tools/debug_folders.py)** - Debug folder relationships
+- **[tools/test_folder_api.py](tools/test_folder_api.py)** - Test folder API responses
+- **[tools/migrations/](tools/migrations/)** - Database migration scripts
+
 ### [examples/basic_usage.py](examples/basic_usage.py)
 Example usage of the Python client library.
 

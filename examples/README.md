@@ -4,84 +4,116 @@ Example scripts demonstrating YACLib Enhanced functionality.
 
 ## Available Examples
 
-### 1. `test_comic_loader.py`
+### `basic_usage.py`
 
-Tests the comic loading functionality - reads CBZ/CBR/CB7 files and displays metadata.
+Demonstrates using the YACReader client library to interact with a YACLib server.
 
 **Usage:**
 ```bash
-python test_comic_loader.py /path/to/comic.cbz
+python examples/basic_usage.py
+```
+
+**What it demonstrates:**
+- Connecting to YACLib server
+- Opening comics remotely
+- Fetching comic metadata
+- Downloading comic pages
+- Proper client session handling
+
+### `create_test_library.py`
+
+Creates a test library with sample comics for development and testing.
+
+**Usage:**
+```bash
+python examples/create_test_library.py
 ```
 
 **What it does:**
-- Opens a comic archive
-- Displays page count and file list
-- Extracts ComicInfo.xml metadata if present
-- Tests cover extraction
+- Generates sample CBZ files
+- Creates a test library structure
+- Useful for development without real comic files
 
-### 2. `test_database.py`
+### `profile_scan.py`
 
-Tests the database layer - creates libraries, adds comics, retrieves data.
+Performance profiling tool for the library scanner.
 
 **Usage:**
 ```bash
-python test_database.py
+python examples/profile_scan.py /path/to/comics
 ```
 
 **What it does:**
-- Initializes the YACLib database
-- Creates a test library
-- Adds test comics
-- Displays library statistics
-- Shows all database operations working
+- Profiles scanner performance
+- Identifies bottlenecks
+- Generates performance reports
+- Useful for optimization work
 
-### 3. `scan_library.py`
+## Production Scripts
 
-Scans a directory for comics and adds them to the database with thumbnails.
+For actual library management, use the scripts in the `scripts/` directory:
 
-**Usage:**
+### Library Scanning
+
 ```bash
-python scan_library.py /path/to/comics "My Comics"
+# Single-threaded scanner (good for small libraries)
+python scripts/scan_library.py /path/to/comics "My Comics"
+
+# Multi-threaded scanner (recommended for large libraries)
+python scripts/scan_library_fast.py /path/to/comics "My Comics" 8
 ```
 
-**What it does:**
-- Recursively scans a directory for comic files
-- Creates folders and comics in the database
-- Generates JPEG and WebP thumbnails
-- Extracts metadata from ComicInfo.xml
-- Shows progress and summary
+See [scripts/](../scripts/) for more information.
 
-**Example:**
+## Testing Scripts
+
+Test scripts have been moved to the `tests/` directory:
+
 ```bash
-# Scan your manga library
-python scan_library.py /mnt/Comics/Manga "Manga Collection"
+# Test comic loader
+python tests/test_comic_loader.py /path/to/comic.cbz
 
-# Scan with auto-detected name
-python scan_library.py /mnt/Comics/Marvel
+# Test database layer
+python tests/test_database.py
+
+# Test Phase 1 features
+python tests/test_phase1.py
+
+# Test Phase 2 features
+python tests/test_phase2.py
 ```
 
-### 4. `basic_usage.py`
+See [tests/](../tests/) for more information.
 
-Demonstrates using the YACReader client library (already exists).
+## Utility Tools
 
-**Usage:**
+Administrative and debugging tools are in the `tools/` directory:
+
 ```bash
-python basic_usage.py
+# Debug folder relationships
+python tools/debug_folders.py
+
+# Test folder API responses
+python tools/test_folder_api.py 1 0
+
+# Import from YACReader
+python tools/import_yacreader.py
+
+# Run database migrations
+python tools/migrations/migrate_to_yacreader_schema.py
 ```
+
+See [tools/](../tools/) for more information.
 
 ## Running the Server
 
 To start the FastAPI server:
 
 ```bash
-cd src/api
-python -m uvicorn main:app --reload --host 0.0.0.0 --port 8081
-```
+# Using the main launcher (recommended)
+./yaclib.py
 
-Or from the project root:
-
-```bash
-cd /mnt/Black/Apps/KottLib/yaclib-enhanced
+# Or using uvicorn directly
 python -m uvicorn src.api.main:app --reload --host 0.0.0.0 --port 8081
 ```
 
@@ -94,19 +126,17 @@ Then visit:
 
 1. Start the server:
    ```bash
-   python -m uvicorn src.api.main:app --host 0.0.0.0 --port 8081
+   ./yaclib.py
    ```
 
-2. Add a library:
+2. Add a library (if not already configured):
    ```bash
-   curl -X POST http://localhost:8081/api/v1/libraries \
-     -H "Content-Type: application/json" \
-     -d '{"name": "Test", "path": "/path/to/comics"}'
+   ./yaclib-cli.py library add "Comics" /path/to/comics
    ```
 
 3. Scan the library:
    ```bash
-   python examples/scan_library.py /path/to/comics
+   python scripts/scan_library_fast.py /path/to/comics "Comics" 8
    ```
 
 4. In YACReader mobile app:
@@ -134,8 +164,8 @@ pip install -r requirements.txt
 
 After running these examples:
 
-1. Scan your comic library
-2. Start the server
+1. Scan your comic library using `scripts/scan_library_fast.py`
+2. Start the server with `./yaclib.py`
 3. Test with YACReader mobile app
 4. Explore the API at http://localhost:8081/docs
-5. Check out the full documentation in `/docs`
+5. Check out the full documentation in [DOCUMENTATION_INDEX.md](../DOCUMENTATION_INDEX.md)

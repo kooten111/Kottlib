@@ -140,7 +140,7 @@ with YACLibClient("http://192.168.1.5:25565") as client:
         f.write(page)
 ```
 
-See [examples/basic_usage.py](examples/basic_usage.py).
+See [examples/basic_usage.py](examples/basic_usage.py) for complete examples.
 
 ## Configuration
 
@@ -215,7 +215,16 @@ yaclib-enhanced/
 │   ├── scanner/           # Comic loader & thumbnails
 │   ├── client/            # Python client library
 │   └── config.py          # Configuration management
-├── examples/              # Example scripts
+├── scripts/               # Production utilities
+│   ├── scan_library.py    # Library scanner
+│   └── scan_library_fast.py  # Multi-threaded scanner
+├── tools/                 # Admin/utility tools
+│   ├── import_yacreader.py   # Import from YACReader
+│   ├── debug_folders.py      # Debug folder relationships
+│   ├── test_folder_api.py    # Test folder API
+│   └── migrations/           # Database migrations
+├── tests/                 # Test scripts
+├── examples/              # Usage examples
 └── docs/                  # Documentation
 
 ~/.local/share/yaclib/     # Database & thumbnails (Linux)

@@ -7,7 +7,7 @@ import sys
 import json
 from pathlib import Path
 
-sys.path.insert(0, str(Path(__file__).parent / "src"))
+sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
 
 from database import Database, get_default_db_path, get_library_by_id, get_folders_in_library, get_comics_in_folder
 from database.models import Comic
