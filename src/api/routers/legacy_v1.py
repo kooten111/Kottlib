@@ -11,8 +11,9 @@ import logging
 from typing import Optional
 from pathlib import Path
 
-from fastapi import APIRouter, Request, Response, Cookie, HTTPException
+from fastapi import APIRouter, Request, Response, Cookie, HTTPException, Body
 from fastapi.responses import PlainTextResponse, FileResponse
+from pydantic import BaseModel
 
 from ...database import (
     get_library_by_id,
@@ -602,16 +603,71 @@ async def continue_reading_list(
 # ============================================================================
 
 @router.get("/{library_id}/search")
+@router.post("/{library_id}/search")
 async def search_comics(
     library_id: int,
-    q: str,
-    request: Request
+    request: Request,
+    q: Optional[str] = None
 ):
     """
     Search for comics in library
 
     Returns results in same format as folder listing
+
+    Supports both GET and POST methods:
+    - GET: query via ?q=search_term
+    - POST: query via JSON body {"q": "search_term"} or form data
+
+    Args:
+        library_id: ID of the library to search in
+        q: Search query string (GET parameter)
+
+    Returns:
+        Plain text response with matching comics in V1 format
     """
-    # TODO: Implement search
-    response_text = "type:search\ncode:0\n\n"
-    return PlainTextResponse(format_v1_response(response_text))
+    # Get query from GET parameter or POST body
+    query = q
+
+    # If it's a POST request and no query param, try to get from body
+    if request.method == "POST" and not query:
+        try:
+            # Try to parse JSON body
+            body = await request.json()
+            # Support both "query" and "q" field names
+            query = body.get("query", body.get("q", ""))
+        except:
+            # If JSON parsing fails, try form data
+            try:
+                form = await request.form()
+                query = form.get("query", form.get("q", ""))
+            except:
+                pass
+
+    if not query or not query.strip():
+        response_text = "type:search\ncode:0\n\n"
+        return PlainTextResponse(format_v1_response(response_text))
+
+    logger.info(f"v1 API: Search in library {library_id} for '{query}'")
+
+    db = request.app.state.db
+
+    with db.get_session() as session:
+        # Get library
+        library = get_library_by_id(session, library_id)
+        if not library:
+            raise HTTPException(status_code=404, detail="Library not found")
+
+        # Perform search
+        from ...database.database import search_comics as db_search_comics
+        comics = db_search_comics(session, library_id, query)
+
+        logger.info(f"v1 API: Found {len(comics)} comics matching '{query}'")
+
+        # Format results in V1 text format
+        response_text = "type:search\ncode:0\n\n"
+
+        for comic in comics:
+            response_text += f"comic:{comic.filename}\n"
+            response_text += f"id:{comic.id}\n\n"
+
+        return PlainTextResponse(format_v1_response(response_text))

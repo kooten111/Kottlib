@@ -696,18 +696,114 @@ async def get_cover_v2(
 # ============================================================================
 
 @router.get("/library/{library_id}/search")
+@router.post("/library/{library_id}/search")
 async def search_comics_v2(
     library_id: int,
-    q: str,
-    request: Request
+    request: Request,
+    q: Optional[str] = None
 ):
     """
     Search for comics (v2 JSON format)
+
+    Supports both GET and POST methods:
+    - GET: query via ?q=search_term
+    - POST: query via JSON body {"q": "search_term"} or form data
+
+    Args:
+        library_id: ID of the library to search in
+        q: Search query string (GET parameter)
+
+    Returns:
+        JSON array of matching comics in same format as folder content
     """
-    # TODO: Implement search
-    return JSONResponse({
-        "results": []
-    })
+    # Get query from GET parameter or POST body
+    query = q
+
+    # If it's a POST request and no query param, try to get from body
+    if request.method == "POST" and not query:
+        try:
+            # Try to parse JSON body
+            body = await request.json()
+            # YACReader uses "query" field in POST body, but also support "q" for compatibility
+            query = body.get("query", body.get("q", ""))
+        except:
+            # If JSON parsing fails, try form data
+            try:
+                form = await request.form()
+                query = form.get("query", form.get("q", ""))
+            except:
+                pass
+
+    if not query or not query.strip():
+        return JSONResponse([])
+
+    logger.info(f"v2 API: Search in library {library_id} for '{query}'")
+
+    db = request.app.state.db
+    with db.get_session() as session:
+        # Get library
+        library = get_library_by_id(session, library_id)
+        if not library:
+            raise HTTPException(status_code=404, detail="Library not found")
+
+        # Perform search
+        from ...database.database import search_comics
+        comics = search_comics(session, library_id, query)
+
+        logger.info(f"v2 API: Found {len(comics)} comics matching '{query}'")
+
+        # Get user for reading progress
+        user_id = get_current_user_id(request)
+        if user_id:
+            user = get_user_by_id(session, user_id)
+        else:
+            user = get_user_by_username(session, 'admin')
+
+        # Format results
+        results = []
+        for comic in comics:
+            # Get reading progress
+            current_page = 0
+            is_read = False
+            has_been_opened = False
+            if user:
+                progress = get_reading_progress(session, user.id, comic.id)
+                if progress:
+                    current_page = progress.current_page
+                    is_read = progress.is_completed
+                    has_been_opened = current_page > 0
+
+            # Build relative path
+            try:
+                relative_path = str(Path(comic.path).relative_to(library.path))
+            except ValueError:
+                relative_path = comic.filename
+
+            api_path = f"/{relative_path}"
+
+            results.append({
+                "type": "comic",
+                "id": str(comic.id),
+                "comic_info_id": str(comic.id),
+                "parent_id": str(comic.folder_id) if comic.folder_id is not None else "0",
+                "library_id": str(library_id),
+                "library_uuid": library.uuid,
+                "file_name": comic.filename,
+                "file_size": str(comic.file_size),
+                "hash": comic.hash,
+                "path": api_path,
+                "current_page": current_page,
+                "num_pages": comic.num_pages,
+                "read": is_read,
+                "manga": (comic.reading_direction == 'rtl') if hasattr(comic, 'reading_direction') else False,
+                "file_type": 1,  # 1 = comic
+                "cover_size_ratio": 0.0,
+                "number": 0,
+                "has_been_opened": has_been_opened
+            })
+
+        logger.debug(f"v2 API: Returning {len(results)} search results")
+        return JSONResponse(results)
 
 
 # ============================================================================
@@ -798,14 +894,761 @@ async def get_reading_list(
 
 @router.get("/library/{library_id}/favs")
 async def get_favorites(library_id: int, request: Request):
-    """Get favorites (stub)"""
-    return JSONResponse([])
+    """
+    Get favorite comics for the current user
+
+    Returns array of favorite comics in YACReader v2 format
+    """
+    from ...database import get_user_favorites, get_user_by_username, get_library_by_id
+    from ..middleware import get_current_user_id
+
+    db = request.app.state.db
+
+    with db.get_session() as session:
+        # Get library to verify it exists and get UUID
+        library = get_library_by_id(session, library_id)
+        if not library:
+            raise HTTPException(status_code=404, detail="Library not found")
+
+        # Get user from session
+        user_id = get_current_user_id(request)
+        if user_id:
+            from ...database import get_user_by_id
+            user = get_user_by_id(session, user_id)
+        else:
+            user = get_user_by_username(session, 'admin')
+
+        if not user:
+            raise HTTPException(status_code=500, detail="User not found")
+
+        # Get user's favorites
+        favorites = get_user_favorites(session, user.id, library_id)
+
+        # Format comics in v2 format
+        comics_list = []
+        for comic in favorites:
+            # Get reading progress
+            progress = get_reading_progress(session, user.id, comic.id)
+            current_page = progress.current_page if progress else 0
+            is_read = progress.is_completed if progress else False
+
+            comics_list.append({
+                "type": "comic",
+                "id": str(comic.id),
+                "comic_info_id": str(comic.id),
+                "parent_id": str(comic.folder_id) if comic.folder_id else "0",
+                "library_id": str(library_id),
+                "library_uuid": library.uuid,
+                "file_name": comic.filename,
+                "file_size": str(comic.file_size),
+                "hash": comic.hash,
+                "path": comic.path,
+                "current_page": current_page,
+                "num_pages": comic.num_pages,
+                "read": is_read,
+                "manga": comic.reading_direction == "rtl",
+                "file_type": 1,
+                "number": comic.issue_number or 0,
+                "title": comic.title or comic.filename,
+                "added": comic.created_at
+            })
+
+        logger.debug(f"v2 API: Returning {len(comics_list)} favorite comics for user {user.id}")
+        return JSONResponse(comics_list)
+
+
+@router.post("/library/{library_id}/comic/{comic_id}/fav")
+async def add_to_favorites(library_id: int, comic_id: int, request: Request):
+    """
+    Add a comic to favorites
+
+    Returns success status
+    """
+    from ...database import add_favorite, get_user_by_username, get_comic_by_id
+    from ..middleware import get_current_user_id
+
+    db = request.app.state.db
+
+    with db.get_session() as session:
+        # Verify comic exists
+        comic = get_comic_by_id(session, comic_id)
+        if not comic:
+            raise HTTPException(status_code=404, detail="Comic not found")
+
+        # Get user from session
+        user_id = get_current_user_id(request)
+        if user_id:
+            from ...database import get_user_by_id
+            user = get_user_by_id(session, user_id)
+        else:
+            user = get_user_by_username(session, 'admin')
+
+        if not user:
+            raise HTTPException(status_code=500, detail="User not found")
+
+        # Add to favorites
+        add_favorite(session, user.id, library_id, comic_id)
+
+        logger.debug(f"v2 API: Added comic {comic_id} to favorites for user {user.id}")
+        return JSONResponse({"success": True})
+
+
+@router.delete("/library/{library_id}/comic/{comic_id}/fav")
+async def remove_from_favorites(library_id: int, comic_id: int, request: Request):
+    """
+    Remove a comic from favorites
+
+    Returns success status
+    """
+    from ...database import remove_favorite, get_user_by_username
+    from ..middleware import get_current_user_id
+
+    db = request.app.state.db
+
+    with db.get_session() as session:
+        # Get user from session
+        user_id = get_current_user_id(request)
+        if user_id:
+            from ...database import get_user_by_id
+            user = get_user_by_id(session, user_id)
+        else:
+            user = get_user_by_username(session, 'admin')
+
+        if not user:
+            raise HTTPException(status_code=500, detail="User not found")
+
+        # Remove from favorites
+        success = remove_favorite(session, user.id, comic_id)
+
+        logger.debug(f"v2 API: Removed comic {comic_id} from favorites for user {user.id}: {success}")
+        return JSONResponse({"success": success})
 
 
 @router.get("/library/{library_id}/tags")
 async def get_tags(library_id: int, request: Request):
-    """Get tags (stub)"""
-    return JSONResponse([])
+    """
+    Get all tags/labels for a library
+
+    Returns array of labels in YACReader v2 format
+    """
+    from ...database import get_labels_in_library, get_library_by_id
+
+    db = request.app.state.db
+
+    with db.get_session() as session:
+        # Get library to verify it exists and get UUID
+        library = get_library_by_id(session, library_id)
+        if not library:
+            raise HTTPException(status_code=404, detail="Library not found")
+
+        # Get all labels in library
+        labels = get_labels_in_library(session, library_id)
+
+        # Format labels in v2 format
+        labels_list = []
+        for label in labels:
+            labels_list.append({
+                "type": "label",
+                "id": str(label.id),
+                "library_id": str(library_id),
+                "library_uuid": library.uuid,
+                "label_name": label.name,
+                "color_id": label.color_id
+            })
+
+        logger.debug(f"v2 API: Returning {len(labels_list)} labels for library {library_id}")
+        return JSONResponse(labels_list)
+
+
+@router.get("/library/{library_id}/tag/{tag_id}/content")
+async def get_tag_content(library_id: int, tag_id: int, request: Request):
+    """
+    Get all comics with a specific tag/label
+
+    Returns array of comics in YACReader v2 format
+    """
+    from ...database import (
+        get_comics_with_label,
+        get_label_by_id,
+        get_library_by_id,
+        get_user_by_username
+    )
+    from ..middleware import get_current_user_id
+
+    db = request.app.state.db
+
+    with db.get_session() as session:
+        # Get library to verify it exists and get UUID
+        library = get_library_by_id(session, library_id)
+        if not library:
+            raise HTTPException(status_code=404, detail="Library not found")
+
+        # Verify label exists
+        label = get_label_by_id(session, tag_id)
+        if not label or label.library_id != library_id:
+            raise HTTPException(status_code=404, detail="Label not found")
+
+        # Get user from session
+        user_id = get_current_user_id(request)
+        if user_id:
+            from ...database import get_user_by_id
+            user = get_user_by_id(session, user_id)
+        else:
+            user = get_user_by_username(session, 'admin')
+
+        if not user:
+            raise HTTPException(status_code=500, detail="User not found")
+
+        # Get comics with this label
+        comics = get_comics_with_label(session, tag_id)
+
+        # Format comics in v2 format
+        comics_list = []
+        for comic in comics:
+            # Get reading progress
+            progress = get_reading_progress(session, user.id, comic.id)
+            current_page = progress.current_page if progress else 0
+            is_read = progress.is_completed if progress else False
+
+            comics_list.append({
+                "type": "comic",
+                "id": str(comic.id),
+                "comic_info_id": str(comic.id),
+                "parent_id": str(comic.folder_id) if comic.folder_id else "0",
+                "library_id": str(library_id),
+                "library_uuid": library.uuid,
+                "file_name": comic.filename,
+                "file_size": str(comic.file_size),
+                "hash": comic.hash,
+                "path": comic.path,
+                "current_page": current_page,
+                "num_pages": comic.num_pages,
+                "read": is_read,
+                "manga": comic.reading_direction == "rtl",
+                "file_type": 1,
+                "number": comic.issue_number or 0,
+                "title": comic.title or comic.filename,
+                "added": comic.created_at
+            })
+
+        logger.debug(f"v2 API: Returning {len(comics_list)} comics for label {tag_id}")
+        return JSONResponse(comics_list)
+
+
+@router.get("/library/{library_id}/tag/{tag_id}/info")
+async def get_tag_info(library_id: int, tag_id: int, request: Request):
+    """
+    Get information about a specific tag/label
+
+    Returns label object in YACReader v2 format
+    """
+    from ...database import get_label_by_id, get_library_by_id
+
+    db = request.app.state.db
+
+    with db.get_session() as session:
+        # Get library to verify it exists and get UUID
+        library = get_library_by_id(session, library_id)
+        if not library:
+            raise HTTPException(status_code=404, detail="Library not found")
+
+        # Get label
+        label = get_label_by_id(session, tag_id)
+        if not label or label.library_id != library_id:
+            raise HTTPException(status_code=404, detail="Label not found")
+
+        # Format label in v2 format
+        label_info = {
+            "type": "label",
+            "id": str(label.id),
+            "library_id": str(library_id),
+            "library_uuid": library.uuid,
+            "label_name": label.name,
+            "color_id": label.color_id
+        }
+
+        logger.debug(f"v2 API: Returning info for label {tag_id}")
+        return JSONResponse(label_info)
+
+
+@router.post("/library/{library_id}/tag")
+async def create_tag(library_id: int, request: Request):
+    """
+    Create a new tag/label
+
+    Request body should contain:
+    - name: Label name
+    - color_id: Color identifier (optional, default 0)
+
+    Returns created label object
+    """
+    from ...database import create_label, get_library_by_id
+
+    db = request.app.state.db
+
+    # Parse request body
+    body = await request.body()
+    body_text = body.decode('utf-8')
+
+    # Parse name and color_id from body
+    name = None
+    color_id = 0
+
+    for line in body_text.split('\n'):
+        line = line.strip()
+        if ':' in line:
+            key, value = line.split(':', 1)
+            if key == 'name':
+                name = value.strip()
+            elif key == 'color_id':
+                try:
+                    color_id = int(value.strip())
+                except ValueError:
+                    pass
+
+    if not name:
+        raise HTTPException(status_code=400, detail="Label name is required")
+
+    with db.get_session() as session:
+        # Verify library exists
+        library = get_library_by_id(session, library_id)
+        if not library:
+            raise HTTPException(status_code=404, detail="Library not found")
+
+        # Create label
+        label = create_label(session, library_id, name, color_id)
+
+        # Format response
+        label_info = {
+            "type": "label",
+            "id": str(label.id),
+            "library_id": str(library_id),
+            "library_uuid": library.uuid,
+            "label_name": label.name,
+            "color_id": label.color_id
+        }
+
+        logger.debug(f"v2 API: Created label {label.id} in library {library_id}")
+        return JSONResponse(label_info)
+
+
+@router.delete("/library/{library_id}/tag/{tag_id}")
+async def delete_tag(library_id: int, tag_id: int, request: Request):
+    """
+    Delete a tag/label
+
+    Returns success status
+    """
+    from ...database import delete_label, get_label_by_id
+
+    db = request.app.state.db
+
+    with db.get_session() as session:
+        # Verify label exists and belongs to this library
+        label = get_label_by_id(session, tag_id)
+        if not label or label.library_id != library_id:
+            raise HTTPException(status_code=404, detail="Label not found")
+
+        # Delete label
+        success = delete_label(session, tag_id)
+
+        logger.debug(f"v2 API: Deleted label {tag_id}: {success}")
+        return JSONResponse({"success": success})
+
+
+@router.post("/library/{library_id}/comic/{comic_id}/tag/{tag_id}")
+async def add_tag_to_comic(library_id: int, comic_id: int, tag_id: int, request: Request):
+    """
+    Add a tag/label to a comic
+
+    Returns success status
+    """
+    from ...database import add_label_to_comic, get_comic_by_id, get_label_by_id
+
+    db = request.app.state.db
+
+    with db.get_session() as session:
+        # Verify comic exists
+        comic = get_comic_by_id(session, comic_id)
+        if not comic or comic.library_id != library_id:
+            raise HTTPException(status_code=404, detail="Comic not found")
+
+        # Verify label exists
+        label = get_label_by_id(session, tag_id)
+        if not label or label.library_id != library_id:
+            raise HTTPException(status_code=404, detail="Label not found")
+
+        # Add label to comic
+        add_label_to_comic(session, comic_id, tag_id)
+
+        logger.debug(f"v2 API: Added label {tag_id} to comic {comic_id}")
+        return JSONResponse({"success": True})
+
+
+@router.delete("/library/{library_id}/comic/{comic_id}/tag/{tag_id}")
+async def remove_tag_from_comic(library_id: int, comic_id: int, tag_id: int, request: Request):
+    """
+    Remove a tag/label from a comic
+
+    Returns success status
+    """
+    from ...database import remove_label_from_comic, get_comic_by_id, get_label_by_id
+
+    db = request.app.state.db
+
+    with db.get_session() as session:
+        # Verify comic exists
+        comic = get_comic_by_id(session, comic_id)
+        if not comic or comic.library_id != library_id:
+            raise HTTPException(status_code=404, detail="Comic not found")
+
+        # Verify label exists
+        label = get_label_by_id(session, tag_id)
+        if not label or label.library_id != library_id:
+            raise HTTPException(status_code=404, detail="Label not found")
+
+        # Remove label from comic
+        success = remove_label_from_comic(session, comic_id, tag_id)
+
+        logger.debug(f"v2 API: Removed label {tag_id} from comic {comic_id}: {success}")
+        return JSONResponse({"success": success})
+
+
+# ============================================================================
+# Reading Lists
+# ============================================================================
+
+@router.get("/library/{library_id}/reading_lists")
+async def get_reading_lists(library_id: int, request: Request):
+    """
+    Get all reading lists for a library
+
+    Returns array of reading lists in YACReader v2 format
+    """
+    from ...database import get_reading_lists_in_library, get_library_by_id, get_user_by_username
+    from ..middleware import get_current_user_id
+
+    db = request.app.state.db
+
+    with db.get_session() as session:
+        # Get library to verify it exists and get UUID
+        library = get_library_by_id(session, library_id)
+        if not library:
+            raise HTTPException(status_code=404, detail="Library not found")
+
+        # Get user from session
+        user_id = get_current_user_id(request)
+        if user_id:
+            from ...database import get_user_by_id
+            user = get_user_by_id(session, user_id)
+        else:
+            user = get_user_by_username(session, 'admin')
+
+        if not user:
+            raise HTTPException(status_code=500, detail="User not found")
+
+        # Get reading lists for this user (includes public lists)
+        reading_lists = get_reading_lists_in_library(session, library_id, user.id)
+
+        # Format reading lists in v2 format
+        lists = []
+        for reading_list in reading_lists:
+            lists.append({
+                "type": "reading_list",
+                "id": str(reading_list.id),
+                "library_id": str(library_id),
+                "library_uuid": library.uuid,
+                "reading_list_name": reading_list.name
+            })
+
+        logger.debug(f"v2 API: Returning {len(lists)} reading lists for library {library_id}")
+        return JSONResponse(lists)
+
+
+@router.get("/library/{library_id}/reading_list/{list_id}/content")
+async def get_reading_list_content(library_id: int, list_id: int, request: Request):
+    """
+    Get all comics in a reading list
+
+    Returns array of comics in YACReader v2 format (ordered by position)
+    """
+    from ...database import (
+        get_reading_list_comics,
+        get_reading_list_by_id,
+        get_library_by_id,
+        get_user_by_username
+    )
+    from ..middleware import get_current_user_id
+
+    db = request.app.state.db
+
+    with db.get_session() as session:
+        # Get library to verify it exists and get UUID
+        library = get_library_by_id(session, library_id)
+        if not library:
+            raise HTTPException(status_code=404, detail="Library not found")
+
+        # Verify reading list exists
+        reading_list = get_reading_list_by_id(session, list_id)
+        if not reading_list or reading_list.library_id != library_id:
+            raise HTTPException(status_code=404, detail="Reading list not found")
+
+        # Get user from session
+        user_id = get_current_user_id(request)
+        if user_id:
+            from ...database import get_user_by_id
+            user = get_user_by_id(session, user_id)
+        else:
+            user = get_user_by_username(session, 'admin')
+
+        if not user:
+            raise HTTPException(status_code=500, detail="User not found")
+
+        # Get comics in this reading list (ordered by position)
+        comics = get_reading_list_comics(session, list_id)
+
+        # Format comics in v2 format
+        comics_list = []
+        for comic in comics:
+            # Get reading progress
+            progress = get_reading_progress(session, user.id, comic.id)
+            current_page = progress.current_page if progress else 0
+            is_read = progress.is_completed if progress else False
+
+            comics_list.append({
+                "type": "comic",
+                "id": str(comic.id),
+                "comic_info_id": str(comic.id),
+                "parent_id": str(comic.folder_id) if comic.folder_id else "0",
+                "library_id": str(library_id),
+                "library_uuid": library.uuid,
+                "file_name": comic.filename,
+                "file_size": str(comic.file_size),
+                "hash": comic.hash,
+                "path": comic.path,
+                "current_page": current_page,
+                "num_pages": comic.num_pages,
+                "read": is_read,
+                "manga": comic.reading_direction == "rtl",
+                "file_type": 1,
+                "number": comic.issue_number or 0,
+                "title": comic.title or comic.filename,
+                "added": comic.created_at
+            })
+
+        logger.debug(f"v2 API: Returning {len(comics_list)} comics for reading list {list_id}")
+        return JSONResponse(comics_list)
+
+
+@router.get("/library/{library_id}/reading_list/{list_id}/info")
+async def get_reading_list_info(library_id: int, list_id: int, request: Request):
+    """
+    Get information about a specific reading list
+
+    Returns reading list object in YACReader v2 format
+    """
+    from ...database import get_reading_list_by_id, get_library_by_id
+
+    db = request.app.state.db
+
+    with db.get_session() as session:
+        # Get library to verify it exists and get UUID
+        library = get_library_by_id(session, library_id)
+        if not library:
+            raise HTTPException(status_code=404, detail="Library not found")
+
+        # Get reading list
+        reading_list = get_reading_list_by_id(session, list_id)
+        if not reading_list or reading_list.library_id != library_id:
+            raise HTTPException(status_code=404, detail="Reading list not found")
+
+        # Format reading list in v2 format
+        list_info = {
+            "type": "reading_list",
+            "id": str(reading_list.id),
+            "library_id": str(library_id),
+            "library_uuid": library.uuid,
+            "reading_list_name": reading_list.name,
+            "description": reading_list.description or "",
+            "is_public": reading_list.is_public
+        }
+
+        logger.debug(f"v2 API: Returning info for reading list {list_id}")
+        return JSONResponse(list_info)
+
+
+@router.post("/library/{library_id}/reading_list")
+async def create_reading_list_endpoint(library_id: int, request: Request):
+    """
+    Create a new reading list
+
+    Request body should contain:
+    - name: Reading list name
+    - description: Description (optional)
+    - is_public: Whether list is public (optional, default false)
+
+    Returns created reading list object
+    """
+    from ...database import create_reading_list, get_library_by_id, get_user_by_username
+    from ..middleware import get_current_user_id
+
+    db = request.app.state.db
+
+    # Parse request body
+    body = await request.body()
+    body_text = body.decode('utf-8')
+
+    # Parse fields from body
+    name = None
+    description = None
+    is_public = False
+
+    for line in body_text.split('\n'):
+        line = line.strip()
+        if ':' in line:
+            key, value = line.split(':', 1)
+            if key == 'name':
+                name = value.strip()
+            elif key == 'description':
+                description = value.strip()
+            elif key == 'is_public':
+                is_public = value.strip().lower() in ('true', '1', 'yes')
+
+    if not name:
+        raise HTTPException(status_code=400, detail="Reading list name is required")
+
+    with db.get_session() as session:
+        # Verify library exists
+        library = get_library_by_id(session, library_id)
+        if not library:
+            raise HTTPException(status_code=404, detail="Library not found")
+
+        # Get user from session
+        user_id = get_current_user_id(request)
+        if user_id:
+            from ...database import get_user_by_id
+            user = get_user_by_id(session, user_id)
+        else:
+            user = get_user_by_username(session, 'admin')
+
+        if not user:
+            raise HTTPException(status_code=500, detail="User not found")
+
+        # Create reading list
+        reading_list = create_reading_list(
+            session,
+            library_id,
+            name,
+            user.id,
+            description,
+            is_public
+        )
+
+        # Format response
+        list_info = {
+            "type": "reading_list",
+            "id": str(reading_list.id),
+            "library_id": str(library_id),
+            "library_uuid": library.uuid,
+            "reading_list_name": reading_list.name,
+            "description": reading_list.description or "",
+            "is_public": reading_list.is_public
+        }
+
+        logger.debug(f"v2 API: Created reading list {reading_list.id} in library {library_id}")
+        return JSONResponse(list_info)
+
+
+@router.delete("/library/{library_id}/reading_list/{list_id}")
+async def delete_reading_list_endpoint(library_id: int, list_id: int, request: Request):
+    """
+    Delete a reading list
+
+    Returns success status
+    """
+    from ...database import delete_reading_list, get_reading_list_by_id
+
+    db = request.app.state.db
+
+    with db.get_session() as session:
+        # Verify reading list exists and belongs to this library
+        reading_list = get_reading_list_by_id(session, list_id)
+        if not reading_list or reading_list.library_id != library_id:
+            raise HTTPException(status_code=404, detail="Reading list not found")
+
+        # Delete reading list
+        success = delete_reading_list(session, list_id)
+
+        logger.debug(f"v2 API: Deleted reading list {list_id}: {success}")
+        return JSONResponse({"success": success})
+
+
+@router.post("/library/{library_id}/reading_list/{list_id}/comic/{comic_id}")
+async def add_comic_to_reading_list_endpoint(
+    library_id: int,
+    list_id: int,
+    comic_id: int,
+    request: Request
+):
+    """
+    Add a comic to a reading list
+
+    Returns success status
+    """
+    from ...database import add_comic_to_reading_list, get_comic_by_id, get_reading_list_by_id
+
+    db = request.app.state.db
+
+    with db.get_session() as session:
+        # Verify comic exists
+        comic = get_comic_by_id(session, comic_id)
+        if not comic or comic.library_id != library_id:
+            raise HTTPException(status_code=404, detail="Comic not found")
+
+        # Verify reading list exists
+        reading_list = get_reading_list_by_id(session, list_id)
+        if not reading_list or reading_list.library_id != library_id:
+            raise HTTPException(status_code=404, detail="Reading list not found")
+
+        # Add comic to reading list
+        add_comic_to_reading_list(session, list_id, comic_id)
+
+        logger.debug(f"v2 API: Added comic {comic_id} to reading list {list_id}")
+        return JSONResponse({"success": True})
+
+
+@router.delete("/library/{library_id}/reading_list/{list_id}/comic/{comic_id}")
+async def remove_comic_from_reading_list_endpoint(
+    library_id: int,
+    list_id: int,
+    comic_id: int,
+    request: Request
+):
+    """
+    Remove a comic from a reading list
+
+    Returns success status
+    """
+    from ...database import remove_comic_from_reading_list, get_comic_by_id, get_reading_list_by_id
+
+    db = request.app.state.db
+
+    with db.get_session() as session:
+        # Verify comic exists
+        comic = get_comic_by_id(session, comic_id)
+        if not comic or comic.library_id != library_id:
+            raise HTTPException(status_code=404, detail="Comic not found")
+
+        # Verify reading list exists
+        reading_list = get_reading_list_by_id(session, list_id)
+        if not reading_list or reading_list.library_id != library_id:
+            raise HTTPException(status_code=404, detail="Reading list not found")
+
+        # Remove comic from reading list
+        success = remove_comic_from_reading_list(session, list_id, comic_id)
+
+        logger.debug(f"v2 API: Removed comic {comic_id} from reading list {list_id}: {success}")
+        return JSONResponse({"success": success})
 
 
 # ============================================================================

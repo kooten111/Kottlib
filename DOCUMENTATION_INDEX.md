@@ -21,12 +21,12 @@ All project documentation in one convenient index.
 
 ### [YACREADER_API_COMPATIBILITY.md](YACREADER_API_COMPATIBILITY.md)
 
-**Complete YACReader compatibility reference** - Updated 2025-11-09 (90% complete).
+**Complete YACReader compatibility reference** - Updated 2025-11-09 (95% complete).
 
 **Contents**:
 
-- Progress summary (90% complete)
-- Recent updates (file size, UUIDs, sessions, root folders, bug fixes)
+- Progress summary (95% complete)
+- Recent updates (file size, UUIDs, sessions, root folders, bug fixes, favorites, tags, reading lists)
 - V1 API (legacy text-based) reference
 - V2 API (modern JSON-based) reference
 - Database schema compatibility
@@ -230,7 +230,7 @@ Example usage of the Python client library.
 
 **Status**: All mobile UX improvements implemented!
 
-### Phase 3: YACReader Compatibility 🚧 90% COMPLETE
+### Phase 3: YACReader Compatibility 🚧 95% COMPLETE
 
 - [x] Database schema extended (43 new fields + 5 tables)
 - [x] V1 line endings fixed (CRLF)
@@ -241,9 +241,11 @@ Example usage of the Python client library.
 - [x] Root folder implementation (`__ROOT__` convention)
 - [x] Multi-library support
 - [x] Bug fixes (folder recursion, cross-library contamination)
+- [x] **Favorites endpoints (3 endpoints)** ✅ NEW
+- [x] **Tags/Labels endpoints (7 endpoints)** ✅ NEW
+- [x] **Reading Lists endpoints (7 endpoints)** ✅ NEW
 - [ ] Metadata scanner integration (ComicInfo.xml)
 - [ ] Search functionality
-- [ ] Favorites/Tags/Reading Lists endpoints
 
 **Documentation**: See [YACREADER_API_COMPATIBILITY.md](YACREADER_API_COMPATIBILITY.md) for detailed status
 
@@ -271,7 +273,7 @@ Example usage of the Python client library.
 **Progress**:
 - ✅ Phase 1: Foundation - Complete
 - ✅ Phase 2: Mobile UX - Complete
-- 🚧 Phase 3: YACReader Compatibility - 90% complete
+- 🚧 Phase 3: YACReader Compatibility - 95% complete
 - 📋 Phase 4: Web UI - Planned
 - 🎯 Phase 5: Advanced Features - Future
 
@@ -281,9 +283,10 @@ Example usage of the Python client library.
 - ✅ Database layer (extended YACReader schema)
 - ✅ FastAPI server
 - ✅ Legacy API v1 (YACReader compatible)
-- ✅ Modern API v2 (90% YACReader compatible)
+- ✅ Modern API v2 (95% YACReader compatible)
 - ✅ Mobile UX improvements
 - ✅ Session management middleware
+- ✅ **Favorites, Tags, Reading Lists (17 endpoints)** ✨ NEW
 - ⏳ Metadata extraction (ComicInfo.xml - pending)
 - ⏳ Search functionality (pending)
 - ⏳ Web UI (planned)
@@ -328,5 +331,5 @@ If you can't find what you need:
 ---
 
 **Last Updated**: 2025-11-09
-**Documentation Version**: 3.0
-**Project Status**: Phase 3 - 90% Complete (YACReader Compatibility)
+**Documentation Version**: 3.1
+**Project Status**: Phase 3 - 95% Complete (YACReader Compatibility)

@@ -45,14 +45,21 @@ class ComicPage:
 @dataclass
 class ComicInfo:
     """Comic metadata from ComicInfo.xml"""
+    # Basic information
     title: Optional[str] = None
     series: Optional[str] = None
     number: Optional[str] = None
+    count: Optional[int] = None  # Total issue count in series
     volume: Optional[int] = None
     summary: Optional[str] = None
     notes: Optional[str] = None
+
+    # Date fields
     year: Optional[int] = None
     month: Optional[int] = None
+    day: Optional[int] = None
+
+    # Creator fields
     writer: Optional[str] = None
     penciller: Optional[str] = None
     inker: Optional[str] = None
@@ -60,15 +67,39 @@ class ComicInfo:
     letterer: Optional[str] = None
     cover_artist: Optional[str] = None
     editor: Optional[str] = None
+
+    # Publishing information
     publisher: Optional[str] = None
     imprint: Optional[str] = None
     genre: Optional[str] = None
     web: Optional[str] = None
+
+    # Story arc information
+    story_arc: Optional[str] = None
+    story_arc_number: Optional[str] = None
+    series_group: Optional[str] = None
+
+    # Alternate series (for cross-overs)
+    alternate_series: Optional[str] = None
+    alternate_number: Optional[str] = None
+    alternate_count: Optional[int] = None
+
+    # Ratings and reviews
+    age_rating: Optional[str] = None
+    community_rating: Optional[float] = None  # 0.0 to 5.0
+
+    # Characters and locations
+    characters: Optional[str] = None
+    teams: Optional[str] = None
+    locations: Optional[str] = None
+
+    # Other metadata
     page_count: Optional[int] = None
     language_iso: Optional[str] = None
     format: Optional[str] = None
-    age_rating: Optional[str] = None
+    black_and_white: Optional[bool] = None
     manga: Optional[bool] = None
+    gtin: Optional[str] = None
 
     @classmethod
     def from_xml(cls, xml_data: bytes) -> 'ComicInfo':
@@ -88,6 +119,13 @@ class ComicInfo:
                 except ValueError:
                     return None
 
+            def get_float(tag: str) -> Optional[float]:
+                text = get_text(tag)
+                try:
+                    return float(text) if text else None
+                except ValueError:
+                    return None
+
             def get_bool(tag: str) -> Optional[bool]:
                 text = get_text(tag)
                 if text is None:
@@ -95,14 +133,21 @@ class ComicInfo:
                 return text.lower() in ('yes', 'true', '1')
 
             return cls(
+                # Basic information
                 title=get_text('Title'),
                 series=get_text('Series'),
                 number=get_text('Number'),
+                count=get_int('Count'),
                 volume=get_int('Volume'),
                 summary=get_text('Summary'),
                 notes=get_text('Notes'),
+
+                # Date fields
                 year=get_int('Year'),
                 month=get_int('Month'),
+                day=get_int('Day'),
+
+                # Creator fields
                 writer=get_text('Writer'),
                 penciller=get_text('Penciller'),
                 inker=get_text('Inker'),
@@ -110,15 +155,39 @@ class ComicInfo:
                 letterer=get_text('Letterer'),
                 cover_artist=get_text('CoverArtist'),
                 editor=get_text('Editor'),
+
+                # Publishing information
                 publisher=get_text('Publisher'),
                 imprint=get_text('Imprint'),
                 genre=get_text('Genre'),
                 web=get_text('Web'),
+
+                # Story arc information
+                story_arc=get_text('StoryArc'),
+                story_arc_number=get_text('StoryArcNumber'),
+                series_group=get_text('SeriesGroup'),
+
+                # Alternate series
+                alternate_series=get_text('AlternateSeries'),
+                alternate_number=get_text('AlternateNumber'),
+                alternate_count=get_int('AlternateCount'),
+
+                # Ratings and reviews
+                age_rating=get_text('AgeRating'),
+                community_rating=get_float('CommunityRating'),
+
+                # Characters and locations
+                characters=get_text('Characters'),
+                teams=get_text('Teams'),
+                locations=get_text('Locations'),
+
+                # Other metadata
                 page_count=get_int('PageCount'),
                 language_iso=get_text('LanguageISO'),
                 format=get_text('Format'),
-                age_rating=get_text('AgeRating'),
+                black_and_white=get_bool('BlackAndWhite'),
                 manga=get_bool('Manga'),
+                gtin=get_text('GTIN'),
             )
         except ET.ParseError as e:
             logger.warning(f"Failed to parse ComicInfo.xml: {e}")

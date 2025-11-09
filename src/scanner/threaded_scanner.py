@@ -375,6 +375,8 @@ class ThreadedScanner:
 
         if comic.comic_info:
             info = comic.comic_info
+
+            # Basic metadata
             if info.title:
                 metadata['title'] = info.title
             if info.series:
@@ -384,14 +386,93 @@ class ThreadedScanner:
                     metadata['issue_number'] = float(info.number)
                 except ValueError:
                     pass
+            if info.count:
+                metadata['count'] = info.count
+            if info.volume:
+                metadata['volume'] = info.volume
             if info.year:
                 metadata['year'] = info.year
-            if info.publisher:
-                metadata['publisher'] = info.publisher
+            if info.summary:
+                metadata['description'] = info.summary
+            if info.notes:
+                metadata['notes'] = info.notes
+
+            # Build date field from year/month/day
+            if info.year:
+                if info.month and info.day:
+                    metadata['date'] = f"{info.year:04d}-{info.month:02d}-{info.day:02d}"
+                elif info.month:
+                    metadata['date'] = f"{info.year:04d}-{info.month:02d}"
+
+            # Creator metadata
             if info.writer:
                 metadata['writer'] = info.writer
-            if info.manga:
+            if info.penciller:
+                metadata['penciller'] = info.penciller
+            if info.inker:
+                metadata['inker'] = info.inker
+            if info.colorist:
+                metadata['colorist'] = info.colorist
+            if info.letterer:
+                metadata['letterer'] = info.letterer
+            if info.cover_artist:
+                metadata['cover_artist'] = info.cover_artist
+            if info.editor:
+                metadata['editor'] = info.editor
+
+            # Publishing information
+            if info.publisher:
+                metadata['publisher'] = info.publisher
+            if info.genre:
+                metadata['genre'] = info.genre
+            if info.language_iso:
+                metadata['language_iso'] = info.language_iso
+            if info.age_rating:
+                metadata['age_rating'] = info.age_rating
+            if info.imprint:
+                metadata['imprint'] = info.imprint
+            if info.format:
+                metadata['format_type'] = info.format
+
+            # Story arc information
+            if info.story_arc:
+                metadata['story_arc'] = info.story_arc
+            if info.story_arc_number:
+                metadata['arc_number'] = info.story_arc_number
+            if info.series_group:
+                metadata['series_group'] = info.series_group
+
+            # Alternate series (for cross-overs)
+            if info.alternate_series:
+                metadata['alternate_series'] = info.alternate_series
+            if info.alternate_number:
+                metadata['alternate_number'] = info.alternate_number
+            if info.alternate_count:
+                metadata['alternate_count'] = info.alternate_count
+
+            # Ratings
+            if info.community_rating is not None:
+                metadata['rating'] = info.community_rating
+
+            # Characters, teams, locations
+            if info.characters:
+                metadata['characters'] = info.characters
+            if info.teams:
+                metadata['teams'] = info.teams
+            if info.locations:
+                metadata['locations'] = info.locations
+
+            # Reading direction and color
+            if info.manga is not None:
                 metadata['reading_direction'] = 'rtl' if info.manga else 'ltr'
+            if info.black_and_white is not None:
+                metadata['is_color'] = not info.black_and_white
+
+            # Page count from ComicInfo.xml (if available)
+            if info.page_count:
+                # Note: We still calculate num_pages from actual files,
+                # but this could be used for validation
+                pass
 
         return metadata
 

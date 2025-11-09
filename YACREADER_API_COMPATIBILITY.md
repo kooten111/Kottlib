@@ -6,7 +6,7 @@
 
 ## Progress Summary
 
-**Overall Status:** 90% Complete ✅
+**Overall Status:** 95% Complete ✅
 
 ### Completed (Phase 1-3)
 
@@ -21,12 +21,14 @@
 - ✅ Multi-library support (same file in multiple libraries)
 - ✅ Folder recursion bug fixed
 - ✅ Cross-library contamination bug fixed
+- ✅ **Favorites endpoints (3 endpoints)**
+- ✅ **Labels/Tags endpoints (7 endpoints)**
+- ✅ **Reading Lists endpoints (7 endpoints)**
 
-### Remaining (10%)
+### Remaining (5%)
 
 - ⏳ Scanner integration for ComicInfo.xml metadata extraction
 - ⏳ Search functionality
-- ⏳ Favorites/Tags/Reading Lists endpoints (database ready)
 
 **Database Migration:** ✅ Applied successfully
 
@@ -97,9 +99,9 @@ Both APIs **must** be supported simultaneously for full compatibility.
 | Cover Images | Image | Image | ✅ Implemented |
 | Reading Progress | POST | POST | ✅ Implemented |
 | Search | Text | JSON | ❌ Not implemented |
-| Reading Lists | N/A | JSON | ⚠️ Stub only |
-| Favorites | N/A | JSON | ❌ Not implemented |
-| Tags/Labels | N/A | JSON | ❌ Not implemented |
+| Reading Lists | N/A | JSON | ✅ Implemented |
+| Favorites | N/A | JSON | ✅ Implemented |
+| Tags/Labels | N/A | JSON | ✅ Implemented |
 | Session Management | Cookie-based | Header-based | ⚠️ Basic only |
 
 **Legend:**
@@ -618,96 +620,64 @@ covers/
 
 ---
 
-#### ❌ GET `/v2/library/{library_id}/favs`
+#### ✅ GET `/v2/library/{library_id}/favs`
 **Purpose:** Get favorite comics
 **Response:** JSON array
-**Status:** ❌ Stub only (returns empty array)
+**Status:** ✅ Fully Implemented
 
-**Expected Format:** Similar to folder content (array of comics)
+**Endpoints:**
+- ✅ `GET /v2/library/{library_id}/favs` - Get user's favorite comics
+- ✅ `POST /v2/library/{library_id}/comic/{comic_id}/fav` - Add comic to favorites
+- ✅ `DELETE /v2/library/{library_id}/comic/{comic_id}/fav` - Remove comic from favorites
 
-**Missing:**
-- [ ] Database table for favorites
-- [ ] Add/remove favorites endpoints
-- [ ] Favorites filtering
+**Database:**
+- ✅ `favorites` table created
+- ✅ User-specific favorites
+- ✅ Library-scoped favorites
 
 ---
 
-#### ❌ GET `/v2/library/{library_id}/tags`
+#### ✅ GET `/v2/library/{library_id}/tags`
 **Purpose:** Get all tags/labels
 **Response:** JSON array
-**Status:** ❌ Stub only
+**Status:** ✅ Fully Implemented
 
-**Expected Format:**
-```json
-[
-  {
-    "type": "label",
-    "id": "1",
-    "library_id": "1",
-    "library_uuid": "550e8400-...",
-    "label_name": "Completed",
-    "color_id": 3
-  }
-]
-```
+**Endpoints:**
+- ✅ `GET /v2/library/{library_id}/tags` - Get all labels in library
+- ✅ `GET /v2/library/{library_id}/tag/{tag_id}/info` - Get label info
+- ✅ `GET /v2/library/{library_id}/tag/{tag_id}/content` - Get comics with label
+- ✅ `POST /v2/library/{library_id}/tag` - Create new label
+- ✅ `DELETE /v2/library/{library_id}/tag/{tag_id}` - Delete label
+- ✅ `POST /v2/library/{library_id}/comic/{comic_id}/tag/{tag_id}` - Add label to comic
+- ✅ `DELETE /v2/library/{library_id}/comic/{comic_id}/tag/{tag_id}` - Remove label from comic
 
-**Missing:**
-- [ ] Database table for labels/tags
-- [ ] Tag management endpoints
-- [ ] Comic-tag associations
+**Database:**
+- ✅ `labels` table created
+- ✅ `comic_labels` junction table for many-to-many
+- ✅ Color ID support for UI styling
 
 ---
 
-#### ❌ GET `/v2/library/{library_id}/tag/{tag_id}/content`
-**Purpose:** Get comics with specific tag
-**Response:** JSON array
-**Status:** ❌ Not implemented
-
----
-
-#### ❌ GET `/v2/library/{library_id}/tag/{tag_id}/info`
-**Purpose:** Get tag information
-**Response:** JSON object
-**Status:** ❌ Not implemented
-
----
-
-#### ❌ GET `/v2/library/{library_id}/reading_lists`
+#### ✅ GET `/v2/library/{library_id}/reading_lists`
 **Purpose:** Get all reading lists
 **Response:** JSON array
-**Status:** ❌ Not implemented
+**Status:** ✅ Fully Implemented
 
-**Expected Format:**
-```json
-[
-  {
-    "type": "reading_list",
-    "id": "1",
-    "library_id": "1",
-    "library_uuid": "550e8400-...",
-    "reading_list_name": "My Reading List"
-  }
-]
-```
+**Endpoints:**
+- ✅ `GET /v2/library/{library_id}/reading_lists` - Get all reading lists (user-specific + public)
+- ✅ `GET /v2/library/{library_id}/reading_list/{list_id}/info` - Get reading list info
+- ✅ `GET /v2/library/{library_id}/reading_list/{list_id}/content` - Get comics in list (ordered)
+- ✅ `POST /v2/library/{library_id}/reading_list` - Create new reading list
+- ✅ `DELETE /v2/library/{library_id}/reading_list/{list_id}` - Delete reading list
+- ✅ `POST /v2/library/{library_id}/reading_list/{list_id}/comic/{comic_id}` - Add comic to list
+- ✅ `DELETE /v2/library/{library_id}/reading_list/{list_id}/comic/{comic_id}` - Remove comic from list
 
-**Missing:**
-- [ ] Database table for reading lists
-- [ ] Reading list management
-- [ ] Comic-reading list associations
-
----
-
-#### ❌ GET `/v2/library/{library_id}/reading_list/{list_id}/content`
-**Purpose:** Get comics in reading list
-**Response:** JSON array
-**Status:** ❌ Not implemented
-
----
-
-#### ❌ GET `/v2/library/{library_id}/reading_list/{list_id}/info`
-**Purpose:** Get reading list metadata
-**Response:** JSON object
-**Status:** ❌ Not implemented
+**Database:**
+- ✅ `reading_lists` table created
+- ✅ `reading_list_items` junction table for many-to-many
+- ✅ Position-based ordering of comics in lists
+- ✅ Public/private list support
+- ✅ User ownership tracking
 
 ---
 
@@ -985,11 +955,11 @@ YACReaderHttpSession *ySession = getYACReaderSessionHttpSession(token);
 
 ### Medium Priority (Missing features)
 
-- [ ] **Favorites system** (`/v2/library/{id}/favs`) - ⚠️ Database ready, endpoints pending
-- [ ] **Tags/Labels** (`/v2/library/{id}/tags`) - ⚠️ Database ready, endpoints pending
-- [ ] **Reading lists** (`/v2/library/{id}/reading_lists`) - ⚠️ Database ready, endpoints pending
+- [x] **Favorites system** (`/v2/library/{id}/favs`) - ✅ COMPLETED 2025-11-09
+- [x] **Tags/Labels** (`/v2/library/{id}/tags`) - ✅ COMPLETED 2025-11-09
+- [x] **Reading lists** (`/v2/library/{id}/reading_lists`) - ✅ COMPLETED 2025-11-09
 - [ ] **V1 HTML templates** (currently using text)
-- [ ] **Folder metadata** (`num_children`, etc.)
+- [x] **Folder metadata** (`num_children`, etc.) - ✅ COMPLETED
 
 ### Low Priority (Nice to have)
 
@@ -1100,13 +1070,20 @@ curl http://localhost:8080/v2/library/1/cover/ab/abc123.jpg > cover.jpg
 3. Implement comic update endpoint ✅ DONE
 4. Root folder implementation ✅ DONE (2025-11-09)
 
-### Phase 3: Advanced Features - ⏳ 10% Remaining
+### Phase 3: Advanced Features - ✅ 95% COMPLETE
 
-1. Favorites system - ⏳ Database ready, endpoints pending
-2. Tags/Labels - ⏳ Database ready, endpoints pending
-3. Reading lists - ⏳ Database ready, endpoints pending
-4. Search functionality - ⏳ Pending
-5. Scanner ComicInfo.xml extraction - ⏳ Pending
+1. Favorites system - ✅ DONE (2025-11-09)
+   - `favorites` table with user/library scoping
+   - 3 endpoints: GET /favs, POST /fav, DELETE /fav
+2. Tags/Labels - ✅ DONE (2025-11-09)
+   - `labels` and `comic_labels` tables
+   - 7 endpoints: full CRUD + content filtering
+3. Reading lists - ✅ DONE (2025-11-09)
+   - `reading_lists` and `reading_list_items` tables
+   - 7 endpoints: full CRUD + ordered content
+   - Public/private list support
+4. Search functionality - ⏳ Pending (5% remaining)
+5. Scanner ComicInfo.xml extraction - ⏳ Pending (optional enhancement)
 
 ### Phase 4: Polish - 📋 Future
 
@@ -1138,7 +1115,92 @@ curl http://localhost:8080/v2/library/1/cover/ab/abc123.jpg > cover.jpg
 
 ---
 
-## Implementation Details (2025-11-09)
+## Implementation Details
+
+### Phase 3 Completion (2025-11-09)
+
+#### Favorites System
+**Files Modified:**
+- [src/database/database.py](src/database/database.py) - Added 4 functions (lines 863-974)
+  - `add_favorite()` - Add comic to user's favorites
+  - `remove_favorite()` - Remove comic from favorites
+  - `get_user_favorites()` - Get all favorite comics for user
+  - `is_favorite()` - Check if comic is favorited
+- [src/database/__init__.py](src/database/__init__.py) - Exported new functions
+- [src/api/routers/api_v2.py](src/api/routers/api_v2.py) - Added 3 endpoints (lines 895-1024)
+  - `GET /v2/library/{id}/favs` - Get favorites
+  - `POST /v2/library/{id}/comic/{id}/fav` - Add to favorites
+  - `DELETE /v2/library/{id}/comic/{id}/fav` - Remove from favorites
+
+**Database Schema:**
+- Uses existing `favorites` table created in Phase 2
+- User-scoped favorites with library isolation
+- Automatic duplicate prevention
+
+#### Labels/Tags System
+**Files Modified:**
+- [src/database/database.py](src/database/database.py) - Added 8 functions (lines 976-1173)
+  - `create_label()` - Create new label with color support
+  - `get_label_by_id()` - Retrieve label by ID
+  - `get_labels_in_library()` - Get all labels in library
+  - `delete_label()` - Delete label (cascades to comic associations)
+  - `add_label_to_comic()` - Tag comic with label
+  - `remove_label_from_comic()` - Remove tag from comic
+  - `get_comics_with_label()` - Get all comics with specific tag
+  - `get_comic_labels()` - Get all labels for a comic
+- [src/database/__init__.py](src/database/__init__.py) - Exported new functions
+- [src/api/routers/api_v2.py](src/api/routers/api_v2.py) - Added 7 endpoints (lines 1027-1314)
+  - `GET /v2/library/{id}/tags` - List all labels
+  - `GET /v2/library/{id}/tag/{id}/info` - Get label info
+  - `GET /v2/library/{id}/tag/{id}/content` - Get comics with label
+  - `POST /v2/library/{id}/tag` - Create new label
+  - `DELETE /v2/library/{id}/tag/{id}` - Delete label
+  - `POST /v2/library/{id}/comic/{id}/tag/{id}` - Add label to comic
+  - `DELETE /v2/library/{id}/comic/{id}/tag/{id}` - Remove label from comic
+
+**Database Schema:**
+- Uses existing `labels` table (name, color_id, position)
+- Uses existing `comic_labels` junction table for many-to-many
+- Library-scoped labels with unique names per library
+- Color ID support for UI styling
+
+#### Reading Lists System
+**Files Modified:**
+- [src/database/database.py](src/database/database.py) - Added 7 functions (lines 1175-1380)
+  - `create_reading_list()` - Create list with public/private flag
+  - `get_reading_list_by_id()` - Retrieve list by ID
+  - `get_reading_lists_in_library()` - Get user's lists + public lists
+  - `delete_reading_list()` - Delete list (cascades to items)
+  - `add_comic_to_reading_list()` - Add comic with auto-position
+  - `remove_comic_from_reading_list()` - Remove comic from list
+  - `get_reading_list_comics()` - Get comics ordered by position
+- [src/database/__init__.py](src/database/__init__.py) - Exported new functions
+- [src/api/routers/api_v2.py](src/api/routers/api_v2.py) - Added 7 endpoints (lines 1317-1651)
+  - `GET /v2/library/{id}/reading_lists` - List reading lists
+  - `GET /v2/library/{id}/reading_list/{id}/info` - Get list info
+  - `GET /v2/library/{id}/reading_list/{id}/content` - Get comics (ordered)
+  - `POST /v2/library/{id}/reading_list` - Create new list
+  - `DELETE /v2/library/{id}/reading_list/{id}` - Delete list
+  - `POST /v2/library/{id}/reading_list/{id}/comic/{id}` - Add comic
+  - `DELETE /v2/library/{id}/reading_list/{id}/comic/{id}` - Remove comic
+
+**Database Schema:**
+- Uses existing `reading_lists` table (name, description, is_public, user_id)
+- Uses existing `reading_list_items` junction table
+- Position-based ordering (automatic on add)
+- Public/private access control
+- User ownership with optional public sharing
+
+**Summary:**
+- **19 new database functions** across all three systems
+- **17 new API endpoints** with full CRUD operations
+- **5 existing database tables** utilized (created in Phase 2 migration)
+- All endpoints follow YACReader v2 JSON format conventions
+- Complete integration with session management for user context
+
+---
+
+### Previous Implementation Details (2025-11-09)
 
 ### File Size Reporting
 **Files:** [src/api/routers/api_v2.py](src/api/routers/api_v2.py)

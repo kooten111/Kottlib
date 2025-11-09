@@ -15,6 +15,11 @@ from .models import (
     ReadingProgress,
     Series,
     Collection,
+    Favorite,
+    Label,
+    ComicLabel,
+    ReadingList,
+    ReadingListItem,
 )
 
 from .database import (
@@ -61,6 +66,28 @@ from .database import (
     get_cover,
     get_best_cover,
     delete_cover,
+    # Favorites operations
+    add_favorite,
+    remove_favorite,
+    get_user_favorites,
+    is_favorite,
+    # Labels/Tags operations
+    create_label,
+    get_label_by_id,
+    get_labels_in_library,
+    delete_label,
+    add_label_to_comic,
+    remove_label_from_comic,
+    get_comics_with_label,
+    get_comic_labels,
+    # Reading Lists operations
+    create_reading_list,
+    get_reading_list_by_id,
+    get_reading_lists_in_library,
+    delete_reading_list,
+    add_comic_to_reading_list,
+    remove_comic_from_reading_list,
+    get_reading_list_comics,
 )
 
 __all__ = [
@@ -75,6 +102,11 @@ __all__ = [
     'ReadingProgress',
     'Series',
     'Collection',
+    'Favorite',
+    'Label',
+    'ComicLabel',
+    'ReadingList',
+    'ReadingListItem',
     # Database
     'Database',
     'get_default_db_path',
@@ -112,4 +144,26 @@ __all__ = [
     'get_cover',
     'get_best_cover',
     'delete_cover',
+    # Favorites
+    'add_favorite',
+    'remove_favorite',
+    'get_user_favorites',
+    'is_favorite',
+    # Labels/Tags
+    'create_label',
+    'get_label_by_id',
+    'get_labels_in_library',
+    'delete_label',
+    'add_label_to_comic',
+    'remove_label_from_comic',
+    'get_comics_with_label',
+    'get_comic_labels',
+    # Reading Lists
+    'create_reading_list',
+    'get_reading_list_by_id',
+    'get_reading_lists_in_library',
+    'delete_reading_list',
+    'add_comic_to_reading_list',
+    'remove_comic_from_reading_list',
+    'get_reading_list_comics',
 ]

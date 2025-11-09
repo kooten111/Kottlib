@@ -295,6 +295,70 @@ def get_comics_in_folder(session: Session, folder_id: int, library_id: Optional[
     return query.all()
 
 
+def search_comics(session: Session, library_id: int, query_str: str) -> List[Comic]:
+    """
+    Search for comics in a library by metadata
+
+    Searches across multiple fields:
+    - title
+    - series
+    - filename
+    - writer
+    - publisher
+    - description
+
+    Args:
+        session: Database session
+        library_id: ID of the library to search in
+        query_str: Search query string (case-insensitive)
+
+    Returns:
+        List of matching comics, ordered by relevance (title/series matches first)
+    """
+    if not query_str or not query_str.strip():
+        return []
+
+    # Normalize search query (case-insensitive)
+    search_pattern = f"%{query_str.strip()}%"
+
+    # Build query with OR conditions across multiple fields
+    query = session.query(Comic).filter(
+        Comic.library_id == library_id
+    ).filter(
+        (Comic.title.ilike(search_pattern)) |
+        (Comic.series.ilike(search_pattern)) |
+        (Comic.filename.ilike(search_pattern)) |
+        (Comic.writer.ilike(search_pattern)) |
+        (Comic.publisher.ilike(search_pattern)) |
+        (Comic.description.ilike(search_pattern)) |
+        (Comic.penciller.ilike(search_pattern)) |
+        (Comic.inker.ilike(search_pattern)) |
+        (Comic.colorist.ilike(search_pattern)) |
+        (Comic.genre.ilike(search_pattern)) |
+        (Comic.characters.ilike(search_pattern))
+    )
+
+    # Order by relevance: title/series matches first, then filename
+    # We use case statements to prioritize matches in more important fields
+    results = query.all()
+
+    # Sort results by relevance (title > series > filename > others)
+    def relevance_score(comic):
+        q_lower = query_str.lower()
+        score = 0
+        if comic.title and q_lower in comic.title.lower():
+            score += 100
+        if comic.series and q_lower in comic.series.lower():
+            score += 50
+        if comic.filename and q_lower in comic.filename.lower():
+            score += 25
+        return score
+
+    results.sort(key=relevance_score, reverse=True)
+
+    return results
+
+
 def get_sibling_comics(session: Session, comic_id: int) -> tuple[Optional[int], Optional[int]]:
     """
     Get the previous and next comic IDs in the same folder.
@@ -794,3 +858,522 @@ def delete_cover(session: Session, comic_id: int, cover_type: str):
         session.delete(cover)
         session.commit()
         logger.debug(f"Deleted {cover_type} cover for comic {comic_id}")
+
+
+# ============================================================================
+# FAVORITES OPERATIONS (YACReader Compatibility)
+# ============================================================================
+
+def add_favorite(session: Session, user_id: int, library_id: int, comic_id: int):
+    """
+    Add a comic to user's favorites
+
+    Args:
+        session: Database session
+        user_id: User ID
+        library_id: Library ID
+        comic_id: Comic ID
+
+    Returns:
+        Favorite object
+    """
+    from .models import Favorite
+
+    # Check if already favorited
+    existing = session.query(Favorite).filter_by(
+        user_id=user_id,
+        comic_id=comic_id
+    ).first()
+
+    if existing:
+        return existing
+
+    favorite = Favorite(
+        user_id=user_id,
+        library_id=library_id,
+        comic_id=comic_id,
+        created_at=int(time.time())
+    )
+
+    session.add(favorite)
+    session.commit()
+    logger.debug(f"Added favorite: user={user_id}, comic={comic_id}")
+    return favorite
+
+
+def remove_favorite(session: Session, user_id: int, comic_id: int) -> bool:
+    """
+    Remove a comic from user's favorites
+
+    Args:
+        session: Database session
+        user_id: User ID
+        comic_id: Comic ID
+
+    Returns:
+        True if removed, False if not found
+    """
+    from .models import Favorite
+
+    favorite = session.query(Favorite).filter_by(
+        user_id=user_id,
+        comic_id=comic_id
+    ).first()
+
+    if favorite:
+        session.delete(favorite)
+        session.commit()
+        logger.debug(f"Removed favorite: user={user_id}, comic={comic_id}")
+        return True
+
+    return False
+
+
+def get_user_favorites(session: Session, user_id: int, library_id: int) -> List[Comic]:
+    """
+    Get all favorite comics for a user in a library
+
+    Args:
+        session: Database session
+        user_id: User ID
+        library_id: Library ID
+
+    Returns:
+        List of Comic objects
+    """
+    from .models import Favorite
+
+    favorites = session.query(Comic).join(Favorite).filter(
+        Favorite.user_id == user_id,
+        Favorite.library_id == library_id
+    ).order_by(Favorite.created_at.desc()).all()
+
+    return favorites
+
+
+def is_favorite(session: Session, user_id: int, comic_id: int) -> bool:
+    """
+    Check if a comic is in user's favorites
+
+    Args:
+        session: Database session
+        user_id: User ID
+        comic_id: Comic ID
+
+    Returns:
+        True if favorited, False otherwise
+    """
+    from .models import Favorite
+
+    count = session.query(Favorite).filter_by(
+        user_id=user_id,
+        comic_id=comic_id
+    ).count()
+
+    return count > 0
+
+
+# ============================================================================
+# LABELS/TAGS OPERATIONS (YACReader Compatibility)
+# ============================================================================
+
+def create_label(session: Session, library_id: int, name: str, color_id: int = 0) -> 'Label':
+    """
+    Create a new label/tag
+
+    Args:
+        session: Database session
+        library_id: Library ID
+        name: Label name
+        color_id: Color identifier (default: 0)
+
+    Returns:
+        Label object
+    """
+    from .models import Label
+
+    # Check if label already exists
+    existing = session.query(Label).filter_by(
+        library_id=library_id,
+        name=name
+    ).first()
+
+    if existing:
+        return existing
+
+    label = Label(
+        library_id=library_id,
+        name=name,
+        color_id=color_id,
+        position=0,
+        created_at=int(time.time()),
+        updated_at=int(time.time())
+    )
+
+    session.add(label)
+    session.commit()
+    logger.debug(f"Created label: library={library_id}, name={name}")
+    return label
+
+
+def get_label_by_id(session: Session, label_id: int) -> Optional['Label']:
+    """
+    Get label by ID
+
+    Args:
+        session: Database session
+        label_id: Label ID
+
+    Returns:
+        Label object or None
+    """
+    from .models import Label
+    return session.query(Label).filter_by(id=label_id).first()
+
+
+def get_labels_in_library(session: Session, library_id: int) -> List['Label']:
+    """
+    Get all labels in a library
+
+    Args:
+        session: Database session
+        library_id: Library ID
+
+    Returns:
+        List of Label objects
+    """
+    from .models import Label
+    return session.query(Label).filter_by(library_id=library_id).order_by(Label.position, Label.name).all()
+
+
+def delete_label(session: Session, label_id: int) -> bool:
+    """
+    Delete a label
+
+    Args:
+        session: Database session
+        label_id: Label ID
+
+    Returns:
+        True if deleted, False if not found
+    """
+    from .models import Label
+
+    label = get_label_by_id(session, label_id)
+    if label:
+        session.delete(label)
+        session.commit()
+        logger.debug(f"Deleted label: id={label_id}")
+        return True
+
+    return False
+
+
+def add_label_to_comic(session: Session, comic_id: int, label_id: int):
+    """
+    Add a label to a comic
+
+    Args:
+        session: Database session
+        comic_id: Comic ID
+        label_id: Label ID
+
+    Returns:
+        ComicLabel object
+    """
+    from .models import ComicLabel
+
+    # Check if already labeled
+    existing = session.query(ComicLabel).filter_by(
+        comic_id=comic_id,
+        label_id=label_id
+    ).first()
+
+    if existing:
+        return existing
+
+    comic_label = ComicLabel(
+        comic_id=comic_id,
+        label_id=label_id,
+        created_at=int(time.time())
+    )
+
+    session.add(comic_label)
+    session.commit()
+    logger.debug(f"Added label to comic: comic={comic_id}, label={label_id}")
+    return comic_label
+
+
+def remove_label_from_comic(session: Session, comic_id: int, label_id: int) -> bool:
+    """
+    Remove a label from a comic
+
+    Args:
+        session: Database session
+        comic_id: Comic ID
+        label_id: Label ID
+
+    Returns:
+        True if removed, False if not found
+    """
+    from .models import ComicLabel
+
+    comic_label = session.query(ComicLabel).filter_by(
+        comic_id=comic_id,
+        label_id=label_id
+    ).first()
+
+    if comic_label:
+        session.delete(comic_label)
+        session.commit()
+        logger.debug(f"Removed label from comic: comic={comic_id}, label={label_id}")
+        return True
+
+    return False
+
+
+def get_comics_with_label(session: Session, label_id: int) -> List[Comic]:
+    """
+    Get all comics with a specific label
+
+    Args:
+        session: Database session
+        label_id: Label ID
+
+    Returns:
+        List of Comic objects
+    """
+    from .models import ComicLabel
+
+    comics = session.query(Comic).join(ComicLabel).filter(
+        ComicLabel.label_id == label_id
+    ).all()
+
+    return comics
+
+
+def get_comic_labels(session: Session, comic_id: int) -> List['Label']:
+    """
+    Get all labels for a comic
+
+    Args:
+        session: Database session
+        comic_id: Comic ID
+
+    Returns:
+        List of Label objects
+    """
+    from .models import Label, ComicLabel
+
+    labels = session.query(Label).join(ComicLabel).filter(
+        ComicLabel.comic_id == comic_id
+    ).all()
+
+    return labels
+
+
+# ============================================================================
+# READING LISTS OPERATIONS (YACReader Compatibility)
+# ============================================================================
+
+def create_reading_list(
+    session: Session,
+    library_id: int,
+    name: str,
+    user_id: Optional[int] = None,
+    description: Optional[str] = None,
+    is_public: bool = False
+) -> 'ReadingList':
+    """
+    Create a new reading list
+
+    Args:
+        session: Database session
+        library_id: Library ID
+        name: Reading list name
+        user_id: Owner user ID (optional for public lists)
+        description: Description (optional)
+        is_public: Whether list is public
+
+    Returns:
+        ReadingList object
+    """
+    from .models import ReadingList
+
+    reading_list = ReadingList(
+        library_id=library_id,
+        user_id=user_id,
+        name=name,
+        description=description,
+        is_public=is_public,
+        position=0,
+        created_at=int(time.time()),
+        updated_at=int(time.time())
+    )
+
+    session.add(reading_list)
+    session.commit()
+    logger.debug(f"Created reading list: library={library_id}, name={name}")
+    return reading_list
+
+
+def get_reading_list_by_id(session: Session, list_id: int) -> Optional['ReadingList']:
+    """
+    Get reading list by ID
+
+    Args:
+        session: Database session
+        list_id: Reading list ID
+
+    Returns:
+        ReadingList object or None
+    """
+    from .models import ReadingList
+    return session.query(ReadingList).filter_by(id=list_id).first()
+
+
+def get_reading_lists_in_library(session: Session, library_id: int, user_id: Optional[int] = None) -> List['ReadingList']:
+    """
+    Get all reading lists in a library
+
+    Args:
+        session: Database session
+        library_id: Library ID
+        user_id: Filter by user ID (optional, includes public lists)
+
+    Returns:
+        List of ReadingList objects
+    """
+    from .models import ReadingList
+
+    query = session.query(ReadingList).filter_by(library_id=library_id)
+
+    if user_id is not None:
+        # Get user's lists + public lists
+        from sqlalchemy import or_
+        query = query.filter(
+            or_(
+                ReadingList.user_id == user_id,
+                ReadingList.is_public == True
+            )
+        )
+    else:
+        # Get all public lists
+        query = query.filter(ReadingList.is_public == True)
+
+    return query.order_by(ReadingList.position, ReadingList.name).all()
+
+
+def delete_reading_list(session: Session, list_id: int) -> bool:
+    """
+    Delete a reading list
+
+    Args:
+        session: Database session
+        list_id: Reading list ID
+
+    Returns:
+        True if deleted, False if not found
+    """
+    from .models import ReadingList
+
+    reading_list = get_reading_list_by_id(session, list_id)
+    if reading_list:
+        session.delete(reading_list)
+        session.commit()
+        logger.debug(f"Deleted reading list: id={list_id}")
+        return True
+
+    return False
+
+
+def add_comic_to_reading_list(session: Session, list_id: int, comic_id: int, position: Optional[int] = None):
+    """
+    Add a comic to a reading list
+
+    Args:
+        session: Database session
+        list_id: Reading list ID
+        comic_id: Comic ID
+        position: Position in list (optional, appends to end if not specified)
+
+    Returns:
+        ReadingListItem object
+    """
+    from .models import ReadingListItem
+
+    # Check if already in list
+    existing = session.query(ReadingListItem).filter_by(
+        reading_list_id=list_id,
+        comic_id=comic_id
+    ).first()
+
+    if existing:
+        return existing
+
+    # Get next position if not specified
+    if position is None:
+        max_position = session.query(func.max(ReadingListItem.position)).filter_by(
+            reading_list_id=list_id
+        ).scalar() or -1
+        position = max_position + 1
+
+    item = ReadingListItem(
+        reading_list_id=list_id,
+        comic_id=comic_id,
+        position=position,
+        added_at=int(time.time())
+    )
+
+    session.add(item)
+    session.commit()
+    logger.debug(f"Added comic to reading list: list={list_id}, comic={comic_id}, position={position}")
+    return item
+
+
+def remove_comic_from_reading_list(session: Session, list_id: int, comic_id: int) -> bool:
+    """
+    Remove a comic from a reading list
+
+    Args:
+        session: Database session
+        list_id: Reading list ID
+        comic_id: Comic ID
+
+    Returns:
+        True if removed, False if not found
+    """
+    from .models import ReadingListItem
+
+    item = session.query(ReadingListItem).filter_by(
+        reading_list_id=list_id,
+        comic_id=comic_id
+    ).first()
+
+    if item:
+        session.delete(item)
+        session.commit()
+        logger.debug(f"Removed comic from reading list: list={list_id}, comic={comic_id}")
+        return True
+
+    return False
+
+
+def get_reading_list_comics(session: Session, list_id: int) -> List[Comic]:
+    """
+    Get all comics in a reading list (ordered by position)
+
+    Args:
+        session: Database session
+        list_id: Reading list ID
+
+    Returns:
+        List of Comic objects in order
+    """
+    from .models import ReadingListItem
+
+    comics = session.query(Comic).join(ReadingListItem).filter(
+        ReadingListItem.reading_list_id == list_id
+    ).order_by(ReadingListItem.position).all()
+
+    return comics
