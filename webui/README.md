@@ -2,15 +2,23 @@
 
 Modern, responsive web interface for YACLib Enhanced comic library server.
 
-## Features
+## Features ✨
 
-- 🎨 Modern dark-mode-first design
+### Core Features
+- 📚 **Library Browser** - Browse comics with grid/list views, folder navigation
+- 📖 **Comic Reader** - Full-featured reader with keyboard shortcuts, fit modes, progress tracking
+- 🏠 **Home Dashboard** - Continue reading, recently added, library sidebar
+- 🔍 **Search** - Full-text search across all libraries with filters
+- ⭐ **Favorites** - Mark and browse your favorite comics
+- 📊 **Admin Dashboard** - Server statistics and management
+
+### Design
+- 🎨 Modern dark-mode-first design (with light mode toggle)
 - 📱 Fully responsive (mobile, tablet, desktop)
 - ⚡ Fast, optimized with SvelteKit
-- 🎯 Tailwind CSS for styling
+- 🎯 Tailwind CSS custom design system
 - 🔍 TanStack Query for efficient data fetching
-- 🎭 Theme switching (dark/light)
-- ♿ Accessible (WCAG 2.1 AA)
+- ♿ Accessible (WCAG 2.1 AA compliant)
 
 ## Tech Stack
 
@@ -22,26 +30,39 @@ Modern, responsive web interface for YACLib Enhanced comic library server.
 
 ## Getting Started
 
-### Prerequisites
+### Quick Start (Recommended)
 
+From the project root, run:
+```bash
+./run_server.sh
+```
+
+This automatically starts:
+- ✅ Backend API on port 8081
+- ✅ Web UI on port 5173
+
+Then visit: **http://localhost:5173**
+
+### Manual Setup
+
+#### Prerequisites
 - Node.js v18+ and npm
+- Backend API running on port 8081
 
-### Installation
-
+#### Installation
 ```bash
 cd webui
 npm install
 ```
 
-### Development
-
+#### Development
 ```bash
 npm run dev
 ```
 
 Open [http://localhost:5173](http://localhost:5173) in your browser.
 
-The API proxy is configured to forward `/v2/*` requests to `http://localhost:8000`.
+The API proxy is configured to forward `/v2/*` requests to `http://localhost:8081`.
 
 ### Build for Production
 
@@ -76,25 +97,54 @@ webui/
 └── package.json
 ```
 
-## Phase 1 Complete ✅
+## Implementation Status
 
-**Foundation (Week 1-2)**:
-- ✅ SvelteKit project setup
-- ✅ Tailwind CSS configured
-- ✅ Layout components created (Navbar, Sidebar, Footer)
-- ✅ Routing structure established
-- ✅ API client implemented
-- ✅ Dark/light theme system
-- ✅ Basic component library (Button, Card, Input, Modal, etc.)
+### ✅ Phase 1: Foundation (COMPLETE)
+- SvelteKit project with Vite
+- Tailwind CSS custom design system
+- Layout components (Navbar, Sidebar, Footer)
+- Common components (Button, Card, Input, Modal, ProgressBar, Breadcrumbs)
+- API client with full backend integration
+- Dark/light theme system with localStorage
+- Development server with API proxy
 
-## Next Steps
+### ✅ Phase 2: Comic Reader (COMPLETE)
+- PageViewer component with fit modes (width, height, original)
+- Reader controls (prev/next, page slider)
+- Keyboard shortcuts (arrows, space, fullscreen, ESC)
+- Reading progress tracking and auto-save
+- Fullscreen mode
+- Manga mode (RTL reading)
+- ReaderSettings panel
 
-**Phase 2: Comic Reader (Week 3-4)**
-- Implement PageViewer component
-- Add reader controls
-- Implement reading modes (single, double, continuous)
-- Add keyboard shortcuts
-- Implement progress saving
+### ✅ Phase 3: Library Browser (COMPLETE)
+- Comic grid/list views with toggle
+- Folder navigation with breadcrumbs
+- Folder covers (using first comic)
+- Sorting options (name, date, progress)
+- Library sidebar on home page
+- Continue reading page
+- Favorites page
+- Comic detail pages
+- Progress indicators on cards
+
+### ✅ Phase 4: Search & Discovery (COMPLETE)
+- Search interface with filters
+- Multi-library search
+- Status filters (unread/reading/completed)
+- Active filter chips
+- Search autocomplete with covers and keyboard navigation
+
+### ⏳ Phase 5: User Features (PARTIAL)
+- Favorites system ✅
+- Comic detail pages ✅
+- Reading lists UI (pending)
+- Tags/labels UI (pending)
+
+### ⏳ Phase 6: Admin Panel (BASIC)
+- Basic dashboard ✅
+- Library stats ✅
+- Full management UI (pending)
 
 See [WEB_UI_PLAN.md](../docs/WEB_UI_PLAN.md) for the complete implementation roadmap.
 

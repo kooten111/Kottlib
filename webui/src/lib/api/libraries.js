@@ -17,8 +17,10 @@ export async function getLibrary(libraryId) {
 /**
  * Get folder contents
  */
-export async function getFolderContents(libraryId, folderId = '__ROOT__') {
-	return api.get(`/library/${libraryId}/folder/${folderId}`);
+export async function getFolderContents(libraryId, folderId = 0) {
+	// Convert __ROOT__ to folder ID 0 (root folder convention)
+	const actualFolderId = folderId === '__ROOT__' ? 0 : folderId;
+	return api.get(`/library/${libraryId}/folder/${actualFolderId}`);
 }
 
 /**

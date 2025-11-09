@@ -1,0 +1,509 @@
+<script>
+	import { readerSettings } from '$lib/stores/reader';
+	import { createEventDispatcher } from 'svelte';
+
+	export let show = false;
+
+	const dispatch = createEventDispatcher();
+
+	function updateSetting(key, value) {
+		readerSettings.update((settings) => ({
+			...settings,
+			[key]: value
+		}));
+	}
+
+	function handleClose() {
+		dispatch('close');
+	}
+
+	function handleReset() {
+		readerSettings.reset();
+	}
+</script>
+
+{#if show}
+	<div class="settings-panel">
+		<div class="panel-header">
+			<h3>Reader Settings</h3>
+			<button class="close-btn" on:click={handleClose}>
+				<svg
+					xmlns="http://www.w3.org/2000/svg"
+					width="20"
+					height="20"
+					viewBox="0 0 24 24"
+					fill="none"
+					stroke="currentColor"
+					stroke-width="2"
+					stroke-linecap="round"
+					stroke-linejoin="round"
+				>
+					<line x1="18" y1="6" x2="6" y2="18" />
+					<line x1="6" y1="6" x2="18" y2="18" />
+				</svg>
+			</button>
+		</div>
+
+		<div class="panel-content">
+			<!-- Fit Mode -->
+			<div class="setting-group">
+				<label class="setting-label">Fit Mode</label>
+				<div class="radio-group">
+					<label class="radio-label">
+						<input
+							type="radio"
+							name="fitMode"
+							value="fit-width"
+							checked={$readerSettings.fitMode === 'fit-width'}
+							on:change={() => updateSetting('fitMode', 'fit-width')}
+						/>
+						<span>Fit Width</span>
+					</label>
+					<label class="radio-label">
+						<input
+							type="radio"
+							name="fitMode"
+							value="fit-height"
+							checked={$readerSettings.fitMode === 'fit-height'}
+							on:change={() => updateSetting('fitMode', 'fit-height')}
+						/>
+						<span>Fit Height</span>
+					</label>
+					<label class="radio-label">
+						<input
+							type="radio"
+							name="fitMode"
+							value="original"
+							checked={$readerSettings.fitMode === 'original'}
+							on:change={() => updateSetting('fitMode', 'original')}
+						/>
+						<span>Original Size</span>
+					</label>
+				</div>
+			</div>
+
+			<!-- Reading Mode -->
+			<div class="setting-group">
+				<label class="setting-label">Reading Mode</label>
+				<div class="radio-group">
+					<label class="radio-label">
+						<input
+							type="radio"
+							name="readingMode"
+							value="single"
+							checked={$readerSettings.readingMode === 'single'}
+							on:change={() => updateSetting('readingMode', 'single')}
+						/>
+						<span>Single Page</span>
+					</label>
+					<label class="radio-label">
+						<input
+							type="radio"
+							name="readingMode"
+							value="double"
+							checked={$readerSettings.readingMode === 'double'}
+							on:change={() => updateSetting('readingMode', 'double')}
+						/>
+						<span>Double Page</span>
+					</label>
+					<label class="radio-label">
+						<input
+							type="radio"
+							name="readingMode"
+							value="continuous"
+							checked={$readerSettings.readingMode === 'continuous'}
+							on:change={() => updateSetting('readingMode', 'continuous')}
+						/>
+						<span>Continuous Scroll</span>
+					</label>
+				</div>
+			</div>
+
+			<!-- Reading Direction -->
+			<div class="setting-group">
+				<label class="setting-label">Reading Direction</label>
+				<div class="radio-group">
+					<label class="radio-label">
+						<input
+							type="radio"
+							name="readingDirection"
+							value="ltr"
+							checked={$readerSettings.readingDirection === 'ltr'}
+							on:change={() => updateSetting('readingDirection', 'ltr')}
+						/>
+						<span>Left to Right</span>
+					</label>
+					<label class="radio-label">
+						<input
+							type="radio"
+							name="readingDirection"
+							value="rtl"
+							checked={$readerSettings.readingDirection === 'rtl'}
+							on:change={() => updateSetting('readingDirection', 'rtl')}
+						/>
+						<span>Right to Left (Manga)</span>
+					</label>
+				</div>
+			</div>
+
+			<!-- Preload Pages -->
+			<div class="setting-group">
+				<label class="setting-label">
+					Preload Pages
+					<span class="setting-value">{$readerSettings.preloadPages}</span>
+				</label>
+				<input
+					type="range"
+					min="0"
+					max="5"
+					step="1"
+					value={$readerSettings.preloadPages}
+					on:input={(e) => updateSetting('preloadPages', parseInt(e.target.value))}
+					class="range-input"
+				/>
+				<div class="range-labels">
+					<span>0</span>
+					<span>5</span>
+				</div>
+			</div>
+
+			<!-- Background Color -->
+			<div class="setting-group">
+				<label class="setting-label">Background Color</label>
+				<div class="color-options">
+					{#each ['#1a1a1a', '#000000', '#242424', '#333333', '#ffffff'] as color}
+						<button
+							class="color-swatch"
+							class:active={$readerSettings.backgroundColor === color}
+							style="background-color: {color}"
+							on:click={() => updateSetting('backgroundColor', color)}
+						>
+							{#if $readerSettings.backgroundColor === color}
+								<svg
+									xmlns="http://www.w3.org/2000/svg"
+									width="16"
+									height="16"
+									viewBox="0 0 24 24"
+									fill="none"
+									stroke={color === '#ffffff' ? '#000000' : '#ffffff'}
+									stroke-width="3"
+									stroke-linecap="round"
+									stroke-linejoin="round"
+								>
+									<polyline points="20 6 9 17 4 12" />
+								</svg>
+							{/if}
+						</button>
+					{/each}
+				</div>
+			</div>
+
+			<!-- Auto-hide Controls -->
+			<div class="setting-group">
+				<label class="checkbox-label">
+					<input
+						type="checkbox"
+						checked={$readerSettings.autoHideControls}
+						on:change={(e) => updateSetting('autoHideControls', e.target.checked)}
+					/>
+					<span>Auto-hide Controls</span>
+				</label>
+			</div>
+
+			<!-- Keyboard Shortcuts Help -->
+			<div class="setting-group">
+				<label class="setting-label">Keyboard Shortcuts</label>
+				<div class="shortcuts-help">
+					<div class="shortcut">
+						<kbd>←</kbd><kbd>→</kbd>
+						<span>Navigate pages</span>
+					</div>
+					<div class="shortcut">
+						<kbd>Space</kbd>
+						<span>Next page</span>
+					</div>
+					<div class="shortcut">
+						<kbd>F</kbd>
+						<span>Toggle fullscreen</span>
+					</div>
+					<div class="shortcut">
+						<kbd>S</kbd>
+						<span>Toggle settings</span>
+					</div>
+					<div class="shortcut">
+						<kbd>Esc</kbd>
+						<span>Exit reader</span>
+					</div>
+					<div class="shortcut">
+						<kbd>1-9</kbd>
+						<span>Jump to 10%-90%</span>
+					</div>
+				</div>
+			</div>
+		</div>
+
+		<div class="panel-footer">
+			<button class="reset-btn" on:click={handleReset}>Reset to Defaults</button>
+		</div>
+	</div>
+{/if}
+
+<style>
+	.settings-panel {
+		position: fixed;
+		right: 0;
+		top: 0;
+		bottom: 0;
+		width: 100%;
+		max-width: 380px;
+		background: #242424;
+		box-shadow: -4px 0 16px rgba(0, 0, 0, 0.4);
+		display: flex;
+		flex-direction: column;
+		z-index: 50;
+		animation: slideIn 0.3s ease;
+	}
+
+	@keyframes slideIn {
+		from {
+			transform: translateX(100%);
+		}
+		to {
+			transform: translateX(0);
+		}
+	}
+
+	.panel-header {
+		display: flex;
+		align-items: center;
+		justify-content: space-between;
+		padding: 1.5rem;
+		border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+	}
+
+	.panel-header h3 {
+		margin: 0;
+		font-size: 1.25rem;
+		font-weight: 600;
+		color: #e0e0e0;
+	}
+
+	.close-btn {
+		background: none;
+		border: none;
+		color: #a0a0a0;
+		cursor: pointer;
+		padding: 0.5rem;
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		border-radius: 4px;
+		transition: all 0.2s;
+	}
+
+	.close-btn:hover {
+		background: rgba(255, 255, 255, 0.1);
+		color: #e0e0e0;
+	}
+
+	.panel-content {
+		flex: 1;
+		overflow-y: auto;
+		padding: 1.5rem;
+	}
+
+	.setting-group {
+		margin-bottom: 2rem;
+	}
+
+	.setting-label {
+		display: flex;
+		align-items: center;
+		justify-content: space-between;
+		font-size: 0.875rem;
+		font-weight: 600;
+		color: #e0e0e0;
+		margin-bottom: 0.75rem;
+	}
+
+	.setting-value {
+		color: #ff6740;
+		font-weight: 700;
+	}
+
+	.radio-group {
+		display: flex;
+		flex-direction: column;
+		gap: 0.75rem;
+	}
+
+	.radio-label {
+		display: flex;
+		align-items: center;
+		gap: 0.75rem;
+		font-size: 0.875rem;
+		color: #a0a0a0;
+		cursor: pointer;
+		padding: 0.5rem;
+		border-radius: 4px;
+		transition: all 0.2s;
+	}
+
+	.radio-label:hover {
+		background: rgba(255, 255, 255, 0.05);
+		color: #e0e0e0;
+	}
+
+	.radio-label input[type='radio'] {
+		width: 18px;
+		height: 18px;
+		accent-color: #ff6740;
+		cursor: pointer;
+	}
+
+	.checkbox-label {
+		display: flex;
+		align-items: center;
+		gap: 0.75rem;
+		font-size: 0.875rem;
+		color: #a0a0a0;
+		cursor: pointer;
+		padding: 0.5rem;
+		border-radius: 4px;
+		transition: all 0.2s;
+	}
+
+	.checkbox-label:hover {
+		background: rgba(255, 255, 255, 0.05);
+		color: #e0e0e0;
+	}
+
+	.checkbox-label input[type='checkbox'] {
+		width: 18px;
+		height: 18px;
+		accent-color: #ff6740;
+		cursor: pointer;
+	}
+
+	.range-input {
+		width: 100%;
+		height: 6px;
+		background: rgba(255, 255, 255, 0.1);
+		border-radius: 3px;
+		outline: none;
+		cursor: pointer;
+		-webkit-appearance: none;
+		appearance: none;
+	}
+
+	.range-input::-webkit-slider-thumb {
+		-webkit-appearance: none;
+		appearance: none;
+		width: 18px;
+		height: 18px;
+		background: #ff6740;
+		border-radius: 50%;
+		cursor: pointer;
+	}
+
+	.range-input::-moz-range-thumb {
+		width: 18px;
+		height: 18px;
+		background: #ff6740;
+		border-radius: 50%;
+		cursor: pointer;
+		border: none;
+	}
+
+	.range-labels {
+		display: flex;
+		justify-content: space-between;
+		margin-top: 0.25rem;
+		font-size: 0.75rem;
+		color: #a0a0a0;
+	}
+
+	.color-options {
+		display: flex;
+		gap: 0.75rem;
+	}
+
+	.color-swatch {
+		width: 48px;
+		height: 48px;
+		border-radius: 8px;
+		border: 2px solid transparent;
+		cursor: pointer;
+		transition: all 0.2s;
+		display: flex;
+		align-items: center;
+		justify-content: center;
+	}
+
+	.color-swatch:hover {
+		border-color: #ff6740;
+		transform: scale(1.1);
+	}
+
+	.color-swatch.active {
+		border-color: #ff6740;
+		box-shadow: 0 0 0 3px rgba(255, 103, 64, 0.2);
+	}
+
+	.shortcuts-help {
+		display: flex;
+		flex-direction: column;
+		gap: 0.5rem;
+		font-size: 0.875rem;
+	}
+
+	.shortcut {
+		display: flex;
+		align-items: center;
+		gap: 0.75rem;
+		color: #a0a0a0;
+	}
+
+	kbd {
+		display: inline-block;
+		padding: 0.25rem 0.5rem;
+		background: rgba(255, 255, 255, 0.1);
+		border: 1px solid rgba(255, 255, 255, 0.2);
+		border-radius: 4px;
+		font-family: monospace;
+		font-size: 0.75rem;
+		color: #e0e0e0;
+		min-width: 2rem;
+		text-align: center;
+	}
+
+	.panel-footer {
+		padding: 1.5rem;
+		border-top: 1px solid rgba(255, 255, 255, 0.1);
+	}
+
+	.reset-btn {
+		width: 100%;
+		padding: 0.75rem;
+		background: rgba(255, 255, 255, 0.05);
+		border: 1px solid rgba(255, 255, 255, 0.1);
+		border-radius: 4px;
+		color: #e0e0e0;
+		font-size: 0.875rem;
+		font-weight: 600;
+		cursor: pointer;
+		transition: all 0.2s;
+	}
+
+	.reset-btn:hover {
+		background: rgba(255, 255, 255, 0.1);
+		border-color: #ff6740;
+		color: #ff6740;
+	}
+
+	@media (max-width: 640px) {
+		.settings-panel {
+			max-width: 100%;
+		}
+	}
+</style>

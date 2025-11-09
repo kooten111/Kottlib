@@ -1,17 +1,8 @@
 <script>
 	import { page } from '$app/stores';
 	import { themeStore } from '$stores/theme';
-	import { Search, Moon, Sun, Home, BookOpen, Heart, List } from 'lucide-svelte';
-
-	let searchQuery = '';
-
-	function handleSearch(e) {
-		e.preventDefault();
-		if (searchQuery.trim()) {
-			// Navigate to search page
-			window.location.href = `/search?q=${encodeURIComponent(searchQuery)}`;
-		}
-	}
+	import { Moon, Sun, Home, BookOpen, Heart, List } from 'lucide-svelte';
+	import SearchAutocomplete from '$components/common/SearchAutocomplete.svelte';
 </script>
 
 <nav class="bg-dark-bg-secondary border-b border-gray-700 sticky top-0 z-50">
@@ -66,15 +57,7 @@
 
 			<!-- Search Bar -->
 			<div class="flex-1 max-w-md mx-8 hidden lg:block">
-				<form on:submit={handleSearch} class="relative">
-					<input
-						type="text"
-						bind:value={searchQuery}
-						placeholder="Search comics... (Ctrl+K)"
-						class="w-full input pl-10"
-					/>
-					<Search class="w-5 h-5 absolute left-3 top-1/2 transform -translate-y-1/2 text-dark-text-secondary" />
-				</form>
+				<SearchAutocomplete placeholder="Search comics... (Ctrl+K)" />
 			</div>
 
 			<!-- Right Side Actions -->
@@ -104,15 +87,7 @@
 
 		<!-- Mobile Search (visible on small screens) -->
 		<div class="lg:hidden pb-3">
-			<form on:submit={handleSearch} class="relative">
-				<input
-					type="text"
-					bind:value={searchQuery}
-					placeholder="Search comics..."
-					class="w-full input pl-10"
-				/>
-				<Search class="w-5 h-5 absolute left-3 top-1/2 transform -translate-y-1/2 text-dark-text-secondary" />
-			</form>
+			<SearchAutocomplete placeholder="Search comics..." />
 		</div>
 	</div>
 </nav>
