@@ -2,7 +2,7 @@
 	import { onMount } from 'svelte';
 	import Navbar from '$components/layout/Navbar.svelte';
 	import ComicCard from '$lib/components/comic/ComicCard.svelte';
-	import { getLibraries, getFolderContents } from '$lib/api/libraries';
+	import { getLibraries, getFolderContents, getContinueReading } from '$lib/api/libraries';
 	import { BookOpen, Library, TrendingUp } from 'lucide-svelte';
 
 	let libraries = [];
@@ -27,6 +27,21 @@
 				return;
 			}
 
+			// Load continue reading from all libraries using dedicated API
+			const continueReadingResults = await Promise.all(
+				libraries.map(async (lib) => {
+					try {
+						const comics = await getContinueReading(lib.id, 100);
+						return comics.map(comic => ({ ...comic, libraryId: lib.id }));
+					} catch {
+						return [];
+					}
+				})
+			);
+
+			continueReading = continueReadingResults.flat().slice(0, 10);
+
+			// Load recently added from root folders
 			const allComicsResults = await Promise.all(
 				libraries.map(async (lib) => {
 					try {
@@ -41,14 +56,6 @@
 			);
 
 			const allComics = allComicsResults.flat();
-
-			continueReading = allComics
-				.filter(comic =>
-					comic.current_page > 0 &&
-					comic.current_page < comic.num_pages
-				)
-				.sort((a, b) => (b.updated || 0) - (a.updated || 0))
-				.slice(0, 10);
 
 			recentlyAdded = allComics
 				.sort((a, b) => (b.added || 0) - (a.added || 0))

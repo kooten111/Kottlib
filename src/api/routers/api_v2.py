@@ -269,12 +269,14 @@ async def get_folder_v2(
             current_page = 0
             is_read = False
             has_been_opened = False
+            last_read_at = 0
             if user:
                 progress = get_reading_progress(session, user.id, comic.id)
                 if progress:
                     current_page = progress.current_page
                     is_read = progress.is_completed
                     has_been_opened = current_page > 0
+                    last_read_at = progress.last_read_at
             try:
                 relative_path = str(Path(comic.path).relative_to(library.path))
             except ValueError:
@@ -299,7 +301,8 @@ async def get_folder_v2(
                 "file_type": 1,  # 1 = comic (vs 0 = folder)
                 "cover_size_ratio": 0.0,
                 "number": 0,
-                "has_been_opened": has_been_opened
+                "has_been_opened": has_been_opened,
+                "last_read": last_read_at
             })
 
         # Sort comics
