@@ -2,9 +2,9 @@
 
 **Modern comic library server with one-command setup.**
 
-✨ 100% compatible with YACReader mobile apps
-✨ Zero configuration required
-✨ Just run `./yaclib.py`
+- 100% compatible with YACReader mobile apps
+- Zero configuration required
+- Just run `./yaclib.py`
 
 ```bash
 git clone https://github.com/yourusername/yaclib-enhanced.git
@@ -12,10 +12,11 @@ cd yaclib-enhanced
 ./yaclib.py
 ```
 
-**Done!**
-- Web UI: http://localhost:5173
-- API: http://localhost:8081
-- API Docs: http://localhost:8081/docs
+Done!
+
+- Web UI: <http://localhost:5173>
+- API: <http://localhost:8081>
+- API Docs: <http://localhost:8081/docs>
 
 ---
 
@@ -26,58 +27,58 @@ A complete replacement for YACReaderLibrary Server, written in Python, that:
 - Provides a modern API and web interface
 - Makes setup incredibly simple
 
-**No complex configuration. No dependencies to manually install. Just works.**
+No complex configuration. No dependencies to manually install. Just works.
 
 ## Features
 
-### Phase 1: Foundation ✅ **COMPLETE**
+### Phase 1: Foundation - COMPLETE
 
-- ✅ **Comic Loader** - Read CBZ, CBR, CB7 files
-- ✅ **Dual Thumbnails** - JPEG (mobile) + WebP (web)
-- ✅ **Database Layer** - SQLAlchemy ORM with extended YACReader schema
-- ✅ **FastAPI Server** - Production-ready async server
-- ✅ **Legacy API** - YACReader mobile app compatible
-- ✅ **Modern API** - JSON REST endpoints
-- ✅ **Configuration System** - YAML-based config
-- ✅ **One-Command Setup** - Interactive launcher
+- **Comic Loader** - Read CBZ, CBR, CB7 files
+- **Dual Thumbnails** - JPEG (mobile) + WebP (web)
+- **Database Layer** - SQLAlchemy ORM with extended YACReader schema
+- **FastAPI Server** - Production-ready async server
+- **Legacy API** - YACReader mobile app compatible
+- **Modern API** - JSON REST endpoints
+- **Configuration System** - YAML-based config
+- **One-Command Setup** - Interactive launcher
 
-### Phase 2: Mobile UX ✅ **COMPLETE**
+### Phase 2: Mobile UX - COMPLETE
 
-- ✅ **Folders-first sorting** - Proper folder hierarchy
-- ✅ **Continue reading list** - Track reading progress
-- ✅ **Reading progress tracking** - Per-user progress
-- ✅ **Custom cover selection** - Database ready
+- **Folders-first sorting** - Proper folder hierarchy
+- **Continue reading list** - Track reading progress
+- **Reading progress tracking** - Per-user progress
+- **Custom cover selection** - Database ready
 
-### Phase 3: YACReader Compatibility 🚧 **90% COMPLETE**
+### Phase 3: YACReader Compatibility - 90% COMPLETE
 
-- ✅ **Database schema** - 43 new fields + 5 tables
-- ✅ **Session management** - Multi-user support
-- ✅ **File size reporting** - Actual sizes, not "0"
-- ✅ **Library UUIDs** - In all V2 responses
-- ✅ **Root folder convention** - `__ROOT__` folders
-- ✅ **Multi-library support** - Same file in multiple libraries
-- ⏳ **ComicInfo.xml extraction** - Scanner integration pending
-- ⏳ **Search functionality** - Pending
-- ⏳ **Favorites/Tags/Lists** - Database ready, endpoints pending
+- **Database schema** - 43 new fields + 5 tables
+- **Session management** - Multi-user support
+- **File size reporting** - Actual sizes, not "0"
+- **Library UUIDs** - In all V2 responses
+- **Root folder convention** - `__ROOT__` folders
+- **Multi-library support** - Same file in multiple libraries
+- **ComicInfo.xml extraction** - Scanner integration pending
+- **Search functionality** - Pending
+- **Favorites/Tags/Lists** - Database ready, endpoints pending
 
-### Phase 4: Web UI ✅ **IMPLEMENTED**
+### Phase 4: Web UI - IMPLEMENTED
 
-- ✅ **Modern SvelteKit Interface** - Fast, responsive web UI
-- ✅ **Comic Reader** - Full-featured reading experience with keyboard shortcuts
-- ✅ **Library Browser** - Grid/list views with folder navigation
-- ✅ **Continue Reading** - Track and resume reading progress
-- ✅ **Favorites** - Mark and manage favorite comics
-- ✅ **Search** - Full-text search with autocomplete, filters, and cover previews
-- ✅ **Admin Dashboard** - Server stats and management
-- ✅ **Dark Theme** - Beautiful dark-first design
-- ✅ **Responsive** - Works on desktop, tablet, and mobile
+- **Modern SvelteKit Interface** - Fast, responsive web UI
+- **Comic Reader** - Full-featured reading experience with keyboard shortcuts
+- **Library Browser** - Grid/list views with folder navigation
+- **Continue Reading** - Track and resume reading progress
+- **Favorites** - Mark and manage favorite comics
+- **Search** - Full-text search with autocomplete, filters, and cover previews
+- **Admin Dashboard** - Server stats and management
+- **Dark Theme** - Beautiful dark-first design
+- **Responsive** - Works on desktop, tablet, and mobile
 
-### Phase 5: Advanced Features 🎯 **FUTURE**
+### Phase 5: Advanced Features - PLANNED
 
-- 🎯 Series auto-detection
-- 🎯 Smart search with FTS
-- 🎯 Reading statistics
-- 🎯 Enhanced collections
+- Series auto-detection
+- Smart search with FTS
+- Reading statistics
+- Enhanced collections
 
 ## Quick Start
 
@@ -100,31 +101,29 @@ The launcher will:
 5. Scan comics (optional)
 6. Start the server
 
-**See [DOCUMENTATION_INDEX.md](DOCUMENTATION_INDEX.md) for detailed documentation.**
+See [DOCUMENTATION_INDEX.md](DOCUMENTATION_INDEX.md) for detailed documentation.
 
 ### After First Run
 
-**Start both backend and frontend:**
+Start both backend and frontend:
+
 ```bash
 ./run_server.sh
 ```
 
 This will start:
-- **Backend API** on port 8081
-- **Web UI** on port 5173 (automatically)
+
+- Backend API on port 8081
+- Web UI on port 5173 (automatically)
 
 Or run them separately:
+
 ```bash
 # Backend only
 ./yaclib.py
 
 # Frontend only (in another terminal)
 cd webui && npm run dev
-```
-
-**Old single-command launcher:**
-```bash
-./yaclib.py
 ```
 
 Your configuration is saved in `config.yml`.
@@ -139,14 +138,16 @@ Your configuration is saved in `config.yml`.
 
 ### Access API
 
-Visit http://localhost:8081/docs for interactive API documentation.
+Visit <http://localhost:8081/docs> for interactive API documentation.
 
-**REST Endpoints:**
+REST Endpoints:
+
 - `GET /api/v1/libraries` - List all libraries
 - `GET /api/v1/libraries/{id}` - Get library details
 - `POST /api/v1/libraries` - Create library
 
-**Legacy Endpoints (mobile apps):**
+Legacy Endpoints (mobile apps):
+
 - `GET /library/` - List libraries
 - `GET /library/{lib_id}/folder/{folder_id}` - Browse folder
 - `GET /library/{lib_id}/comic/{comic_id}` - Get comic info
@@ -198,7 +199,7 @@ libraries:
       default_reading_direction: "rtl"
 ```
 
-See [CONFIGURATION.md](CONFIGURATION.md) for complete guide.
+See [DOCUMENTATION_INDEX.md](DOCUMENTATION_INDEX.md) for complete configuration guide.
 
 ### CLI Tool
 
@@ -221,28 +222,40 @@ For advanced users:
 
 ## Documentation
 
-- **[DOCUMENTATION_INDEX.md](DOCUMENTATION_INDEX.md)** - Complete documentation index
-- **[CONFIGURATION.md](CONFIGURATION.md)** - Configuration guide
-- **[YACREADER_API_COMPATIBILITY.md](YACREADER_API_COMPATIBILITY.md)** - YACReader compatibility status
-- **[docs/PROJECT_OVERVIEW.md](docs/PROJECT_OVERVIEW.md)** - Full project overview
-- **[docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)** - System architecture
-- **[docs/YACLIB_API.md](docs/YACLIB_API.md)** - API reference
+- [DOCUMENTATION_INDEX.md](DOCUMENTATION_INDEX.md) - Complete documentation index
+- [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) - System architecture
+- [docs/ARCHITECTURE_UPDATE_2025.md](docs/ARCHITECTURE_UPDATE_2025.md) - Latest architecture updates
+- [docs/YACLIB_API.md](docs/YACLIB_API.md) - API reference
+- [docs/YACREADER_API_COMPATIBILITY.md](docs/YACREADER_API_COMPATIBILITY.md) - YACReader compatibility status
+- [docs/DESIGN_DECISIONS.md](docs/DESIGN_DECISIONS.md) - Design decisions and rationale
 
 ## Project Structure
 
-```
+```text
 yaclib-enhanced/
-├── yaclib.py              ⭐ Main launcher (run this!)
+├── yaclib.py              # Main launcher (run this!)
 ├── yaclib-cli.py          # CLI tool
+├── run_server.sh          # Start backend + frontend
 ├── config.yml             # Your config (created on first run)
+├── config.example.yml     # Example configuration
 ├── src/
 │   ├── api/               # FastAPI server
+│   │   └── routers/       # API route handlers
 │   ├── database/          # Database layer
+│   │   └── models.py      # SQLAlchemy models
 │   ├── scanner/           # Comic loader & thumbnails
 │   ├── client/            # Python client library
+│   ├── web/               # Web server integration
 │   └── config.py          # Configuration management
+├── webui/                 # SvelteKit frontend
+│   ├── src/
+│   │   ├── routes/        # Page routes
+│   │   ├── lib/           # Reusable components
+│   │   └── app.html       # HTML template
+│   ├── package.json       # Node dependencies
+│   └── vite.config.js     # Vite configuration
 ├── scripts/               # Production utilities
-│   ├── scan_library.py    # Library scanner
+│   ├── scan_library.py    # Single-threaded scanner
 │   └── scan_library_fast.py  # Multi-threaded scanner
 ├── tools/                 # Admin/utility tools
 │   ├── import_yacreader.py   # Import from YACReader
@@ -260,37 +273,40 @@ yaclib-enhanced/
 
 ## Requirements
 
-- **Python 3.11+**
-- **Linux, macOS, or Windows**
+- Python 3.11+
+- Linux, macOS, or Windows
 - Comics in CBZ, CBR, or CB7 format
+- Node.js 18+ (for web UI)
 
 The launcher installs all Python dependencies automatically.
 
 ## Development Status
 
-**Current Phase:** Phase 3 - YACReader Compatibility (90% complete)
+Current Phase: Phase 4 - Web UI (Implemented)
 
-**Completed:**
-- ✅ Phase 1: Foundation - All core infrastructure
-- ✅ Phase 2: Mobile UX - Reading progress, folder navigation
-- ✅ Phase 3 (90%): YACReader Compatibility
+Completed:
+
+- Phase 1: Foundation - All core infrastructure
+- Phase 2: Mobile UX - Reading progress, folder navigation
+- Phase 3: YACReader Compatibility (90%)
   - Database schema extended
   - Session management
   - Root folder implementation
   - Multi-library support
-  - Bug fixes (folder recursion, cross-library contamination)
+- Phase 4: Web UI - Modern SvelteKit interface with reader, search, and favorites
 
-**Remaining (10%):**
-- Scanner ComicInfo.xml metadata extraction
-- Search functionality
-- Favorites/Tags/Reading Lists endpoints
+Remaining:
 
-**See [YACREADER_API_COMPATIBILITY.md](YACREADER_API_COMPATIBILITY.md) for detailed compatibility status.**
+- Phase 3 (10%): ComicInfo.xml extraction, advanced search, tags/lists endpoints
+- Phase 5: Series auto-detection, reading statistics, enhanced collections
+
+See [docs/YACREADER_API_COMPATIBILITY.md](docs/YACREADER_API_COMPATIBILITY.md) for detailed compatibility status.
 
 ## Contributing
 
 Contributions welcome! Please:
-1. Check [docs/PROJECT_OVERVIEW.md](docs/PROJECT_OVERVIEW.md) for architecture
+
+1. Check [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) for system architecture
 2. Follow existing code style
 3. Add tests for new features
 4. Update documentation
@@ -312,10 +328,10 @@ MIT License - See LICENSE file for details.
 
 ---
 
-**Get started in seconds:**
+Get started in seconds:
 
 ```bash
 ./yaclib.py
 ```
 
-That's it! 🚀
+That's it!
