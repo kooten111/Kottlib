@@ -33,15 +33,6 @@
 					</a>
 
 					<a
-						href="/browse"
-						class="flex items-center space-x-2 text-dark-text-secondary hover:text-dark-text transition-colors"
-						class:text-accent-orange={$page.url.pathname.startsWith('/browse')}
-					>
-						<BookOpen class="w-4 h-4" />
-						<span>Browse</span>
-					</a>
-
-					<a
 						href="/continue-reading"
 						class="flex items-center space-x-2 text-dark-text-secondary hover:text-dark-text transition-colors"
 						class:text-accent-orange={$page.url.pathname === '/continue-reading'}

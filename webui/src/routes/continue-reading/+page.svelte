@@ -144,10 +144,9 @@
 			<div class="empty-state">
 				<BookOpen class="w-16 h-16 text-gray-500 mb-4" />
 				<p class="text-gray-400 mb-4">No comics in progress</p>
-				<p class="text-gray-500 text-sm mb-6">
+				<p class="text-gray-500 text-sm">
 					Start reading a comic to see it here
 				</p>
-				<a href="/browse" class="btn-primary">Browse Comics</a>
 			</div>
 		{/if}
 	</main>

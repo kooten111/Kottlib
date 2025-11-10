@@ -3,19 +3,16 @@
 	import { page } from '$app/stores';
 	import { goto } from '$app/navigation';
 	import Navbar from '$lib/components/layout/Navbar.svelte';
-	import Sidebar from '$lib/components/layout/Sidebar.svelte';
-	import LibraryTree from '$lib/components/layout/LibraryTree.svelte';
 	import Breadcrumbs from '$lib/components/common/Breadcrumbs.svelte';
 	import ComicCard from '$lib/components/comic/ComicCard.svelte';
 	import { getLibraries, getSeries, getFolderTree } from '$lib/api/libraries';
-	import { Grid, List, SortAsc, Filter } from 'lucide-svelte';
+	import { Grid, List, SortAsc } from 'lucide-svelte';
 
 	let allLibraries = [];
 	let allSeries = [];
 	let isLoading = true;
 	let error = null;
 	let breadcrumbs = [];
-	let sidebarOpen = true;
 	let viewMode = 'grid'; // 'grid' or 'list'
 	let sortBy = 'name'; // 'name', 'recent', 'progress'
 	let folderTrees = {};
@@ -78,12 +75,6 @@
 		}
 	}
 
-	function handleTreeFilter(event) {
-		const { folderId } = event.detail;
-		// For now, just filter by the library (tree navigation to be enhanced later)
-		selectedLibraryId = folderId;
-	}
-
 	function sortSeries(seriesList, sortType) {
 		const sorted = [...seriesList];
 		switch (sortType) {
@@ -105,10 +96,6 @@
 	function toggleViewMode() {
 		viewMode = viewMode === 'grid' ? 'list' : 'grid';
 	}
-
-	function handleLibraryFilter(libraryId) {
-		selectedLibraryId = libraryId === selectedLibraryId ? null : libraryId;
-	}
 </script>
 
 <svelte:head>
@@ -118,38 +105,7 @@
 <div class="flex flex-col min-h-screen">
 	<Navbar />
 
-	<div class="flex flex-1">
-		<!-- Sidebar with Library Filter -->
-		<Sidebar bind:open={sidebarOpen}>
-			<div class="sidebar-content">
-				<h3 class="filter-section-title">Libraries</h3>
-				<div class="library-filters">
-					<button
-						class="library-filter-item"
-						class:active={selectedLibraryId === null}
-						on:click={() => handleLibraryFilter(null)}
-					>
-						<span class="filter-name">All Libraries</span>
-						<span class="filter-count">{allSeries.length}</span>
-					</button>
-					{#each allLibraries as lib}
-						<button
-							class="library-filter-item"
-							class:active={selectedLibraryId === lib.id}
-							on:click={() => handleLibraryFilter(lib.id)}
-						>
-							<span class="filter-name">{lib.name}</span>
-							<span class="filter-count">
-								{allSeries.filter(s => s.libraryId === lib.id).length}
-							</span>
-						</button>
-					{/each}
-				</div>
-			</div>
-		</Sidebar>
-
-		<!-- Main Content Area -->
-		<main class="flex-1 overflow-y-auto">
+	<main class="flex-1 overflow-y-auto">
 			<div class="container mx-auto px-4 py-8 max-w-content">
 				{#if isLoading}
 					<div class="loading-container">
@@ -198,15 +154,6 @@
 								{:else}
 									<List class="w-5 h-5" />
 								{/if}
-							</button>
-
-							<!-- Filter Toggle (Mobile) -->
-							<button
-								class="control-button lg:hidden"
-								on:click={() => sidebarOpen = !sidebarOpen}
-								aria-label="Toggle filters"
-							>
-								<Filter class="w-5 h-5" />
 							</button>
 						</div>
 					</div>
@@ -260,80 +207,9 @@
 				{/if}
 			</div>
 		</main>
-	</div>
 </div>
 
 <style>
-	.sidebar-content {
-		width: 100%;
-	}
-
-	.filter-section-title {
-		font-size: 1rem;
-		font-weight: 600;
-		color: var(--color-text);
-		margin-bottom: 1rem;
-		padding-bottom: 0.5rem;
-		border-bottom: 1px solid rgba(255, 255, 255, 0.1);
-	}
-
-	.library-filters {
-		display: flex;
-		flex-direction: column;
-		gap: 0.25rem;
-	}
-
-	.library-filter-item {
-		display: flex;
-		align-items: center;
-		justify-content: space-between;
-		padding: 0.75rem;
-		background: transparent;
-		border: none;
-		border-radius: 6px;
-		color: var(--color-text);
-		font-size: 0.875rem;
-		text-align: left;
-		cursor: pointer;
-		transition: all 0.2s;
-		border-left: 2px solid transparent;
-	}
-
-	.library-filter-item:hover {
-		background: rgba(255, 255, 255, 0.05);
-	}
-
-	.library-filter-item.active {
-		background: rgba(255, 103, 64, 0.1);
-		border-left-color: var(--color-accent);
-		color: var(--color-accent);
-	}
-
-	.filter-name {
-		flex: 1;
-		overflow: hidden;
-		text-overflow: ellipsis;
-		white-space: nowrap;
-	}
-
-	.filter-count {
-		font-size: 0.75rem;
-		padding: 0.125rem 0.5rem;
-		background: rgba(255, 255, 255, 0.05);
-		border-radius: 10px;
-		flex-shrink: 0;
-		margin-left: 0.5rem;
-	}
-
-	.library-filter-item.active .filter-count {
-		background: rgba(255, 103, 64, 0.2);
-	}
-
-	.loading-tree {
-		padding: 1rem;
-		text-align: center;
-	}
-
 	.loading-container,
 	.error-container,
 	.empty-state {
