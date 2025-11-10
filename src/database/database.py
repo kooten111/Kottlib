@@ -83,19 +83,25 @@ class Database:
         self.db_url = f"sqlite:///{self.db_path}"
 
         # Create engine
-        # Use StaticPool for SQLite to avoid threading issues
+        # Use NullPool for SQLite in multi-threaded scenarios to avoid connection sharing issues
+        # Each session gets its own connection that's immediately returned after use
+        from sqlalchemy.pool import NullPool
         self.engine = create_engine(
             self.db_url,
             echo=echo,
-            poolclass=StaticPool,
-            connect_args={"check_same_thread": False}
+            poolclass=NullPool,  # No connection pooling - each thread gets its own connection
+            connect_args={
+                "check_same_thread": False,
+                "timeout": 30  # 30 second timeout for lock acquisition
+            }
         )
 
         # Create session factory
         self.SessionLocal = sessionmaker(
             autocommit=False,
             autoflush=False,
-            bind=self.engine
+            bind=self.engine,
+            expire_on_commit=False  # Prevent issues with accessing objects after commit in multi-threaded context
         )
 
         logger.info(f"Database initialized: {self.db_path}")
@@ -169,8 +175,7 @@ def create_library(
     )
 
     session.add(library)
-    session.commit()
-    session.refresh(library)
+    session.flush()  # Flush to get the ID without committing
 
     logger.info(f"Created library: {name} at {path}")
     return library
@@ -203,7 +208,7 @@ def update_library_scan_status(
         library.scan_status = status
         library.last_scan_at = timestamp or int(time.time())
         library.updated_at = int(time.time())
-        session.commit()
+        session.flush()  # Flush changes without committing
 
 
 # ============================================================================
@@ -242,14 +247,7 @@ def create_comic(
     )
 
     session.add(comic)
-    session.commit()
-
-    # Refresh to get database-generated values (may fail in multi-threaded context)
-    try:
-        session.refresh(comic)
-    except Exception:
-        # If refresh fails, we still have the comic object with the data we set
-        pass
+    session.flush()  # Flush to get the ID without committing
 
     logger.debug(f"Created comic: {filename}")
     return comic
@@ -420,8 +418,7 @@ def create_folder(
     )
 
     session.add(folder)
-    session.commit()
-    session.refresh(folder)
+    session.flush()  # Flush to get the ID without committing
 
     logger.debug(f"Created folder: {name}")
     return folder
@@ -501,14 +498,12 @@ def get_or_create_root_folder(session: Session, library_id: int, library_path: s
 
     # Check if we got ID=1
     if root.id == 1:
-        session.commit()
         logger.debug(f"Created root folder with ID=1 for library {library_id}")
         return root
     else:
         # We didn't get ID=1, this means another library already has it
         # Keep this root folder but mark it specially
         logger.debug(f"Created root folder with ID={root.id} for library {library_id} (ID=1 taken)")
-        session.commit()
         return root
 
 
@@ -556,8 +551,7 @@ def create_session(
     )
 
     session.add(db_session)
-    session.commit()
-    session.refresh(db_session)
+    session.flush()  # Flush to get the ID without committing
 
     return db_session
 
@@ -572,14 +566,14 @@ def update_session_activity(session: Session, session_id: str):
     db_session = get_session_by_id(session, session_id)
     if db_session:
         db_session.last_activity_at = int(time.time())
-        session.commit()
+        session.flush()  # Flush changes without committing
 
 
 def cleanup_expired_sessions(session: Session):
     """Remove expired sessions"""
     now = int(time.time())
     session.query(DBSession).filter(DBSession.expires_at < now).delete()
-    session.commit()
+    session.flush()  # Flush changes without committing
 
 
 # ============================================================================
@@ -658,8 +652,7 @@ def update_reading_progress(
         )
         session.add(progress)
 
-    session.commit()
-    session.refresh(progress)
+    session.flush()  # Flush changes without committing
 
     logger.debug(f"Updated reading progress for comic {comic_id}: page {current_page}/{total_pages}")
     return progress
@@ -773,8 +766,7 @@ def create_cover(
         existing_cover.jpeg_path = jpeg_path
         existing_cover.webp_path = webp_path
         existing_cover.generated_at = now
-        session.commit()
-        session.refresh(existing_cover)
+        session.flush()  # Flush changes without committing
         return existing_cover
 
     # Create new
@@ -788,8 +780,7 @@ def create_cover(
     )
 
     session.add(cover)
-    session.commit()
-    session.refresh(cover)
+    session.flush()  # Flush to get the ID without committing
 
     logger.debug(f"Created {cover_type} cover for comic {comic_id} from page {page_number}")
     return cover
@@ -856,7 +847,7 @@ def delete_cover(session: Session, comic_id: int, cover_type: str):
 
         # Delete from database
         session.delete(cover)
-        session.commit()
+        session.flush()  # Flush changes without committing
         logger.debug(f"Deleted {cover_type} cover for comic {comic_id}")
 
 
@@ -896,7 +887,7 @@ def add_favorite(session: Session, user_id: int, library_id: int, comic_id: int)
     )
 
     session.add(favorite)
-    session.commit()
+    session.flush()  # Flush to get the ID without committing
     logger.debug(f"Added favorite: user={user_id}, comic={comic_id}")
     return favorite
 
@@ -922,7 +913,7 @@ def remove_favorite(session: Session, user_id: int, comic_id: int) -> bool:
 
     if favorite:
         session.delete(favorite)
-        session.commit()
+        session.flush()  # Flush changes without committing
         logger.debug(f"Removed favorite: user={user_id}, comic={comic_id}")
         return True
 
@@ -1011,7 +1002,7 @@ def create_label(session: Session, library_id: int, name: str, color_id: int = 0
     )
 
     session.add(label)
-    session.commit()
+    session.flush()  # Flush to get the ID without committing
     logger.debug(f"Created label: library={library_id}, name={name}")
     return label
 
@@ -1062,7 +1053,7 @@ def delete_label(session: Session, label_id: int) -> bool:
     label = get_label_by_id(session, label_id)
     if label:
         session.delete(label)
-        session.commit()
+        session.flush()  # Flush changes without committing
         logger.debug(f"Deleted label: id={label_id}")
         return True
 
@@ -1099,7 +1090,7 @@ def add_label_to_comic(session: Session, comic_id: int, label_id: int):
     )
 
     session.add(comic_label)
-    session.commit()
+    session.flush()  # Flush to get the ID without committing
     logger.debug(f"Added label to comic: comic={comic_id}, label={label_id}")
     return comic_label
 
@@ -1125,7 +1116,7 @@ def remove_label_from_comic(session: Session, comic_id: int, label_id: int) -> b
 
     if comic_label:
         session.delete(comic_label)
-        session.commit()
+        session.flush()  # Flush changes without committing
         logger.debug(f"Removed label from comic: comic={comic_id}, label={label_id}")
         return True
 
@@ -1212,7 +1203,7 @@ def create_reading_list(
     )
 
     session.add(reading_list)
-    session.commit()
+    session.flush()  # Flush to get the ID without committing
     logger.debug(f"Created reading list: library={library_id}, name={name}")
     return reading_list
 
@@ -1280,7 +1271,7 @@ def delete_reading_list(session: Session, list_id: int) -> bool:
     reading_list = get_reading_list_by_id(session, list_id)
     if reading_list:
         session.delete(reading_list)
-        session.commit()
+        session.flush()  # Flush changes without committing
         logger.debug(f"Deleted reading list: id={list_id}")
         return True
 
@@ -1326,7 +1317,7 @@ def add_comic_to_reading_list(session: Session, list_id: int, comic_id: int, pos
     )
 
     session.add(item)
-    session.commit()
+    session.flush()  # Flush to get the ID without committing
     logger.debug(f"Added comic to reading list: list={list_id}, comic={comic_id}, position={position}")
     return item
 
@@ -1352,7 +1343,7 @@ def remove_comic_from_reading_list(session: Session, list_id: int, comic_id: int
 
     if item:
         session.delete(item)
-        session.commit()
+        session.flush()  # Flush changes without committing
         logger.debug(f"Removed comic from reading list: list={list_id}, comic={comic_id}")
         return True
 
