@@ -7,11 +7,15 @@ Significantly faster than single-threaded scanning.
 
 import time
 import logging
+import warnings
 from pathlib import Path
 from typing import Tuple, List, Optional
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from threading import Lock
 from dataclasses import dataclass
+
+# Suppress PIL warnings about corrupt EXIF data
+warnings.filterwarnings('ignore', message='Corrupt EXIF data')
 
 try:
     # Try relative imports (when used as a package)
@@ -324,13 +328,14 @@ class ThreadedScanner:
                     return
 
             # Open comic to extract metadata
-            with open_comic(comic_path) as comic:
-                if comic is None:
-                    logger.warning(f"Failed to open: {comic_path}")
-                    with self._lock:
-                        self._errors += 1
-                    return
+            comic = open_comic(comic_path)
+            if comic is None:
+                logger.warning(f"Failed to open: {comic_path}")
+                with self._lock:
+                    self._errors += 1
+                return
 
+            with comic:
                 # Extract metadata
                 metadata = self._extract_metadata(comic)
 

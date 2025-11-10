@@ -7,6 +7,7 @@
 	import PageViewer from '$lib/components/reader/PageViewer.svelte';
 	import ReaderControls from '$lib/components/reader/ReaderControls.svelte';
 	import ReaderSettings from '$lib/components/reader/ReaderSettings.svelte';
+	import ReaderMenu from '$lib/components/reader/ReaderMenu.svelte';
 
 	// Extract route parameters
 	$: libraryId = parseInt($page.params.libraryId);
@@ -24,6 +25,7 @@
 	let controlsTimeout;
 	let currentPageImage = '';
 	let preloadedPages = new Map();
+	let showReaderMenu = false;
 
 	// Load comic data
 	onMount(async () => {
@@ -200,6 +202,11 @@
 				event.preventDefault();
 				showSettings = !showSettings;
 				break;
+			case 'm':
+			case 'M':
+				event.preventDefault();
+				showReaderMenu = !showReaderMenu;
+				break;
 			case 'Escape':
 				event.preventDefault();
 				if (isFullscreen) {
@@ -208,6 +215,22 @@
 					showSettings = false;
 				} else {
 					exitReader();
+				}
+				break;
+			case 'PageDown':
+				event.preventDefault();
+				if ($readerSettings.readingDirection === 'rtl') {
+					goToPreviousPage();
+				} else {
+					goToNextPage();
+				}
+				break;
+			case 'PageUp':
+				event.preventDefault();
+				if ($readerSettings.readingDirection === 'rtl') {
+					goToNextPage();
+				} else {
+					goToPreviousPage();
 				}
 				break;
 			case 'Home':
@@ -299,6 +322,38 @@
 	function handleCloseSettings() {
 		showSettings = false;
 	}
+
+	// Handle PageViewer navigation events
+	function handleNavigate(event) {
+		const { direction } = event.detail;
+		const isRTL = $readerSettings.readingDirection === 'rtl';
+
+		if (direction === 'previous') {
+			if (isRTL) {
+				goToNextPage();
+			} else {
+				goToPreviousPage();
+			}
+		} else if (direction === 'next') {
+			if (isRTL) {
+				goToPreviousPage();
+			} else {
+				goToNextPage();
+			}
+		}
+	}
+
+	function handleToggleMenu() {
+		showReaderMenu = !showReaderMenu;
+	}
+
+	function handleCloseMenu() {
+		showReaderMenu = false;
+	}
+
+	function handleMenuPageChange(event) {
+		goToPage(event.detail);
+	}
 </script>
 
 <svelte:head>
@@ -311,6 +366,8 @@
 		pageNumber={currentPage}
 		totalPages={totalPages}
 		bind:isLoading
+		on:navigate={handleNavigate}
+		on:toggleMenu={handleToggleMenu}
 	/>
 
 	{#if showControls || showSettings}
@@ -329,6 +386,15 @@
 	{/if}
 
 	<ReaderSettings show={showSettings} on:close={handleCloseSettings} />
+
+	<ReaderMenu
+		bind:show={showReaderMenu}
+		{currentPage}
+		{totalPages}
+		chapters={[]}
+		on:pageChange={handleMenuPageChange}
+		on:close={handleCloseMenu}
+	/>
 </div>
 
 <style>

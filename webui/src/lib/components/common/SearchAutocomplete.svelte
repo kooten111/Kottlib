@@ -8,6 +8,22 @@
 	export let placeholder = 'Search comics... (Ctrl+K)';
 	export let onSelect = null;
 
+	// Expose focus method
+	export function focus() {
+		inputElement?.focus();
+	}
+
+	// Expose search method
+	export function triggerSearch() {
+		if (searchQuery.trim()) {
+			if (isOpen && selectedIndex >= 0) {
+				selectResult(results[selectedIndex]);
+			} else {
+				navigateToSearch();
+			}
+		}
+	}
+
 	let searchQuery = '';
 	let isOpen = false;
 	let results = [];
@@ -183,7 +199,6 @@
 			autocomplete="off"
 			spellcheck="false"
 		/>
-		<Search class="search-icon" />
 		{#if isSearching}
 			<div class="search-spinner" />
 		{/if}
@@ -256,7 +271,7 @@
 
 	.search-input {
 		width: 100%;
-		padding: 0.625rem 2.5rem;
+		padding: 0.625rem 2.5rem 0.625rem 1rem;
 		background: var(--color-secondary-bg);
 		border: 1px solid rgba(255, 255, 255, 0.1);
 		border-radius: 8px;
@@ -277,7 +292,7 @@
 
 	.search-icon {
 		position: absolute;
-		left: 0.75rem;
+		right: 0.5rem;
 		top: 50%;
 		transform: translateY(-50%);
 		width: 1.25rem;
@@ -288,7 +303,7 @@
 
 	.search-spinner {
 		position: absolute;
-		right: 0.75rem;
+		right: 2.25rem;
 		top: 50%;
 		transform: translateY(-50%);
 		width: 1rem;
@@ -308,7 +323,7 @@
 		top: calc(100% + 0.5rem);
 		left: 0;
 		right: 0;
-		background: var(--color-secondary-bg);
+		background: #242424;
 		border: 1px solid rgba(255, 255, 255, 0.1);
 		border-radius: 8px;
 		box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);

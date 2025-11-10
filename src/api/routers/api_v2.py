@@ -1687,6 +1687,450 @@ async def remove_comic_from_reading_list_endpoint(
 
 
 # ============================================================================
+# Folder Tree (NEW)
+# ============================================================================
+
+@router.get("/library/{library_id}/tree")
+async def get_folder_tree(
+    library_id: int,
+    request: Request,
+    max_depth: int = 10
+):
+    """
+    Get hierarchical folder tree for a library
+
+    Returns nested folder structure with comic counts
+
+    Format:
+    {
+        "id": library_id,
+        "name": "Library Name",
+        "type": "library",
+        "children": [
+            {
+                "id": folder_id,
+                "name": "Folder Name",
+                "type": "folder",
+                "parent_id": parent_folder_id,
+                "comic_count": 10,
+                "children": [...]
+            }
+        ]
+    }
+    """
+    from ...database.models import Folder as FolderModel
+
+    db = request.app.state.db
+
+    with db.get_session() as session:
+        # Get library
+        library = get_library_by_id(session, library_id)
+        if not library:
+            raise HTTPException(status_code=404, detail="Library not found")
+
+        # Get all folders in library
+        all_folders = get_folders_in_library(session, library_id)
+
+        # Build folder lookup dict
+        folder_dict = {folder.id: folder for folder in all_folders}
+
+        # Build tree structure recursively
+        def build_tree_node(folder, depth=0):
+            if depth > max_depth:
+                return None
+
+            # Skip root folder
+            if folder.name == "__ROOT__":
+                return None
+
+            # Count comics in this folder
+            comic_count = session.query(Comic).filter_by(
+                library_id=library_id,
+                folder_id=folder.id
+            ).count()
+
+            node = {
+                "id": folder.id,
+                "name": folder.name,
+                "type": "folder",
+                "parent_id": folder.parent_id,
+                "comic_count": comic_count,
+                "children": []
+            }
+
+            # Find and add children
+            child_folders = [f for f in all_folders if f.parent_id == folder.id]
+            for child in sorted(child_folders, key=lambda x: x.name):
+                child_node = build_tree_node(child, depth + 1)
+                if child_node:
+                    node["children"].append(child_node)
+
+            return node
+
+        # Find root folders (parent_id is None or points to __ROOT__)
+        root_folder = next((f for f in all_folders if f.name == "__ROOT__"), None)
+        root_folder_id = root_folder.id if root_folder else None
+
+        top_level_folders = [
+            f for f in all_folders
+            if f.parent_id == root_folder_id or
+            (f.parent_id is None and f.name != "__ROOT__")
+        ]
+
+        # Count total comics in library
+        total_comics = session.query(Comic).filter_by(library_id=library_id).count()
+
+        # Build library root node
+        tree = {
+            "id": library.id,
+            "name": library.name,
+            "type": "library",
+            "comic_count": total_comics,
+            "children": []
+        }
+
+        # Add top-level folders
+        for folder in sorted(top_level_folders, key=lambda x: x.name):
+            node = build_tree_node(folder)
+            if node:
+                tree["children"].append(node)
+
+        logger.debug(f"v2 API: Returning folder tree for library {library_id} with {len(tree['children'])} top-level folders")
+        return JSONResponse(tree)
+
+
+# ============================================================================
+# Series Grouping
+# ============================================================================
+
+@router.get("/library/{library_id}/series")
+async def get_series_list(
+    library_id: int,
+    request: Request,
+    sort: Optional[str] = "name"
+):
+    """
+    Get all series in a library with metadata aggregation
+
+    Groups comics by series name and returns summary information
+
+    Args:
+        library_id: ID of the library
+        sort: Sort order - 'name', 'recent', 'progress'
+
+    Returns:
+        Array of series objects with aggregated metadata
+    """
+    db = request.app.state.db
+
+    with db.get_session() as session:
+        # Get library
+        library = get_library_by_id(session, library_id)
+        if not library:
+            raise HTTPException(status_code=404, detail="Library not found")
+
+        # Get all comics in library
+        comics = session.query(Comic).filter_by(library_id=library_id).all()
+
+        # Get user for reading progress
+        user_id = get_current_user_id(request)
+        if user_id:
+            user = get_user_by_id(session, user_id)
+        else:
+            user = get_user_by_username(session, 'admin')
+
+        # Import Folder model
+        from ...database.models import Folder as FolderModel
+        import re
+
+        # Helper function to normalize series names from folders or filenames
+        def normalize_series_name(name):
+            """
+            Normalize series name by removing metadata like years, release groups, versions, etc.
+            Examples:
+            - "Preacher (2019) (Digital)" -> "Preacher"
+            - "A Man Among Ye v01 (2021) (Digital) (XRA-Empire)(1)" -> "A Man Among Ye"
+            - "Unnatural - Blue Blood 001 (2022) (Digital) (Zone-Empire)" -> "Unnatural - Blue Blood"
+            """
+            # Remove file extension
+            name = re.sub(r'\.(cbr|cbz|cb7|cbt|pdf)$', '', name, flags=re.IGNORECASE)
+
+            # Remove leading numbers and dashes (e.g., "02-")
+            name = re.sub(r'^\d+-', '', name)
+
+            # Remove volume/issue numbers at the end (v01, vol 1, #1, 001, etc.)
+            name = re.sub(r'\s+[Vv]\.?\d+.*$', '', name)
+            name = re.sub(r'\s+[Vv]ol\.?\s*\d+.*$', '', name)
+            name = re.sub(r'\s+#?\d{1,3}\s*$', '', name)  # Remove issue numbers like "001", "01", "1"
+
+            # Remove years in parentheses/brackets (2019), [2021], etc.
+            name = re.sub(r'\s*[\(\[]\d{4}[\)\]]', '', name)
+
+            # Remove common metadata tags in parentheses
+            # (Digital), (Empire), (XRA-Empire), (Zone-Empire), etc.
+            name = re.sub(r'\s*\([^)]*\)', '', name)
+
+            # Remove trailing version numbers (1), (2), etc. at the very end
+            name = re.sub(r'\s*\(\d+\)\s*$', '', name)
+
+            return name.strip()
+
+        # Group comics by series
+        # Priority: 1) comic.series metadata, 2) normalized folder name, 3) normalized filename
+        series_dict = {}
+
+        for comic in comics:
+            # Determine series name based on priority
+            if comic.series and comic.series.strip():
+                # Use metadata series field if available
+                series_name = comic.series.strip()
+            elif comic.folder_id:
+                # Use normalized folder name as series name
+                folder = session.query(FolderModel).filter_by(id=comic.folder_id).first()
+                if folder and folder.name != "__ROOT__":
+                    series_name = normalize_series_name(folder.name)
+                else:
+                    # Fallback to normalized filename if folder is root
+                    series_name = normalize_series_name(comic.title or comic.filename)
+            else:
+                # No folder, use normalized title or filename
+                series_name = normalize_series_name(comic.title or comic.filename)
+
+            if series_name not in series_dict:
+                series_dict[series_name] = {
+                    "series_name": series_name,
+                    "volumes": [],
+                    "publisher": comic.publisher if hasattr(comic, 'publisher') else None,
+                    "year": None,
+                    "total_issues": 0,
+                    "cover_hash": comic.hash,  # Use first comic's cover
+                    "first_comic_id": comic.id
+                }
+
+            # Add comic to series volumes
+            volume_info = {
+                "id": comic.id,
+                "title": comic.title or comic.filename,
+                "volume": comic.volume,
+                "issue_number": comic.issue_number,
+                "filename": comic.filename,
+                "hash": comic.hash,
+                "num_pages": comic.num_pages
+            }
+
+            # Add reading progress
+            if user:
+                progress = get_reading_progress(session, user.id, comic.id)
+                if progress:
+                    volume_info["current_page"] = progress.current_page
+                    volume_info["is_completed"] = progress.is_completed
+                    volume_info["progress_percent"] = progress.progress_percent
+
+            series_dict[series_name]["volumes"].append(volume_info)
+            series_dict[series_name]["total_issues"] += 1
+
+        # Convert to list and sort
+        series_list = list(series_dict.values())
+
+        if sort == "name":
+            series_list.sort(key=lambda s: s["series_name"].lower())
+        elif sort == "recent":
+            # Sort by most recent addition (first comic id descending)
+            series_list.sort(key=lambda s: s["first_comic_id"], reverse=True)
+        elif sort == "progress":
+            # Sort by reading progress (series with unread volumes first)
+            def get_progress_key(s):
+                completed = sum(1 for v in s["volumes"] if v.get("is_completed", False))
+                return (completed / s["total_issues"]) if s["total_issues"] > 0 else 0
+            series_list.sort(key=get_progress_key)
+
+        logger.debug(f"v2 API: Returning {len(series_list)} series for library {library_id}")
+        return JSONResponse(series_list)
+
+
+@router.get("/library/{library_id}/series/{series_name}")
+async def get_series_detail(
+    library_id: int,
+    series_name: str,
+    request: Request
+):
+    """
+    Get detailed information about a specific series
+
+    Returns all volumes in the series with full metadata and reading progress
+
+    Args:
+        library_id: ID of the library
+        series_name: Name of the series (URL encoded)
+
+    Returns:
+        Series object with volumes array and aggregated metadata
+    """
+    from urllib.parse import unquote
+    import re
+
+    from ...database.models import Folder as FolderModel
+
+    # Helper function to normalize series names (same as in get_series_list)
+    def normalize_series_name(name):
+        """Normalize series name by removing metadata like years, release groups, etc."""
+        # Remove file extension
+        name = re.sub(r'\.(cbr|cbz|cb7|cbt|pdf)$', '', name, flags=re.IGNORECASE)
+
+        # Remove leading numbers and dashes (e.g., "02-")
+        name = re.sub(r'^\d+-', '', name)
+
+        # Remove volume/issue numbers at the end (v01, vol 1, #1, 001, etc.)
+        name = re.sub(r'\s+[Vv]\.?\d+.*$', '', name)
+        name = re.sub(r'\s+[Vv]ol\.?\s*\d+.*$', '', name)
+        name = re.sub(r'\s+#?\d{1,3}\s*$', '', name)
+
+        # Remove years in parentheses/brackets (2019), [2021], etc.
+        name = re.sub(r'\s*[\(\[]\d{4}[\)\]]', '', name)
+
+        # Remove common metadata tags in parentheses
+        name = re.sub(r'\s*\([^)]*\)', '', name)
+
+        # Remove trailing version numbers (1), (2), etc. at the very end
+        name = re.sub(r'\s*\(\d+\)\s*$', '', name)
+
+        return name.strip()
+
+    db = request.app.state.db
+
+    with db.get_session() as session:
+        # Get library
+        library = get_library_by_id(session, library_id)
+        if not library:
+            raise HTTPException(status_code=404, detail="Library not found")
+
+        # Decode series name from URL
+        decoded_series_name = unquote(series_name)
+
+        # Get all comics in library and filter by series
+        # Priority: 1) comic.series metadata, 2) normalized folder name, 3) normalized filename
+        all_comics = session.query(Comic).filter_by(library_id=library_id).all()
+
+        # Find comics matching the series name
+        comics = []
+        for comic in all_comics:
+            # Determine series name using same logic as series list
+            if comic.series and comic.series.strip():
+                comic_series_name = comic.series.strip()
+            elif comic.folder_id:
+                folder = session.query(FolderModel).filter_by(id=comic.folder_id).first()
+                if folder and folder.name != "__ROOT__":
+                    comic_series_name = normalize_series_name(folder.name)
+                else:
+                    comic_series_name = normalize_series_name(comic.title or comic.filename)
+            else:
+                comic_series_name = normalize_series_name(comic.title or comic.filename)
+
+            if comic_series_name == decoded_series_name:
+                comics.append(comic)
+
+        if not comics:
+            raise HTTPException(status_code=404, detail="Series not found")
+
+        # Get user for reading progress
+        user_id = get_current_user_id(request)
+        if user_id:
+            user = get_user_by_id(session, user_id)
+        else:
+            user = get_user_by_username(session, 'admin')
+
+        # Build volumes list with full details
+        volumes = []
+        for comic in comics:
+            # Get reading progress
+            current_page = 0
+            is_completed = False
+            progress_percent = 0
+            last_read_at = None
+
+            if user:
+                progress = get_reading_progress(session, user.id, comic.id)
+                if progress:
+                    current_page = progress.current_page
+                    is_completed = progress.is_completed
+                    progress_percent = progress.progress_percent
+                    last_read_at = progress.last_read_at
+
+            # Build relative path
+            try:
+                relative_path = str(Path(comic.path).relative_to(library.path))
+            except ValueError:
+                relative_path = comic.filename
+
+            api_path = f"/{relative_path}"
+
+            volume = {
+                "type": "comic",
+                "id": str(comic.id),
+                "title": comic.title or comic.filename,
+                "series": comic.series,
+                "volume": comic.volume,
+                "issue_number": comic.issue_number,
+                "filename": comic.filename,
+                "file_size": comic.file_size,
+                "hash": comic.hash,
+                "path": api_path,
+                "num_pages": comic.num_pages,
+                "current_page": current_page,
+                "is_completed": is_completed,
+                "progress_percent": progress_percent,
+                "last_read_at": last_read_at,
+                "library_id": str(library_id),
+                "library_uuid": library.uuid,
+                "created_at": comic.created_at
+            }
+
+            # Add optional metadata fields
+            if hasattr(comic, 'synopsis') and comic.synopsis:
+                volume["synopsis"] = comic.synopsis
+            if hasattr(comic, 'writer') and comic.writer:
+                volume["writer"] = comic.writer
+            if hasattr(comic, 'publisher') and comic.publisher:
+                volume["publisher"] = comic.publisher
+            if hasattr(comic, 'genre') and comic.genre:
+                volume["genre"] = comic.genre
+            if hasattr(comic, 'year') and comic.year:
+                volume["year"] = comic.year
+
+            volumes.append(volume)
+
+        # Sort volumes by issue number or volume
+        volumes.sort(key=lambda v: (v.get("volume") or 0, v.get("issue_number") or 0))
+
+        # Aggregate series metadata from first comic
+        first_comic = comics[0]
+        series_detail = {
+            "series_name": decoded_series_name,
+            "total_issues": len(volumes),
+            "cover_hash": first_comic.hash,
+            "volumes": volumes
+        }
+
+        # Add aggregated metadata
+        if hasattr(first_comic, 'publisher') and first_comic.publisher:
+            series_detail["publisher"] = first_comic.publisher
+        if hasattr(first_comic, 'year') and first_comic.year:
+            series_detail["year"] = first_comic.year
+        if hasattr(first_comic, 'genre') and first_comic.genre:
+            series_detail["genre"] = first_comic.genre
+        if hasattr(first_comic, 'synopsis') and first_comic.synopsis:
+            series_detail["synopsis"] = first_comic.synopsis
+
+        # Calculate overall reading progress
+        completed_volumes = sum(1 for v in volumes if v["is_completed"])
+        series_detail["completed_volumes"] = completed_volumes
+        series_detail["overall_progress"] = (completed_volumes / len(volumes) * 100) if volumes else 0
+
+        logger.debug(f"v2 API: Returning series detail for '{decoded_series_name}' with {len(volumes)} volumes")
+        return JSONResponse(series_detail)
+
+
+# ============================================================================
 # Session Management (Stubs)
 # ============================================================================
 

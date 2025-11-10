@@ -365,11 +365,13 @@ class CBRArchive(ComicArchive):
         """Get file contents from RAR"""
         try:
             return self.archive.read(filename)
-        except KeyError:
+        except (KeyError, rarfile.NoRarEntry):
             # Try case-insensitive search
             for name in self.archive.namelist():
                 if name.lower() == filename.lower():
                     return self.archive.read(name)
+            # Not found - return None silently (expected for optional files)
+            return None
         except Exception as e:
             logger.error(f"Failed to read {filename} from RAR: {e}")
         return None

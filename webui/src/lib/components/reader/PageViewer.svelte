@@ -1,6 +1,8 @@
 <script>
 	import { readerSettings } from '$lib/stores/reader';
-	import { onMount, onDestroy } from 'svelte';
+	import { onMount, onDestroy, createEventDispatcher } from 'svelte';
+
+	const dispatch = createEventDispatcher();
 
 	export let imageSrc = '';
 	export let pageNumber = 1;
@@ -13,6 +15,7 @@
 	let containerHeight = 0;
 	let imageLoaded = false;
 	let imageError = false;
+	let mouseZone = null; // 'left', 'center', 'right', or null
 
 	$: fitClass = getFitClass($readerSettings.fitMode);
 
@@ -48,6 +51,49 @@
 		isLoading = true;
 	}
 
+	// Handle click navigation with three zones
+	function handlePageClick(e) {
+		const { clientX } = e;
+		const { left, width } = container.getBoundingClientRect();
+		const clickPosition = (clientX - left) / width;
+
+		const leftZone = 0.33;
+		const rightZone = 0.67;
+
+		if (clickPosition < leftZone) {
+			// Left third: Previous page (respects RTL)
+			dispatch('navigate', { direction: 'previous' });
+		} else if (clickPosition > rightZone) {
+			// Right third: Next page (respects RTL)
+			dispatch('navigate', { direction: 'next' });
+		} else {
+			// Middle third: Toggle menu
+			dispatch('toggleMenu');
+		}
+	}
+
+	// Update mouse zone for cursor styling
+	function handleMouseMove(e) {
+		const { clientX } = e;
+		const { left, width } = container.getBoundingClientRect();
+		const mousePosition = (clientX - left) / width;
+
+		const leftZone = 0.33;
+		const rightZone = 0.67;
+
+		if (mousePosition < leftZone) {
+			mouseZone = 'left';
+		} else if (mousePosition > rightZone) {
+			mouseZone = 'right';
+		} else {
+			mouseZone = 'center';
+		}
+	}
+
+	function handleMouseLeave() {
+		mouseZone = null;
+	}
+
 	onMount(() => {
 		// Observe container resize
 		const resizeObserver = new ResizeObserver((entries) => {
@@ -69,8 +115,13 @@
 
 <div
 	bind:this={container}
-	class="page-viewer"
+	class="page-viewer zone-{mouseZone || 'none'}"
 	style="background-color: {$readerSettings.backgroundColor}"
+	on:click={handlePageClick}
+	on:mousemove={handleMouseMove}
+	on:mouseleave={handleMouseLeave}
+	role="button"
+	tabindex="0"
 >
 	{#if isLoading}
 		<div class="loading-spinner">
@@ -123,6 +174,20 @@
 		justify-content: center;
 		overflow: auto;
 		position: relative;
+		cursor: default;
+	}
+
+	/* Cursor styles for navigation zones */
+	.page-viewer.zone-left {
+		cursor: w-resize;
+	}
+
+	.page-viewer.zone-right {
+		cursor: e-resize;
+	}
+
+	.page-viewer.zone-center {
+		cursor: pointer;
 	}
 
 	.page-image {

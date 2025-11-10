@@ -2,12 +2,12 @@
 	import { onMount } from 'svelte';
 	import Navbar from '$components/layout/Navbar.svelte';
 	import ComicCard from '$lib/components/comic/ComicCard.svelte';
-	import { getLibraries, getFolderContents, getContinueReading } from '$lib/api/libraries';
+	import { getLibraries, getSeries, getContinueReading } from '$lib/api/libraries';
 	import { BookOpen, Library, TrendingUp } from 'lucide-svelte';
 
 	let libraries = [];
 	let continueReading = [];
-	let recentlyAdded = [];
+	let allSeries = [];
 	let isLoading = true;
 	let error = null;
 
@@ -41,25 +41,19 @@
 
 			continueReading = continueReadingResults.flat().slice(0, 10);
 
-			// Load recently added from root folders
-			const allComicsResults = await Promise.all(
+			// Load all series from all libraries
+			const allSeriesResults = await Promise.all(
 				libraries.map(async (lib) => {
 					try {
-						const items = await getFolderContents(lib.id, 0);
-						return items
-							.filter(item => item.type === 'comic')
-							.map(comic => ({ ...comic, libraryId: lib.id }));
+						const series = await getSeries(lib.id, 'recent');
+						return series.map(s => ({ ...s, libraryId: lib.id }));
 					} catch {
 						return [];
 					}
 				})
 			);
 
-			const allComics = allComicsResults.flat();
-
-			recentlyAdded = allComics
-				.sort((a, b) => (b.added || 0) - (a.added || 0))
-				.slice(0, 20);
+			allSeries = allSeriesResults.flat().slice(0, 20);
 
 			isLoading = false;
 		} catch (err) {
@@ -138,23 +132,37 @@
 						</section>
 					{/if}
 
-					{#if recentlyAdded.length > 0}
+					{#if allSeries.length > 0}
 						<section class="section">
 							<div class="section-header">
 								<h2 class="section-title">
 									<TrendingUp class="w-6 h-6" />
-									Recently Added
+									All Series
 								</h2>
+								<a href="/browse" class="see-all">See all →</a>
 							</div>
 							<div class="comics-grid">
-								{#each recentlyAdded as comic}
-									<ComicCard {comic} libraryId={comic.libraryId} showProgress={false} />
+								{#each allSeries as series}
+									<a href="/series/{series.libraryId}/{encodeURIComponent(series.series_name)}">
+										<ComicCard
+											comic={{
+												id: series.first_comic_id,
+												title: series.series_name,
+												hash: series.cover_hash,
+												itemCount: series.total_issues
+											}}
+											libraryId={series.libraryId}
+											showProgress={false}
+											isFolder={true}
+											itemCount={series.total_issues}
+										/>
+									</a>
 								{/each}
 							</div>
 						</section>
 					{/if}
 
-					{#if continueReading.length === 0 && recentlyAdded.length === 0}
+					{#if continueReading.length === 0 && allSeries.length === 0}
 						<div class="empty-state">
 							<svg
 								xmlns="http://www.w3.org/2000/svg"

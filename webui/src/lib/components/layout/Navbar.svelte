@@ -1,8 +1,14 @@
 <script>
 	import { page } from '$app/stores';
 	import { themeStore } from '$stores/theme';
-	import { Moon, Sun, Home, BookOpen, Heart, List } from 'lucide-svelte';
+	import { Moon, Sun, Home, BookOpen, Heart, List, Search } from 'lucide-svelte';
 	import SearchAutocomplete from '$components/common/SearchAutocomplete.svelte';
+
+	let searchComponent;
+
+	function handleSearchIconClick() {
+		searchComponent?.triggerSearch();
+	}
 </script>
 
 <nav class="bg-dark-bg-secondary border-b border-gray-700 sticky top-0 z-50">
@@ -56,8 +62,11 @@
 			</div>
 
 			<!-- Search Bar -->
-			<div class="flex-1 max-w-md mx-8 hidden lg:block">
-				<SearchAutocomplete placeholder="Search comics... (Ctrl+K)" />
+			<div class="flex-1 max-w-md mx-8 hidden lg:flex items-center gap-3">
+				<SearchAutocomplete bind:this={searchComponent} placeholder="Search comics... (Ctrl+K)" />
+				<button on:click={handleSearchIconClick} class="hover:text-dark-text transition-colors" aria-label="Focus search">
+					<Search class="w-6 h-6 text-dark-text-secondary flex-shrink-0" />
+				</button>
 			</div>
 
 			<!-- Right Side Actions -->

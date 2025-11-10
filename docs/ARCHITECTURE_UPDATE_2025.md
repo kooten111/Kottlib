@@ -1,12 +1,22 @@
 # YACLib Enhanced - Architecture Update 2025
 
-## Current Status (As of 2025-11-09)
+## Current Status (As of 2025-11-10)
+
+### Recent Updates (2025-11-10)
+
+- ✅ **Folder Tree API**: Complete hierarchical tree navigation API implemented
+- ✅ **Series Navigation**: New series detail routes and components added
+- ✅ **Library Tree Components**: LibraryTree.svelte and TreeNode.svelte created
+- ✅ **Reader Menu**: New ReaderMenu.svelte component for enhanced navigation
+- ✅ **Multi-threading Fixes**: Resolved SQLAlchemy transaction errors in threaded scanner
+- ✅ **UI Enhancements**: Improved comic cards, search autocomplete, and page viewer
+- ✅ **API v2 Extensions**: Added folder tree, library stats, and series browsing endpoints
 
 ### Implemented Features
 
 #### Phase 4: Web UI ✅ **COMPLETE**
 - Modern SvelteKit Interface with Tailwind CSS
-- Comic Reader with basic keyboard shortcuts
+- Comic Reader with enhanced keyboard shortcuts
 - Library Browser (grid/list views)
 - Continue Reading functionality
 - Favorites system
@@ -14,8 +24,11 @@
 - Admin Dashboard
 - Dark/Light theme
 - Responsive design
+- Hierarchical folder tree navigation (NEW)
+- Series browsing pages (NEW)
 
-#### Reader Features (Partially Implemented)
+#### Reader Features
+
 - ✅ Page-by-page viewing
 - ✅ Keyboard shortcuts (Arrow keys, Space, F, S, Esc, 1-9)
 - ✅ Fit modes (fit-width, fit-height, original)
@@ -25,24 +38,225 @@
 - ✅ Settings persistence (localStorage)
 - ✅ Page preloading
 - ✅ Auto-hide controls
-- ⚠️ Mouse navigation zones (needs enhancement)
-- ⚠️ Middle-click menu (not implemented)
-- ⚠️ Page Up/Down navigation (not implemented)
+- ✅ Reader menu component (NEW)
+- ⚠️ Mouse navigation zones (partially implemented)
+- ⚠️ Page Up/Down navigation (pending)
 
 ---
 
 ## Planned Improvements
 
-### 1. Hierarchical Tree Navigation (Priority: HIGH)
+### 1. Folder/Series Visual Representation (Priority: HIGH)
 
 #### Current Implementation
-- **File**: [webui/src/lib/components/layout/Sidebar.svelte](../webui/src/lib/components/layout/Sidebar.svelte)
-- **Structure**: Generic collapsible sidebar with slot content
-- **Issue**: Not designed for hierarchical folder tree
+- **Issue**: Folders/series currently show an icon overlaying a faded cover, which obscures the artwork
 
-#### Planned Changes
+#### New Design: Stacked Cover + Info Bar
 
-**New Component**: `LibraryTree.svelte`
+**Visual Treatment**:
+1. **Stacked Effect**: Show 2-3 covers slightly offset behind the main cover to create depth
+2. **Full Cover Visibility**: Main cover remains vibrant and fully visible
+
+**Implementation Details**:
+
+**CSS Structure** (in `ComicCard.svelte` or equivalent):
+```css
+.folder-card {
+    position: relative;
+}
+
+/* Stacked cover effect - back layers */
+.folder-card::before,
+.folder-card::after {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: inherit;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 8px;
+    z-index: -1;
+}
+
+/* First shadow layer */
+.folder-card::before {
+    transform: translate(-4px, -4px);
+    opacity: 0.6;
+}
+
+/* Second shadow layer */
+.folder-card::after {
+    transform: translate(-8px, -8px);
+    opacity: 0.3;
+}
+
+/* Info bar at bottom */
+.folder-info-bar {
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    background: rgba(0, 0, 0, 0.9);
+    backdrop-filter: blur(8px);
+    padding: 0.5rem 0.75rem;
+    border-radius: 0 0 8px 8px;
+    z-index: 2;
+}
+
+.folder-info-bar .series-name {
+    font-weight: 600;
+    font-size: 0.875rem;
+    color: var(--color-text-primary);
+    margin-bottom: 0.125rem;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.folder-info-bar .item-count {
+    font-size: 0.75rem;
+    color: var(--color-text-secondary);
+}
+
+/* Optional: Add subtle animation on hover */
+.folder-card:hover::before {
+    transform: translate(-6px, -6px);
+    transition: transform 0.2s ease;
+}
+
+.folder-card:hover::after {
+    transform: translate(-10px, -10px);
+    transition: transform 0.2s ease;
+}
+```
+
+**Component Structure** (in `ComicCard.svelte` or create `FolderCard.svelte`):
+```svelte
+<script>
+    export let folder;
+    export let isFolder = false;
+</script>
+
+{#if isFolder}
+<div class="folder-card comic-card">
+    <!-- Main cover image -->
+    <img
+        src={folder.coverUrl}
+        alt={folder.name}
+        class="cover-image"
+    />
+
+    <!-- Bottom info bar -->
+    <div class="folder-info-bar">
+        <div class="series-name">{folder.name}</div>
+        <div class="item-count">
+            {folder.itemCount} {folder.itemCount === 1 ? 'comic' : 'comics'}
+        </div>
+    </div>
+</div>
+{:else}
+<!-- Regular comic card -->
+<div class="comic-card">
+    <img src={folder.coverUrl} alt={folder.name} class="cover-image" />
+    <!-- ... regular comic card content ... -->
+</div>
+{/if}
+```
+
+**Alternative: Multi-Cover Stacked Effect**
+
+For even better visual distinction, use actual covers from the folder:
+
+```svelte
+{#if isFolder && folder.topCovers?.length > 0}
+<div class="folder-card comic-card">
+    <!-- Stack layers with actual covers -->
+    {#each folder.topCovers.slice(0, 3).reverse() as cover, i}
+    <div
+        class="stack-layer"
+        style="
+            transform: translate(-{(i + 1) * 4}px, -{(i + 1) * 4}px);
+            z-index: {-i - 1};
+            opacity: {1 - (i + 1) * 0.3};
+        "
+    >
+        <img src={cover} alt="" />
+    </div>
+    {/each}
+
+    <!-- Main cover (topmost) -->
+    <div class="main-cover">
+        <img src={folder.coverUrl} alt={folder.name} />
+    </div>
+
+    <!-- Info bar -->
+    <div class="folder-info-bar">
+        <div class="series-name">{folder.name}</div>
+        <div class="item-count">{folder.itemCount} comics</div>
+    </div>
+</div>
+{/if}
+```
+
+**API Changes Required**:
+
+Update folder/series endpoint to include top covers:
+
+```python
+# src/api/routers/folders.py
+@router.get("/folders/{folder_id}")
+async def get_folder_details(folder_id: int, include_covers: bool = True):
+    """
+    Get folder details with optional top 3 covers for stacked effect
+    """
+    folder = get_folder(folder_id)
+
+    if include_covers:
+        # Get first 3 comics from folder
+        top_comics = get_folder_comics(folder_id, limit=3)
+        folder['topCovers'] = [comic['cover_url'] for comic in top_comics]
+        folder['itemCount'] = count_folder_items(folder_id)
+
+    return folder
+```
+
+**Design Variations**:
+
+1. **Minimal Stack**: Use CSS pseudo-elements only (no actual covers)
+   - Pros: Lighter, faster, no extra API calls
+   - Cons: Less visually interesting
+
+2. **Full Multi-Cover**: Show actual covers from folder
+   - Pros: More informative, visually rich
+   - Cons: Requires additional API data, more complex rendering
+
+3. **Hybrid**: CSS stack + single info bar (recommended)
+   - Pros: Good balance of performance and visual appeal
+   - Cons: None significant
+
+**Recommended Approach**: Start with CSS-only stack effect (#1) for performance, then enhance with actual covers (#2) if needed.
+
+---
+
+### 2. Hierarchical Tree Navigation ✅ **IMPLEMENTED**
+
+#### Implementation Status
+
+- **Components**:
+  - [webui/src/lib/components/layout/LibraryTree.svelte](../webui/src/lib/components/layout/LibraryTree.svelte) ✅ Created
+  - [webui/src/lib/components/layout/TreeNode.svelte](../webui/src/lib/components/layout/TreeNode.svelte) ✅ Created
+- **API Endpoint**: `GET /api/v2/library/{library_id}/tree` ✅ Implemented
+- **Features Completed**:
+  - ✅ Recursive folder tree rendering
+  - ✅ Hierarchical folder structure from API
+  - ✅ Comic count per folder
+  - ✅ Tree data structure with parent/child relationships
+
+#### API Endpoint
+
+The backend now provides a complete tree structure:
 
 ```
 Library

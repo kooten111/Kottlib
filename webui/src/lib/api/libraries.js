@@ -29,3 +29,25 @@ export async function getFolderContents(libraryId, folderId = 0) {
 export async function getContinueReading(libraryId, limit = 10) {
 	return api.get(`/library/${libraryId}/reading?limit=${limit}`);
 }
+
+/**
+ * Get folder tree for a library
+ */
+export async function getFolderTree(libraryId, maxDepth = 10) {
+	return api.get(`/library/${libraryId}/tree?max_depth=${maxDepth}`);
+}
+
+/**
+ * Get all series in a library
+ */
+export async function getSeries(libraryId, sort = 'name') {
+	return api.get(`/library/${libraryId}/series?sort=${sort}`);
+}
+
+/**
+ * Get detailed information about a specific series
+ */
+export async function getSeriesDetail(libraryId, seriesName) {
+	const encodedName = encodeURIComponent(seriesName);
+	return api.get(`/library/${libraryId}/series/${encodedName}`);
+}
