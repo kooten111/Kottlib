@@ -512,6 +512,45 @@ def get_subfolders(session: Session, parent_id: int) -> List[Folder]:
     return session.query(Folder).filter_by(parent_id=parent_id).all()
 
 
+def get_first_comic_recursive(session: Session, folder_id: int, library_id: int):
+    """
+    Recursively find the first comic in a folder hierarchy.
+
+    If the folder contains comics, return the first one (ordered by filename).
+    If the folder contains only subfolders, recursively search the first subfolder.
+
+    Args:
+        session: Database session
+        folder_id: ID of the folder to search in
+        library_id: ID of the library (for scoping)
+
+    Returns:
+        Comic object or None if no comics found
+    """
+    from .models import Comic
+
+    # First, try to find a comic directly in this folder
+    first_comic = session.query(Comic).filter_by(
+        library_id=library_id,
+        folder_id=folder_id
+    ).order_by(Comic.filename).first()
+
+    if first_comic:
+        return first_comic
+
+    # If no comics in this folder, recursively search subfolders
+    subfolders = session.query(Folder).filter_by(
+        parent_id=folder_id
+    ).order_by(Folder.name).all()
+
+    for subfolder in subfolders:
+        comic = get_first_comic_recursive(session, subfolder.id, library_id)
+        if comic:
+            return comic
+
+    return None
+
+
 # ============================================================================
 # User Operations
 # ============================================================================

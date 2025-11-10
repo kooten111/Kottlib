@@ -26,6 +26,7 @@ from ...database import (
     get_reading_progress,
     get_continue_reading,
     update_reading_progress,
+    get_first_comic_recursive,
 )
 from ...database.models import Comic
 from ..middleware import get_current_user_id
@@ -188,12 +189,9 @@ async def get_folder_v2(
                 if folder.parent_id != folder_id:
                     continue
 
-            # Get first comic in this folder for the cover
+            # Get first comic in this folder for the cover (recursively search subfolders if needed)
             from ...database.models import Comic, Folder as FolderModel
-            first_comic = session.query(Comic).filter_by(
-                library_id=library_id,
-                folder_id=folder.id
-            ).order_by(Comic.filename).first()
+            first_comic = get_first_comic_recursive(session, folder.id, library_id)
 
             first_comic_hash = first_comic.hash if first_comic else ""
 
