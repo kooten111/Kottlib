@@ -1,0 +1,556 @@
+yaclib-enhanced/
+├── src/                          # Python backend
+│   ├── api/                      # FastAPI application
+│   │   ├── main.py              # Main API entry point
+│   │   ├── middleware/          # Session & auth middleware
+│   │   └── routers/             # API route handlers
+│   │       ├── api_v2.py        # Main v2 API (libraries, comics, folders, series, tree)
+│   │       ├── libraries.py     # Library management endpoints
+│   │       └── legacy_v1.py     # Legacy YACReader v1 API
+│   └── database/                # SQLAlchemy models & queries
+│       ├── models.py            # Comic, Library, Folder, ReadingProgress, etc.
+│       └── database.py          # Database session & connection handling
+│
+└── webui/                        # SvelteKit frontend
+    └── src/
+        ├── routes/              # SvelteKit route pages
+        │   ├── +layout.svelte   # Root layout with theme & query client
+        │   ├── +page.svelte     # Home page (libraries, continue reading, recent series)
+        │   ├── browse/          # Browse by library
+        │   ├── comic/           # Comic detail & reader pages
+        │   ├── series/          # Series detail (all volumes)
+        │   ├── search/          # Global search
+        │   ├── favorites/       # Favorite comics
+        │   ├── continue-reading/# Continue reading list
+        │   └── admin/           # Admin panel
+        │
+        └── lib/
+            ├── api/             # API client functions
+            │   ├── client.js    # Base APIClient class (fetch wrapper)
+            │   ├── libraries.js # getLibraries, getFolderTree, getSeries, getFolderContents
+            │   ├── comics.js    # getComic, getComicPage, updateReadingProgress, navigation
+            │   ├── search.js    # Search API
+            │   └── favorites.js # Favorites API
+            │
+            ├── components/      # Reusable Svelte components
+            │   ├── layout/
+            │   │   ├── Navbar.svelte        # Top navigation bar
+            │   │   ├── Sidebar.svelte       # Generic sidebar container
+            │   │   ├── LibraryTree.svelte   # Hierarchical folder tree display
+            │   │   └── TreeNode.svelte      # Recursive tree node component
+            │   │
+            │   ├── comic/
+            │   │   ├── ComicCard.svelte     # Grid/list comic card component
+            │   │   └── LibraryCard.svelte   # Library card component
+            │   │
+            │   ├── reader/
+            │   │   ├── PageViewer.svelte    # Comic page display
+            │   │   ├── ReaderControls.svelte# Navigation & page controls
+            │   │   ├── ReaderMenu.svelte    # Reader overlay menu
+            │   │   └── ReaderSettings.svelte# Reader preferences
+            │   │
+            │   └── common/      # Shared UI components
+            │       ├── Button.svelte, Input.svelte, Card.svelte
+            │       ├── Modal.svelte, Breadcrumbs.svelte
+            │       ├── ProgressBar.svelte
+            │       └── SearchAutocomplete.svelte
+            │
+            └── stores/          # Svelte stores (global state)
+                ├── library.js   # currentLibrary, librariesStore
+                ├── reader.js    # Reader state
+                ├── theme.js     # Theme preference
+                └── user.js      # User session info
+
+
+
+                ==================================================================================
+                    YACLIB ENHANCED - EXPLORATION SUMMARY
+==================================================================================
+
+Successfully analyzed the comic library application architecture. Here's what was found:
+
+FRONTEND COMPONENTS (Svelte):
+===========================
+
+1. SIDEBAR & NAVIGATION
+   - Sidebar.svelte: Generic mobile-responsive container
+   - LibraryTree.svelte: Hierarchical folder browser with expand/collapse
+   - TreeNode.svelte: Recursive tree node rendering
+   - Navbar.svelte: Top navigation with search and theme toggle
+
+2. COMIC DISPLAY
+   - ComicCard.svelte: Grid/list variant card component
+   - Supports progress indicators, folder badges, lazy loading
+
+3. READER COMPONENTS
+   - PageViewer.svelte: Comic page display
+   - ReaderControls.svelte: Navigation controls
+   - ReaderMenu.svelte: Overlay menu system
+   - ReaderSettings.svelte: Reader preferences
+
+4. ROUTING & PAGES
+   - Home page: Libraries sidebar + continue reading + recent series
+   - Browse: Browse all series in a library
+   - Comic detail & reader: Full comic viewing
+   - Series view: All volumes in a series
+   - Search, favorites, continue-reading pages
+
+BACKEND API (FastAPI):
+=====================
+
+All endpoints use /v2 base path
+
+KEY ENDPOINTS:
+- GET /libraries: All libraries with counts
+- GET /library/{id}/info: Library details
+- GET /library/{id}/folder/{folderId}: Browse folder contents
+- GET /library/{id}/tree: Hierarchical folder tree (nested)
+- GET /library/{id}/series: All series grouped with metadata
+- GET /library/{id}/series/{name}: Comics in series
+- GET /library/{id}/reading: Continue reading list
+- GET /library/{id}/comic/{id}/fullinfo: Full comic info
+- POST /library/{id}/comic/{id}/update: Update reading progress
+- GET /library/{id}/cover/{hash}.jpg: Cover images
+
+DATA ORGANIZATION:
+==================
+
+LIBRARIES: Top-level collections (e.g., "My Comics")
+
+FOLDERS: Hierarchical file organization
+- Tree structure with parent_id relationships
+- Each folder contains comics and child folders
+- Root folder marked with "__ROOT__" name (hidden)
+
+SERIES: Comics grouped by name
+- Uses metadata series field (priority 1)
+- Falls back to normalized folder name (priority 2)
+- Falls back to normalized filename (priority 3)
+- Normalization removes: extensions, volume numbers, years, metadata tags
+- Example: "Preacher (2019) (Digital)" → "Preacher"
+
+COMICS: Individual comic files
+- Stores: id, filename, path, hash, num_pages, reading progress
+- Has metadata: series, volume, issue_number, publisher
+- Reading progress: per-user current_page, is_completed, progress_percent
+
+STATE MANAGEMENT:
+=================
+
+FRONTEND STORES:
+- librariesStore: List of all libraries
+- currentLibrary: Currently selected library
+- themeStore: Dark/light theme preference
+- readerStore: Reader state (current page, settings)
+
+TREE STATE:
+- expandedNodes: Set of expanded node IDs
+- Persisted to localStorage by libraryId
+- activeNodeId: Currently selected node
+
+EVENTS:
+- LibraryTree dispatches 'filter' events with folderId and folderName
+- Parent components listen to filter events to update displayed comics
+
+CURRENT NAVIGATION FLOW:
+=======================
+
+HOME PAGE:
+├── Sidebar: List of all libraries
+├── Main: Continue reading + recent series
+└── Links to browse each library or browse all
+
+BROWSE LIBRARY PAGE:
+├── Library selection (optional)
+├── Series grid/list display
+├── Sorting: name, recent, progress
+├── View toggle: grid vs list
+└── Links to series or individual comics
+
+SERIES PAGE:
+├── All volumes in series
+├── Progress per volume
+└── Links to read each volume
+
+READER PAGE:
+├── Current page image
+├── Page controls
+├── Navigation menu
+└── Reading progress tracking
+
+KEY FILES TO MODIFY:
+====================
+
+SIDEBAR/TREE NAVIGATION:
+- webui/src/lib/components/layout/LibraryTree.svelte
+- webui/src/lib/components/layout/TreeNode.svelte
+- src/api/routers/api_v2.py (line 1691: tree endpoint)
+
+BROWSE VIEW:
+- webui/src/routes/browse/[libraryId]/+page.svelte
+- webui/src/lib/components/comic/ComicCard.svelte
+- webui/src/lib/api/libraries.js
+
+API ENDPOINTS:
+- src/api/routers/api_v2.py (main v2 API)
+- src/api/routers/libraries.py (library management)
+
+IMPORTANT PATTERNS:
+===================
+
+TREE NODE STRUCTURE:
+{
+  "id": node_id,
+  "name": "folder_name",
+  "type": "folder|library",
+  "parent_id": parent_id_or_null,
+  "comic_count": 25,
+  "children": [...]  // nested array
+}
+
+SERIES DATA:
+{
+  "series_name": "Spider-Man",
+  "total_issues": 50,
+  "cover_hash": "hash",
+  "first_comic_id": 100,
+  "publisher": "Marvel",
+  "volumes": [{ id, title, volume, issue_number, num_pages, ... }]
+}
+
+FOLDER CONTENTS:
+[
+  { type: "folder", id, folder_name, num_children, ... },
+  { type: "comic", id, file_name, num_pages, current_page, ... }
+]
+
+PERFORMANCE NOTES:
+==================
+
+- Images lazy-loaded
+- API uses TanStack Query caching (5 min stale time)
+- Parallel requests with Promise.all for multiple libraries
+- Sidebar tree expansion state persisted in localStorage
+- No full-page reload needed for navigation
+
+READING PROGRESS:
+=================
+
+- Tracked per-user in ReadingProgress table
+- Fields: current_page, is_completed, progress_percent, last_read_at
+- Updated via POST with plain-text body: "currentPage:N"
+- Progress shown as percentage and page indicators
+
+==================================================================================
+                         DOCUMENTATION CREATED
+==================================================================================
+
+Three comprehensive guides have been generated:
+
+1. ARCHITECTURE OVERVIEW (yaclib_architecture_summary.md)
+   - Complete project structure
+   - Component organization
+   - Data models and API endpoints
+   - Navigation and routing
+   - Key implementation details
+
+2. FILE REFERENCE (yaclib_file_reference.md)
+   - All absolute file paths
+   - Component/route mappings
+   - API function index
+   - Quick navigation guide
+
+3. IMPLEMENTATION PATTERNS (yaclib_implementation_patterns.md)
+   - Code patterns and examples
+   - Data structure schemas
+   - Error handling patterns
+   - Performance optimization tips
+
+All files are in /tmp/ directory and ready for review.
+
+==================================================================================
+
+EOF
+
+
+
+================================================================================
+                    YACLIB ENHANCED - QUICK REFERENCE
+================================================================================
+
+DIRECTORY STRUCTURE
+================================================================================
+
+Backend (Python/FastAPI):
+  /mnt/Black/Apps/KottLib/yaclib-enhanced/
+  ├── src/
+  │   ├── api/routers/api_v2.py          <- Main API endpoints (/v2/*)
+  │   ├── api/routers/libraries.py       <- Library management
+  │   └── database/models.py              <- SQLAlchemy models
+  └── config.yml                          <- Configuration
+
+Frontend (SvelteKit):
+  /mnt/Black/Apps/KottLib/yaclib-enhanced/webui/src/
+  ├── routes/
+  │   ├── +page.svelte                   <- Home page with sidebar
+  │   ├── browse/[libraryId]/+page.svelte <- Browse series
+  │   ├── comic/[libraryId]/[comicId]/   <- Comic detail & reader
+  │   ├── series/[libraryId]/[seriesName]/+page.svelte
+  │   └── +layout.svelte                 <- App shell & theme
+  ├── lib/
+  │   ├── api/
+  │   │   ├── client.js                  <- Base fetch wrapper
+  │   │   ├── libraries.js               <- Library API functions
+  │   │   └── comics.js                  <- Comic API functions
+  │   ├── components/
+  │   │   ├── layout/
+  │   │   │   ├── Sidebar.svelte         <- Sidebar container
+  │   │   │   ├── LibraryTree.svelte     <- Folder tree browser
+  │   │   │   ├── TreeNode.svelte        <- Tree node (recursive)
+  │   │   │   └── Navbar.svelte          <- Top navigation
+  │   │   ├── comic/ComicCard.svelte     <- Grid/list cards
+  │   │   └── reader/PageViewer.svelte   <- Comic page display
+  │   └── stores/
+  │       ├── library.js                 <- currentLibrary store
+  │       └── theme.js                   <- Dark/light theme
+
+KEY DATA FLOWS
+================================================================================
+
+API Base URL: /v2
+All frontend requests go to: /v2/library/{id}/...
+
+LIBRARIES ENDPOINT:
+  GET /libraries
+  Returns: [{ id, name, uuid, path, comicCount }, ...]
+
+FOLDER TREE ENDPOINT:
+  GET /library/{id}/tree
+  Returns: { id, name, type: "library", comic_count, children: [...] }
+           children contain: { id, name, type: "folder", comic_count, children: [...] }
+
+SERIES ENDPOINT:
+  GET /library/{id}/series?sort=name|recent|progress
+  Returns: [{ series_name, total_issues, cover_hash, volumes: [...] }, ...]
+
+FOLDER CONTENTS ENDPOINT:
+  GET /library/{id}/folder/{folderId}
+  Returns: [
+    { type: "folder", id, folder_name, num_children, ... },
+    { type: "comic", id, file_name, num_pages, current_page, ... }
+  ]
+
+COMPONENT EVENT FLOW
+================================================================================
+
+LibraryTree dispatches 'filter' event:
+  dispatch('filter', { folderId: node.id, folderName: node.name })
+
+Parent component listens:
+  on:filter={event => {
+    // Update filtered comics based on folderId
+  }}
+
+FRONTEND STATE
+================================================================================
+
+Tree Expansion State:
+  - Stored in localStorage as: library-tree-expanded-{libraryId}
+  - Value: JSON.stringify([...expandedNodeIds])
+
+Active Node:
+  - Tracked in component local state
+  - Used to highlight selected node
+
+Theme:
+  - Stored in themeStore (Svelte writable)
+  - Applied as class="dark" on document.documentElement
+
+API FUNCTIONS (Quick Lookup)
+================================================================================
+
+LIBRARIES.JS:
+  getLibraries()
+  getLibrary(libraryId)
+  getFolderContents(libraryId, folderId)
+  getFolderTree(libraryId, maxDepth)
+  getContinueReading(libraryId, limit)
+  getSeries(libraryId, sort)
+  getSeriesDetail(libraryId, seriesName)
+
+COMICS.JS:
+  getComic(libraryId, comicId)
+  getComicPage(libraryId, comicId, page)
+  updateReadingProgress(libraryId, comicId, currentPage)
+  getPreviousComic(libraryId, comicId)
+  getNextComic(libraryId, comicId)
+  getCoverUrl(libraryId, coverHash)
+
+IMPORTANT CONSTANTS & ENUMS
+================================================================================
+
+SORT OPTIONS (getSeries):
+  - "name"     : Alphabetical by series name
+  - "recent"   : Most recently added first
+  - "progress" : By reading progress
+
+VIEW MODES (ComicCard):
+  - "grid"     : Thumbnail grid layout
+  - "list"     : Detailed list layout
+
+FOLDER IDS:
+  - 0 or "__ROOT__" : Root folder
+  - > 0             : Specific folder ID
+
+COMIC STATUS:
+  - read: boolean        (is_completed in database)
+  - current_page: number (0 means not started)
+  - has_been_opened: boolean (current_page > 0)
+
+STYLING VARIABLES (CSS)
+================================================================================
+
+--color-text                 Main text color
+--color-text-secondary       Secondary text (muted)
+--color-accent               Accent color (orange)
+--color-bg                   Main background
+--color-secondary-bg         Secondary/card background
+--color-bg-tertiary          Tertiary background
+
+Applied via class="dark" on html element for dark theme
+
+COMMON PATTERNS
+================================================================================
+
+Load data on mount:
+  onMount(async () => {
+    try {
+      data = await fetchData();
+    } catch (err) {
+      error = err.message;
+    }
+  });
+
+Reactive filtering:
+  $: filtered = data.filter(x => x.libraryId === selected);
+
+Conditional rendering:
+  {#if isLoading}
+    Loading...
+  {:else if error}
+    Error: {error}
+  {:else}
+    Content
+  {/if}
+
+Event dispatching:
+  import { createEventDispatcher } from 'svelte';
+  const dispatch = createEventDispatcher();
+  dispatch('eventName', { data: value });
+
+URL encoding (important for series names):
+  encodeURIComponent(seriesName)
+
+Pagination/Limits:
+  ?limit=10          for getContinueReading()
+  ?sort=name         for getSeries()
+  ?max_depth=10      for getFolderTree()
+
+SERIES NORMALIZATION (Backend)
+================================================================================
+
+Input examples:
+  "Spider-Man #1"
+  "Preacher (2019) (Digital)"
+  "A Man Among Ye v01 (2021) (Digital) (XRA-Empire)"
+
+Removal process:
+  1. Remove .cbr|.cbz|.cb7|.cbt|.pdf extensions
+  2. Remove volume/issue numbers: v01, vol 1, #1, 001
+  3. Remove years: (2019), [2021]
+  4. Remove metadata tags: (Digital), (Empire)
+
+Output examples:
+  "Spider-Man"
+  "Preacher"
+  "A Man Among Ye"
+
+Series Priority:
+  1. Use comic.series field if available
+  2. Use normalized folder name if in folder
+  3. Use normalized filename as fallback
+
+DEBUGGING TIPS
+================================================================================
+
+Check API responses:
+  Browser DevTools > Network tab > Preview/Response
+
+Check store values:
+  console.log($librariesStore)  // in Svelte
+  console.log($page.params)     // current route params
+
+Check localStorage:
+  localStorage.getItem('library-tree-expanded-1')
+
+Check component props:
+  console.log('Props:', { node, level, isExpanded, activeNodeId })
+
+Enable API logging:
+  In api_v2.py: logger.info() and logger.debug() calls
+
+FILE MODIFICATION CHECKLIST
+================================================================================
+
+To add sidebar to a page:
+  ✓ Import Sidebar component
+  ✓ Import LibraryTree component
+  ✓ Call getFolderTree(libraryId) in onMount()
+  ✓ Bind tree data to LibraryTree
+  ✓ Listen to filter events
+  ✓ Update displayed comics based on filter
+
+To add a new series sorting option:
+  ✓ Add case in browse/+page.svelte sortSeries()
+  ✓ Add <option> in sort dropdown
+  ✓ Update api_v2.py series endpoint if needed
+
+To modify tree appearance:
+  ✓ Edit TreeNode.svelte styles
+  ✓ Update expand icon animation
+  ✓ Change indentation padding calculation
+  ✓ Modify active/hover states
+
+To add new API endpoint:
+  ✓ Add function to api_v2.py router
+  ✓ Create corresponding function in lib/api/libraries.js or comics.js
+  ✓ Handle error cases
+  ✓ Document expected response format
+
+ROUTER STRUCTURE
+================================================================================
+
+/ (home)
+  GET /libraries         - Load libraries sidebar
+  GET /library/{id}/reading   - Load continue reading
+  GET /library/{id}/series    - Load recent series
+
+/browse/{libraryId}
+  GET /libraries         - Load all libraries
+  GET /library/{id}/tree - Load folder tree (if sidebar used)
+  GET /library/{id}/series - Load series for library
+
+/series/{libraryId}/{seriesName}
+  GET /library/{id}/series/{name} - Load all comics in series
+
+/comic/{libraryId}/{comicId}
+  GET /library/{id}/comic/{id}/fullinfo - Load comic details
+
+/comic/{libraryId}/{comicId}/read
+  GET /library/{id}/comic/{id}/fullinfo - Load comic
+  GET /library/{id}/comic/{id}/page/{pageNum}/remote - Load page images
+  POST /library/{id}/comic/{id}/update - Update progress on page change
+
+================================================================================
+                        LAST UPDATED: 2024-11-10
+================================================================================
