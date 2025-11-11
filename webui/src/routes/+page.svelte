@@ -323,20 +323,19 @@
 								{:else}
 									<!-- Show series cards -->
 									{#each displayedSeries as series}
-										<a href="/series/{series.libraryId}/{encodeURIComponent(series.series_name)}">
-											<ComicCard
-												comic={{
-													id: series.first_comic_id,
-													title: series.series_name,
-													hash: series.cover_hash,
-													itemCount: series.total_issues
-												}}
-												libraryId={series.libraryId}
-												showProgress={false}
-												isFolder={true}
-												itemCount={series.total_issues}
-											/>
-										</a>
+										<ComicCard
+											comic={{
+												id: series.first_comic_id,
+												title: series.series_name,
+												hash: series.cover_hash,
+												itemCount: series.total_issues
+											}}
+											libraryId={series.libraryId}
+											showProgress={false}
+											isFolder={true}
+											itemCount={series.total_issues}
+											href="/series/{series.libraryId}/{encodeURIComponent(series.series_name)}"
+										/>
 									{/each}
 								{/if}
 							</div>

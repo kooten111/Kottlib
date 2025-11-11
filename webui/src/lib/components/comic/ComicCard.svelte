@@ -7,6 +7,7 @@
 	export let showProgress = true;
 	export let isFolder = false; // New prop to indicate if this is a folder/series
 	export let itemCount = 0; // Number of items in folder
+	export let href = null; // Optional custom href for the card
 
 	$: hash = comic.hash || comic.coverHash || comic.first_comic_hash;
 	$: coverUrl = hash ? getCoverUrl(libraryId, hash) : null;
@@ -14,9 +15,10 @@
 	$: hasProgress = comic.current_page > 0;
 	$: title = comic.title || comic.file_name?.replace(/\.(cbz|cbr|cb7|cbt)$/i, '') || 'Untitled';
 	$: actualItemCount = itemCount || comic.itemCount || comic.item_count || 0;
+	$: cardHref = href || `/comic/${libraryId}/${comic.id}`;
 </script>
 
-<a href="/comic/{libraryId}/{comic.id}" class="comic-card {variant}" class:folder-card={isFolder}>
+<a href={cardHref} class="comic-card {variant}" class:folder-card={isFolder}>
 	<div class="cover-container" class:folder-cover={isFolder}>
 		{#if coverUrl}
 			<img src={coverUrl} alt={comic.title} class="cover-image" loading="lazy" />
