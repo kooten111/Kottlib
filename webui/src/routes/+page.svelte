@@ -2,14 +2,18 @@
 	import { onMount } from 'svelte';
 	import Navbar from '$components/layout/Navbar.svelte';
 	import ComicCard from '$lib/components/comic/ComicCard.svelte';
-	import { getLibraries, getSeries, getContinueReading } from '$lib/api/libraries';
+	import SeriesTree from '$lib/components/layout/SeriesTree.svelte';
+	import { getLibraries, getSeries, getContinueReading, getLibrariesSeriesTree } from '$lib/api/libraries';
 	import { BookOpen, Library, TrendingUp } from 'lucide-svelte';
 
 	let libraries = [];
 	let continueReading = [];
 	let allSeries = [];
+	let displayedSeries = [];
 	let isLoading = true;
 	let error = null;
+	let seriesTree = [];
+	let currentFilter = null;
 
 	onMount(async () => {
 		await loadHomeData();
@@ -20,7 +24,11 @@
 			isLoading = true;
 			error = null;
 
-			libraries = await getLibraries();
+			// Load libraries and series tree
+			[libraries, seriesTree] = await Promise.all([
+				getLibraries(),
+				getLibrariesSeriesTree()
+			]);
 
 			if (!libraries || libraries.length === 0) {
 				isLoading = false;
@@ -45,15 +53,36 @@
 			const allSeriesResults = await Promise.all(
 				libraries.map(async (lib) => {
 					try {
+						console.log(`Fetching series for library ${lib.id} (${lib.name})...`);
 						const series = await getSeries(lib.id, 'recent');
+						console.log(`Library ${lib.id} (${lib.name}) returned ${series.length} series`);
 						return series.map(s => ({ ...s, libraryId: lib.id }));
-					} catch {
+					} catch (err) {
+						console.error(`Failed to fetch series for library ${lib.id}:`, err);
 						return [];
 					}
 				})
 			);
 
-			allSeries = allSeriesResults.flat().slice(0, 20);
+			console.log('All series results:', allSeriesResults.map(r => r.length));
+
+			// Interleave series from different libraries instead of concatenating sequentially
+			// This ensures the "All Series" view shows a mix from all libraries
+			const maxLength = Math.max(...allSeriesResults.map(r => r.length));
+			allSeries = [];
+			for (let i = 0; i < maxLength; i++) {
+				for (const libraryResults of allSeriesResults) {
+					if (i < libraryResults.length) {
+						allSeries.push(libraryResults[i]);
+					}
+				}
+			}
+
+			console.log(`Total series after interleaving: ${allSeries.length}`);
+			console.log('Library IDs in allSeries:', allSeries.slice(0, 30).map(s => s.libraryId));
+			displayedSeries = allSeries.slice(0, 20);
+			console.log(`Displayed series (first 20): ${displayedSeries.length}`);
+			console.log('displayedSeries library breakdown:', displayedSeries.map(s => `${s.series_name} (lib:${s.libraryId})`));
 
 			isLoading = false;
 		} catch (err) {
@@ -61,6 +90,81 @@
 			error = err.message;
 			isLoading = false;
 		}
+	}
+
+	function handleTreeFilter(event) {
+		const { type, libraryId, folderId, folderName, comicId } = event.detail;
+
+		currentFilter = event.detail;
+
+		if (type === 'all') {
+			// Show all series from all libraries
+			displayedSeries = allSeries.slice(0, 20);
+		} else if (type === 'library') {
+			// Filter to show only series from selected library
+			displayedSeries = allSeries.filter(s => s.libraryId === libraryId);
+		} else if (type === 'folder') {
+			// Find all comics in this folder recursively from the tree
+			const library = seriesTree.find(l => l.id === libraryId);
+			if (library) {
+				const allComics = [];
+
+				// Helper function to collect all comics from a folder node
+				function collectComics(node) {
+					if (!node.children) return;
+
+					for (const child of node.children) {
+						if (child.type === 'comic') {
+							allComics.push(child);
+						} else if (child.type === 'folder') {
+							// Recursively collect from subfolders
+							collectComics(child);
+						}
+					}
+				}
+
+				// Find the folder node
+				function findFolder(children) {
+					for (const child of children) {
+						if (child.type === 'folder' && child.folderId === folderId) {
+							return child;
+						}
+						if (child.children) {
+							const found = findFolder(child.children);
+							if (found) return found;
+						}
+					}
+					return null;
+				}
+
+				const folder = findFolder(library.children);
+				if (folder) {
+					collectComics(folder);
+
+					// Convert comics to series format for display
+					if (allComics.length > 0) {
+						displayedSeries = [{
+							series_name: folderName,
+							libraryId: libraryId,
+							first_comic_id: allComics[0]?.id,
+							cover_hash: allComics[0]?.hash,
+							total_issues: allComics.length,
+							volumes: allComics
+						}];
+					} else {
+						displayedSeries = [];
+					}
+				}
+			}
+		} else if (type === 'comic') {
+			// Navigate to comic reader
+			window.location.href = `/comic/${libraryId}/${comicId}/read`;
+		}
+	}
+
+	function resetFilter() {
+		currentFilter = null;
+		displayedSeries = allSeries.slice(0, 20);
 	}
 </script>
 
@@ -77,25 +181,16 @@
 			<div class="sidebar-header">
 				<Library class="w-5 h-5 text-accent-orange" />
 				<h3 class="sidebar-title">Libraries</h3>
+				{#if currentFilter}
+					<button class="reset-button" on:click={resetFilter} title="Show all">
+						✕
+					</button>
+				{/if}
 			</div>
 
-			{#if libraries.length > 0}
-				<nav class="libraries-nav">
-					{#each libraries as library}
-						<a href="/browse/{library.id}" class="library-item">
-							<div class="library-item-icon">
-								<Library class="w-4 h-4" />
-							</div>
-							<div class="library-item-content">
-								<span class="library-item-name">{library.name}</span>
-								<span class="library-item-count">{library.comicCount || 0}</span>
-							</div>
-						</a>
-					{/each}
-				</nav>
-
-				<div class="sidebar-footer">
-					<a href="/browse" class="sidebar-link">Browse All →</a>
+			{#if seriesTree.length > 0}
+				<div class="tree-container">
+					<SeriesTree tree={seriesTree} on:filter={handleTreeFilter} />
 				</div>
 			{:else}
 				<p class="sidebar-empty">No libraries</p>
@@ -132,32 +227,62 @@
 						</section>
 					{/if}
 
-					{#if allSeries.length > 0}
+					{#if displayedSeries.length > 0}
 						<section class="section">
 							<div class="section-header">
 								<h2 class="section-title">
 									<TrendingUp class="w-6 h-6" />
-									All Series
+									{#if currentFilter?.type === 'all'}
+										All Series
+									{:else if currentFilter?.type === 'library'}
+										{currentFilter.libraryName}
+									{:else if currentFilter?.type === 'folder'}
+										{currentFilter.folderName}
+									{:else}
+										All Series
+									{/if}
 								</h2>
-								<a href="/browse" class="see-all">See all →</a>
+								{#if !currentFilter && currentFilter?.type !== 'all'}
+									<a href="/browse" class="see-all">See all →</a>
+								{/if}
 							</div>
 							<div class="comics-grid">
-								{#each allSeries as series}
-									<a href="/series/{series.libraryId}/{encodeURIComponent(series.series_name)}">
-										<ComicCard
-											comic={{
-												id: series.first_comic_id,
-												title: series.series_name,
-												hash: series.cover_hash,
-												itemCount: series.total_issues
-											}}
-											libraryId={series.libraryId}
-											showProgress={false}
-											isFolder={true}
-											itemCount={series.total_issues}
-										/>
-									</a>
-								{/each}
+								{#if currentFilter?.type === 'folder'}
+									<!-- Show individual comics when folder is selected -->
+									{#each displayedSeries[0]?.volumes || [] as comic}
+										<a href="/comic/{currentFilter.libraryId}/{comic.id}/read">
+											<ComicCard
+												comic={{
+													id: comic.id,
+													title: comic.name,
+													hash: comic.hash,
+													currentPage: comic.currentPage,
+													totalPages: comic.totalPages
+												}}
+												libraryId={currentFilter.libraryId}
+												showProgress={true}
+											/>
+										</a>
+									{/each}
+								{:else}
+									<!-- Show series cards -->
+									{#each displayedSeries as series}
+										<a href="/series/{series.libraryId}/{encodeURIComponent(series.series_name)}">
+											<ComicCard
+												comic={{
+													id: series.first_comic_id,
+													title: series.series_name,
+													hash: series.cover_hash,
+													itemCount: series.total_issues
+												}}
+												libraryId={series.libraryId}
+												showProgress={false}
+												isFolder={true}
+												itemCount={series.total_issues}
+											/>
+										</a>
+									{/each}
+								{/if}
 							</div>
 						</section>
 					{/if}
@@ -211,6 +336,33 @@
 		font-weight: 600;
 		color: var(--color-text);
 		margin: 0;
+		flex: 1;
+	}
+
+	.reset-button {
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		width: 24px;
+		height: 24px;
+		padding: 0;
+		background: rgba(255, 255, 255, 0.1);
+		border: none;
+		border-radius: 4px;
+		color: var(--color-text);
+		cursor: pointer;
+		transition: background 0.2s;
+		font-size: 14px;
+	}
+
+	.reset-button:hover {
+		background: rgba(255, 255, 255, 0.2);
+	}
+
+	.tree-container {
+		flex: 1;
+		padding: 0.5rem;
+		overflow-y: auto;
 	}
 
 	.libraries-nav {

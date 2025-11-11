@@ -1797,6 +1797,177 @@ async def get_folder_tree(
         return JSONResponse(tree)
 
 
+@router.get("/libraries/series-tree")
+async def get_libraries_series_tree(request: Request, max_depth: int = 10):
+    """
+    Get hierarchical tree of all libraries with their folder structure and comics
+
+    Returns a tree structure based on actual folder hierarchy:
+    [
+        {
+            "id": library_id,
+            "name": "Library Name",
+            "type": "library",
+            "children": [
+                {
+                    "id": folder_id,
+                    "name": "Folder Name",
+                    "type": "folder",
+                    "libraryId": library_id,
+                    "comicCount": 10,
+                    "children": [...]
+                }
+            ]
+        }
+    ]
+    """
+    from ...database.models import Folder as FolderModel
+
+    db = request.app.state.db
+
+    with db.get_session() as session:
+        # Get all libraries
+        libraries = get_all_libraries(session)
+
+        # Get user for reading progress
+        user_id = get_current_user_id(request)
+        if user_id:
+            user = get_user_by_id(session, user_id)
+        else:
+            user = get_user_by_username(session, 'admin')
+
+        def build_folder_node(folder, library_id, depth=0):
+            """Build tree node for a folder with its comics and subfolders"""
+            if depth > max_depth:
+                return None
+
+            # Skip root folder in display
+            if folder.name == "__ROOT__":
+                return None
+
+            # Get comics in this folder
+            comics_in_folder = session.query(Comic).filter_by(
+                library_id=library_id,
+                folder_id=folder.id
+            ).all()
+
+            # Build comic nodes
+            comic_nodes = []
+            for comic in sorted(comics_in_folder, key=lambda c: (c.volume or 0, c.issue_number or 0, c.title or c.filename)):
+                comic_info = {
+                    "id": comic.id,
+                    "name": comic.title or comic.filename,
+                    "type": "comic",
+                    "libraryId": library_id,
+                    "folderId": folder.id,
+                    "hash": comic.hash,
+                    "totalPages": comic.num_pages,
+                    "volume": comic.volume,
+                    "issueNumber": comic.issue_number
+                }
+
+                # Add reading progress
+                if user:
+                    progress = get_reading_progress(session, user.id, comic.id)
+                    if progress:
+                        comic_info["currentPage"] = progress.current_page
+                        comic_info["isCompleted"] = progress.is_completed
+                        comic_info["progressPercent"] = progress.progress_percent
+
+                comic_nodes.append(comic_info)
+
+            # Get subfolders
+            subfolders = session.query(FolderModel).filter_by(parent_id=folder.id).all()
+
+            # Build subfolder nodes recursively
+            subfolder_nodes = []
+            for subfolder in sorted(subfolders, key=lambda f: f.name):
+                subfolder_node = build_folder_node(subfolder, library_id, depth + 1)
+                if subfolder_node:
+                    subfolder_nodes.append(subfolder_node)
+
+            # Combine subfolders and comics as children
+            children = subfolder_nodes + comic_nodes
+
+            # Count total comics (including subfolders)
+            total_comic_count = len(comics_in_folder)
+            for subfolder_node in subfolder_nodes:
+                total_comic_count += subfolder_node.get("comicCount", 0)
+
+            return {
+                "id": f"folder-{library_id}-{folder.id}",
+                "folderId": folder.id,
+                "name": folder.name,
+                "type": "folder",
+                "libraryId": library_id,
+                "comicCount": total_comic_count,
+                "children": children
+            }
+
+        tree = []
+
+        for library in libraries:
+            # Get all folders in this library
+            all_folders = session.query(FolderModel).filter_by(library_id=library.id).all()
+
+            # Find root folder
+            root_folder = next((f for f in all_folders if f.name == "__ROOT__"), None)
+            root_folder_id = root_folder.id if root_folder else None
+
+            # Get top-level folders
+            top_level_folders = [
+                f for f in all_folders
+                if f.parent_id == root_folder_id or (f.parent_id is None and f.name != "__ROOT__")
+            ]
+
+            # Build library node
+            library_node = {
+                "id": library.id,
+                "name": library.name,
+                "type": "library",
+                "children": []
+            }
+
+            # Add top-level folders
+            for folder in sorted(top_level_folders, key=lambda f: f.name):
+                folder_node = build_folder_node(folder, library.id)
+                if folder_node:
+                    library_node["children"].append(folder_node)
+
+            # Also add comics in root folder (if any)
+            if root_folder:
+                root_comics = session.query(Comic).filter_by(
+                    library_id=library.id,
+                    folder_id=root_folder.id
+                ).all()
+
+                for comic in sorted(root_comics, key=lambda c: (c.volume or 0, c.issue_number or 0, c.title or c.filename)):
+                    comic_info = {
+                        "id": comic.id,
+                        "name": comic.title or comic.filename,
+                        "type": "comic",
+                        "libraryId": library.id,
+                        "hash": comic.hash,
+                        "totalPages": comic.num_pages,
+                        "volume": comic.volume,
+                        "issueNumber": comic.issue_number
+                    }
+
+                    if user:
+                        progress = get_reading_progress(session, user.id, comic.id)
+                        if progress:
+                            comic_info["currentPage"] = progress.current_page
+                            comic_info["isCompleted"] = progress.is_completed
+                            comic_info["progressPercent"] = progress.progress_percent
+
+                    library_node["children"].append(comic_info)
+
+            tree.append(library_node)
+
+        logger.debug(f"v2 API: Returning series tree for {len(tree)} libraries")
+        return JSONResponse(tree)
+
+
 # ============================================================================
 # Series Grouping
 # ============================================================================

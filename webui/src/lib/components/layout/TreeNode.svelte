@@ -7,41 +7,57 @@
 	export let level = 0;
 	export let isExpanded;
 	export let activeNodeId;
+	export let isRoot = false;
 
 	$: hasChildren = node.children && node.children.length > 0;
 	$: expanded = isExpanded(node.id);
 	$: isActive = activeNodeId === node.id;
 
 	function handleClick(event) {
+		console.log('TreeNode handleClick:', node.name, node.id);
 		dispatch('select', { node, event });
 	}
 
 	function handleToggle(event) {
+		console.log('TreeNode handleToggle:', node.name, node.id, 'current expanded:', expanded);
 		event.stopPropagation();
 		dispatch('toggle', { nodeId: node.id });
 	}
 </script>
 
 <div class="tree-node" style="--level: {level}">
-	<button
-		class="node-button"
-		class:active={isActive}
-		class:has-children={hasChildren}
-		on:click={handleClick}
-		type="button"
-	>
+	<div class="node-row">
 		{#if hasChildren}
-			<span class="expand-icon" class:expanded on:click={handleToggle} role="button" tabindex="0">
-				▸
-			</span>
+			{#if !isRoot}
+				<button
+					class="expand-icon"
+					class:expanded
+					on:click={handleToggle}
+					type="button"
+					aria-label={expanded ? 'Collapse' : 'Expand'}
+				>
+					▸
+				</button>
+			{:else}
+				<!-- Root node: always expanded, no toggle icon -->
+				<span class="node-spacer" />
+			{/if}
 		{:else}
 			<span class="node-spacer" />
 		{/if}
-		<span class="node-name">{node.name}</span>
-		{#if node.comic_count !== undefined}
-			<span class="node-count">{node.comic_count}</span>
-		{/if}
-	</button>
+		<button
+			class="node-button"
+			class:active={isActive}
+			class:has-children={hasChildren}
+			on:click={handleClick}
+			type="button"
+		>
+			<span class="node-name">{node.name}</span>
+			{#if node.comic_count !== undefined}
+				<span class="node-count">{node.comic_count}</span>
+			{/if}
+		</button>
+	</div>
 
 	{#if hasChildren && expanded}
 		<div class="node-children">
@@ -64,13 +80,24 @@
 		width: 100%;
 	}
 
-	.node-button {
+	.node-row {
+		display: flex;
+		align-items: center;
 		width: 100%;
+		padding-left: calc(0.75rem + var(--level) * 1.25rem);
+		border-left: 2px solid transparent;
+	}
+
+	.node-row:has(.node-button.active) {
+		border-left-color: var(--color-accent);
+	}
+
+	.node-button {
+		flex: 1;
 		display: flex;
 		align-items: center;
 		gap: 0.5rem;
 		padding: 0.5rem 0.75rem;
-		padding-left: calc(0.75rem + var(--level) * 1.25rem);
 		background: transparent;
 		border: none;
 		color: var(--color-text);
@@ -78,7 +105,6 @@
 		text-align: left;
 		cursor: pointer;
 		transition: background 0.15s;
-		border-left: 2px solid transparent;
 	}
 
 	.node-button:hover {
@@ -87,20 +113,31 @@
 
 	.node-button.active {
 		background: rgba(255, 103, 64, 0.1);
-		border-left-color: var(--color-accent);
 		color: var(--color-accent);
 	}
 
 	.expand-icon {
-		display: inline-block;
+		display: inline-flex;
+		align-items: center;
+		justify-content: center;
 		width: 1rem;
 		height: 1rem;
-		line-height: 1rem;
+		padding: 0;
+		margin: 0;
+		background: transparent;
+		border: none;
+		color: inherit;
+		font-size: 0.875rem;
+		line-height: 1;
 		text-align: center;
 		transition: transform 0.2s;
 		flex-shrink: 0;
 		cursor: pointer;
 		user-select: none;
+	}
+
+	.expand-icon:hover {
+		color: var(--color-accent);
 	}
 
 	.expand-icon.expanded {

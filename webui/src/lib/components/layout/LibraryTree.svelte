@@ -28,6 +28,11 @@
 				}
 			}
 		}
+		// Ensure root node is always expanded on mount
+		if (tree && tree.id) {
+			expandedNodes.add(tree.id);
+			expandedNodes = expandedNodes; // Trigger reactivity
+		}
 	});
 
 	// Save expanded state to localStorage
@@ -41,36 +46,46 @@
 	}
 
 	function toggleNode(nodeId) {
+		console.log('LibraryTree toggleNode called with:', nodeId);
+		console.log('Current expandedNodes:', [...expandedNodes]);
+		console.log('Is root?', tree && nodeId === tree.id);
+
+		// Prevent toggling the root node - it should always stay expanded
+		if (tree && nodeId === tree.id) {
+			console.log('Prevented toggling root node');
+			return;
+		}
+
 		if (expandedNodes.has(nodeId)) {
+			console.log('Collapsing node:', nodeId);
 			expandedNodes.delete(nodeId);
 		} else {
+			console.log('Expanding node:', nodeId);
 			expandedNodes.add(nodeId);
 		}
 		expandedNodes = expandedNodes; // Trigger reactivity
+		console.log('New expandedNodes:', [...expandedNodes]);
 		saveExpandedState();
 	}
 
 	function handleNodeClick(node, event) {
 		event.stopPropagation();
 
-		if (node.type === 'folder') {
-			// Toggle expand/collapse
-			toggleNode(node.id);
-			// Also dispatch filter event
-			dispatch('filter', { folderId: node.id, folderName: node.name });
-			activeNodeId = node.id;
-		} else {
-			// For non-folder nodes, just filter
-			dispatch('filter', { folderId: node.id, folderName: node.name });
-			activeNodeId = node.id;
-		}
+		// Clicking the node name should only show content, not toggle expansion
+		dispatch('filter', { folderId: node.id, folderName: node.name });
+		activeNodeId = node.id;
 	}
 
 	function isExpanded(nodeId) {
+		// Root node is always expanded
+		if (tree && nodeId === tree.id) {
+			return true;
+		}
 		return expandedNodes.has(nodeId);
 	}
 
 	function handleToggle(event) {
+		console.log('LibraryTree handleToggle event received:', event.detail);
 		toggleNode(event.detail.nodeId);
 	}
 
@@ -84,6 +99,7 @@
 		<TreeNode
 			node={tree}
 			level={0}
+			isRoot={true}
 			{isExpanded}
 			{activeNodeId}
 			on:toggle={handleToggle}

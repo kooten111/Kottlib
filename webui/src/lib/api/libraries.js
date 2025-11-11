@@ -51,3 +51,10 @@ export async function getSeriesDetail(libraryId, seriesName) {
 	const encodedName = encodeURIComponent(seriesName);
 	return api.get(`/library/${libraryId}/series/${encodedName}`);
 }
+
+/**
+ * Get hierarchical tree of all libraries with series and comics
+ */
+export async function getLibrariesSeriesTree() {
+	return api.get('/libraries/series-tree');
+}
