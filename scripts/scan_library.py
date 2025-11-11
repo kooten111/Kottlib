@@ -3,12 +3,11 @@
 Library Scanner
 
 Scans a directory for comic files and adds them to the database.
-Generates thumbnails for all comics found.
+Supports both single-threaded (verbose) and multi-threaded (fast) modes.
 """
 
 import sys
-import hashlib
-import time
+import argparse
 from pathlib import Path
 
 # Add src to path
@@ -17,180 +16,99 @@ sys.path.insert(0, str(Path(__file__).parent.parent / 'src'))
 from database import (
     Database,
     get_default_db_path,
-    get_covers_dir,
     create_library,
     get_library_by_path,
-    create_comic,
-    get_comic_by_hash,
-    create_folder,
-    get_folder_by_path,
 )
-from scanner import open_comic, is_comic_file
-from scanner.thumbnail_generator import (
-    calculate_file_hash,
-    generate_dual_thumbnails,
-    thumbnail_exists,
-)
+from scanner.threaded_scanner import scan_library_threaded
 
 
-def scan_directory(library_path: Path, library_id: int, session, db_folder_id=None):
-    """
-    Recursively scan directory for comics
-
-    Args:
-        library_path: Root library path
-        library_id: Library database ID
-        session: Database session
-        db_folder_id: Parent folder ID (for recursion)
-    """
-    comics_found = 0
-    folders_found = 0
-
-    for item in library_path.iterdir():
-        # Skip hidden files and directories
-        if item.name.startswith('.'):
-            continue
-
-        if item.is_dir():
-            # Create folder in database
-            folder = get_folder_by_path(session, library_id, str(item))
-            if not folder:
-                folder = create_folder(
-                    session,
-                    library_id=library_id,
-                    path=str(item),
-                    name=item.name,
-                    parent_id=db_folder_id
-                )
-                print(f"📁 {item.name}/")
-                folders_found += 1
-
-            # Recursively scan subfolder
-            sub_comics, sub_folders = scan_directory(
-                item,
-                library_id,
-                session,
-                db_folder_id=folder.id
-            )
-            comics_found += sub_comics
-            folders_found += sub_folders
-
-        elif item.is_file() and is_comic_file(item):
-            # Process comic file
-            process_comic(item, library_id, session, db_folder_id)
-            comics_found += 1
-
-    return comics_found, folders_found
+def progress_callback_verbose(current, total, message):
+    """Print detailed progress updates (verbose mode)"""
+    percent = (current / total * 100) if total > 0 else 0
+    print(f"  [{current}/{total}] ({percent:.1f}%) - {message}")
 
 
-def process_comic(file_path: Path, library_id: int, session, folder_id=None):
-    """Process a single comic file"""
-    print(f"  📖 {file_path.name}")
-
-    # Calculate hash
-    file_hash = calculate_file_hash(file_path)
-
-    # Check if already in database
-    existing = get_comic_by_hash(session, file_hash)
-    if existing:
-        print(f"     ℹ️  Already in database (skipping)")
-        return
-
-    # Open comic to get metadata
-    with open_comic(file_path) as comic:
-        if comic is None:
-            print(f"     ❌ Failed to open comic")
-            return
-
-        # Extract metadata
-        metadata = {}
-        if comic.comic_info:
-            info = comic.comic_info
-            if info.title:
-                metadata['title'] = info.title
-            if info.series:
-                metadata['series'] = info.series
-            if info.number:
-                try:
-                    metadata['issue_number'] = float(info.number)
-                except ValueError:
-                    pass
-            if info.year:
-                metadata['year'] = info.year
-            if info.publisher:
-                metadata['publisher'] = info.publisher
-            if info.writer:
-                metadata['writer'] = info.writer
-            if info.manga:
-                metadata['reading_direction'] = 'rtl' if info.manga else 'ltr'
-
-        # Add to database
-        db_comic = create_comic(
-            session,
-            library_id=library_id,
-            folder_id=folder_id,
-            path=str(file_path),
-            filename=file_path.name,
-            file_hash=file_hash,
-            file_size=file_path.stat().st_size,
-            file_modified_at=int(file_path.stat().st_mtime),
-            format=file_path.suffix[1:].lower(),  # Remove leading dot
-            num_pages=comic.page_count,
-            **metadata
-        )
-
-        print(f"     ✅ Added to database (ID: {db_comic.id})")
-
-        # Generate thumbnails
-        covers_dir = get_covers_dir()
-        if not thumbnail_exists(covers_dir, file_hash):
-            print(f"     🖼️  Generating thumbnails...")
-
-            # Get cover image
-            cover_image = comic.extract_page_as_image(0)
-            if cover_image:
-                jpeg_ok, webp_ok = generate_dual_thumbnails(
-                    cover_image,
-                    covers_dir,
-                    file_hash
-                )
-
-                if jpeg_ok and webp_ok:
-                    print(f"     ✅ Thumbnails generated (JPEG + WebP)")
-                elif jpeg_ok:
-                    print(f"     ⚠️  JPEG generated, WebP failed")
-                else:
-                    print(f"     ❌ Thumbnail generation failed")
-            else:
-                print(f"     ❌ Failed to extract cover image")
-        else:
-            print(f"     ℹ️  Thumbnails already exist")
+def progress_callback_simple(current, total, message):
+    """Print simple progress bar (default mode)"""
+    percent = (current / total * 100) if total > 0 else 0
+    print(f"\r  Progress: {current}/{total} ({percent:.1f}%)", end='', flush=True)
 
 
 def main():
     """Main function"""
-    if len(sys.argv) < 2:
-        print("Usage: python scan_library.py <library_path> [library_name]")
-        print("\nExample:")
-        print("  python scan_library.py /mnt/Comics 'My Comics'")
-        return
+    parser = argparse.ArgumentParser(
+        description='Scan a comic library and add files to database',
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+        epilog="""
+Examples:
+  # Fast multi-threaded scan (default: 4 workers)
+  python scan_library.py /mnt/Comics
 
-    library_path = Path(sys.argv[1])
-    library_name = sys.argv[2] if len(sys.argv) > 2 else library_path.name
+  # Single-threaded verbose mode (good for debugging)
+  python scan_library.py /mnt/Comics --workers 1 --verbose
 
+  # Fast scan with 8 workers (good for large libraries)
+  python scan_library.py /mnt/Comics --workers 8
+
+  # Custom library name
+  python scan_library.py /mnt/Comics --name "My Comics"
+        """
+    )
+
+    parser.add_argument(
+        'library_path',
+        type=Path,
+        help='Path to comic library directory'
+    )
+
+    parser.add_argument(
+        '--name',
+        type=str,
+        default=None,
+        help='Library name (default: directory name)'
+    )
+
+    parser.add_argument(
+        '--workers',
+        type=int,
+        default=4,
+        help='Number of worker threads (default: 4, use 1 for single-threaded)'
+    )
+
+    parser.add_argument(
+        '--verbose', '-v',
+        action='store_true',
+        help='Show detailed per-file progress (recommended with --workers 1)'
+    )
+
+    args = parser.parse_args()
+
+    library_path = args.library_path.resolve()
+    library_name = args.name or library_path.name
+    max_workers = args.workers
+    verbose = args.verbose
+
+    # Validation
     if not library_path.exists():
-        print(f"❌ Directory not found: {library_path}")
-        return
+        print(f"Error: Directory not found: {library_path}")
+        return 1
 
     if not library_path.is_dir():
-        print(f"❌ Not a directory: {library_path}")
-        return
+        print(f"Error: Not a directory: {library_path}")
+        return 1
 
+    if max_workers < 1:
+        print(f"Error: Workers must be >= 1")
+        return 1
+
+    # Header
+    mode = "Single-threaded (Verbose)" if max_workers == 1 else f"Multi-threaded ({max_workers} workers)"
     print(f"\nYACLib Enhanced - Library Scanner")
-    print(f"="*60)
-    print(f"Library: {library_name}")
-    print(f"Path: {library_path}")
-    print(f"="*60 + "\n")
+    print(f"=" * 60)
+    print(f"Library:  {library_name}")
+    print(f"Path:     {library_path}")
+    print(f"Mode:     {mode}")
+    print(f"=" * 60 + "\n")
 
     # Initialize database
     db_path = get_default_db_path()
@@ -206,36 +124,56 @@ def main():
         if not library:
             print(f"Creating library...")
             library = create_library(session, library_name, str(library_path))
-            library_id = library.id  # Save ID before session closes
-            print(f"✅ Library created (ID: {library_id})\n")
+            library_id = library.id
+            print(f"Library created (ID: {library_id})\n")
         else:
-            library_id = library.id  # Save ID before session closes
-            print(f"ℹ️  Library already exists (ID: {library_id})\n")
+            library_id = library.id
+            print(f"Library already exists (ID: {library_id})\n")
 
-    # Scan directory
-    print(f"Scanning directory...\n")
-    start_time = time.time()
+    # Choose progress callback
+    progress_cb = progress_callback_verbose if verbose else progress_callback_simple
 
-    with db.get_session() as session:
-        comics_found, folders_found = scan_directory(
-            library_path,
-            library_id,
-            session
-        )
+    # Scan library
+    print(f"Starting scan...\n")
 
-    elapsed = time.time() - start_time
+    result = scan_library_threaded(
+        db=db,
+        library_id=library_id,
+        library_path=library_path,
+        max_workers=max_workers,
+        progress_callback=progress_cb
+    )
+
+    print()  # New line after progress
 
     # Summary
-    print(f"\n{'='*60}")
+    print(f"\n{'=' * 60}")
     print(f"Scan Complete!")
-    print(f"{'='*60}")
-    print(f"Comics found: {comics_found}")
-    print(f"Folders found: {folders_found}")
-    print(f"Time elapsed: {elapsed:.2f}s")
-    print(f"{'='*60}\n")
+    print(f"{'=' * 60}")
+    print(f"Comics found:        {result.comics_found}")
+    print(f"Comics added:        {result.comics_added}")
+    print(f"Comics skipped:      {result.comics_skipped} (already in DB)")
+    print(f"Folders found:       {result.folders_found}")
+    print(f"Thumbnails created:  {result.thumbnails_generated}")
+    print(f"Errors:              {result.errors}")
+    print(f"Time elapsed:        {result.duration:.2f}s")
+
+    if result.duration > 0 and result.comics_found > 0:
+        rate = result.comics_found / result.duration
+        print(f"Processing rate:     {rate:.1f} comics/sec")
+
+    print(f"{'=' * 60}\n")
+
+    # Performance tips
+    if result.comics_found > 100 and max_workers < 8:
+        optimal_workers = min(8, (result.comics_found // 50))
+        if max_workers < optimal_workers:
+            print(f"Tip: For {result.comics_found} comics, try {optimal_workers} workers for better performance:")
+            print(f"     python scan_library.py '{library_path}' --workers {optimal_workers}\n")
 
     db.close()
+    return 0
 
 
 if __name__ == "__main__":
-    main()
+    sys.exit(main())

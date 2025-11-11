@@ -58,3 +58,4 @@ covers/
 # Claude Code
 .claude/
 webui.log
+yaclib.db.backup

@@ -211,6 +211,27 @@ def update_library_scan_status(
         session.flush()  # Flush changes without committing
 
 
+def update_library_series_tree_cache(
+    session: Session,
+    library_id: int,
+    tree_data: str
+):
+    """
+    Update the pre-computed series tree cache for a library
+
+    Args:
+        session: Database session
+        library_id: Library ID
+        tree_data: JSON string containing the serialized tree structure
+    """
+    library = get_library_by_id(session, library_id)
+    if library:
+        library.cached_series_tree = tree_data
+        library.tree_cache_updated_at = int(time.time())
+        library.updated_at = int(time.time())
+        session.flush()  # Flush changes without committing
+
+
 # ============================================================================
 # Comic Operations
 # ============================================================================

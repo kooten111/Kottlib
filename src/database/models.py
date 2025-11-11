@@ -37,6 +37,10 @@ class Library(Base):
     scan_status: Mapped[str] = mapped_column(String, default='pending')
     settings: Mapped[Optional[dict]] = mapped_column(JSON, nullable=True)
 
+    # Performance cache - stores pre-built series tree as JSON
+    cached_series_tree: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    tree_cache_updated_at: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)
+
     # Relationships
     folders: Mapped[List["Folder"]] = relationship(back_populates="library", cascade="all, delete-orphan")
     comics: Mapped[List["Comic"]] = relationship(back_populates="library", cascade="all, delete-orphan")

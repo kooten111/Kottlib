@@ -32,6 +32,7 @@ from .database import (
     get_library_by_path,
     get_all_libraries,
     update_library_scan_status,
+    update_library_series_tree_cache,
     # Comic operations
     create_comic,
     get_comic_by_id,
@@ -118,6 +119,7 @@ __all__ = [
     'get_library_by_path',
     'get_all_libraries',
     'update_library_scan_status',
+    'update_library_series_tree_cache',
     'create_comic',
     'get_comic_by_id',
     'get_comic_by_hash',

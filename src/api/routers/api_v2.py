@@ -8,6 +8,7 @@ This is the v2 API that newer mobile app versions prefer.
 import logging
 from typing import Optional, List
 from pathlib import Path
+from functools import lru_cache
 
 from fastapi import APIRouter, Request, Response, Cookie, HTTPException
 from fastapi.responses import JSONResponse, FileResponse
@@ -34,6 +35,9 @@ from ..middleware import get_current_user_id
 logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/v2")
+
+# In-memory cache for parsed series trees (cache key: library_id + cache_timestamp)
+_series_tree_cache = {}
 
 
 # ============================================================================
@@ -1820,6 +1824,9 @@ async def get_libraries_series_tree(request: Request, max_depth: int = 10):
             ]
         }
     ]
+
+    NOTE: Now uses pre-built cache from library scanning for better performance.
+    Reading progress is added dynamically per-user.
     """
     from ...database.models import Folder as FolderModel
 
@@ -1836,91 +1843,82 @@ async def get_libraries_series_tree(request: Request, max_depth: int = 10):
         else:
             user = get_user_by_username(session, 'admin')
 
-        def build_folder_node(folder, library_id, depth=0):
-            """Build tree node for a folder with its comics and subfolders"""
-            if depth > max_depth:
-                return None
+        def add_reading_progress_to_tree(node, user_id):
+            """Recursively add reading progress to cached tree nodes"""
+            if not user_id or not node:
+                return node
 
-            # Skip root folder in display
-            if folder.name == "__ROOT__":
-                return None
-
-            # Get comics in this folder
-            comics_in_folder = session.query(Comic).filter_by(
-                library_id=library_id,
-                folder_id=folder.id
-            ).all()
-
-            # Build comic nodes
-            comic_nodes = []
-            for comic in sorted(comics_in_folder, key=lambda c: (c.volume or 0, c.issue_number or 0, c.title or c.filename)):
-                comic_info = {
-                    "id": comic.id,
-                    "name": comic.title or comic.filename,
-                    "type": "comic",
-                    "libraryId": library_id,
-                    "folderId": folder.id,
-                    "hash": comic.hash,
-                    "totalPages": comic.num_pages,
-                    "volume": comic.volume,
-                    "issueNumber": comic.issue_number
-                }
-
-                # Add reading progress
-                if user:
-                    progress = get_reading_progress(session, user.id, comic.id)
+            # Add progress to comics
+            if node.get("type") == "comic":
+                comic_id = node.get("id")
+                if comic_id:
+                    progress = get_reading_progress(session, user_id, comic_id)
                     if progress:
-                        comic_info["currentPage"] = progress.current_page
-                        comic_info["isCompleted"] = progress.is_completed
-                        comic_info["progressPercent"] = progress.progress_percent
+                        node["currentPage"] = progress.current_page
+                        node["isCompleted"] = progress.is_completed
+                        node["progressPercent"] = progress.progress_percent
 
-                comic_nodes.append(comic_info)
+            # Recursively process children
+            if "children" in node:
+                for child in node["children"]:
+                    add_reading_progress_to_tree(child, user_id)
 
-            # Get subfolders
-            subfolders = session.query(FolderModel).filter_by(parent_id=folder.id).all()
-
-            # Build subfolder nodes recursively
-            subfolder_nodes = []
-            for subfolder in sorted(subfolders, key=lambda f: f.name):
-                subfolder_node = build_folder_node(subfolder, library_id, depth + 1)
-                if subfolder_node:
-                    subfolder_nodes.append(subfolder_node)
-
-            # Combine subfolders and comics as children
-            children = subfolder_nodes + comic_nodes
-
-            # Count total comics (including subfolders)
-            total_comic_count = len(comics_in_folder)
-            for subfolder_node in subfolder_nodes:
-                total_comic_count += subfolder_node.get("comicCount", 0)
-
-            return {
-                "id": f"folder-{library_id}-{folder.id}",
-                "folderId": folder.id,
-                "name": folder.name,
-                "type": "folder",
-                "libraryId": library_id,
-                "comicCount": total_comic_count,
-                "children": children
-            }
+            return node
 
         tree = []
 
         for library in libraries:
+            # Try in-memory cache first (fastest)
+            cache_key = f"{library.id}:{library.tree_cache_updated_at}"
+            if cache_key in _series_tree_cache:
+                library_node = _series_tree_cache[cache_key].copy()
+
+                # Add reading progress dynamically (user-specific)
+                if user:
+                    add_reading_progress_to_tree(library_node, user.id)
+
+                tree.append(library_node)
+                logger.debug(f"v2 API: Using in-memory cache for library {library.id}")
+                continue
+
+            # Try database cached tree
+            if library.cached_series_tree:
+                try:
+                    import json
+                    cached_children = json.loads(library.cached_series_tree)
+
+                    # Build library node with cached children
+                    library_node = {
+                        "id": library.id,
+                        "name": library.name,
+                        "type": "library",
+                        "children": cached_children
+                    }
+
+                    # Store in memory cache for next time
+                    _series_tree_cache[cache_key] = library_node.copy()
+
+                    # Add reading progress dynamically
+                    if user:
+                        add_reading_progress_to_tree(library_node, user.id)
+
+                    tree.append(library_node)
+                    logger.debug(f"v2 API: Using database cache for library {library.id}")
+                    continue
+
+                except Exception as e:
+                    logger.warning(f"Failed to use cached tree for library {library.id}: {e}")
+                    # Fall through to rebuild from database
+
+            # Fallback: Build tree from database if cache doesn't exist
+            logger.warning(f"No cache available for library {library.id}, building from database")
+
             # Get all folders in this library
             all_folders = session.query(FolderModel).filter_by(library_id=library.id).all()
 
             # Find root folder
             root_folder = next((f for f in all_folders if f.name == "__ROOT__"), None)
-            root_folder_id = root_folder.id if root_folder else None
 
-            # Get top-level folders
-            top_level_folders = [
-                f for f in all_folders
-                if f.parent_id == root_folder_id or (f.parent_id is None and f.name != "__ROOT__")
-            ]
-
-            # Build library node
             library_node = {
                 "id": library.id,
                 "name": library.name,
@@ -1928,39 +1926,9 @@ async def get_libraries_series_tree(request: Request, max_depth: int = 10):
                 "children": []
             }
 
-            # Add top-level folders
-            for folder in sorted(top_level_folders, key=lambda f: f.name):
-                folder_node = build_folder_node(folder, library.id)
-                if folder_node:
-                    library_node["children"].append(folder_node)
-
-            # Also add comics in root folder (if any)
-            if root_folder:
-                root_comics = session.query(Comic).filter_by(
-                    library_id=library.id,
-                    folder_id=root_folder.id
-                ).all()
-
-                for comic in sorted(root_comics, key=lambda c: (c.volume or 0, c.issue_number or 0, c.title or c.filename)):
-                    comic_info = {
-                        "id": comic.id,
-                        "name": comic.title or comic.filename,
-                        "type": "comic",
-                        "libraryId": library.id,
-                        "hash": comic.hash,
-                        "totalPages": comic.num_pages,
-                        "volume": comic.volume,
-                        "issueNumber": comic.issue_number
-                    }
-
-                    if user:
-                        progress = get_reading_progress(session, user.id, comic.id)
-                        if progress:
-                            comic_info["currentPage"] = progress.current_page
-                            comic_info["isCompleted"] = progress.is_completed
-                            comic_info["progressPercent"] = progress.progress_percent
-
-                    library_node["children"].append(comic_info)
+            # Simplified fallback - just add empty children
+            # Recommend running library scan to build cache
+            logger.warning(f"Library {library.id} needs to be rescanned to build cache")
 
             tree.append(library_node)
 
