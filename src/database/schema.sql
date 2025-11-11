@@ -92,6 +92,11 @@ CREATE INDEX idx_comics_hash ON comics(hash);
 CREATE INDEX idx_comics_series ON comics(series);
 CREATE INDEX idx_comics_path ON comics(library_id, path);
 
+-- Performance indexes for common query patterns
+CREATE INDEX idx_comics_library_updated ON comics(library_id, updated_at DESC);
+CREATE INDEX idx_comics_library_series ON comics(library_id, series);
+CREATE INDEX idx_comics_series_issue ON comics(series, issue_number);
+
 
 -- ============================================================================
 -- THUMBNAILS / COVERS
@@ -145,6 +150,9 @@ CREATE TABLE reading_progress (
 CREATE INDEX idx_reading_progress_user ON reading_progress(user_id);
 CREATE INDEX idx_reading_progress_comic ON reading_progress(comic_id);
 CREATE INDEX idx_reading_progress_last_read ON reading_progress(last_read_at DESC);
+
+-- Performance indexes for "continue reading" queries
+CREATE INDEX idx_reading_progress_user_last_read ON reading_progress(user_id, last_read_at DESC);
 
 
 -- ============================================================================

@@ -3,29 +3,40 @@
 	import { page } from '$app/stores';
 	import { goto } from '$app/navigation';
 	import Navbar from '$lib/components/layout/Navbar.svelte';
-	import Breadcrumbs from '$lib/components/common/Breadcrumbs.svelte';
+	import BackButton from '$lib/components/common/BackButton.svelte';
+	import InfiniteScroll from '$lib/components/common/InfiniteScroll.svelte';
 	import ComicCard from '$lib/components/comic/ComicCard.svelte';
 	import { getLibraries, getSeries, getFolderTree } from '$lib/api/libraries';
 	import { Grid, List, SortAsc } from 'lucide-svelte';
 
 	let allLibraries = [];
 	let allSeries = [];
+	let displayedSeries = [];
 	let isLoading = true;
+	let isLoadingMore = false;
 	let error = null;
-	let breadcrumbs = [];
 	let viewMode = 'grid'; // 'grid' or 'list'
 	let sortBy = 'name'; // 'name', 'recent', 'progress'
 	let folderTrees = {};
 	let selectedLibraryId = null;
+	let hasMoreSeries = true;
+	let seriesPageSize = 30;
 
 	onMount(async () => {
-		await loadAllData();
+		// Redirect to home page - browse is integrated into home now
+		goto('/');
 	});
 
-	$: sortedSeries = sortSeries(allSeries, sortBy);
-	$: filteredSeries = selectedLibraryId
-		? sortedSeries.filter(s => s.libraryId === selectedLibraryId)
-		: sortedSeries;
+	$: {
+		// Update displayed series when sort or filter changes
+		const sorted = sortSeries(allSeries, sortBy);
+		const filtered = selectedLibraryId
+			? sorted.filter(s => s.libraryId === selectedLibraryId)
+			: sorted;
+
+		displayedSeries = filtered.slice(0, seriesPageSize);
+		hasMoreSeries = filtered.length > seriesPageSize;
+	}
 
 	async function loadAllData() {
 		try {
@@ -61,18 +72,32 @@
 				})
 			);
 
-			// Build breadcrumbs
-			breadcrumbs = [
-				{ label: 'Home', href: '/' },
-				{ label: 'Browse', href: '/browse' }
-			];
-
 			isLoading = false;
 		} catch (err) {
 			console.error('Failed to load data:', err);
 			error = err.message;
 			isLoading = false;
 		}
+	}
+
+	function loadMoreSeries() {
+		if (isLoadingMore || !hasMoreSeries) return;
+
+		isLoadingMore = true;
+
+		setTimeout(() => {
+			const sorted = sortSeries(allSeries, sortBy);
+			const filtered = selectedLibraryId
+				? sorted.filter(s => s.libraryId === selectedLibraryId)
+				: sorted;
+
+			const currentLength = displayedSeries.length;
+			const nextBatch = filtered.slice(currentLength, currentLength + seriesPageSize);
+
+			displayedSeries = [...displayedSeries, ...nextBatch];
+			hasMoreSeries = displayedSeries.length < filtered.length;
+			isLoadingMore = false;
+		}, 300);
 	}
 
 	function sortSeries(seriesList, sortType) {
@@ -118,8 +143,8 @@
 						<a href="/" class="btn-primary mt-4">Go Home</a>
 					</div>
 				{:else}
-					<!-- Breadcrumbs -->
-					<Breadcrumbs items={breadcrumbs} />
+					<!-- Back Button -->
+					<BackButton href="/" label="Home" />
 
 					<!-- Library Header with Controls -->
 					<div class="library-header">
@@ -130,7 +155,7 @@
 									: 'All Series'}
 							</h1>
 							<p class="library-stats">
-								{filteredSeries.length} series
+								{displayedSeries.length} series {hasMoreSeries ? '(loading more...)' : ''}
 							</p>
 						</div>
 
@@ -159,20 +184,25 @@
 					</div>
 
 					<!-- Series Section -->
-					{#if filteredSeries.length > 0}
+					{#if displayedSeries.length > 0}
 						<section>
-							<div class="comics-{viewMode}">
-								{#each filteredSeries as series}
-									<a href="/series/{series.libraryId}/{encodeURIComponent(series.series_name)}">
-										<ComicCard
-											comic={{
-												id: series.first_comic_id,
-												title: series.series_name,
-												hash: series.cover_hash,
-												itemCount: series.total_issues
-											}}
-											libraryId={series.libraryId}
-											variant={viewMode}
+							<InfiniteScroll
+								hasMore={hasMoreSeries}
+								isLoading={isLoadingMore}
+								on:loadMore={loadMoreSeries}
+							>
+								<div class="comics-{viewMode}">
+									{#each displayedSeries as series}
+										<a href="/series/{series.libraryId}/{encodeURIComponent(series.series_name)}">
+											<ComicCard
+												comic={{
+													id: series.first_comic_id,
+													title: series.series_name,
+													hash: series.cover_hash,
+													itemCount: series.total_issues
+												}}
+												libraryId={series.libraryId}
+												variant={viewMode}
 											showProgress={false}
 											isFolder={true}
 											itemCount={series.total_issues}
@@ -180,11 +210,12 @@
 									</a>
 								{/each}
 							</div>
+							</InfiniteScroll>
 						</section>
 					{/if}
 
 					<!-- Empty State -->
-					{#if filteredSeries.length === 0}
+					{#if displayedSeries.length === 0}
 						<div class="empty-state">
 							<svg
 								xmlns="http://www.w3.org/2000/svg"

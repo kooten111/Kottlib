@@ -9,6 +9,32 @@
 
 	let expandedNodes = new Set(['libraries-root']); // Expand root by default
 	let activeNodeId = null;
+	let filteredTree = [];
+
+	// Filter tree to remove individual comic files, keeping only libraries and folders
+	function filterTreeNodes(nodes) {
+		if (!nodes) return [];
+
+		return nodes.map(node => {
+			// If node has children, filter them recursively
+			if (node.children && node.children.length > 0) {
+				// Remove comic-type children, keep folders and libraries
+				const filteredChildren = node.children
+					.filter(child => child.type !== 'comic')
+					.map(child => filterTreeNodes([child])[0])
+					.filter(Boolean);
+
+				return {
+					...node,
+					children: filteredChildren
+				};
+			}
+			return node;
+		}).filter(Boolean);
+	}
+
+	// Update filtered tree when tree changes
+	$: filteredTree = filterTreeNodes(tree);
 
 	// Load expanded state from localStorage
 	onMount(() => {
@@ -100,14 +126,14 @@
 </script>
 
 <div class="series-tree">
-	{#if tree && tree.length > 0}
+	{#if filteredTree && filteredTree.length > 0}
 		<!-- Root "Libraries" node -->
 		<SeriesTreeNode
 			node={{
 				id: 'libraries-root',
 				name: 'Libraries',
 				type: 'root',
-				children: tree
+				children: filteredTree
 			}}
 			level={0}
 			{isExpanded}

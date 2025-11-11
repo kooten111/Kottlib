@@ -2,7 +2,7 @@
 	import { onMount } from 'svelte';
 	import { page } from '$app/stores';
 	import Navbar from '$lib/components/layout/Navbar.svelte';
-	import Breadcrumbs from '$lib/components/common/Breadcrumbs.svelte';
+	import BackButton from '$lib/components/common/BackButton.svelte';
 	import ComicCard from '$lib/components/comic/ComicCard.svelte';
 	import { getSeriesDetail, getLibrary } from '$lib/api/libraries';
 	import { getCoverUrl } from '$lib/api/comics';
@@ -16,7 +16,6 @@
 	let library = null;
 	let isLoading = true;
 	let error = null;
-	let breadcrumbs = [];
 	let sortedVolumes = [];
 	let nextVolumeToRead = null;
 	let hasStartedReading = false;
@@ -70,13 +69,6 @@
 				seriesNames: [seriesName]
 			});
 
-			// Build breadcrumbs
-			breadcrumbs = [
-				{ label: 'Home', href: '/' },
-				{ label: 'Browse', href: '/browse' },
-				{ label: series.series_name, href: '#' }
-			];
-
 			isLoading = false;
 		} catch (err) {
 			console.error('Failed to load series:', err);
@@ -103,11 +95,11 @@
 			{:else if error}
 				<div class="error-container">
 					<p class="text-red-400">Failed to load series: {error}</p>
-					<a href="/browse" class="btn-primary mt-4">Go Back</a>
+					<a href="/" class="btn-primary mt-4">Go Back</a>
 				</div>
 			{:else if series}
-				<!-- Breadcrumbs -->
-				<Breadcrumbs items={breadcrumbs} />
+				<!-- Back Button -->
+				<BackButton href="/" label="Home" />
 
 				<!-- Series Header -->
 				<div class="series-header">

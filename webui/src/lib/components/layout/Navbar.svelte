@@ -1,13 +1,30 @@
 <script>
 	import { page } from '$app/stores';
 	import { themeStore } from '$stores/theme';
-	import { Moon, Sun, Home, BookOpen, Heart, List, Search } from 'lucide-svelte';
-	import SearchAutocomplete from '$components/common/SearchAutocomplete.svelte';
+	import { searchStore } from '$stores/search';
+	import { Moon, Sun, Home, BookOpen, Heart, List, Search as SearchIcon, X } from 'lucide-svelte';
 
-	let searchComponent;
+	let searchInput;
 
-	function handleSearchIconClick() {
-		searchComponent?.triggerSearch();
+	// Debug: Track search store changes
+	$: console.log('[Navbar] Search store query changed:', $searchStore.query);
+
+	function clearSearch() {
+		console.log('[Navbar] Clearing search');
+		searchStore.set({
+			query: '',
+			isSearching: false
+		});
+		if (searchInput) {
+			searchInput.value = '';
+		}
+	}
+
+	function handleSearchKeydown(e) {
+		if (e.key === 'Escape') {
+			clearSearch();
+			searchInput?.blur();
+		}
 	}
 </script>
 
@@ -53,11 +70,23 @@
 			</div>
 
 			<!-- Search Bar -->
-			<div class="flex-1 max-w-md mx-8 hidden lg:flex items-center gap-3">
-				<SearchAutocomplete bind:this={searchComponent} placeholder="Search comics... (Ctrl+K)" />
-				<button on:click={handleSearchIconClick} class="hover:text-dark-text transition-colors" aria-label="Focus search">
-					<Search class="w-6 h-6 text-dark-text-secondary flex-shrink-0" />
-				</button>
+			<div class="flex-1 max-w-md mx-8 hidden lg:flex">
+				<div class="search-input-wrapper">
+					<SearchIcon class="search-icon" />
+					<input
+						bind:this={searchInput}
+						type="text"
+						class="search-input"
+						placeholder="Search comics and series..."
+						bind:value={$searchStore.query}
+						on:keydown={handleSearchKeydown}
+					/>
+					{#if $searchStore.query}
+						<button class="search-clear" on:click={clearSearch} aria-label="Clear search">
+							<X class="w-4 h-4" />
+						</button>
+					{/if}
+				</div>
 			</div>
 
 			<!-- Right Side Actions -->
@@ -84,10 +113,67 @@
 				</a>
 			</div>
 		</div>
-
-		<!-- Mobile Search (visible on small screens) -->
-		<div class="lg:hidden pb-3">
-			<SearchAutocomplete placeholder="Search comics..." />
-		</div>
 	</div>
 </nav>
+
+<style>
+	.search-input-wrapper {
+		position: relative;
+		display: flex;
+		align-items: center;
+		width: 100%;
+	}
+
+	.search-icon {
+		position: absolute;
+		left: 0.75rem;
+		width: 18px;
+		height: 18px;
+		color: var(--color-text-secondary);
+		pointer-events: none;
+		z-index: 1;
+	}
+
+	.search-input {
+		width: 100%;
+		padding: 0.625rem 2.5rem 0.625rem 2.5rem;
+		background: rgba(255, 255, 255, 0.05);
+		border: 1px solid rgba(255, 255, 255, 0.1);
+		border-radius: 8px;
+		color: var(--color-text);
+		font-size: 0.875rem;
+		transition: all 0.2s;
+	}
+
+	.search-input:focus {
+		outline: none;
+		border-color: var(--color-accent);
+		background: rgba(255, 255, 255, 0.08);
+	}
+
+	.search-input::placeholder {
+		color: var(--color-text-secondary);
+	}
+
+	.search-clear {
+		position: absolute;
+		right: 0.5rem;
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		width: 24px;
+		height: 24px;
+		padding: 0;
+		background: rgba(255, 255, 255, 0.1);
+		border: none;
+		border-radius: 50%;
+		color: var(--color-text);
+		cursor: pointer;
+		transition: all 0.2s;
+	}
+
+	.search-clear:hover {
+		background: rgba(255, 255, 255, 0.2);
+		transform: scale(1.1);
+	}
+</style>

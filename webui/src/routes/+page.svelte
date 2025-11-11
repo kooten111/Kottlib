@@ -3,9 +3,17 @@
 	import Navbar from '$components/layout/Navbar.svelte';
 	import ComicCard from '$lib/components/comic/ComicCard.svelte';
 	import SeriesTree from '$lib/components/layout/SeriesTree.svelte';
+	import InfiniteScroll from '$lib/components/common/InfiniteScroll.svelte';
+	import HorizontalCarousel from '$lib/components/common/HorizontalCarousel.svelte';
+	import SkeletonCard from '$lib/components/common/SkeletonCard.svelte';
 	import { getLibraries, getSeries, getContinueReading, getLibrariesSeriesTree } from '$lib/api/libraries';
+	import { searchComics } from '$lib/api/search';
 	import { BookOpen, Library, TrendingUp } from 'lucide-svelte';
 	import { navigationContext } from '$lib/stores/library';
+	import { searchStore } from '$lib/stores/search';
+
+	// Receive server-side loaded data
+	export let data;
 
 	let libraries = [];
 	let continueReading = [];
@@ -13,12 +21,45 @@
 	let allSeries = [];
 	let displayedSeries = [];
 	let isLoading = true;
+	let isLoadingMore = false;
 	let error = null;
 	let seriesTree = [];
 	let currentFilter = null;
+	let searchQuery = '';
+	let searchResults = [];
+	let hasMoreSeries = true;
+	let seriesPageSize = 50;
+	let filteredSeriesTree = [];
+	let lastSearchQuery = '';
+	let searchDebounceTimer;
+
+	// React to search store changes with debounce (increased from 300ms to 500ms)
+	$: if (!isLoading) {
+		const newQuery = $searchStore.query || '';
+		console.log('[Home] Search store changed. New query:', newQuery, 'Last query:', lastSearchQuery, 'isLoading:', isLoading);
+		if (newQuery !== lastSearchQuery) {
+			console.log('[Home] Query changed, setting up debounce timer');
+			if (searchDebounceTimer) clearTimeout(searchDebounceTimer);
+			searchDebounceTimer = setTimeout(() => {
+				console.log('[Home] Debounce timer fired, calling handleSearch with:', newQuery);
+				lastSearchQuery = newQuery;
+				handleSearch(newQuery);
+			}, 500); // Increased from 300ms for better performance
+		}
+	}
 
 	onMount(async () => {
 		await loadHomeData();
+
+		// Restore search from URL if present
+		if (typeof window !== 'undefined') {
+			const url = new URL(window.location.href);
+			const queryParam = url.searchParams.get('q');
+			if (queryParam) {
+				searchQuery = queryParam;
+				await handleSearch(queryParam);
+			}
+		}
 	});
 
 	async function loadHomeData() {
@@ -26,6 +67,36 @@
 			isLoading = true;
 			error = null;
 
+			// Use server-side data if available (SSR), otherwise load client-side
+			if (data?.libraries && data?.seriesTree && data?.firstLibrary) {
+				console.log('[Home] Using server-side rendered data');
+				libraries = data.libraries;
+				seriesTree = data.seriesTree;
+
+				// Use SSR data directly - all data pre-loaded on server
+				continueReading = data.firstLibrary.continueReading || [];
+				allSeries = data.firstLibrary.recentSeries || [];
+				displayedSeries = allSeries.slice(0, seriesPageSize);
+				hasMoreSeries = allSeries.length > seriesPageSize;
+
+				// Initialize filtered tree
+				filteredSeriesTree = seriesTree;
+				isLoading = false;
+			} else {
+				// Fallback to client-side loading if SSR data not available
+				console.log('[Home] Server data not available, loading client-side');
+				await loadClientSide();
+			}
+		} catch (err) {
+			console.error('Failed to load data:', err);
+			error = err.message;
+			isLoading = false;
+		}
+	}
+
+	// Client-side loading function as fallback (loads all data at once)
+	async function loadClientSide() {
+		try {
 			// Load libraries and series tree
 			[libraries, seriesTree] = await Promise.all([
 				getLibraries(),
@@ -37,39 +108,36 @@
 				return;
 			}
 
-			// Load continue reading from all libraries using dedicated API
-			const continueReadingResults = await Promise.all(
-				libraries.map(async (lib) => {
-					try {
-						const comics = await getContinueReading(lib.id, 100);
-						return comics.map(comic => ({ ...comic, libraryId: lib.id }));
-					} catch {
-						return [];
-					}
-				})
-			);
+			// Load continue reading and series for ALL libraries
+			const [continueReadingResults, allSeriesResults] = await Promise.all([
+				// Continue reading
+				Promise.all(
+					libraries.map(async (lib) => {
+						try {
+							const comics = await getContinueReading(lib.id, 50);
+							return comics.map(comic => ({ ...comic, libraryId: lib.id }));
+						} catch {
+							return [];
+						}
+					})
+				),
+				// All series
+				Promise.all(
+					libraries.map(async (lib) => {
+						try {
+							const series = await getSeries(lib.id, 'recent');
+							return series.map(s => ({ ...s, libraryId: lib.id }));
+						} catch (err) {
+							console.error(`Failed to fetch series for library ${lib.id}:`, err);
+							return [];
+						}
+					})
+				)
+			]);
 
-			continueReading = continueReadingResults.flat().slice(0, 10);
+			continueReading = continueReadingResults.flat().slice(0, 20);
 
-			// Load all series from all libraries
-			const allSeriesResults = await Promise.all(
-				libraries.map(async (lib) => {
-					try {
-						console.log(`Fetching series for library ${lib.id} (${lib.name})...`);
-						const series = await getSeries(lib.id, 'recent');
-						console.log(`Library ${lib.id} (${lib.name}) returned ${series.length} series`);
-						return series.map(s => ({ ...s, libraryId: lib.id }));
-					} catch (err) {
-						console.error(`Failed to fetch series for library ${lib.id}:`, err);
-						return [];
-					}
-				})
-			);
-
-			console.log('All series results:', allSeriesResults.map(r => r.length));
-
-			// Interleave series from different libraries instead of concatenating sequentially
-			// This ensures the "All Series" view shows a mix from all libraries
+			// Interleave series from different libraries
 			const maxLength = Math.max(...allSeriesResults.map(r => r.length));
 			allSeries = [];
 			for (let i = 0; i < maxLength; i++) {
@@ -80,15 +148,14 @@
 				}
 			}
 
-			console.log(`Total series after interleaving: ${allSeries.length}`);
-			console.log('Library IDs in allSeries:', allSeries.slice(0, 30).map(s => s.libraryId));
-			displayedSeries = allSeries.slice(0, 20);
-			console.log(`Displayed series (first 20): ${displayedSeries.length}`);
-			console.log('displayedSeries library breakdown:', displayedSeries.map(s => `${s.series_name} (lib:${s.libraryId})`));
+			displayedSeries = allSeries.slice(0, seriesPageSize);
+			hasMoreSeries = allSeries.length > seriesPageSize;
 
+			// Initialize filtered tree
+			filteredSeriesTree = seriesTree;
 			isLoading = false;
 		} catch (err) {
-			console.error('Failed to load data:', err);
+			console.error('Failed to load client-side data:', err);
 			error = err.message;
 			isLoading = false;
 		}
@@ -176,7 +243,137 @@
 	function resetFilter() {
 		currentFilter = null;
 		navigationContext.set({ type: 'all' });
-		displayedSeries = allSeries.slice(0, 20);
+		displayedSeries = allSeries.slice(0, seriesPageSize);
+		hasMoreSeries = allSeries.length > seriesPageSize;
+	}
+
+	function loadMoreSeries() {
+		if (isLoadingMore || !hasMoreSeries) return;
+
+		isLoadingMore = true;
+
+		const currentLength = displayedSeries.length;
+		const baseSource = searchQuery ? searchResults : allSeries;
+		const nextBatch = baseSource.slice(currentLength, currentLength + seriesPageSize);
+
+		displayedSeries = [...displayedSeries, ...nextBatch];
+		hasMoreSeries = displayedSeries.length < baseSource.length;
+		isLoadingMore = false;
+	}
+
+	async function handleSearch(query) {
+		const trimmedQuery = query?.trim() || '';
+		searchQuery = trimmedQuery;
+
+		console.log('[Home] handleSearch called with query:', query, 'trimmed:', trimmedQuery);
+
+		// Update URL without adding to history
+		if (typeof window !== 'undefined') {
+			const url = new URL(window.location.href);
+			if (trimmedQuery) {
+				url.searchParams.set('q', trimmedQuery);
+			} else {
+				url.searchParams.delete('q');
+			}
+			window.history.replaceState({}, '', url);
+		}
+
+		// Clear search if query is empty (allow 1 character searches)
+		if (!trimmedQuery) {
+			console.log('[Home] Empty query, clearing search results');
+			// Clear search - show original filtered data
+			displayedSeries = currentFilter?.type === 'library'
+				? allSeries.filter(s => s.libraryId === currentFilter.libraryId).slice(0, seriesPageSize)
+				: allSeries.slice(0, seriesPageSize);
+			hasMoreSeries = (currentFilter?.type === 'library'
+				? allSeries.filter(s => s.libraryId === currentFilter.libraryId)
+				: allSeries).length > seriesPageSize;
+			searchResults = [];
+			filteredSeriesTree = seriesTree; // Reset tree filter
+			searchStore.update(s => ({ ...s, isSearching: false }));
+			filterContinueReadingBySeries();
+			return;
+		}
+
+		console.log('[Home] Performing search for:', trimmedQuery);
+		searchStore.update(s => ({ ...s, isSearching: true }));
+
+		try {
+			// Filter allSeries by series name instead of API search
+			const lowerQuery = trimmedQuery.toLowerCase();
+			console.log('[Home] Filtering', allSeries.length, 'series by name containing:', lowerQuery);
+
+			searchResults = allSeries.filter(series =>
+				series.series_name && series.series_name.toLowerCase().includes(lowerQuery)
+			);
+			console.log('[Home] Found', searchResults.length, 'matching series');
+
+			// Filter based on current library selection
+			let filteredResults = searchResults;
+			if (currentFilter?.type === 'library') {
+				filteredResults = searchResults.filter(s => s.libraryId === currentFilter.libraryId);
+			}
+
+			displayedSeries = filteredResults.slice(0, seriesPageSize);
+			hasMoreSeries = filteredResults.length > seriesPageSize;
+			console.log('[Home] Displaying', displayedSeries.length, 'series, hasMore:', hasMoreSeries);
+
+			// Filter sidebar tree based on search results
+			filterSidebarTree();
+
+			// Filter continue reading to match search results
+			filterContinueReadingBySeries();
+
+			searchStore.update(s => ({ ...s, isSearching: false }));
+		} catch (err) {
+			console.error('[Home] Search failed:', err);
+			searchStore.update(s => ({ ...s, isSearching: false }));
+		}
+	}
+
+	function filterSidebarTree() {
+		if (!searchQuery || !searchResults.length) {
+			filteredSeriesTree = seriesTree;
+			return;
+		}
+
+		// Get unique series names from search results
+		const matchingSeriesNames = new Set(searchResults.map(s => s.series_name));
+
+		// Filter tree to only show libraries/folders that contain matching series
+		filteredSeriesTree = seriesTree.map(library => {
+			const filteredChildren = filterTreeNodesBySearch(library.children || [], matchingSeriesNames);
+
+			if (filteredChildren.length > 0) {
+				return {
+					...library,
+					children: filteredChildren
+				};
+			}
+			return null;
+		}).filter(Boolean);
+	}
+
+	function filterTreeNodesBySearch(nodes, matchingSeriesNames) {
+		return nodes.map(node => {
+			// Check if this folder name matches any series name
+			const nodeMatches = matchingSeriesNames.has(node.name);
+
+			if (node.children && node.children.length > 0) {
+				const filteredChildren = filterTreeNodesBySearch(node.children, matchingSeriesNames);
+
+				if (filteredChildren.length > 0 || nodeMatches) {
+					return {
+						...node,
+						children: filteredChildren
+					};
+				}
+			} else if (nodeMatches) {
+				return node;
+			}
+
+			return null;
+		}).filter(Boolean);
 	}
 
 	// Reactively filter continue reading based on displayed series
@@ -189,25 +386,32 @@
 			return;
 		}
 
+		// If searching, filter by search results
+		if (searchQuery && searchResults.length) {
+			const searchSeriesNames = new Set(searchResults.map(s => s.series_name).filter(Boolean));
+			filteredContinueReading = continueReading.filter(comic =>
+				Array.from(searchSeriesNames).some(seriesName =>
+					comic.title && seriesName && comic.title.toLowerCase().includes(seriesName.toLowerCase())
+				)
+			);
+			return;
+		}
+
 		// If no filter or "all" filter, show everything
 		if (!currentFilter || currentFilter.type === 'all') {
-			console.log('No filter - showing all continue reading');
 			filteredContinueReading = continueReading;
 			return;
 		}
 
 		// If library filter, filter by library
 		if (currentFilter.type === 'library') {
-			console.log('Library filter - filtering by libraryId:', currentFilter.libraryId);
 			filteredContinueReading = continueReading.filter(c => c.libraryId === currentFilter.libraryId);
-			console.log(`Filtered continue reading: ${filteredContinueReading.length} / ${continueReading.length}`);
 			return;
 		}
 
 		// For folder/series filters, filter by displayed series names
 		if (displayedSeries.length > 0) {
 			const displayedSeriesNames = new Set(displayedSeries.map(s => s.series_name));
-			console.log('Filtering continue reading by series:', Array.from(displayedSeriesNames));
 
 			filteredContinueReading = continueReading.filter(comic => {
 				// Check if comic title contains any of the displayed series names
@@ -215,8 +419,6 @@
 					comic.title && comic.title.includes(seriesName)
 				);
 			});
-
-			console.log(`Filtered continue reading: ${filteredContinueReading.length} / ${continueReading.length}`);
 		} else {
 			// No displayed series, show nothing for folder filters
 			filteredContinueReading = [];
@@ -246,7 +448,7 @@
 
 			{#if seriesTree.length > 0}
 				<div class="tree-container">
-					<SeriesTree tree={seriesTree} on:filter={handleTreeFilter} />
+					<SeriesTree tree={filteredSeriesTree} on:filter={handleTreeFilter} />
 				</div>
 			{:else}
 				<p class="sidebar-empty">No libraries</p>
@@ -257,10 +459,34 @@
 		<main class="flex-1 overflow-y-auto">
 			<div class="container mx-auto px-4 py-8 max-w-content">
 				{#if isLoading}
-					<div class="loading-container">
-						<div class="spinner" />
-						<p class="text-gray-400 mt-4">Loading...</p>
-					</div>
+					<!-- Skeleton loading state for better UX -->
+					<section class="section">
+						<div class="section-header">
+							<h2 class="section-title">
+								<BookOpen class="w-6 h-6" />
+								Continue Reading
+							</h2>
+						</div>
+						<div class="flex gap-6 overflow-hidden">
+							{#each Array(5) as _, i}
+								<SkeletonCard width={180} height={270} />
+							{/each}
+						</div>
+					</section>
+
+					<section class="section mt-12">
+						<div class="section-header">
+							<h2 class="section-title">
+								<TrendingUp class="w-6 h-6" />
+								Recent Series
+							</h2>
+						</div>
+						<div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-6">
+							{#each Array(12) as _, i}
+								<SkeletonCard width={180} height={270} />
+							{/each}
+						</div>
+					</section>
 				{:else if error}
 					<div class="error-container">
 						<p class="text-red-400">Failed to load: {error}</p>
@@ -273,13 +499,14 @@
 									<BookOpen class="w-6 h-6" />
 									Continue Reading
 								</h2>
-								<a href="/continue-reading" class="see-all">See all →</a>
 							</div>
-							<div class="comics-grid">
+							<HorizontalCarousel itemWidth={180} gap={24}>
 								{#each filteredContinueReading as comic}
-									<ComicCard {comic} libraryId={comic.libraryId} />
+									<div class="carousel-item">
+										<ComicCard {comic} libraryId={comic.libraryId} />
+									</div>
 								{/each}
-							</div>
+							</HorizontalCarousel>
 						</section>
 					{/if}
 
@@ -288,7 +515,9 @@
 							<div class="section-header">
 								<h2 class="section-title">
 									<TrendingUp class="w-6 h-6" />
-									{#if currentFilter?.type === 'all'}
+									{#if searchQuery}
+										Search Results
+									{:else if currentFilter?.type === 'all'}
 										All Series
 									{:else if currentFilter?.type === 'library'}
 										{currentFilter.libraryName}
@@ -298,47 +527,50 @@
 										All Series
 									{/if}
 								</h2>
-								{#if !currentFilter && currentFilter?.type !== 'all'}
-									<a href="/browse" class="see-all">See all →</a>
-								{/if}
 							</div>
-							<div class="comics-grid">
-								{#if currentFilter?.type === 'folder'}
-									<!-- Show individual comics when folder is selected -->
-									{#each displayedSeries[0]?.volumes || [] as comic}
-										<a href="/comic/{currentFilter.libraryId}/{comic.id}/read">
+							<InfiniteScroll
+								hasMore={hasMoreSeries}
+								isLoading={isLoadingMore}
+								on:loadMore={loadMoreSeries}
+							>
+								<div class="comics-grid">
+									{#if currentFilter?.type === 'folder'}
+										<!-- Show individual comics when folder is selected -->
+										{#each displayedSeries[0]?.volumes || [] as comic}
+											<a href="/comic/{currentFilter.libraryId}/{comic.id}/read">
+												<ComicCard
+													comic={{
+														id: comic.id,
+														title: comic.name,
+														hash: comic.hash,
+														currentPage: comic.currentPage,
+														totalPages: comic.totalPages
+													}}
+													libraryId={currentFilter.libraryId}
+													showProgress={true}
+												/>
+											</a>
+										{/each}
+									{:else}
+										<!-- Show series cards -->
+										{#each displayedSeries as series}
 											<ComicCard
 												comic={{
-													id: comic.id,
-													title: comic.name,
-													hash: comic.hash,
-													currentPage: comic.currentPage,
-													totalPages: comic.totalPages
+													id: series.first_comic_id,
+													title: series.series_name,
+													hash: series.cover_hash,
+													itemCount: series.total_issues
 												}}
-												libraryId={currentFilter.libraryId}
-												showProgress={true}
+												libraryId={series.libraryId}
+												showProgress={false}
+												isFolder={true}
+												itemCount={series.total_issues}
+												href="/series/{series.libraryId}/{encodeURIComponent(series.series_name)}"
 											/>
-										</a>
-									{/each}
-								{:else}
-									<!-- Show series cards -->
-									{#each displayedSeries as series}
-										<ComicCard
-											comic={{
-												id: series.first_comic_id,
-												title: series.series_name,
-												hash: series.cover_hash,
-												itemCount: series.total_issues
-											}}
-											libraryId={series.libraryId}
-											showProgress={false}
-											isFolder={true}
-											itemCount={series.total_issues}
-											href="/series/{series.libraryId}/{encodeURIComponent(series.series_name)}"
-										/>
-									{/each}
-								{/if}
-							</div>
+										{/each}
+									{/if}
+								</div>
+							</InfiniteScroll>
 						</section>
 					{/if}
 
@@ -563,6 +795,101 @@
 		gap: 1.5rem;
 	}
 
+	.carousel-item {
+		flex-shrink: 0;
+		width: 180px;
+	}
+
+	.search-container {
+		margin-bottom: 2rem;
+		position: sticky;
+		top: 0;
+		z-index: 20;
+		background: var(--color-bg);
+		padding: 1rem 0;
+		margin: -1rem 0 2rem 0;
+	}
+
+	.search-input-wrapper {
+		position: relative;
+		display: flex;
+		align-items: center;
+		width: 100%;
+		max-width: 600px;
+		margin: 0 auto;
+	}
+
+	.search-icon {
+		position: absolute;
+		left: 1rem;
+		width: 20px;
+		height: 20px;
+		color: var(--color-text-secondary);
+		pointer-events: none;
+	}
+
+	.search-input {
+		width: 100%;
+		padding: 0.875rem 3rem 0.875rem 3rem;
+		background: var(--color-secondary-bg);
+		border: 2px solid rgba(255, 255, 255, 0.1);
+		border-radius: 12px;
+		color: var(--color-text);
+		font-size: 1rem;
+		transition: all 0.2s;
+	}
+
+	.search-input:focus {
+		outline: none;
+		border-color: var(--color-accent);
+		background: rgba(255, 255, 255, 0.05);
+	}
+
+	.search-input::placeholder {
+		color: var(--color-text-secondary);
+	}
+
+	.search-clear {
+		position: absolute;
+		right: 0.75rem;
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		width: 32px;
+		height: 32px;
+		padding: 0;
+		background: rgba(255, 255, 255, 0.1);
+		border: none;
+		border-radius: 50%;
+		color: var(--color-text);
+		cursor: pointer;
+		transition: all 0.2s;
+	}
+
+	.search-clear:hover {
+		background: rgba(255, 255, 255, 0.2);
+		transform: scale(1.1);
+	}
+
+	.search-loading {
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		gap: 0.5rem;
+		margin-top: 0.75rem;
+		color: var(--color-text-secondary);
+		font-size: 0.875rem;
+	}
+
+	.spinner-small {
+		width: 16px;
+		height: 16px;
+		border: 2px solid rgba(255, 255, 255, 0.1);
+		border-top-color: var(--color-accent);
+		border-radius: 50%;
+		animation: spin 0.6s linear infinite;
+	}
+
 	@media (max-width: 768px) {
 		.sidebar {
 			display: none;
@@ -575,6 +902,14 @@
 
 		.section-title {
 			font-size: 1.25rem;
+		}
+
+		.carousel-item {
+			width: 140px;
+		}
+
+		.search-input-wrapper {
+			max-width: 100%;
 		}
 	}
 </style>

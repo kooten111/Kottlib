@@ -69,6 +69,9 @@ class Folder(Base):
         UniqueConstraint('library_id', 'path'),
         Index('idx_folders_library', 'library_id'),
         Index('idx_folders_parent', 'parent_id'),
+        # Performance indexes
+        Index('idx_folders_library_path', 'library_id', 'path'),
+        Index('idx_folders_name', 'name'),
     )
 
 
@@ -191,6 +194,15 @@ class Comic(Base):
         Index('idx_comics_folder', 'folder_id'),
         Index('idx_comics_hash', 'hash'),
         Index('idx_comics_series', 'series'),
+        # Performance indexes
+        Index('idx_comics_title', 'title'),
+        Index('idx_comics_publisher', 'publisher'),
+        Index('idx_comics_year', 'year'),
+        Index('idx_comics_filename', 'filename'),
+        Index('idx_comics_library_series', 'library_id', 'series'),
+        Index('idx_comics_library_folder', 'library_id', 'folder_id'),
+        Index('idx_comics_file_modified', 'file_modified_at'),
+        Index('idx_comics_library_count', 'library_id'),
     )
 
 
@@ -249,6 +261,10 @@ class ReadingProgress(Base):
         Index('idx_reading_progress_user', 'user_id'),
         Index('idx_reading_progress_comic', 'comic_id'),
         Index('idx_reading_progress_last_read', 'last_read_at'),
+        # Performance indexes
+        Index('idx_reading_progress_continue', 'user_id', 'is_completed', 'last_read_at'),
+        Index('idx_reading_progress_completed', 'user_id', 'is_completed', 'completed_at'),
+        Index('idx_reading_progress_percent', 'progress_percent'),
     )
 
 
@@ -284,6 +300,9 @@ class Series(Base):
         UniqueConstraint('library_id', 'name'),
         Index('idx_series_library', 'library_id'),
         Index('idx_series_name', 'name'),
+        # Performance indexes
+        Index('idx_series_library_name', 'library_id', 'name'),
+        Index('idx_series_year_start', 'year_start'),
     )
 
 
@@ -369,6 +388,8 @@ class Collection(Base):
 
     __table_args__ = (
         Index('idx_collections_user', 'user_id'),
+        # Performance indexes
+        Index('idx_collections_user_position', 'user_id', 'position'),
     )
 
 
@@ -390,6 +411,8 @@ class Favorite(Base):
         Index('idx_favorites_user', 'user_id'),
         Index('idx_favorites_library', 'library_id'),
         Index('idx_favorites_comic', 'comic_id'),
+        # Performance indexes
+        Index('idx_favorites_user_created', 'user_id', 'created_at'),
     )
 
 
