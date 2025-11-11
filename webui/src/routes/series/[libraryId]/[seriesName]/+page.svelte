@@ -7,6 +7,7 @@
 	import { getSeriesDetail, getLibrary } from '$lib/api/libraries';
 	import { getCoverUrl } from '$lib/api/comics';
 	import { BookOpen, Calendar, User, Tag } from 'lucide-svelte';
+	import { navigationContext } from '$lib/stores/library';
 
 	$: libraryId = parseInt($page.params.libraryId);
 	$: seriesName = decodeURIComponent($page.params.seriesName);
@@ -35,6 +36,14 @@
 
 			// Load series detail
 			series = await getSeriesDetail(libraryId, seriesName);
+
+			// Update navigation context for continue reading filtering
+			navigationContext.set({
+				type: 'series',
+				libraryId: libraryId,
+				seriesName: seriesName,
+				seriesNames: [seriesName]
+			});
 
 			// Build breadcrumbs
 			breadcrumbs = [

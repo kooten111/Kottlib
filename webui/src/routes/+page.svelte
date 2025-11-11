@@ -5,9 +5,11 @@
 	import SeriesTree from '$lib/components/layout/SeriesTree.svelte';
 	import { getLibraries, getSeries, getContinueReading, getLibrariesSeriesTree } from '$lib/api/libraries';
 	import { BookOpen, Library, TrendingUp } from 'lucide-svelte';
+	import { navigationContext } from '$lib/stores/library';
 
 	let libraries = [];
 	let continueReading = [];
+	let filteredContinueReading = [];
 	let allSeries = [];
 	let displayedSeries = [];
 	let isLoading = true;
@@ -93,16 +95,25 @@
 	}
 
 	function handleTreeFilter(event) {
-		const { type, libraryId, folderId, folderName, comicId } = event.detail;
+		const { type, libraryId, folderId, folderName, comicId, libraryName } = event.detail;
 
 		currentFilter = event.detail;
 
+		// Update navigation context for continue reading filtering
 		if (type === 'all') {
+			navigationContext.set({ type: 'all', seriesNames: [] });
 			// Show all series from all libraries
 			displayedSeries = allSeries.slice(0, 20);
 		} else if (type === 'library') {
+			const librarySeries = allSeries.filter(s => s.libraryId === libraryId);
+			navigationContext.set({
+				type: 'library',
+				libraryId,
+				libraryName,
+				seriesNames: librarySeries.map(s => s.series_name)
+			});
 			// Filter to show only series from selected library
-			displayedSeries = allSeries.filter(s => s.libraryId === libraryId);
+			displayedSeries = librarySeries;
 		} else if (type === 'folder') {
 			// Find all comics in this folder recursively from the tree
 			const library = seriesTree.find(l => l.id === libraryId);
@@ -164,7 +175,52 @@
 
 	function resetFilter() {
 		currentFilter = null;
+		navigationContext.set({ type: 'all' });
 		displayedSeries = allSeries.slice(0, 20);
+	}
+
+	// Reactively filter continue reading based on displayed series
+	$: if (displayedSeries && continueReading) {
+		filterContinueReadingBySeries();
+	}
+
+	function filterContinueReadingBySeries() {
+		if (!continueReading.length) {
+			return;
+		}
+
+		// If no filter or "all" filter, show everything
+		if (!currentFilter || currentFilter.type === 'all') {
+			console.log('No filter - showing all continue reading');
+			filteredContinueReading = continueReading;
+			return;
+		}
+
+		// If library filter, filter by library
+		if (currentFilter.type === 'library') {
+			console.log('Library filter - filtering by libraryId:', currentFilter.libraryId);
+			filteredContinueReading = continueReading.filter(c => c.libraryId === currentFilter.libraryId);
+			console.log(`Filtered continue reading: ${filteredContinueReading.length} / ${continueReading.length}`);
+			return;
+		}
+
+		// For folder/series filters, filter by displayed series names
+		if (displayedSeries.length > 0) {
+			const displayedSeriesNames = new Set(displayedSeries.map(s => s.series_name));
+			console.log('Filtering continue reading by series:', Array.from(displayedSeriesNames));
+
+			filteredContinueReading = continueReading.filter(comic => {
+				// Check if comic title contains any of the displayed series names
+				return Array.from(displayedSeriesNames).some(seriesName =>
+					comic.title && comic.title.includes(seriesName)
+				);
+			});
+
+			console.log(`Filtered continue reading: ${filteredContinueReading.length} / ${continueReading.length}`);
+		} else {
+			// No displayed series, show nothing for folder filters
+			filteredContinueReading = [];
+		}
 	}
 </script>
 
@@ -210,7 +266,7 @@
 						<p class="text-red-400">Failed to load: {error}</p>
 					</div>
 				{:else}
-					{#if continueReading.length > 0}
+					{#if filteredContinueReading.length > 0}
 						<section class="section">
 							<div class="section-header">
 								<h2 class="section-title">
@@ -220,7 +276,7 @@
 								<a href="/continue-reading" class="see-all">See all →</a>
 							</div>
 							<div class="comics-grid">
-								{#each continueReading as comic}
+								{#each filteredContinueReading as comic}
 									<ComicCard {comic} libraryId={comic.libraryId} />
 								{/each}
 							</div>

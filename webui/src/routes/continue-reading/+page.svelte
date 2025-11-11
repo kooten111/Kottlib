@@ -4,17 +4,36 @@
 	import ComicCard from '$lib/components/comic/ComicCard.svelte';
 	import { getLibraries, getContinueReading } from '$lib/api/libraries';
 	import { BookOpen, Grid, List, SortAsc } from 'lucide-svelte';
+	import { navigationContext } from '$lib/stores/library';
 
 	let libraries = [];
 	let continueReading = [];
+	let filteredContinueReading = [];
 	let isLoading = true;
 	let error = null;
 	let viewMode = 'grid';
 	let sortBy = 'recent';
 
-	onMount(async () => {
-		await loadContinueReading();
+	// Read the current context value immediately
+	let currentContext = { type: 'all' };
+	const unsubscribeContext = navigationContext.subscribe(value => {
+		currentContext = value;
 	});
+
+	onMount(async () => {
+		console.log('Continue reading page mounted with context:', currentContext);
+		await loadContinueReading();
+
+		return () => {
+			unsubscribeContext();
+		};
+	});
+
+	// Reactively apply filter when context or data changes
+	$: if (continueReading.length > 0 && currentContext) {
+		console.log('Reactive update - context or data changed');
+		applyFilter();
+	}
 
 	async function loadContinueReading() {
 		try {
@@ -38,7 +57,6 @@
 			);
 
 			continueReading = continueResults.flat();
-			continueReading = sortComics(continueReading, sortBy);
 
 			isLoading = false;
 		} catch (err) {
@@ -46,6 +64,46 @@
 			error = err.message;
 			isLoading = false;
 		}
+	}
+
+	function applyFilter() {
+		if (!continueReading.length) {
+			filteredContinueReading = [];
+			return;
+		}
+
+		let filtered = continueReading;
+
+		console.log('Applying filter with context:', currentContext);
+		console.log('Total continue reading comics:', continueReading.length);
+		console.log('Sample comic:', continueReading[0]);
+
+		// Apply context-based filtering
+		if (currentContext.seriesNames && currentContext.seriesNames.length > 0) {
+			console.log('Filtering by series names:', currentContext.seriesNames);
+			filtered = continueReading.filter(comic => {
+				// Check if comic title contains any of the series names
+				return currentContext.seriesNames.some(seriesName =>
+					comic.title && comic.title.includes(seriesName)
+				);
+			});
+			console.log('Filtered to', filtered.length, 'comics by series name matching');
+		} else if (currentContext.type === 'library' && currentContext.libraryId) {
+			console.log('Filtering by library:', currentContext.libraryId);
+			filtered = continueReading.filter(comic => comic.libraryId === currentContext.libraryId);
+			console.log('Filtered to', filtered.length, 'comics');
+		} else if (currentContext.type === 'series' && currentContext.seriesName) {
+			console.log('Filtering by series:', currentContext.seriesName, 'in library', currentContext.libraryId);
+			filtered = continueReading.filter(comic => {
+				const matchesLibrary = comic.libraryId === currentContext.libraryId;
+				const matchesSeries = comic.series === currentContext.seriesName ||
+				                      (comic.title && comic.title.includes(currentContext.seriesName));
+				return matchesLibrary && matchesSeries;
+			});
+			console.log('Filtered to', filtered.length, 'comics');
+		}
+
+		filteredContinueReading = sortComics(filtered, sortBy);
 	}
 
 	function sortComics(comicsList, sortType) {
@@ -72,7 +130,10 @@
 		viewMode = viewMode === 'grid' ? 'list' : 'grid';
 	}
 
-	$: sortedComics = sortComics(continueReading, sortBy);
+	// Re-apply filter when sort changes
+	$: if (sortBy && continueReading.length > 0) {
+		applyFilter();
+	}
 </script>
 
 <svelte:head>
@@ -91,13 +152,19 @@
 				</div>
 				<div>
 					<h1 class="page-title">Continue Reading</h1>
-					{#if !isLoading && continueReading.length > 0}
-						<p class="page-subtitle">{continueReading.length} comics in progress</p>
+					{#if !isLoading}
+						{#if currentContext.type === 'library'}
+							<p class="page-subtitle">{filteredContinueReading.length} comics in progress (filtered by library)</p>
+						{:else if currentContext.type === 'series'}
+							<p class="page-subtitle">{filteredContinueReading.length} comics in progress (filtered by series)</p>
+						{:else if continueReading.length > 0}
+							<p class="page-subtitle">{filteredContinueReading.length} comics in progress</p>
+						{/if}
 					{/if}
 				</div>
 			</div>
 
-			{#if continueReading.length > 0}
+			{#if filteredContinueReading.length > 0}
 				<div class="view-controls">
 					<!-- Sort Dropdown -->
 					<select bind:value={sortBy} class="control-select">
@@ -134,19 +201,31 @@
 				<p class="text-red-400">Failed to load comics: {error}</p>
 				<button class="btn-primary mt-4" on:click={loadContinueReading}>Try Again</button>
 			</div>
-		{:else if sortedComics.length > 0}
+		{:else if filteredContinueReading.length > 0}
 			<div class="comics-{viewMode}">
-				{#each sortedComics as comic}
+				{#each filteredContinueReading as comic}
 					<ComicCard {comic} libraryId={comic.libraryId} variant={viewMode} showProgress={true} />
 				{/each}
 			</div>
 		{:else}
 			<div class="empty-state">
 				<BookOpen class="w-16 h-16 text-gray-500 mb-4" />
-				<p class="text-gray-400 mb-4">No comics in progress</p>
-				<p class="text-gray-500 text-sm">
-					Start reading a comic to see it here
-				</p>
+				{#if currentContext.type === 'library'}
+					<p class="text-gray-400 mb-4">No comics in progress for this library</p>
+					<p class="text-gray-500 text-sm">
+						Select "Libraries" to see all comics or start reading in this library
+					</p>
+				{:else if currentContext.type === 'series'}
+					<p class="text-gray-400 mb-4">No comics in progress for this series</p>
+					<p class="text-gray-500 text-sm">
+						Select a different series or start reading from this series
+					</p>
+				{:else}
+					<p class="text-gray-400 mb-4">No comics in progress</p>
+					<p class="text-gray-500 text-sm">
+						Start reading a comic to see it here
+					</p>
+				{/if}
 			</div>
 		{/if}
 	</main>
