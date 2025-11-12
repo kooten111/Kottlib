@@ -95,7 +95,7 @@
 	.cover-container {
 		position: relative;
 		background: #1a1a1a;
-		overflow: visible;
+		overflow: hidden;
 	}
 
 	/* Folder stacked effect */
@@ -136,6 +136,7 @@
 	.comic-card.grid .cover-container {
 		aspect-ratio: 2/3;
 		width: 100%;
+		max-height: 256px;
 	}
 
 	.comic-card.list .cover-container {

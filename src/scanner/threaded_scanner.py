@@ -24,6 +24,7 @@ try:
         Database,
         create_comic,
         get_comic_by_hash,
+        get_comic_by_path_and_mtime,
         create_folder,
         get_folder_by_path,
         get_or_create_root_folder,
@@ -43,6 +44,7 @@ except ImportError:
         Database,
         create_comic,
         get_comic_by_hash,
+        get_comic_by_path_and_mtime,
         create_folder,
         get_folder_by_path,
         get_or_create_root_folder,
@@ -66,6 +68,8 @@ class ScanResult:
     comics_found: int = 0
     comics_added: int = 0
     comics_skipped: int = 0
+    comics_skipped_unchanged: int = 0  # Fast path: unchanged files
+    comics_updated: int = 0  # Moved/renamed files
     folders_found: int = 0
     thumbnails_generated: int = 0
     errors: int = 0
@@ -109,6 +113,8 @@ class ThreadedScanner:
         self._comics_processed = 0
         self._comics_added = 0
         self._comics_skipped = 0
+        self._comics_skipped_unchanged = 0  # Fast path skips
+        self._comics_updated = 0  # Moved/renamed files
         self._thumbnails_generated = 0
         self._errors = 0
 
@@ -151,6 +157,8 @@ class ThreadedScanner:
             comics_found=total_comics,
             comics_added=self._comics_added,
             comics_skipped=self._comics_skipped,
+            comics_skipped_unchanged=self._comics_skipped_unchanged,
+            comics_updated=self._comics_updated,
             folders_found=len(folders),
             thumbnails_generated=self._thumbnails_generated,
             errors=self._errors,
@@ -159,7 +167,8 @@ class ThreadedScanner:
 
         logger.info(
             f"Scan complete: {result.comics_added} added, "
-            f"{result.comics_skipped} skipped, "
+            f"{result.comics_skipped} skipped ({result.comics_skipped_unchanged} unchanged, "
+            f"{result.comics_updated} updated), "
             f"{result.errors} errors in {duration:.2f}s"
         )
 
@@ -327,16 +336,44 @@ class ThreadedScanner:
             folder_id: Parent folder ID (or None)
         """
         try:
-            # Calculate hash
+            # FAST PATH: Check by path + mtime first (avoids expensive hash calculation)
+            # This makes re-scans MUCH faster by skipping unchanged files
+            file_mtime = int(comic_path.stat().st_mtime)
+
+            with self.db.get_session() as session:
+                existing = get_comic_by_path_and_mtime(
+                    session,
+                    str(comic_path),
+                    file_mtime,
+                    library_id=self.library_id
+                )
+                if existing:
+                    # File hasn't changed since last scan - skip it completely
+                    with self._lock:
+                        self._comics_skipped += 1
+                        self._comics_skipped_unchanged += 1
+                    logger.debug(f"Skipping unchanged file: {comic_path.name}")
+                    return
+
+            # SLOW PATH: Calculate hash for new/modified files
+            # This catches renamed files and ensures proper deduplication
             file_hash = calculate_file_hash(comic_path)
 
-            # Check if already in database FOR THIS LIBRARY (use separate session per thread)
-            # Pass library_id to allow same file in different libraries
+            # Check if already in database by hash (catches moved/renamed files)
             with self.db.get_session() as session:
                 existing = get_comic_by_hash(session, file_hash, library_id=self.library_id)
                 if existing:
+                    # Same content, different path/mtime - update the record
+                    existing.path = str(comic_path)
+                    existing.filename = comic_path.name
+                    existing.file_modified_at = file_mtime
+                    existing.folder_id = folder_id
+                    session.commit()
+
                     with self._lock:
                         self._comics_skipped += 1
+                        self._comics_updated += 1
+                    logger.info(f"Updated moved/renamed comic: {comic_path.name}")
                     return
 
             # Open comic to extract metadata

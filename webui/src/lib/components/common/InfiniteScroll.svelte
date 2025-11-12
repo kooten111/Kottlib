@@ -1,5 +1,5 @@
 <script>
-	import { createEventDispatcher, onMount, onDestroy } from 'svelte';
+	import { createEventDispatcher, onMount, onDestroy, tick } from 'svelte';
 
 	const dispatch = createEventDispatcher();
 
@@ -9,27 +9,68 @@
 
 	let container;
 	let observer;
+	let sentinelElement;
 
 	onMount(() => {
 		// Create intersection observer for the sentinel
 		observer = new IntersectionObserver(
 			(entries) => {
 				const entry = entries[0];
+				console.log('[InfiniteScroll] Observer triggered:', {
+					isIntersecting: entry.isIntersecting,
+					hasMore,
+					isLoading
+				});
+				// Add debounce check - only trigger if not already loading and hasMore is true
 				if (entry.isIntersecting && hasMore && !isLoading) {
-					dispatch('loadMore');
+					// Slight delay to prevent double-triggering
+					setTimeout(() => {
+						if (hasMore && !isLoading) {
+							console.log('[InfiniteScroll] Dispatching loadMore event');
+							dispatch('loadMore');
+						}
+					}, 50);
 				}
 			},
 			{
-				rootMargin: `${threshold}px`
+				rootMargin: `${threshold}px`,
+				threshold: 0.1 // Trigger when 10% visible
 			}
 		);
-
-		// Observe the sentinel element
-		const sentinel = container?.querySelector('.infinite-scroll-sentinel');
-		if (sentinel) {
-			observer.observe(sentinel);
-		}
 	});
+
+	// Reactively observe the sentinel whenever it changes or hasMore changes
+	$: if (observer && container && hasMore) {
+		tick().then(() => {
+			const sentinel = container.querySelector('.infinite-scroll-sentinel');
+			console.log('[InfiniteScroll] Reactive check:', {
+				hasSentinel: !!sentinel,
+				hasMore,
+				sentinelChanged: sentinel !== sentinelElement
+			});
+			if (sentinel && sentinel !== sentinelElement) {
+				// Disconnect previous observation
+				if (sentinelElement) {
+					observer.unobserve(sentinelElement);
+				}
+				// Observe new sentinel
+				observer.observe(sentinel);
+				sentinelElement = sentinel;
+				console.log('[InfiniteScroll] Now observing sentinel');
+			} else if (!sentinel && sentinelElement) {
+				// Sentinel was removed, clean up
+				observer.unobserve(sentinelElement);
+				sentinelElement = null;
+				console.log('[InfiniteScroll] Sentinel removed, cleaned up');
+			}
+		});
+	}
+
+	// Clean up when hasMore becomes false
+	$: if (!hasMore && sentinelElement && observer) {
+		observer.unobserve(sentinelElement);
+		sentinelElement = null;
+	}
 
 	onDestroy(() => {
 		if (observer) {

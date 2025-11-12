@@ -7,28 +7,8 @@
 const API_BASE_URL = process.env.API_BASE_URL || 'http://localhost:8081/v2';
 
 /**
- * Fetch wrapper for server-side API calls
- */
-async function fetchAPI(path) {
-	const url = `${API_BASE_URL}${path}`;
-	const response = await fetch(url);
-
-	if (!response.ok) {
-		console.error(`API error: ${response.status} ${response.statusText} for ${url}`);
-		throw new Error(`Failed to fetch ${path}: ${response.statusText}`);
-	}
-
-	return response.json();
-}
-
-/**
  * Load data for the home page on the server
- * Strategy: Load only critical data needed for initial render
- * - Libraries list (small, required)
- * - Series tree (large but cached, needed for sidebar)
- * - First library's continue reading (for above-the-fold content)
- *
- * Other data loads progressively on the client side
+ * Loads data from ALL libraries on initial render
  */
 export async function load({ fetch: svelteKitFetch }) {
 	try {
@@ -62,27 +42,53 @@ export async function load({ fetch: svelteKitFetch }) {
 			};
 		}
 
-		// Load first library's data for initial render
-		// This gives users something to see immediately while other data loads
-		const firstLibrary = libraries[0];
-		const [continueReading, recentSeries] = await Promise.all([
-			customFetch(`/library/${firstLibrary.id}/reading?limit=20`),
-			customFetch(`/library/${firstLibrary.id}/series?sort=recent`)
+		// Load data from ALL libraries
+		const [continueReadingResults, allSeriesResults] = await Promise.all([
+			// Continue reading from all libraries
+			Promise.all(
+				libraries.map(async (lib) => {
+					try {
+						const comics = await customFetch(`/library/${lib.id}/reading?limit=50`);
+						return comics ? comics.map(comic => ({ ...comic, libraryId: lib.id })) : [];
+					} catch {
+						return [];
+					}
+				})
+			),
+			// All series from all libraries
+			Promise.all(
+				libraries.map(async (lib) => {
+					try {
+						const series = await customFetch(`/library/${lib.id}/series?sort=recent`);
+						return series ? series.map(s => ({ ...s, libraryId: lib.id })) : [];
+					} catch (err) {
+						console.error(`Failed to fetch series for library ${lib.id}:`, err);
+						return [];
+					}
+				})
+			)
 		]);
+
+		// Flatten and combine continue reading from all libraries
+		const continueReading = continueReadingResults.flat().slice(0, 20);
+
+		// Interleave series from different libraries for variety
+		const maxLength = Math.max(...allSeriesResults.map(r => r.length));
+		const allSeries = [];
+		for (let i = 0; i < maxLength; i++) {
+			for (const libraryResults of allSeriesResults) {
+				if (i < libraryResults.length) {
+					allSeries.push(libraryResults[i]);
+				}
+			}
+		}
 
 		return {
 			libraries: libraries || [],
 			seriesTree: seriesTree || [],
 			firstLibrary: {
-				...firstLibrary,
-				continueReading: (continueReading || []).map(c => ({
-					...c,
-					libraryId: firstLibrary.id
-				})),
-				recentSeries: (recentSeries || []).slice(0, 50).map(s => ({
-					...s,
-					libraryId: firstLibrary.id
-				}))
+				continueReading: continueReading,
+				recentSeries: allSeries  // Return all series, not just 50
 			}
 		};
 	} catch (error) {

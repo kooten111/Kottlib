@@ -153,6 +153,10 @@ Examples:
     print(f"Comics found:        {result.comics_found}")
     print(f"Comics added:        {result.comics_added}")
     print(f"Comics skipped:      {result.comics_skipped} (already in DB)")
+    if result.comics_skipped_unchanged > 0:
+        print(f"  - Unchanged:       {result.comics_skipped_unchanged} (fast path)")
+    if result.comics_updated > 0:
+        print(f"  - Updated:         {result.comics_updated} (moved/renamed)")
     print(f"Folders found:       {result.folders_found}")
     print(f"Thumbnails created:  {result.thumbnails_generated}")
     print(f"Errors:              {result.errors}")

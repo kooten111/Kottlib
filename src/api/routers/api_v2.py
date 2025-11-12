@@ -29,7 +29,7 @@ from ...database import (
     update_reading_progress,
     get_first_comic_recursive,
 )
-from ...database.models import Comic
+from ...database.models import Comic, ReadingProgress
 from ..middleware import get_current_user_id
 
 logger = logging.getLogger(__name__)
@@ -696,18 +696,31 @@ async def get_cover_v2(
 
     The cover_path is the hash.jpg filename
     Covers are stored in hierarchical structure: covers/ab/abc123.jpg
+
+    Serves WebP format when available (better quality, smaller size),
+    with JPEG fallback for compatibility.
     """
     # Extract hash from path (e.g., "abc123.jpg" -> "abc123")
-    hash_value = cover_path.replace('.jpg', '').replace('.jpeg', '').replace('.png', '')
+    hash_value = cover_path.replace('.jpg', '').replace('.jpeg', '').replace('.png', '').replace('.webp', '')
 
     # Get covers directory - uses hierarchical storage (first 2 chars as subdirectory)
     covers_dir = get_covers_dir()
 
-    # Try hierarchical path first (covers/ab/abc123.jpg)
+    # Try WebP first (better quality and smaller size)
     if len(hash_value) >= 2:
         subdir = hash_value[:2]
-        cover_file = covers_dir / subdir / cover_path
 
+        # Try hierarchical WebP path (covers/ab/abc123.webp)
+        webp_file = covers_dir / subdir / f"{hash_value}.webp"
+        if webp_file.exists():
+            return FileResponse(
+                webp_file,
+                media_type="image/webp",
+                headers={"Cache-Control": "public, max-age=86400"}
+            )
+
+        # Try hierarchical JPEG path (covers/ab/abc123.jpg)
+        cover_file = covers_dir / subdir / cover_path
         if cover_file.exists():
             return FileResponse(
                 cover_file,
@@ -715,7 +728,17 @@ async def get_cover_v2(
                 headers={"Cache-Control": "public, max-age=86400"}
             )
 
-    # Try flat path as fallback (covers/abc123.jpg)
+    # Try flat path as fallback
+    # Try WebP first
+    webp_file = covers_dir / f"{hash_value}.webp"
+    if webp_file.exists():
+        return FileResponse(
+            webp_file,
+            media_type="image/webp",
+            headers={"Cache-Control": "public, max-age=86400"}
+        )
+
+    # Try JPEG
     cover_file = covers_dir / cover_path
     if cover_file.exists():
         return FileResponse(
@@ -1843,25 +1866,31 @@ async def get_libraries_series_tree(request: Request, max_depth: int = 10):
         else:
             user = get_user_by_username(session, 'admin')
 
-        def add_reading_progress_to_tree(node, user_id):
-            """Recursively add reading progress to cached tree nodes"""
-            if not user_id or not node:
+        # OPTIMIZATION: Fetch ALL reading progress for this user in ONE query
+        # This eliminates N+1 queries when adding progress to tree nodes
+        progress_by_comic = {}
+        if user:
+            all_progress = session.query(ReadingProgress).filter_by(user_id=user.id).all()
+            progress_by_comic = {p.comic_id: p for p in all_progress}
+
+        def add_reading_progress_to_tree(node, progress_lookup):
+            """Recursively add reading progress to cached tree nodes (OPTIMIZED)"""
+            if not progress_lookup or not node:
                 return node
 
-            # Add progress to comics
+            # Add progress to comics (lookup from pre-fetched dict, NO database query)
             if node.get("type") == "comic":
                 comic_id = node.get("id")
-                if comic_id:
-                    progress = get_reading_progress(session, user_id, comic_id)
-                    if progress:
-                        node["currentPage"] = progress.current_page
-                        node["isCompleted"] = progress.is_completed
-                        node["progressPercent"] = progress.progress_percent
+                if comic_id and comic_id in progress_lookup:
+                    progress = progress_lookup[comic_id]
+                    node["currentPage"] = progress.current_page
+                    node["isCompleted"] = progress.is_completed
+                    node["progressPercent"] = progress.progress_percent
 
             # Recursively process children
             if "children" in node:
                 for child in node["children"]:
-                    add_reading_progress_to_tree(child, user_id)
+                    add_reading_progress_to_tree(child, progress_lookup)
 
             return node
 
@@ -1873,9 +1902,9 @@ async def get_libraries_series_tree(request: Request, max_depth: int = 10):
             if cache_key in _series_tree_cache:
                 library_node = _series_tree_cache[cache_key].copy()
 
-                # Add reading progress dynamically (user-specific)
+                # Add reading progress dynamically (user-specific, no N+1!)
                 if user:
-                    add_reading_progress_to_tree(library_node, user.id)
+                    add_reading_progress_to_tree(library_node, progress_by_comic)
 
                 tree.append(library_node)
                 logger.debug(f"v2 API: Using in-memory cache for library {library.id}")
@@ -1898,9 +1927,9 @@ async def get_libraries_series_tree(request: Request, max_depth: int = 10):
                     # Store in memory cache for next time
                     _series_tree_cache[cache_key] = library_node.copy()
 
-                    # Add reading progress dynamically
+                    # Add reading progress dynamically (no N+1!)
                     if user:
-                        add_reading_progress_to_tree(library_node, user.id)
+                        add_reading_progress_to_tree(library_node, progress_by_comic)
 
                     tree.append(library_node)
                     logger.debug(f"v2 API: Using database cache for library {library.id}")
@@ -1947,9 +1976,10 @@ async def get_series_list(
     sort: Optional[str] = "name"
 ):
     """
-    Get all series in a library with metadata aggregation
+    Get all series in a library with metadata aggregation (OPTIMIZED)
 
-    Groups comics by series name and returns summary information
+    Uses SQL aggregation and eager loading to avoid N+1 queries.
+    Series names are pre-computed in normalized_series_name field.
 
     Args:
         library_id: ID of the library
@@ -1961,13 +1991,13 @@ async def get_series_list(
     db = request.app.state.db
 
     with db.get_session() as session:
+        from sqlalchemy.orm import selectinload
+        from sqlalchemy import func
+
         # Get library
         library = get_library_by_id(session, library_id)
         if not library:
             raise HTTPException(status_code=404, detail="Library not found")
-
-        # Get all comics in library
-        comics = session.query(Comic).filter_by(library_id=library_id).all()
 
         # Get user for reading progress
         user_id = get_current_user_id(request)
@@ -1976,99 +2006,93 @@ async def get_series_list(
         else:
             user = get_user_by_username(session, 'admin')
 
-        # Import Folder model
-        from ...database.models import Folder as FolderModel
-        import re
+        # OPTIMIZATION 1: Use SQL to group and aggregate series data
+        # This replaces the Python loops with database aggregation
+        series_aggregation = session.query(
+            Comic.normalized_series_name.label('series_name'),
+            func.count(Comic.id).label('total_issues'),
+            func.min(Comic.id).label('first_comic_id'),
+            func.max(Comic.id).label('last_comic_id'),
+            func.min(Comic.hash).label('cover_hash'),
+            func.max(Comic.publisher).label('publisher')
+        ).filter(
+            Comic.library_id == library_id
+        ).group_by(
+            Comic.normalized_series_name
+        ).all()
 
-        # Helper function to normalize series names from folders or filenames
-        def normalize_series_name(name):
-            """
-            Normalize series name by removing metadata like years, release groups, versions, etc.
-            Examples:
-            - "Preacher (2019) (Digital)" -> "Preacher"
-            - "A Man Among Ye v01 (2021) (Digital) (XRA-Empire)(1)" -> "A Man Among Ye"
-            - "Unnatural - Blue Blood 001 (2022) (Digital) (Zone-Empire)" -> "Unnatural - Blue Blood"
-            """
-            # Remove file extension
-            name = re.sub(r'\.(cbr|cbz|cb7|cbt|pdf)$', '', name, flags=re.IGNORECASE)
+        # OPTIMIZATION 2: Fetch all comics with reading progress in ONE query (fixes N+1)
+        if user:
+            # Eager load reading progress for ALL comics at once
+            comics_query = session.query(Comic).options(
+                selectinload(Comic.reading_progress)
+            ).filter(
+                Comic.library_id == library_id
+            ).all()
 
-            # Remove leading numbers and dashes (e.g., "02-")
-            name = re.sub(r'^\d+-', '', name)
+            # Build a lookup dict: series_name -> list of comics
+            comics_by_series = {}
+            for comic in comics_query:
+                series_name = comic.normalized_series_name or "Unknown"
+                if series_name not in comics_by_series:
+                    comics_by_series[series_name] = []
+                comics_by_series[series_name].append(comic)
+        else:
+            # No user, just fetch comics without progress
+            comics_query = session.query(Comic).filter(
+                Comic.library_id == library_id
+            ).all()
+            comics_by_series = {}
+            for comic in comics_query:
+                series_name = comic.normalized_series_name or "Unknown"
+                if series_name not in comics_by_series:
+                    comics_by_series[series_name] = []
+                comics_by_series[series_name].append(comic)
 
-            # Remove volume/issue numbers at the end (v01, vol 1, #1, 001, etc.)
-            name = re.sub(r'\s+[Vv]\.?\d+.*$', '', name)
-            name = re.sub(r'\s+[Vv]ol\.?\s*\d+.*$', '', name)
-            name = re.sub(r'\s+#?\d{1,3}\s*$', '', name)  # Remove issue numbers like "001", "01", "1"
+        # Build series list from aggregated data
+        series_list = []
+        for series_data in series_aggregation:
+            series_name = series_data.series_name or "Unknown"
+            comics_in_series = comics_by_series.get(series_name, [])
 
-            # Remove years in parentheses/brackets (2019), [2021], etc.
-            name = re.sub(r'\s*[\(\[]\d{4}[\)\]]', '', name)
-
-            # Remove common metadata tags in parentheses
-            # (Digital), (Empire), (XRA-Empire), (Zone-Empire), etc.
-            name = re.sub(r'\s*\([^)]*\)', '', name)
-
-            # Remove trailing version numbers (1), (2), etc. at the very end
-            name = re.sub(r'\s*\(\d+\)\s*$', '', name)
-
-            return name.strip()
-
-        # Group comics by series
-        # Priority: 1) comic.series metadata, 2) normalized folder name, 3) normalized filename
-        series_dict = {}
-
-        for comic in comics:
-            # Determine series name based on priority
-            if comic.series and comic.series.strip():
-                # Use metadata series field if available
-                series_name = comic.series.strip()
-            elif comic.folder_id:
-                # Use normalized folder name as series name
-                folder = session.query(FolderModel).filter_by(id=comic.folder_id).first()
-                if folder and folder.name != "__ROOT__":
-                    series_name = normalize_series_name(folder.name)
-                else:
-                    # Fallback to normalized filename if folder is root
-                    series_name = normalize_series_name(comic.title or comic.filename)
-            else:
-                # No folder, use normalized title or filename
-                series_name = normalize_series_name(comic.title or comic.filename)
-
-            if series_name not in series_dict:
-                series_dict[series_name] = {
-                    "series_name": series_name,
-                    "volumes": [],
-                    "publisher": comic.publisher if hasattr(comic, 'publisher') else None,
-                    "year": None,
-                    "total_issues": 0,
-                    "cover_hash": comic.hash,  # Use first comic's cover
-                    "first_comic_id": comic.id
+            # Build volumes list
+            volumes = []
+            for comic in comics_in_series:
+                volume_info = {
+                    "id": comic.id,
+                    "title": comic.title or comic.filename,
+                    "volume": comic.volume,
+                    "issue_number": comic.issue_number,
+                    "filename": comic.filename,
+                    "hash": comic.hash,
+                    "num_pages": comic.num_pages
                 }
 
-            # Add comic to series volumes
-            volume_info = {
-                "id": comic.id,
-                "title": comic.title or comic.filename,
-                "volume": comic.volume,
-                "issue_number": comic.issue_number,
-                "filename": comic.filename,
-                "hash": comic.hash,
-                "num_pages": comic.num_pages
-            }
+                # Add reading progress (already eager-loaded, no extra query!)
+                if user:
+                    # Find progress for this user (from the eager-loaded relationship)
+                    progress = next(
+                        (p for p in comic.reading_progress if p.user_id == user.id),
+                        None
+                    )
+                    if progress:
+                        volume_info["current_page"] = progress.current_page
+                        volume_info["is_completed"] = progress.is_completed
+                        volume_info["progress_percent"] = progress.progress_percent
 
-            # Add reading progress
-            if user:
-                progress = get_reading_progress(session, user.id, comic.id)
-                if progress:
-                    volume_info["current_page"] = progress.current_page
-                    volume_info["is_completed"] = progress.is_completed
-                    volume_info["progress_percent"] = progress.progress_percent
+                volumes.append(volume_info)
 
-            series_dict[series_name]["volumes"].append(volume_info)
-            series_dict[series_name]["total_issues"] += 1
+            series_list.append({
+                "series_name": series_name,
+                "volumes": volumes,
+                "publisher": series_data.publisher,
+                "year": None,
+                "total_issues": series_data.total_issues,
+                "cover_hash": series_data.cover_hash,
+                "first_comic_id": series_data.first_comic_id
+            })
 
-        # Convert to list and sort
-        series_list = list(series_dict.values())
-
+        # Sort the results
         if sort == "name":
             series_list.sort(key=lambda s: s["series_name"].lower())
         elif sort == "recent":
@@ -2081,7 +2105,7 @@ async def get_series_list(
                 return (completed / s["total_issues"]) if s["total_issues"] > 0 else 0
             series_list.sort(key=get_progress_key)
 
-        logger.debug(f"v2 API: Returning {len(series_list)} series for library {library_id}")
+        logger.debug(f"v2 API: Returning {len(series_list)} series for library {library_id} (OPTIMIZED)")
         return JSONResponse(series_list)
 
 

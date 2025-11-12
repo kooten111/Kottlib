@@ -79,6 +79,13 @@
 				displayedSeries = allSeries.slice(0, seriesPageSize);
 				hasMoreSeries = allSeries.length > seriesPageSize;
 
+				console.log('[Home] SSR data loaded:', {
+					totalSeries: allSeries.length,
+					displayedSeries: displayedSeries.length,
+					seriesPageSize,
+					hasMoreSeries
+				});
+
 				// Initialize filtered tree
 				filteredSeriesTree = seriesTree;
 				isLoading = false;
@@ -151,6 +158,13 @@
 			displayedSeries = allSeries.slice(0, seriesPageSize);
 			hasMoreSeries = allSeries.length > seriesPageSize;
 
+			console.log('[Home] Client-side data loaded:', {
+				totalSeries: allSeries.length,
+				displayedSeries: displayedSeries.length,
+				seriesPageSize,
+				hasMoreSeries
+			});
+
 			// Initialize filtered tree
 			filteredSeriesTree = seriesTree;
 			isLoading = false;
@@ -170,7 +184,8 @@
 		if (type === 'all') {
 			navigationContext.set({ type: 'all', seriesNames: [] });
 			// Show all series from all libraries
-			displayedSeries = allSeries.slice(0, 20);
+			displayedSeries = allSeries.slice(0, seriesPageSize);
+			hasMoreSeries = allSeries.length > seriesPageSize;
 		} else if (type === 'library') {
 			const librarySeries = allSeries.filter(s => s.libraryId === libraryId);
 			navigationContext.set({
@@ -179,8 +194,9 @@
 				libraryName,
 				seriesNames: librarySeries.map(s => s.series_name)
 			});
-			// Filter to show only series from selected library
-			displayedSeries = librarySeries;
+			// Filter to show only series from selected library with pagination
+			displayedSeries = librarySeries.slice(0, seriesPageSize);
+			hasMoreSeries = librarySeries.length > seriesPageSize;
 		} else if (type === 'folder') {
 			// Find all comics in this folder recursively from the tree
 			const library = seriesTree.find(l => l.id === libraryId);
@@ -247,17 +263,55 @@
 		hasMoreSeries = allSeries.length > seriesPageSize;
 	}
 
-	function loadMoreSeries() {
-		if (isLoadingMore || !hasMoreSeries) return;
+	async function loadMoreSeries() {
+		if (isLoadingMore || !hasMoreSeries) {
+			console.log('[Home] loadMoreSeries blocked:', { isLoadingMore, hasMoreSeries });
+			return;
+		}
 
+		console.log('[Home] loadMoreSeries triggered');
 		isLoadingMore = true;
 
+		// Use requestAnimationFrame to ensure smooth UI updates
+		await new Promise(resolve => requestAnimationFrame(resolve));
+
 		const currentLength = displayedSeries.length;
-		const baseSource = searchQuery ? searchResults : allSeries;
+
+		// Determine the base source based on current filters
+		let baseSource;
+		if (searchQuery) {
+			// If searching, use search results
+			baseSource = searchResults;
+		} else if (currentFilter?.type === 'library') {
+			// If library filter is active, filter allSeries by library
+			baseSource = allSeries.filter(s => s.libraryId === currentFilter.libraryId);
+		} else {
+			// Otherwise use all series
+			baseSource = allSeries;
+		}
+
 		const nextBatch = baseSource.slice(currentLength, currentLength + seriesPageSize);
 
-		displayedSeries = [...displayedSeries, ...nextBatch];
-		hasMoreSeries = displayedSeries.length < baseSource.length;
+		console.log('[Home] Loading more:', {
+			currentLength,
+			baseSourceLength: baseSource.length,
+			nextBatchLength: nextBatch.length,
+			seriesPageSize,
+			filterType: currentFilter?.type,
+			libraryId: currentFilter?.libraryId
+		});
+
+		if (nextBatch.length > 0) {
+			displayedSeries = [...displayedSeries, ...nextBatch];
+			hasMoreSeries = displayedSeries.length < baseSource.length;
+			console.log('[Home] Added batch. New displayedSeries length:', displayedSeries.length, 'hasMore:', hasMoreSeries);
+		} else {
+			hasMoreSeries = false;
+			console.log('[Home] No more items to load');
+		}
+
+		// Small delay to prevent rapid fire loading
+		await new Promise(resolve => setTimeout(resolve, 100));
 		isLoadingMore = false;
 	}
 

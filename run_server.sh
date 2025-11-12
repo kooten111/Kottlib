@@ -173,5 +173,5 @@ trap cleanup INT TERM
 python -m uvicorn src.api.main:app \
     --host 0.0.0.0 \
     --port 8081 \
-    --reload \
-    --log-level info
+    --log-level info \
+    --workers 4

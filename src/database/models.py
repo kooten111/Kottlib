@@ -101,6 +101,7 @@ class Comic(Base):
     # Comic metadata
     title: Mapped[Optional[str]] = mapped_column(String, nullable=True)
     series: Mapped[Optional[str]] = mapped_column(String, nullable=True)
+    normalized_series_name: Mapped[Optional[str]] = mapped_column(String, nullable=True)  # Pre-computed normalized name
     volume: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)
     issue_number: Mapped[Optional[float]] = mapped_column(Float, nullable=True)
     year: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)
@@ -207,6 +208,8 @@ class Comic(Base):
         Index('idx_comics_library_folder', 'library_id', 'folder_id'),
         Index('idx_comics_file_modified', 'file_modified_at'),
         Index('idx_comics_library_count', 'library_id'),
+        Index('idx_comics_normalized_series', 'normalized_series_name'),
+        Index('idx_comics_library_normalized_series', 'library_id', 'normalized_series_name'),
     )
 
 

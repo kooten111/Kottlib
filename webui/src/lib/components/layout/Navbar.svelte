@@ -72,7 +72,6 @@
 			<!-- Search Bar -->
 			<div class="flex-1 max-w-md mx-8 hidden lg:flex">
 				<div class="search-input-wrapper">
-					<SearchIcon class="search-icon" />
 					<input
 						bind:this={searchInput}
 						type="text"
@@ -85,6 +84,8 @@
 						<button class="search-clear" on:click={clearSearch} aria-label="Clear search">
 							<X class="w-4 h-4" />
 						</button>
+					{:else}
+						<SearchIcon class="search-icon" />
 					{/if}
 				</div>
 			</div>
@@ -126,7 +127,7 @@
 
 	.search-icon {
 		position: absolute;
-		left: 0.75rem;
+		right: 0.75rem;
 		width: 18px;
 		height: 18px;
 		color: var(--color-text-secondary);
@@ -136,7 +137,7 @@
 
 	.search-input {
 		width: 100%;
-		padding: 0.625rem 2.5rem 0.625rem 2.5rem;
+		padding: 0.625rem 2.5rem 0.625rem 1rem;
 		background: rgba(255, 255, 255, 0.05);
 		border: 1px solid rgba(255, 255, 255, 0.1);
 		border-radius: 8px;

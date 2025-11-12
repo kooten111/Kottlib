@@ -20,6 +20,12 @@ import logging
 
 logger = logging.getLogger(__name__)
 
+# Import series utilities
+try:
+    from ..utils.series_utils import get_series_name_from_comic
+except ImportError:
+    from utils.series_utils import get_series_name_from_comic
+
 
 # ============================================================================
 # Database Configuration
@@ -252,6 +258,46 @@ def create_comic(
     """Create a new comic entry"""
     now = int(time.time())
 
+    # Get TOP-LEVEL folder name for series (not immediate parent!)
+    # Top-level folder = first folder under library root
+    # Example: "Jojo's Bizarre Adventure (Colorized)/Part 3/Volume 01.cbz"
+    #   -> TOP-LEVEL = "Jojo's Bizarre Adventure (Colorized)"
+    #   -> NOT "Part 3"
+    top_level_folder_name = None
+    if folder_id:
+        # OPTIMIZED: Use a recursive CTE to find top-level folder in ONE query
+        # Get the folder and walk up parent chain
+        from sqlalchemy import text
+
+        result = session.execute(
+            text("""
+                WITH RECURSIVE folder_path AS (
+                    -- Start with the comic's folder
+                    SELECT id, name, parent_id, 0 as depth
+                    FROM folders
+                    WHERE id = :folder_id
+
+                    UNION ALL
+
+                    -- Walk up to parent
+                    SELECT f.id, f.name, f.parent_id, fp.depth + 1
+                    FROM folders f
+                    INNER JOIN folder_path fp ON f.id = fp.parent_id
+                    WHERE f.name != '__ROOT__'
+                )
+                -- Get the top-most folder (highest depth, before __ROOT__)
+                SELECT name
+                FROM folder_path
+                ORDER BY depth DESC
+                LIMIT 1
+            """),
+            {"folder_id": folder_id}
+        ).fetchone()
+
+        if result:
+            top_level_folder_name = result[0]
+
+    # Create comic with metadata
     comic = Comic(
         library_id=library_id,
         folder_id=folder_id,
@@ -267,10 +313,14 @@ def create_comic(
         **metadata
     )
 
+    # Auto-populate normalized_series_name for fast series grouping
+    # Use top-level folder name (the actual series folder)
+    comic.normalized_series_name = get_series_name_from_comic(comic, top_level_folder_name)
+
     session.add(comic)
     session.flush()  # Flush to get the ID without committing
 
-    logger.debug(f"Created comic: {filename}")
+    logger.debug(f"Created comic: {filename} (series: {comic.normalized_series_name})")
     return comic
 
 
@@ -289,6 +339,33 @@ def get_comic_by_hash(session: Session, file_hash: str, library_id: Optional[int
         library_id: Optional library ID to filter by (allows same file in different libraries)
     """
     query = session.query(Comic).filter_by(hash=file_hash)
+    if library_id is not None:
+        query = query.filter_by(library_id=library_id)
+    return query.first()
+
+
+def get_comic_by_path_and_mtime(
+    session: Session,
+    path: str,
+    file_modified_at: int,
+    library_id: Optional[int] = None
+) -> Optional[Comic]:
+    """
+    Get comic by file path and modification time (fast check before hashing).
+
+    This is used to quickly skip unchanged files during re-scans without
+    calculating expensive file hashes.
+
+    Args:
+        session: Database session
+        path: Full file path to search for
+        file_modified_at: File modification timestamp (Unix timestamp)
+        library_id: Optional library ID to filter by
+
+    Returns:
+        Comic if found with matching path and mtime, None otherwise
+    """
+    query = session.query(Comic).filter_by(path=path, file_modified_at=file_modified_at)
     if library_id is not None:
         query = query.filter_by(library_id=library_id)
     return query.first()

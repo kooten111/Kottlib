@@ -442,6 +442,43 @@ class CB7Archive(ComicArchive):
             self.archive.close()
 
 
+def detect_archive_format(file_path: Path) -> Optional[str]:
+    """
+    Detect actual archive format by reading file magic numbers.
+
+    This handles cases where files have incorrect extensions (e.g., .cbr file
+    that's actually a ZIP archive).
+
+    Returns:
+        'zip', 'rar', '7z', or None if format cannot be determined
+    """
+    try:
+        with open(file_path, 'rb') as f:
+            header = f.read(16)
+
+        if not header:
+            return None
+
+        # ZIP magic number: 50 4B (PK)
+        if header[:2] == b'PK':
+            return 'zip'
+
+        # RAR magic numbers
+        # RAR 4.x: 52 61 72 21 1A 07 00 (Rar!\x1a\x07\x00)
+        # RAR 5.x: 52 61 72 21 1A 07 01 00 (Rar!\x1a\x07\x01\x00)
+        if header[:4] == b'Rar!':
+            return 'rar'
+
+        # 7z magic number: 37 7A BC AF 27 1C
+        if header[:6] == b'7z\xbc\xaf\x27\x1c':
+            return '7z'
+
+        return None
+    except Exception as e:
+        logger.debug(f"Failed to detect format for {file_path}: {e}")
+        return None
+
+
 def open_comic(file_path: Path) -> Optional[ComicArchive]:
     """
     Open a comic archive file
@@ -461,26 +498,62 @@ def open_comic(file_path: Path) -> Optional[ComicArchive]:
         logger.error(f"File not found: {file_path}")
         return None
 
-    ext = file_path.suffix.lower()
+    # First, try to detect the actual format by magic numbers
+    detected_format = detect_archive_format(file_path)
 
-    try:
-        if ext == '.cbz':
-            return CBZArchive(file_path)
-        elif ext == '.cbr':
-            return CBRArchive(file_path)
-        elif ext == '.cb7':
-            return CB7Archive(file_path)
-        else:
-            logger.error(f"Unsupported format: {ext}")
-            return None
-    except Exception as e:
-        logger.error(f"Failed to open comic {file_path}: {e}")
+    # Try detected format first, then fall back to extension-based detection
+    formats_to_try = []
+
+    if detected_format:
+        formats_to_try.append(detected_format)
+
+    # Also try extension-based format if different from detected
+    ext = file_path.suffix.lower()
+    ext_format = None
+    if ext in {'.cbz', '.zip'}:
+        ext_format = 'zip'
+    elif ext == '.cbr':
+        ext_format = 'rar'
+    elif ext == '.cb7':
+        ext_format = '7z'
+
+    if ext_format and ext_format != detected_format:
+        formats_to_try.append(ext_format)
+
+    # If we have no format to try, give up
+    if not formats_to_try:
+        logger.error(f"Unsupported or unrecognized format: {file_path.name}")
         return None
+
+    # Try each format
+    for fmt in formats_to_try:
+        try:
+            if fmt == 'zip':
+                return CBZArchive(file_path)
+            elif fmt == 'rar':
+                return CBRArchive(file_path)
+            elif fmt == '7z':
+                return CB7Archive(file_path)
+        except Exception as e:
+            logger.debug(f"Failed to open as {fmt}: {e}")
+            continue
+
+    # All formats failed
+    if detected_format and ext_format and detected_format != ext_format:
+        logger.error(
+            f"Failed to open {file_path.name}: "
+            f"File appears to be {detected_format} but has .{ext_format} extension. "
+            f"Could not open as either format."
+        )
+    else:
+        logger.error(f"Failed to open {file_path.name}: Tried all supported formats")
+
+    return None
 
 
 def is_comic_file(file_path: Path) -> bool:
     """Check if file is a supported comic format"""
-    return file_path.suffix.lower() in {'.cbz', '.cbr', '.cb7'}
+    return file_path.suffix.lower() in {'.cbz', '.cbr', '.cb7', '.zip'}
 
 
 def get_comic_format(file_path: Path) -> Optional[str]:
@@ -490,5 +563,6 @@ def get_comic_format(file_path: Path) -> Optional[str]:
         '.cbz': 'CBZ',
         '.cbr': 'CBR',
         '.cb7': 'CB7',
+        '.zip': 'CBZ',  # .zip files are treated as CBZ
     }
     return formats.get(ext)
