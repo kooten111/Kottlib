@@ -8,6 +8,7 @@
 	export let isFolder = false; // New prop to indicate if this is a folder/series
 	export let itemCount = 0; // Number of items in folder
 	export let href = null; // Optional custom href for the card
+	export let coverSizeMultiplier = 1.0; // Size multiplier for grid view
 
 	$: hash = comic.hash || comic.coverHash || comic.first_comic_hash;
 	$: coverUrl = hash ? getCoverUrl(libraryId, hash) : null;
@@ -18,7 +19,7 @@
 	$: cardHref = href || `/comic/${libraryId}/${comic.id}`;
 </script>
 
-<a href={cardHref} class="comic-card {variant}" class:folder-card={isFolder}>
+<a href={cardHref} class="comic-card {variant}" class:folder-card={isFolder} style="--cover-size-multiplier: {coverSizeMultiplier};">
 	<div class="cover-container" class:folder-cover={isFolder}>
 		{#if coverUrl}
 			<img src={coverUrl} alt={comic.title} class="cover-image" loading="lazy" />
@@ -55,7 +56,21 @@
 		{/if}
 	</div>
 
-	{#if !isFolder}
+	{#if variant === 'list' && isFolder}
+		<div class="list-info">
+			<div class="list-header">
+				<h3 class="list-title">{title}</h3>
+				<div class="list-meta">
+					<span class="meta-badge">
+						{actualItemCount} {actualItemCount === 1 ? 'volume' : 'volumes'}
+					</span>
+				</div>
+			</div>
+			<div class="list-actions">
+				<button class="action-btn primary">Continue Reading</button>
+			</div>
+		</div>
+	{:else if !isFolder}
 		<div class="comic-info">
 			<h3 class="comic-title">{title}</h3>
 			{#if showProgress && hasProgress}
@@ -90,6 +105,8 @@
 
 	.comic-card.list {
 		flex-direction: row;
+		padding: 1rem;
+		gap: 1rem;
 	}
 
 	.cover-container {
@@ -136,7 +153,7 @@
 	.comic-card.grid .cover-container {
 		aspect-ratio: 2/3;
 		width: 100%;
-		max-height: 256px;
+		max-height: calc(256px * var(--cover-size-multiplier, 1));
 	}
 
 	.comic-card.list .cover-container {
@@ -234,5 +251,75 @@
 		font-size: 0.75rem;
 		color: var(--color-text-secondary);
 		margin: 0;
+	}
+
+	/* List view specific styles */
+	.list-info {
+		flex: 1;
+		display: flex;
+		flex-direction: column;
+		justify-content: space-between;
+		padding: 0.5rem 0;
+	}
+
+	.list-header {
+		display: flex;
+		flex-direction: column;
+		gap: 0.5rem;
+	}
+
+	.list-title {
+		font-size: calc(1.125rem * var(--cover-size-multiplier, 1));
+		font-weight: 700;
+		color: var(--color-text);
+		margin: 0;
+	}
+
+	.list-meta {
+		display: flex;
+		gap: 0.5rem;
+		flex-wrap: wrap;
+	}
+
+	.meta-badge {
+		padding: calc(0.25rem * var(--cover-size-multiplier, 1)) calc(0.75rem * var(--cover-size-multiplier, 1));
+		background: rgba(255, 103, 64, 0.15);
+		color: var(--color-accent);
+		border-radius: 12px;
+		font-size: calc(0.75rem * var(--cover-size-multiplier, 1));
+		font-weight: 600;
+	}
+
+	.list-actions {
+		display: flex;
+		gap: 0.5rem;
+		margin-top: 0.5rem;
+	}
+
+	.action-btn {
+		padding: calc(0.5rem * var(--cover-size-multiplier, 1)) calc(1rem * var(--cover-size-multiplier, 1));
+		border: none;
+		border-radius: 6px;
+		font-size: calc(0.875rem * var(--cover-size-multiplier, 1));
+		font-weight: 600;
+		cursor: pointer;
+		transition: all 0.2s;
+	}
+
+	.action-btn.primary {
+		background: var(--color-accent);
+		color: white;
+	}
+
+	.action-btn.primary:hover {
+		background: #ff7d5a;
+		transform: translateY(-1px);
+	}
+
+	/* Update list view cover size */
+	.comic-card.list .cover-container {
+		width: calc(120px * var(--cover-size-multiplier, 1));
+		height: calc(180px * var(--cover-size-multiplier, 1));
+		flex-shrink: 0;
 	}
 </style>

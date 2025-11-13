@@ -8,9 +8,10 @@
 	import SkeletonCard from '$lib/components/common/SkeletonCard.svelte';
 	import { getLibraries, getSeries, getContinueReading, getLibrariesSeriesTree } from '$lib/api/libraries';
 	import { searchComics } from '$lib/api/search';
-	import { BookOpen, Library, TrendingUp } from 'lucide-svelte';
+	import { BookOpen, Library, TrendingUp, Grid, List, SlidersHorizontal } from 'lucide-svelte';
 	import { navigationContext } from '$lib/stores/library';
 	import { searchStore } from '$lib/stores/search';
+	import { preferencesStore } from '$lib/stores/preferences';
 
 	// Receive server-side loaded data
 	export let data;
@@ -32,6 +33,7 @@
 	let filteredSeriesTree = [];
 	let lastSearchQuery = '';
 	let searchDebounceTimer;
+	let showSizeSlider = false;
 
 	// React to search store changes with debounce (increased from 300ms to 500ms)
 	$: if (!isLoading) {
@@ -581,13 +583,57 @@
 										All Series
 									{/if}
 								</h2>
+								<div class="view-controls">
+									<button
+										class="control-btn"
+										class:active={showSizeSlider}
+										on:click={() => (showSizeSlider = !showSizeSlider)}
+										title="Adjust cover size"
+									>
+										<SlidersHorizontal class="w-5 h-5" />
+									</button>
+									<button
+										class="control-btn"
+										class:active={$preferencesStore.viewMode === 'grid'}
+										on:click={() => preferencesStore.setViewMode('grid')}
+										title="Grid view"
+									>
+										<Grid class="w-5 h-5" />
+									</button>
+									<button
+										class="control-btn"
+										class:active={$preferencesStore.viewMode === 'list'}
+										on:click={() => preferencesStore.setViewMode('list')}
+										title="List view"
+									>
+										<List class="w-5 h-5" />
+									</button>
+								</div>
 							</div>
+							{#if showSizeSlider}
+								<div class="size-slider-container">
+									<label for="cover-size-slider" class="slider-label">
+										<span>Cover Size</span>
+										<span class="slider-value">{Math.round($preferencesStore.gridCoverSize * 100)}%</span>
+									</label>
+									<input
+										id="cover-size-slider"
+										type="range"
+										min="0.5"
+										max="2"
+										step="0.1"
+										value={$preferencesStore.gridCoverSize}
+										on:input={(e) => preferencesStore.setGridCoverSize(parseFloat(e.target.value))}
+										class="size-slider"
+									/>
+								</div>
+							{/if}
 							<InfiniteScroll
 								hasMore={hasMoreSeries}
 								isLoading={isLoadingMore}
 								on:loadMore={loadMoreSeries}
 							>
-								<div class="comics-grid">
+								<div class="comics-grid" class:list-view={$preferencesStore.viewMode === 'list'} style="--cover-size-multiplier: {$preferencesStore.gridCoverSize};">
 									{#if currentFilter?.type === 'folder'}
 										<!-- Show individual comics when folder is selected -->
 										{#each displayedSeries[0]?.volumes || [] as comic}
@@ -602,6 +648,8 @@
 													}}
 													libraryId={currentFilter.libraryId}
 													showProgress={true}
+													variant={$preferencesStore.viewMode}
+													coverSizeMultiplier={$preferencesStore.gridCoverSize}
 												/>
 											</a>
 										{/each}
@@ -620,6 +668,8 @@
 												isFolder={true}
 												itemCount={series.total_issues}
 												href="/series/{series.libraryId}/{encodeURIComponent(series.series_name)}"
+												variant={$preferencesStore.viewMode}
+												coverSizeMultiplier={$preferencesStore.gridCoverSize}
 											/>
 										{/each}
 									{/if}
@@ -832,6 +882,103 @@
 		margin: 0;
 	}
 
+	.view-controls {
+		display: flex;
+		gap: 0.5rem;
+		align-items: center;
+	}
+
+	.control-btn {
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		width: 40px;
+		height: 40px;
+		padding: 0;
+		background: var(--color-secondary-bg);
+		border: 2px solid rgba(255, 255, 255, 0.1);
+		border-radius: 8px;
+		color: var(--color-text-secondary);
+		cursor: pointer;
+		transition: all 0.2s;
+	}
+
+	.control-btn:hover {
+		background: rgba(255, 255, 255, 0.05);
+		border-color: rgba(255, 255, 255, 0.2);
+		color: var(--color-text);
+	}
+
+	.control-btn.active {
+		background: var(--color-accent);
+		border-color: var(--color-accent);
+		color: white;
+	}
+
+	.size-slider-container {
+		margin-bottom: 1.5rem;
+		padding: 1rem;
+		background: var(--color-secondary-bg);
+		border-radius: 8px;
+		border: 1px solid rgba(255, 255, 255, 0.05);
+	}
+
+	.slider-label {
+		display: flex;
+		justify-content: space-between;
+		align-items: center;
+		margin-bottom: 0.75rem;
+		font-size: 0.875rem;
+		color: var(--color-text);
+		font-weight: 500;
+	}
+
+	.slider-value {
+		color: var(--color-accent);
+		font-weight: 600;
+	}
+
+	.size-slider {
+		width: 100%;
+		height: 6px;
+		background: rgba(255, 255, 255, 0.1);
+		border-radius: 3px;
+		outline: none;
+		-webkit-appearance: none;
+		appearance: none;
+	}
+
+	.size-slider::-webkit-slider-thumb {
+		-webkit-appearance: none;
+		appearance: none;
+		width: 20px;
+		height: 20px;
+		background: var(--color-accent);
+		border-radius: 50%;
+		cursor: pointer;
+		transition: all 0.2s;
+	}
+
+	.size-slider::-webkit-slider-thumb:hover {
+		transform: scale(1.2);
+		box-shadow: 0 0 0 4px rgba(255, 103, 64, 0.2);
+	}
+
+	.size-slider::-moz-range-thumb {
+		width: 20px;
+		height: 20px;
+		background: var(--color-accent);
+		border: none;
+		border-radius: 50%;
+		cursor: pointer;
+		transition: all 0.2s;
+	}
+
+	.size-slider::-moz-range-thumb:hover {
+		transform: scale(1.2);
+		box-shadow: 0 0 0 4px rgba(255, 103, 64, 0.2);
+	}
+
 	.see-all {
 		font-size: 0.875rem;
 		color: var(--color-accent);
@@ -845,8 +992,14 @@
 
 	.comics-grid {
 		display: grid;
-		grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+		grid-template-columns: repeat(auto-fill, minmax(calc(160px * var(--cover-size-multiplier, 1)), 1fr));
 		gap: 1.5rem;
+	}
+
+	.comics-grid.list-view {
+		display: flex;
+		flex-direction: column;
+		gap: 1rem;
 	}
 
 	.carousel-item {
