@@ -3,6 +3,38 @@
 @tailwind utilities;
 
 @layer base {
+	/* CSS Variables for consistent theming */
+	:root {
+		/* Background colors */
+		--color-bg: #1a1a1a;
+		--color-secondary-bg: #2a2a2a;
+		--color-tertiary-bg: #353535;
+
+		/* Text colors */
+		--color-text: #e0e0e0;
+		--color-text-secondary: #a0a0a0;
+		--color-text-muted: #6b7280;
+
+		/* Accent colors */
+		--color-accent: #ff6740;
+		--color-accent-hover: #ff8566;
+		--color-accent-blue: #4a90e2;
+
+		/* Border colors */
+		--color-border: rgba(255, 255, 255, 0.1);
+		--color-border-strong: rgba(255, 255, 255, 0.2);
+		--color-border-hover: rgba(255, 255, 255, 0.3);
+
+		/* Status colors */
+		--color-success: #10b981;
+		--color-warning: #f59e0b;
+		--color-error: #ef4444;
+
+		/* Overlay colors */
+		--color-overlay: rgba(0, 0, 0, 0.8);
+		--color-overlay-light: rgba(0, 0, 0, 0.5);
+	}
+
 	* {
 		@apply border-gray-700;
 	}
@@ -21,11 +53,12 @@
 	}
 
 	::-webkit-scrollbar-thumb {
-		@apply bg-dark-bg-tertiary rounded;
+		background: var(--color-tertiary-bg);
+		@apply rounded;
 	}
 
 	::-webkit-scrollbar-thumb:hover {
-		@apply bg-gray-600;
+		background: #4a4a4a;
 	}
 }
 
@@ -35,26 +68,89 @@
 		@apply focus:outline-none focus:ring-2 focus:ring-accent-orange focus:ring-offset-2 focus:ring-offset-dark-bg;
 	}
 
-	/* Card styles */
+	/* Card styles with better borders */
 	.card {
 		@apply bg-dark-bg-secondary rounded-card p-4 shadow-lg;
+		border: 1px solid var(--color-border);
+	}
+
+	.card:hover {
+		border-color: var(--color-border-strong);
 	}
 
 	/* Button base styles */
 	.btn {
-		@apply px-4 py-2 rounded-button font-medium transition-colors focus-ring;
+		@apply px-4 py-2 rounded-button font-medium transition-all duration-200 focus-ring;
+		border: 1px solid transparent;
 	}
 
 	.btn-primary {
 		@apply btn bg-accent-orange text-white hover:bg-orange-600;
+		box-shadow: 0 2px 4px rgba(255, 103, 64, 0.2);
+	}
+
+	.btn-primary:hover {
+		box-shadow: 0 4px 8px rgba(255, 103, 64, 0.3);
 	}
 
 	.btn-secondary {
-		@apply btn bg-dark-bg-tertiary text-dark-text hover:bg-gray-600;
+		@apply btn text-dark-text hover:bg-gray-600;
+		background: var(--color-tertiary-bg);
+		border-color: var(--color-border);
 	}
 
-	/* Input styles */
+	.btn-secondary:hover {
+		border-color: var(--color-border-strong);
+	}
+
+	/* Input styles with better visibility */
 	.input {
-		@apply bg-dark-bg-tertiary border border-gray-600 text-dark-text rounded-button px-3 py-2 focus-ring;
+		@apply text-dark-text rounded-button px-3 py-2 focus-ring transition-all duration-200;
+		background: var(--color-tertiary-bg);
+		border: 1px solid var(--color-border);
+	}
+
+	.input:hover {
+		border-color: var(--color-border-strong);
+	}
+
+	.input:focus {
+		border-color: var(--color-accent);
+		background: var(--color-secondary-bg);
+	}
+
+	/* Panel and frame styles for better separation */
+	.panel {
+		background: var(--color-secondary-bg);
+		border: 1px solid var(--color-border);
+		border-radius: 8px;
+	}
+
+	.panel-header {
+		border-bottom: 1px solid var(--color-border-strong);
+		padding: 1rem;
+		font-weight: 600;
+	}
+
+	.panel-content {
+		padding: 1rem;
+	}
+
+	/* Sidebar styling */
+	.sidebar {
+		background: var(--color-secondary-bg);
+		border-right: 2px solid var(--color-border-strong);
+	}
+
+	/* Modal overlay improvements */
+	.modal-overlay {
+		background: var(--color-overlay);
+		backdrop-filter: blur(4px);
+	}
+
+	.modal-content {
+		background: var(--color-secondary-bg);
+		border: 2px solid var(--color-border-strong);
+		box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.5), 0 10px 10px -5px rgba(0, 0, 0, 0.4);
 	}
 }

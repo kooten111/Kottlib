@@ -87,6 +87,7 @@
 		display: flex;
 		flex-direction: column;
 		background: var(--color-secondary-bg);
+		border: 1px solid var(--color-border);
 		border-radius: 8px;
 		overflow: hidden;
 		transition: all 0.2s ease;
@@ -97,6 +98,7 @@
 	.comic-card:hover {
 		transform: translateY(-4px);
 		box-shadow: 0 8px 16px rgba(0, 0, 0, 0.3);
+		border-color: var(--color-border-strong);
 	}
 
 	.comic-card.grid {

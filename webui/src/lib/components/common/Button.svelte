@@ -6,10 +6,10 @@
 	export let href = null;
 
 	const variants = {
-		primary: 'bg-accent-orange text-white hover:bg-orange-600 disabled:bg-gray-600',
-		secondary: 'bg-dark-bg-tertiary text-dark-text hover:bg-gray-600 disabled:bg-gray-700',
-		ghost: 'bg-transparent text-dark-text hover:bg-dark-bg-tertiary disabled:opacity-50',
-		danger: 'bg-red-600 text-white hover:bg-red-700 disabled:bg-gray-600'
+		primary: 'bg-accent-orange text-white hover:bg-accent-orange-hover disabled:bg-gray-600 shadow-sm hover:shadow-md',
+		secondary: 'bg-dark-bg-tertiary text-dark-text hover:bg-gray-600 disabled:bg-gray-700 border border-gray-600 hover:border-gray-500',
+		ghost: 'bg-dark-bg-secondary text-dark-text hover:bg-dark-bg-tertiary disabled:opacity-50 border border-gray-600 hover:border-gray-400',
+		danger: 'bg-red-600 text-white hover:bg-red-700 disabled:bg-gray-600 shadow-sm hover:shadow-md'
 	};
 
 	const sizes = {
@@ -18,7 +18,7 @@
 		lg: 'px-6 py-3 text-lg'
 	};
 
-	const baseClasses = 'rounded-button font-medium transition-colors focus-ring disabled:cursor-not-allowed';
+	const baseClasses = 'rounded-button font-medium transition-all duration-200 focus-ring disabled:cursor-not-allowed';
 	const classes = `${baseClasses} ${variants[variant]} ${sizes[size]}`;
 </script>
 

@@ -5,18 +5,26 @@ export default {
 	theme: {
 		extend: {
 			colors: {
-				// Dark mode palette
+				// Dark mode palette with improved contrast
 				dark: {
 					bg: '#1a1a1a',
-					'bg-secondary': '#242424',
-					'bg-tertiary': '#2d2d2d',
+					'bg-secondary': '#2a2a2a',
+					'bg-tertiary': '#353535',
 					text: '#e0e0e0',
-					'text-secondary': '#a0a0a0'
+					'text-secondary': '#a0a0a0',
+					'text-muted': '#6b7280'
 				},
 				// Accent colors
 				accent: {
 					orange: '#ff6740',
+					'orange-hover': '#ff8566',
 					blue: '#4a90e2'
+				},
+				// Status colors
+				status: {
+					success: '#10b981',
+					warning: '#f59e0b',
+					error: '#ef4444'
 				}
 			},
 			spacing: {
