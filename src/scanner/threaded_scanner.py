@@ -426,6 +426,13 @@ class ThreadedScanner:
             Dict of metadata fields
         """
         metadata = {}
+        
+        # Set title to filename without extension as default
+        # This will be overridden if ComicInfo.xml has a title
+        if hasattr(comic, 'path'):
+            from pathlib import Path
+            filename_no_ext = Path(comic.path).stem
+            metadata['title'] = filename_no_ext
 
         if comic.comic_info:
             info = comic.comic_info

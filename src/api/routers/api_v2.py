@@ -465,6 +465,20 @@ async def get_comic_fullinfo_v2(
         if hasattr(comic, 'publisher') and comic.publisher:
             response["publisher"] = comic.publisher
 
+        # Add scanner metadata fields
+        if hasattr(comic, 'scanner_source') and comic.scanner_source:
+            response["scanner_source"] = comic.scanner_source
+        if hasattr(comic, 'scanner_source_id') and comic.scanner_source_id:
+            response["scanner_source_id"] = comic.scanner_source_id
+        if hasattr(comic, 'scanner_source_url') and comic.scanner_source_url:
+            response["scanner_source_url"] = comic.scanner_source_url
+        if hasattr(comic, 'scan_confidence') and comic.scan_confidence is not None:
+            response["scan_confidence"] = comic.scan_confidence
+        if hasattr(comic, 'scanned_at') and comic.scanned_at:
+            response["scanned_at"] = comic.scanned_at
+        if hasattr(comic, 'tags') and comic.tags:
+            response["tags"] = comic.tags
+
         return JSONResponse(response)
 
 
@@ -2119,6 +2133,9 @@ async def get_series_list(
 
                 volumes.append(volume_info)
 
+            # Determine if this is a standalone volume (single comic, not part of a series)
+            is_standalone = series_data.total_issues == 1
+            
             series_list.append({
                 "series_name": series_name,
                 "volumes": volumes,
@@ -2126,7 +2143,8 @@ async def get_series_list(
                 "year": None,
                 "total_issues": series_data.total_issues,
                 "cover_hash": series_data.cover_hash,
-                "first_comic_id": series_data.first_comic_id
+                "first_comic_id": series_data.first_comic_id,
+                "is_standalone": is_standalone  # Flag for single-volume series
             })
 
         # Sort the results
@@ -2165,34 +2183,6 @@ async def get_series_detail(
         Series object with volumes array and aggregated metadata
     """
     from urllib.parse import unquote
-    import re
-
-    from ...database.models import Folder as FolderModel
-
-    # Helper function to normalize series names (same as in get_series_list)
-    def normalize_series_name(name):
-        """Normalize series name by removing metadata like years, release groups, etc."""
-        # Remove file extension
-        name = re.sub(r'\.(cbr|cbz|cb7|cbt|pdf)$', '', name, flags=re.IGNORECASE)
-
-        # Remove leading numbers and dashes (e.g., "02-")
-        name = re.sub(r'^\d+-', '', name)
-
-        # Remove volume/issue numbers at the end (v01, vol 1, #1, 001, etc.)
-        name = re.sub(r'\s+[Vv]\.?\d+.*$', '', name)
-        name = re.sub(r'\s+[Vv]ol\.?\s*\d+.*$', '', name)
-        name = re.sub(r'\s+#?\d{1,3}\s*$', '', name)
-
-        # Remove years in parentheses/brackets (2019), [2021], etc.
-        name = re.sub(r'\s*[\(\[]\d{4}[\)\]]', '', name)
-
-        # Remove common metadata tags in parentheses
-        name = re.sub(r'\s*\([^)]*\)', '', name)
-
-        # Remove trailing version numbers (1), (2), etc. at the very end
-        name = re.sub(r'\s*\(\d+\)\s*$', '', name)
-
-        return name.strip()
 
     db = request.app.state.db
 
@@ -2205,27 +2195,11 @@ async def get_series_detail(
         # Decode series name from URL
         decoded_series_name = unquote(series_name)
 
-        # Get all comics in library and filter by series
-        # Priority: 1) comic.series metadata, 2) normalized folder name, 3) normalized filename
-        all_comics = session.query(Comic).filter_by(library_id=library_id).all()
-
-        # Find comics matching the series name
-        comics = []
-        for comic in all_comics:
-            # Determine series name using same logic as series list
-            if comic.series and comic.series.strip():
-                comic_series_name = comic.series.strip()
-            elif comic.folder_id:
-                folder = session.query(FolderModel).filter_by(id=comic.folder_id).first()
-                if folder and folder.name != "__ROOT__":
-                    comic_series_name = normalize_series_name(folder.name)
-                else:
-                    comic_series_name = normalize_series_name(comic.title or comic.filename)
-            else:
-                comic_series_name = normalize_series_name(comic.title or comic.filename)
-
-            if comic_series_name == decoded_series_name:
-                comics.append(comic)
+        # Get comics by normalized_series_name (which is pre-computed during scan)
+        comics = session.query(Comic).filter(
+            Comic.library_id == library_id,
+            Comic.normalized_series_name == decoded_series_name
+        ).all()
 
         if not comics:
             raise HTTPException(status_code=404, detail="Series not found")

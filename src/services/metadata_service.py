@@ -117,6 +117,15 @@ class MetadataService:
                     comic.web = scan_result.source_url
                     fields_updated.append('web')
 
+            # Store scanner metadata
+            import time
+            comic.scanner_source = scanner_name
+            comic.scanner_source_id = scan_result.source_id
+            comic.scanner_source_url = scan_result.source_url
+            comic.scanned_at = int(time.time())
+            comic.scan_confidence = scan_result.confidence
+            fields_updated.append('scanner_metadata')
+
             # Commit changes
             session.commit()
             session.refresh(comic)
