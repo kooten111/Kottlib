@@ -152,6 +152,14 @@ class Comic(Base):
 
     # External IDs
     comic_vine_id: Mapped[Optional[str]] = mapped_column(String, nullable=True)
+    web: Mapped[Optional[str]] = mapped_column(String, nullable=True)  # Web URL / source URL
+
+    # Scanner metadata
+    scanner_source: Mapped[Optional[str]] = mapped_column(String, nullable=True)  # Scanner name (e.g., 'nhentai')
+    scanner_source_id: Mapped[Optional[str]] = mapped_column(String, nullable=True)  # External source ID
+    scanner_source_url: Mapped[Optional[str]] = mapped_column(String, nullable=True)  # External source URL
+    scanned_at: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)  # Timestamp of last scan
+    scan_confidence: Mapped[Optional[float]] = mapped_column(Float, nullable=True)  # Confidence score (0.0-1.0)
 
     # Issue metadata
     is_bis: Mapped[bool] = mapped_column(Boolean, default=False)  # Special issue flag

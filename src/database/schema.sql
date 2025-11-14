@@ -65,6 +65,7 @@ CREATE TABLE comics (
     -- Comic metadata
     title TEXT,                           -- Comic title (from metadata or filename)
     series TEXT,                          -- Series name (auto-detected or manual)
+    normalized_series_name TEXT,          -- Pre-computed normalized name
     volume INTEGER,                       -- Volume number
     issue_number REAL,                    -- Issue/chapter number (can be decimal)
     year INTEGER,                         -- Publication year
@@ -73,9 +74,82 @@ CREATE TABLE comics (
     artist TEXT,
     description TEXT,
 
+    -- Extended ComicInfo.xml metadata (YACReader compatibility)
+    penciller TEXT,
+    inker TEXT,
+    colorist TEXT,
+    letterer TEXT,
+    cover_artist TEXT,
+    editor TEXT,
+
+    -- Series/Arc metadata
+    story_arc TEXT,
+    arc_number TEXT,
+    arc_count INTEGER,
+    alternate_series TEXT,
+    alternate_number TEXT,
+    alternate_count INTEGER,
+
+    -- Additional metadata
+    genre TEXT,
+    language_iso TEXT,
+    age_rating TEXT,
+    imprint TEXT,
+    format_type TEXT,
+    is_color INTEGER,
+
+    -- Characters, teams, locations
+    characters TEXT,
+    teams TEXT,
+    locations TEXT,
+    main_character_or_team TEXT,
+    series_group TEXT,
+
+    -- User content
+    notes TEXT,
+    review TEXT,
+    tags TEXT,
+
+    -- External IDs
+    comic_vine_id TEXT,
+    web TEXT,
+
+    -- Scanner metadata
+    scanner_source TEXT,                  -- Scanner name (e.g., 'nhentai')
+    scanner_source_id TEXT,               -- External source ID
+    scanner_source_url TEXT,              -- External source URL
+    scanned_at INTEGER,                   -- Timestamp of last scan
+    scan_confidence REAL,                 -- Confidence score (0.0-1.0)
+
+    -- Issue metadata
+    is_bis INTEGER DEFAULT 0,
+    count INTEGER,
+    date TEXT,
+
     -- Reading metadata
     num_pages INTEGER NOT NULL,
     reading_direction TEXT DEFAULT 'ltr', -- ltr, rtl (manga)
+
+    -- Display settings (per-comic)
+    rating REAL DEFAULT 0.0,
+    brightness INTEGER DEFAULT 0,
+    contrast INTEGER DEFAULT 0,
+    gamma REAL DEFAULT 1.0,
+
+    -- Bookmarks (page numbers)
+    bookmark1 INTEGER DEFAULT 0,
+    bookmark2 INTEGER DEFAULT 0,
+    bookmark3 INTEGER DEFAULT 0,
+
+    -- Cover info
+    cover_page INTEGER DEFAULT 1,
+    cover_size_ratio REAL DEFAULT 0.0,
+    original_cover_size TEXT,
+
+    -- Access tracking
+    last_time_opened INTEGER,
+    has_been_opened INTEGER DEFAULT 0,
+    edited INTEGER DEFAULT 0
 
     -- Status
     position INTEGER DEFAULT 0,           -- Sort order (user-defined)
@@ -93,9 +167,21 @@ CREATE INDEX idx_comics_series ON comics(series);
 CREATE INDEX idx_comics_path ON comics(library_id, path);
 
 -- Performance indexes for common query patterns
+CREATE INDEX idx_comics_title ON comics(title);
+CREATE INDEX idx_comics_publisher ON comics(publisher);
+CREATE INDEX idx_comics_year ON comics(year);
+CREATE INDEX idx_comics_filename ON comics(filename);
 CREATE INDEX idx_comics_library_updated ON comics(library_id, updated_at DESC);
 CREATE INDEX idx_comics_library_series ON comics(library_id, series);
 CREATE INDEX idx_comics_series_issue ON comics(series, issue_number);
+CREATE INDEX idx_comics_file_modified ON comics(file_modified_at);
+CREATE INDEX idx_comics_library_count ON comics(library_id);
+CREATE INDEX idx_comics_normalized_series ON comics(normalized_series_name);
+CREATE INDEX idx_comics_library_normalized_series ON comics(library_id, normalized_series_name);
+
+-- Scanner metadata indexes
+CREATE INDEX idx_comics_scanner_source ON comics(scanner_source);
+CREATE INDEX idx_comics_scanned_at ON comics(scanned_at);
 
 
 -- ============================================================================
@@ -360,4 +446,4 @@ CREATE TABLE schema_version (
 );
 
 INSERT INTO schema_version (version, applied_at)
-VALUES (1, strftime('%s', 'now'));
+VALUES (2, strftime('%s', 'now'));
