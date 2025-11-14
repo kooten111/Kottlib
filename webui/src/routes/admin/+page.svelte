@@ -3,7 +3,7 @@
 	import Navbar from '$lib/components/layout/Navbar.svelte';
 	import Card from '$lib/components/common/Card.svelte';
 	import { getLibraries } from '$lib/api/libraries';
-	import { Settings, Database, Users, Activity, HardDrive, BookOpen, Heart, List as ListIcon } from 'lucide-svelte';
+	import { Settings, Database, Users, Activity, HardDrive, BookOpen, Heart, List as ListIcon, Scan } from 'lucide-svelte';
 
 	let libraries = [];
 	let stats = {
@@ -209,16 +209,20 @@
 						<Database class="w-8 h-8 text-accent-orange" />
 						<span>Manage Libraries</span>
 					</a>
+					<a href="/admin/scanners" class="action-card">
+						<Scan class="w-8 h-8 text-blue-400" />
+						<span>Manage Scanners</span>
+					</a>
 					<a href="/admin/settings" class="action-card">
-						<Settings class="w-8 h-8 text-blue-400" />
+						<Settings class="w-8 h-8 text-green-400" />
 						<span>Server Settings</span>
 					</a>
 					<button class="action-card" on:click={() => alert('Feature coming soon')}>
-						<Activity class="w-8 h-8 text-green-400" />
+						<Activity class="w-8 h-8 text-purple-400" />
 						<span>View Logs</span>
 					</button>
 					<button class="action-card" on:click={() => alert('Feature coming soon')}>
-						<Users class="w-8 h-8 text-purple-400" />
+						<Users class="w-8 h-8 text-pink-400" />
 						<span>Manage Users</span>
 					</button>
 				</div>

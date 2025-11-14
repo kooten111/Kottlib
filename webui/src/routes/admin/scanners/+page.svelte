@@ -42,6 +42,8 @@
 			isLoading = true;
 			error = null;
 
+			console.log('[loadScannerData] Fetching scanner data...');
+
 			// Fetch available scanners
 			const scannersRes = await fetch('/v2/scanners/available');
 			if (!scannersRes.ok) throw new Error('Failed to load scanners');
@@ -51,6 +53,23 @@
 			const configsRes = await fetch('/v2/scanners/libraries');
 			if (!configsRes.ok) throw new Error('Failed to load configurations');
 			libraryConfigs = await configsRes.json();
+			
+			console.log('[loadScannerData] Raw response:', libraryConfigs);
+			console.log('[loadScannerData] Threshold values:', libraryConfigs.map(c => ({
+				id: c.library_id,
+				name: c.library_name,
+				confidence_threshold: c.confidence_threshold,
+				confidence_type: typeof c.confidence_threshold,
+				fallback_threshold: c.fallback_threshold,
+				fallback_type: typeof c.fallback_threshold
+			})));
+			
+			console.log('[loadScannerData] Scanner capabilities:', availableScanners.map(s => ({
+				name: s.name,
+				provided_fields: s.provided_fields,
+				primary_fields: s.primary_fields,
+				description: s.description
+			})));
 
 			// Set default test library to first library with a configured scanner
 			if (!testLibraryId && libraryConfigs.length > 0) {
@@ -61,7 +80,7 @@
 
 			isLoading = false;
 		} catch (err) {
-			console.error('Failed to load scanner data:', err);
+			console.error('[loadScannerData] Error:', err);
 			error = err.message;
 			isLoading = false;
 		}
@@ -146,6 +165,7 @@
 	}
 
 	function openConfigModal(library) {
+		console.log('[openConfigModal] Opening modal for library:', library);
 		configLibrary = library;
 		configForm = {
 			primary_scanner: library.primary_scanner || '',
@@ -153,6 +173,7 @@
 			confidence_threshold: library.confidence_threshold || 0.4,
 			fallback_threshold: library.fallback_threshold || 0.7
 		};
+		console.log('[openConfigModal] Initial configForm:', configForm);
 		configError = null;
 		showConfigModal = true;
 	}
@@ -175,10 +196,21 @@
 			isSavingConfig = true;
 			configError = null;
 
+			// Ensure threshold values are numbers
+			const payload = {
+				primary_scanner: configForm.primary_scanner,
+				fallback_scanners: configForm.fallback_scanners,
+				confidence_threshold: parseFloat(configForm.confidence_threshold),
+				fallback_threshold: parseFloat(configForm.fallback_threshold)
+			};
+
+			console.log('[saveConfiguration] Current configForm:', configForm);
+			console.log('[saveConfiguration] Sending payload:', payload);
+
 			const response = await fetch(`/v2/scanners/libraries/${configLibrary.library_id}/configure`, {
 				method: 'PUT',
 				headers: { 'Content-Type': 'application/json' },
-				body: JSON.stringify(configForm)
+				body: JSON.stringify(payload)
 			});
 
 			if (!response.ok) {
@@ -186,13 +218,17 @@
 				throw new Error(errorData.detail || 'Failed to save configuration');
 			}
 
+			const savedConfig = await response.json();
+			console.log('[saveConfiguration] Server returned:', savedConfig);
+
 			// Reload library configurations
+			console.log('[saveConfiguration] Reloading library data...');
 			await loadScannerData();
 
 			// Close modal
 			closeConfigModal();
 		} catch (err) {
-			console.error('Failed to save configuration:', err);
+			console.error('[saveConfiguration] Error:', err);
 			configError = err.message;
 		} finally {
 			isSavingConfig = false;
@@ -556,7 +592,8 @@
 					</label>
 					<input
 						type="range"
-						bind:value={configForm.confidence_threshold}
+						value={configForm.confidence_threshold}
+						on:input={(e) => configForm.confidence_threshold = parseFloat(e.target.value)}
 						min="0"
 						max="1"
 						step="0.05"
@@ -579,7 +616,8 @@
 					</label>
 					<input
 						type="range"
-						bind:value={configForm.fallback_threshold}
+						value={configForm.fallback_threshold}
+						on:input={(e) => configForm.fallback_threshold = parseFloat(e.target.value)}
 						min="0"
 						max="1"
 						step="0.05"
