@@ -6,6 +6,7 @@ This is the v2 API that newer mobile app versions prefer.
 """
 
 import logging
+import re
 from typing import Optional, List
 from pathlib import Path
 from functools import lru_cache
@@ -304,12 +305,48 @@ async def get_folder_v2(
                 "cover_size_ratio": 0.0,
                 "number": 0,
                 "has_been_opened": has_been_opened,
-                "last_read": last_read_at
+                "last_read": last_read_at,
+                # Add metadata for proper sorting
+                "issue_number": comic.issue_number,
+                "volume": comic.volume
             })
 
         # Sort comics
         if sort == "folders_first" or sort == "alphabetical":
-            comics_list.sort(key=lambda c: c['file_name'].lower())
+            # Sort by volume and issue_number first (numeric), then fallback to filename parsing
+            def comic_sort_key(c):
+                # Use volume and issue_number for numeric sorting if available
+                volume = c.get('volume') or 0
+                issue_number = c.get('issue_number')
+                filename = c['file_name']
+
+                # If no issue_number from metadata, try to extract from filename
+                if issue_number is None or issue_number == 0:
+                    # Try common patterns: c001, ch001, chapter 001, #001, etc.
+                    patterns = [
+                        r'c(?:h(?:apter)?)?[\s_\-#]*(\d+)',  # c001, ch001, chapter 001
+                        r'#(\d+)',  # #001
+                        r'(\d+)',  # Any number sequence (fallback)
+                    ]
+                    for pattern in patterns:
+                        match = re.search(pattern, filename, re.IGNORECASE)
+                        if match:
+                            try:
+                                issue_number = float(match.group(1))
+                                break
+                            except ValueError:
+                                pass
+
+                    # If still no number found, use 0
+                    if issue_number is None:
+                        issue_number = 0
+
+                # Sort by: (volume, issue_number, filename_lowercase)
+                # This ensures comics with metadata sort numerically,
+                # and comics without metadata also sort numerically by extracted chapter numbers
+                return (volume, issue_number, filename.lower())
+
+            comics_list.sort(key=comic_sort_key)
         elif sort == "date_added":
             comics_list.sort(key=lambda c: c.get('created_at', 0), reverse=True)
 

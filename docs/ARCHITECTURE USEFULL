@@ -552,5 +552,227 @@ ROUTER STRUCTURE
   POST /library/{id}/comic/{id}/update - Update progress on page change
 
 ================================================================================
-                        LAST UPDATED: 2024-11-10
+                        ADMIN PANEL ARCHITECTURE
+================================================================================
+
+ADMIN PANEL LOCATION & STATUS
+================================================================================
+
+Frontend (WebUI):
+  /webui/src/routes/admin/+page.svelte        <- Main admin dashboard (LIVE)
+  /webui/src/routes/admin/libraries/          <- Library management (EMPTY/PLANNED)
+  /webui/src/routes/admin/settings/           <- Server settings (EMPTY/PLANNED)
+
+Backend (API):
+  No dedicated admin API endpoints currently implemented
+  Admin functionality uses existing library/user endpoints
+
+IMPLEMENTED ADMIN FEATURES
+================================================================================
+
+Admin Dashboard (/admin):
+  ✓ Statistics Cards:
+    - Total Comics count
+    - Total Libraries count
+    - Storage Used (placeholder - shows 0)
+    - Active Users (hardcoded to 1)
+
+  ✓ Libraries Section:
+    - Display all libraries with path and comic count
+    - Link to "Manage Libraries" (not implemented)
+
+  ✓ Recent Activity Section:
+    - Placeholder activity log with dummy data
+    - Relative time formatting
+
+  ✓ Quick Actions Menu:
+    - "Manage Libraries" -> /admin/libraries (empty)
+    - "Server Settings" -> /admin/settings (empty)
+    - "View Logs" -> Placeholder popup
+    - "Manage Users" -> Placeholder popup
+
+Default Admin User:
+  Username: admin
+  Password: changeme (⚠️ PLAINTEXT - NOT HASHED)
+  Created: Automatically on database initialization
+  Location: database.py lines 120-133
+
+User Role System:
+  - is_admin: Boolean field in User model
+  - is_active: Account status flag
+  - Session management tracks current user
+  - Location: models.py lines 320-340
+
+ADMIN ROUTES & ENDPOINTS
+================================================================================
+
+Frontend Routes:
+  /admin                   - Main dashboard (IMPLEMENTED)
+  /admin/libraries        - Library management (EMPTY)
+  /admin/settings         - Server settings (EMPTY)
+
+Backend Endpoints (Used by Admin):
+  GET  /api/v1/libraries              - List all libraries
+  GET  /api/v1/libraries/{library_id} - Library details
+  POST /api/v1/libraries              - Create library
+  GET  /v2/libraries                  - Libraries (v2 JSON)
+  GET  /api/v1/info                   - Server info
+  GET  /health                        - Health check
+
+Missing Admin Endpoints:
+  ✗ Server statistics/metrics
+  ✗ Library scanning/refresh
+  ✗ Server logs access
+  ✗ User management CRUD
+  ✗ Settings/configuration
+  ✗ Database backup/restore
+  ✗ Activity/audit logs
+
+ADMIN UI COMPONENTS
+================================================================================
+
+Main Admin Dashboard:
+  - Location: /webui/src/routes/admin/+page.svelte (513 lines)
+  - Uses: Navbar, Card components
+  - Icons: lucide-svelte (Settings, Database, Users, Activity, etc.)
+  - Features: Loading states, error handling, responsive grid
+
+Component Structure:
+  Admin Dashboard
+  ├── Page Header (with Settings icon)
+  ├── Stats Grid (4 stat cards)
+  │   ├── Total Comics
+  │   ├── Libraries
+  │   ├── Storage Used
+  │   └── Active Users
+  ├── Content Grid (2 columns on desktop)
+  │   ├── Libraries Section (with stats)
+  │   └── Recent Activity Section (with timestamps)
+  └── Quick Actions Grid (4 action cards)
+
+CRITICAL TODOs & MISSING FEATURES
+================================================================================
+
+HIGH PRIORITY:
+  ⚠️ Fix admin password hashing (currently plaintext "changeme")
+  ⚠️ Add admin authentication/authorization middleware
+  □ Implement /admin/libraries page with CRUD operations
+  □ Implement /admin/settings page
+  □ Add API endpoint for actual storage usage
+  □ Add API endpoint for server activity/logs
+
+MEDIUM PRIORITY:
+  □ User management interface (/admin/users)
+  □ Library scanning/refresh buttons
+  □ Server logs viewer
+  □ System statistics (uptime, memory, disk)
+  □ Backup/restore functionality
+  □ Configuration editing UI
+
+LOW PRIORITY:
+  □ Real-time activity monitoring
+  □ Database cleanup tools
+  □ Thumbnail regeneration
+  □ Library path validation
+  □ Performance monitoring
+
+SECURITY ISSUES:
+  ⚠️ Default admin password is hardcoded as "changeme"
+  ⚠️ Password stored in PLAINTEXT (not hashed)
+  ⚠️ No admin authentication middleware
+  ⚠️ No RBAC enforcement on endpoints
+
+ADMIN DATA FLOW
+================================================================================
+
+Dashboard Loading:
+  1. User navigates to /admin
+  2. Navbar renders with Admin link
+  3. +page.svelte calls loadDashboardData()
+  4. getLibraries() API call from libraries.js
+  5. GET /v2/libraries request via client.js
+  6. Backend returns library list from database
+  7. Dashboard calculates:
+     - totalLibraries = libraries.length
+     - totalComics = sum of library.comicsCount
+     - storageUsed = 0 (placeholder)
+     - recentActivity = hardcoded dummy data
+  8. UI renders with loading states
+
+Library Data Model (Admin Context):
+  {
+    id: number,
+    uuid: string,
+    name: string,
+    path: string,
+    created_at: timestamp,
+    updated_at: timestamp,
+    last_scan_at: timestamp?,
+    scan_status: "pending|scanning|completed",
+    settings: JSON,
+    cached_series_tree: string,
+    tree_cache_updated_at: timestamp
+  }
+
+User Model (Admin Context):
+  {
+    id: number,
+    username: string,
+    password_hash: string,  // ⚠️ Currently stores plaintext
+    is_admin: boolean,
+    is_active: boolean,
+    created_at: timestamp,
+    last_login: timestamp?
+  }
+
+ADMIN KEY FILES
+================================================================================
+
+Frontend:
+  /webui/src/routes/admin/+page.svelte           - Main dashboard (513 lines)
+  /webui/src/lib/api/libraries.js                - Library API client (61 lines)
+  /webui/src/lib/api/client.js                   - HTTP client (169 lines)
+  /webui/src/lib/components/layout/Navbar.svelte - Navigation (line 109-114: admin link)
+
+Backend:
+  /src/api/main.py                    - FastAPI app (190 lines)
+  /src/api/routers/libraries.py       - Library endpoints (133 lines)
+  /src/api/routers/api_v2.py          - Full API (2000+ lines)
+  /src/database/models.py             - ORM models with User.is_admin (400+ lines)
+  /src/database/database.py           - DB init with default admin (200+ lines)
+  /src/api/middleware/session.py      - Session management
+
+ADMIN IMPLEMENTATION NOTES
+================================================================================
+
+Current Config:
+  - No admin-specific configuration in config.yml
+  - Server: localhost:8081 (backend), localhost:5173 (frontend)
+  - Features: legacy_api, modern_api, reading_progress, series_detection,
+              collections, auto_thumbnails
+
+Database Setup:
+  - SQLite auto-created on first run
+  - Default admin user created automatically
+  - ⚠️ No password hashing implemented
+
+Statistics:
+  - Total admin code: ~700 lines (frontend + backend)
+  - Implemented: ~20% complete
+  - Missing: ~80% (planned/TODO)
+  - Security issues: 2 critical
+  - API endpoints: 10+ available, 0 admin-specific
+  - UI pages: 1 complete, 2 empty
+
+Next Steps for Admin Development:
+  1. Fix security: Implement password hashing (bcrypt/argon2)
+  2. Add admin middleware for route protection
+  3. Implement /admin/libraries CRUD interface
+  4. Implement /admin/settings configuration UI
+  5. Add real activity logging system
+  6. Create user management interface
+  7. Add server metrics/monitoring endpoints
+
+================================================================================
+                        LAST UPDATED: 2025-11-13
 ================================================================================

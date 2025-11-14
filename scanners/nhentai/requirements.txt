@@ -1,0 +1,5 @@
+requests>=2.32.0
+
+# Note: All other dependencies are Python standard library:
+# - re, json, argparse, collections, enum, typing, difflib
+# - urllib.parse, pathlib, dataclasses, abc

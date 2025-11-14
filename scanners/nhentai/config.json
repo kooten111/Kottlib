@@ -1,0 +1,6 @@
+{
+  "confidence_threshold": 0.4,
+  "use_fallback_searches": true,
+  "sort_by": "date",
+  "sources": ["https://nhentai.net", "https://nhentai.xxx"]
+}
