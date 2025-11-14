@@ -667,7 +667,8 @@
 												showProgress={false}
 												isFolder={true}
 												itemCount={series.total_issues}
-												href="/series/{series.libraryId}/{encodeURIComponent(series.series_name)}"
+												isStandalone={series.is_standalone}
+												href={series.is_standalone ? `/comic/${series.libraryId}/${series.first_comic_id}` : `/series/${series.libraryId}/${encodeURIComponent(series.series_name)}`}
 												variant={$preferencesStore.viewMode}
 												coverSizeMultiplier={$preferencesStore.gridCoverSize}
 											/>

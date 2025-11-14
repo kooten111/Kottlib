@@ -9,6 +9,7 @@
 	export let itemCount = 0; // Number of items in folder
 	export let href = null; // Optional custom href for the card
 	export let coverSizeMultiplier = 1.0; // Size multiplier for grid view
+	export let isStandalone = false; // Flag for standalone comics (single volume series)
 
 	$: hash = comic.hash || comic.coverHash || comic.first_comic_hash;
 	$: coverUrl = hash ? getCoverUrl(libraryId, hash) : null;
@@ -16,7 +17,8 @@
 	$: hasProgress = comic.current_page > 0;
 	$: title = comic.title || comic.file_name?.replace(/\.(cbz|cbr|cb7|cbt)$/i, '') || 'Untitled';
 	$: actualItemCount = itemCount || comic.itemCount || comic.item_count || 0;
-	$: cardHref = href || `/comic/${libraryId}/${comic.id}`;
+	// For standalone volumes (single-volume series), link directly to comic viewer instead of series page
+	$: cardHref = href || (isStandalone ? `/comic/${libraryId}/${comic.id}` : `/comic/${libraryId}/${comic.id}`);
 </script>
 
 <a href={cardHref} class="comic-card {variant}" class:folder-card={isFolder} style="--cover-size-multiplier: {coverSizeMultiplier};">

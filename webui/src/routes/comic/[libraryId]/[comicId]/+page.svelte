@@ -4,6 +4,7 @@
 	import Navbar from '$lib/components/layout/Navbar.svelte';
 	import ComicCard from '$lib/components/comic/ComicCard.svelte';
 	import Button from '$lib/components/common/Button.svelte';
+	import ScannerMetadata from '$lib/components/comic/ScannerMetadata.svelte';
 	import { getComicInfo } from '$lib/api/comics';
 	import { addFavorite, removeFavorite } from '$lib/api/favorites';
 	import { Heart, Book, Play, ArrowLeft, ArrowRight } from 'lucide-svelte';
@@ -85,7 +86,7 @@
 	<main class="flex-1 container mx-auto px-4 py-8 max-w-content">
 		{#if isLoading}
 			<div class="loading-container">
-				<div class="spinner" />
+				<div class="spinner"></div>
 				<p class="text-gray-400 mt-4">Loading comic...</p>
 			</div>
 		{:else if error}
@@ -103,15 +104,17 @@
 			<!-- Comic Detail Section -->
 			<div class="comic-detail">
 				<!-- Cover Image -->
-				<div class="cover-container">
-					<img
-						src="/v2/library/{libraryId}/cover/{comic.hash}.jpg"
-						alt={comic.title || comic.file_name?.replace(/\.(cbz|cbr|cb7|cbt)$/i, '')}
-						class="cover-image"
-					/>
+				<div class="cover-section">
+					<div class="cover-container">
+						<img
+							src="/v2/library/{libraryId}/cover/{comic.hash}.jpg"
+							alt={comic.title || comic.file_name?.replace(/\.(cbz|cbr|cb7|cbt)$/i, '')}
+							class="cover-image"
+						/>
+					</div>
 					{#if readProgress > 0}
-						<div class="progress-overlay">
-							<div class="progress-bar" style="width: {readProgress}%" />
+						<div class="small-progress-bar">
+							<div class="small-progress-fill" style="width: {readProgress}%"></div>
 						</div>
 					{/if}
 				</div>
@@ -199,19 +202,6 @@
 						</button>
 					</div>
 
-					<!-- Reading Progress -->
-					{#if hasStarted}
-						<div class="reading-progress">
-							<div class="progress-info">
-								<span class="progress-text">Reading Progress</span>
-								<span class="progress-percentage">{Math.round(readProgress)}%</span>
-							</div>
-							<div class="progress-bar-container">
-								<div class="progress-bar-fill" style="width: {readProgress}%" />
-							</div>
-						</div>
-					{/if}
-
 					<!-- Description -->
 					{#if comic.synopsis}
 						<div class="description">
@@ -220,17 +210,8 @@
 						</div>
 					{/if}
 
-					<!-- Tags -->
-					{#if comic.tags && comic.tags.length > 0}
-						<div class="tags-section">
-							<h3 class="tags-title">Tags</h3>
-							<div class="tags">
-								{#each comic.tags as tag}
-									<span class="tag">{tag}</span>
-								{/each}
-							</div>
-						</div>
-					{/if}
+					<!-- Scanner Metadata -->
+					<ScannerMetadata {libraryId} {comicId} comic={comic} on:updated={loadComicData} />
 				</div>
 			</div>
 
@@ -295,6 +276,12 @@
 		margin-bottom: 3rem;
 	}
 
+	.cover-section {
+		display: flex;
+		flex-direction: column;
+		gap: 0.5rem;
+	}
+
 	.cover-container {
 		position: relative;
 	}
@@ -306,18 +293,14 @@
 		box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
 	}
 
-	.progress-overlay {
-		position: absolute;
-		bottom: 0;
-		left: 0;
-		right: 0;
-		height: 4px;
-		background: rgba(0, 0, 0, 0.5);
-		border-radius: 0 0 8px 8px;
+	.small-progress-bar {
+		height: 6px;
+		background: rgba(255, 255, 255, 0.1);
+		border-radius: 3px;
 		overflow: hidden;
 	}
 
-	.progress-bar {
+	.small-progress-fill {
 		height: 100%;
 		background: var(--color-accent);
 		transition: width 0.3s ease;
@@ -391,43 +374,6 @@
 		cursor: not-allowed;
 	}
 
-	.reading-progress {
-		padding: 1rem;
-		background: var(--color-secondary-bg);
-		border-radius: 8px;
-	}
-
-	.progress-info {
-		display: flex;
-		justify-content: space-between;
-		margin-bottom: 0.5rem;
-	}
-
-	.progress-text {
-		font-size: 0.875rem;
-		color: var(--color-text-secondary);
-	}
-
-	.progress-percentage {
-		font-size: 0.875rem;
-		font-weight: 600;
-		color: var(--color-accent);
-	}
-
-	.progress-bar-container {
-		height: 8px;
-		background: rgba(255, 255, 255, 0.1);
-		border-radius: 4px;
-		overflow: hidden;
-	}
-
-	.progress-bar-fill {
-		height: 100%;
-		background: var(--color-accent);
-		border-radius: 4px;
-		transition: width 0.3s ease;
-	}
-
 	.description {
 		padding: 1.5rem;
 		background: var(--color-secondary-bg);
@@ -446,32 +392,6 @@
 		line-height: 1.6;
 		color: var(--color-text-secondary);
 		margin: 0;
-	}
-
-	.tags-section {
-		margin-top: 1rem;
-	}
-
-	.tags-title {
-		font-size: 1rem;
-		font-weight: 600;
-		color: var(--color-text);
-		margin-bottom: 0.75rem;
-	}
-
-	.tags {
-		display: flex;
-		flex-wrap: wrap;
-		gap: 0.5rem;
-	}
-
-	.tag {
-		padding: 0.375rem 0.75rem;
-		background: var(--color-secondary-bg);
-		border: 1px solid var(--color-accent);
-		border-radius: 9999px;
-		font-size: 0.875rem;
-		color: var(--color-text);
 	}
 
 	.related-section {

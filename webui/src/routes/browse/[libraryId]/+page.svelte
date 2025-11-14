@@ -6,6 +6,7 @@
 	import BackButton from '$lib/components/common/BackButton.svelte';
 	import InfiniteScroll from '$lib/components/common/InfiniteScroll.svelte';
 	import ComicCard from '$lib/components/comic/ComicCard.svelte';
+	import LibraryScannerPanel from '$lib/components/library/LibraryScannerPanel.svelte';
 	import { getLibraries, getSeries, getFolderTree } from '$lib/api/libraries';
 	import { Grid, List, SortAsc } from 'lucide-svelte';
 
@@ -183,6 +184,11 @@
 						</div>
 					</div>
 
+					<!-- Scanner Panel -->
+					{#if selectedLibraryId}
+						<LibraryScannerPanel libraryId={selectedLibraryId} />
+					{/if}
+
 					<!-- Series Section -->
 					{#if displayedSeries.length > 0}
 						<section>
@@ -193,7 +199,7 @@
 							>
 								<div class="comics-{viewMode}">
 									{#each displayedSeries as series}
-										<a href="/series/{series.libraryId}/{encodeURIComponent(series.series_name)}">
+										<a href={series.is_standalone ? `/comic/${series.libraryId}/${series.first_comic_id}` : `/series/${series.libraryId}/${encodeURIComponent(series.series_name)}`}>
 											<ComicCard
 												comic={{
 													id: series.first_comic_id,
@@ -205,10 +211,11 @@
 												variant={viewMode}
 											showProgress={false}
 											isFolder={true}
+											isStandalone={series.is_standalone}
 											itemCount={series.total_issues}
 										/>
 									</a>
-								{/each}
+									{/each}
 							</div>
 							</InfiniteScroll>
 						</section>
