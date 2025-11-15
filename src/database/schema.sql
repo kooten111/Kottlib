@@ -261,6 +261,23 @@ CREATE TABLE series (
     comic_count INTEGER DEFAULT 0,
     total_issues INTEGER DEFAULT 0,
 
+    -- Scanner metadata (for series-level scanners like AniList)
+    scanner_source TEXT,                  -- Scanner name (e.g., "AniList")
+    scanner_source_id TEXT,               -- ID from external source
+    scanner_source_url TEXT,              -- URL to source page
+    scanned_at INTEGER,                   -- Timestamp of scan
+    scan_confidence REAL,                 -- Match confidence (0.0-1.0)
+
+    -- Additional metadata from scanners
+    writer TEXT,                          -- Writer/author name(s)
+    artist TEXT,                          -- Artist name(s)
+    genre TEXT,                           -- Comma-separated genres
+    tags TEXT,                            -- Comma-separated tags
+    status TEXT,                          -- Publication status
+    format TEXT,                          -- Format type (e.g., "Manga")
+    chapters INTEGER,                     -- Total chapter count
+    volumes INTEGER,                      -- Total volume count
+
     created_at INTEGER NOT NULL,
     updated_at INTEGER NOT NULL,
 
@@ -270,6 +287,19 @@ CREATE TABLE series (
 
 CREATE INDEX idx_series_library ON series(library_id);
 CREATE INDEX idx_series_name ON series(name);
+CREATE INDEX idx_series_scanner_source ON series(scanner_source);
+CREATE INDEX idx_series_scanned_at ON series(scanned_at);
+
+-- Search performance indexes (added in migration 006)
+CREATE INDEX IF NOT EXISTS idx_series_writer ON series(writer);
+CREATE INDEX IF NOT EXISTS idx_series_artist ON series(artist);
+CREATE INDEX IF NOT EXISTS idx_series_genre ON series(genre);
+CREATE INDEX IF NOT EXISTS idx_series_tags ON series(tags);
+CREATE INDEX IF NOT EXISTS idx_series_status ON series(status);
+CREATE INDEX IF NOT EXISTS idx_series_publisher ON series(publisher);
+CREATE INDEX IF NOT EXISTS idx_series_description ON series(description);
+CREATE INDEX IF NOT EXISTS idx_series_display_name ON series(display_name);
+CREATE INDEX IF NOT EXISTS idx_series_library_search ON series(library_id, name, writer, artist);
 
 
 -- Link comics to series (many-to-many for omnibus editions)

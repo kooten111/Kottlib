@@ -230,18 +230,20 @@ def init_default_scanners():
 
     Sets up:
     - Doujinshi: nhentai (primary)
-    - Manga: AniList (primary), Jikan (fallback) [placeholder]
+    - Manga: AniList (primary)
     - Comics: Comic Vine (primary) [placeholder]
     """
     manager = get_manager()
 
     # Register available scanners
     from .nhentai.nhentai_scanner import NhentaiScanner
+    from .AniList.anilist_scanner import AniListScanner
     manager.register_scanner_class(NhentaiScanner)
+    manager.register_scanner_class(AniListScanner)
 
     # TODO: Register other scanners as they're implemented
-    # from .AniList.anilist_scanner import AniListScanner
-    # manager.register_scanner_class(AniListScanner)
+    # from .Jikan.jikan_scanner import JikanScanner
+    # manager.register_scanner_class(JikanScanner)
 
     # Configure libraries
     manager.configure_library(
@@ -250,12 +252,12 @@ def init_default_scanners():
         fallback_scanners=None
     )
 
-    # Placeholder configurations (will be implemented later)
-    # manager.configure_library(
-    #     'manga',
-    #     primary_scanner='AniList',
-    #     fallback_scanners=['Jikan'],
-    #     fallback_threshold=0.7
-    # )
+    # Configure manga with AniList
+    manager.configure_library(
+        'manga',
+        primary_scanner='AniList',
+        fallback_scanners=None,
+        fallback_threshold=0.7
+    )
 
     return manager

@@ -3,387 +3,269 @@
 > vite dev
 
 
-  VITE v7.2.2  ready in 327 ms
+  VITE v7.2.2  ready in 313 ms
 
   ➜  Local:   http://localhost:5173/
   ➜  Network: use --host to expose
-6:23:36 PM [vite-plugin-svelte] src/routes/admin/scanners/+page.svelte:330:5 A form label must be associated with a control
-https://svelte.dev/e/a11y_label_has_associated_control
-6:23:36 PM [vite-plugin-svelte] src/routes/admin/scanners/+page.svelte:358:5 A form label must be associated with a control
-https://svelte.dev/e/a11y_label_has_associated_control
-6:23:36 PM [vite-plugin-svelte] src/routes/admin/scanners/+page.svelte:451:5 A form label must be associated with a control
-https://svelte.dev/e/a11y_label_has_associated_control
-6:23:36 PM [vite-plugin-svelte] src/routes/admin/scanners/+page.svelte:537:5 A form label must be associated with a control
-https://svelte.dev/e/a11y_label_has_associated_control
-6:23:36 PM [vite-plugin-svelte] src/routes/admin/scanners/+page.svelte:554:5 A form label must be associated with a control
-https://svelte.dev/e/a11y_label_has_associated_control
-6:23:36 PM [vite-plugin-svelte] src/routes/admin/scanners/+page.svelte:577:5 A form label must be associated with a control
-https://svelte.dev/e/a11y_label_has_associated_control
-6:23:36 PM [vite-plugin-svelte] src/routes/admin/scanners/+page.svelte:600:5 A form label must be associated with a control
-https://svelte.dev/e/a11y_label_has_associated_control
-6:23:37 PM [vite-plugin-svelte] src/lib/components/layout/Navbar.svelte:128:1 Unused CSS selector ".search-icon"
+1:16:50 AM [vite-plugin-svelte] src/routes/+page.svelte:711:1 Unused CSS selector ".libraries-nav"
 https://svelte.dev/e/css_unused_selector
-6:23:41 PM [vite] (ssr) page reload src/routes/admin/scanners/+page.svelte
-6:23:41 PM [vite-plugin-svelte] src/routes/admin/scanners/+page.svelte:330:5 A form label must be associated with a control
-https://svelte.dev/e/a11y_label_has_associated_control
-6:23:41 PM [vite-plugin-svelte] src/routes/admin/scanners/+page.svelte:358:5 A form label must be associated with a control
-https://svelte.dev/e/a11y_label_has_associated_control
-6:23:41 PM [vite-plugin-svelte] src/routes/admin/scanners/+page.svelte:451:5 A form label must be associated with a control
-https://svelte.dev/e/a11y_label_has_associated_control
-6:23:41 PM [vite-plugin-svelte] src/routes/admin/scanners/+page.svelte:537:5 A form label must be associated with a control
-https://svelte.dev/e/a11y_label_has_associated_control
-6:23:41 PM [vite-plugin-svelte] src/routes/admin/scanners/+page.svelte:554:5 A form label must be associated with a control
-https://svelte.dev/e/a11y_label_has_associated_control
-6:23:41 PM [vite-plugin-svelte] src/routes/admin/scanners/+page.svelte:577:5 A form label must be associated with a control
-https://svelte.dev/e/a11y_label_has_associated_control
-6:23:41 PM [vite-plugin-svelte] src/routes/admin/scanners/+page.svelte:600:5 A form label must be associated with a control
-https://svelte.dev/e/a11y_label_has_associated_control
-6:23:44 PM [vite-plugin-svelte] src/lib/components/common/Card.svelte:12:0 noninteractive element cannot have nonnegative tabIndex value
-https://svelte.dev/e/a11y_no_noninteractive_tabindex
-[Navbar] Search store query changed: 
-[Navbar] Search store query changed: 
-6:23:44 PM [vite-plugin-svelte] src/routes/admin/scanners/+page.svelte:330:5 A form label must be associated with a control
-https://svelte.dev/e/a11y_label_has_associated_control
-6:23:44 PM [vite-plugin-svelte] src/routes/admin/scanners/+page.svelte:358:5 A form label must be associated with a control
-https://svelte.dev/e/a11y_label_has_associated_control
-6:23:44 PM [vite-plugin-svelte] src/routes/admin/scanners/+page.svelte:451:5 A form label must be associated with a control
-https://svelte.dev/e/a11y_label_has_associated_control
-6:23:44 PM [vite-plugin-svelte] src/routes/admin/scanners/+page.svelte:537:5 A form label must be associated with a control
-https://svelte.dev/e/a11y_label_has_associated_control
-6:23:44 PM [vite-plugin-svelte] src/routes/admin/scanners/+page.svelte:554:5 A form label must be associated with a control
-https://svelte.dev/e/a11y_label_has_associated_control
-6:23:44 PM [vite-plugin-svelte] src/routes/admin/scanners/+page.svelte:577:5 A form label must be associated with a control
-https://svelte.dev/e/a11y_label_has_associated_control
-6:23:44 PM [vite-plugin-svelte] src/routes/admin/scanners/+page.svelte:600:5 A form label must be associated with a control
-https://svelte.dev/e/a11y_label_has_associated_control
-6:23:44 PM [vite-plugin-svelte] src/lib/components/layout/Navbar.svelte:128:1 Unused CSS selector ".search-icon"
+1:16:50 AM [vite-plugin-svelte] src/routes/+page.svelte:717:1 Unused CSS selector ".library-item"
 https://svelte.dev/e/css_unused_selector
-6:23:44 PM [vite-plugin-svelte] src/lib/components/common/Card.svelte:12:0 noninteractive element cannot have nonnegative tabIndex value
-https://svelte.dev/e/a11y_no_noninteractive_tabindex
-Avoid calling `fetch` eagerly during server-side rendering — put your `fetch` calls inside `onMount` or a `load` function instead
-6:23:50 PM [vite-plugin-svelte] src/routes/+page.svelte:759:1 Unused CSS selector ".libraries-nav"
+1:16:50 AM [vite-plugin-svelte] src/routes/+page.svelte:729:1 Unused CSS selector ".library-item:hover"
 https://svelte.dev/e/css_unused_selector
-6:23:50 PM [vite-plugin-svelte] src/routes/+page.svelte:765:1 Unused CSS selector ".library-item"
+1:16:50 AM [vite-plugin-svelte] src/routes/+page.svelte:733:1 Unused CSS selector ".library-item-icon"
 https://svelte.dev/e/css_unused_selector
-6:23:50 PM [vite-plugin-svelte] src/routes/+page.svelte:777:1 Unused CSS selector ".library-item:hover"
+1:16:50 AM [vite-plugin-svelte] src/routes/+page.svelte:745:1 Unused CSS selector ".library-item-content"
 https://svelte.dev/e/css_unused_selector
-6:23:50 PM [vite-plugin-svelte] src/routes/+page.svelte:781:1 Unused CSS selector ".library-item-icon"
+1:16:50 AM [vite-plugin-svelte] src/routes/+page.svelte:753:1 Unused CSS selector ".library-item-name"
 https://svelte.dev/e/css_unused_selector
-6:23:50 PM [vite-plugin-svelte] src/routes/+page.svelte:793:1 Unused CSS selector ".library-item-content"
+1:16:50 AM [vite-plugin-svelte] src/routes/+page.svelte:762:1 Unused CSS selector ".library-item-count"
 https://svelte.dev/e/css_unused_selector
-6:23:50 PM [vite-plugin-svelte] src/routes/+page.svelte:801:1 Unused CSS selector ".library-item-name"
+1:16:50 AM [vite-plugin-svelte] src/routes/+page.svelte:767:1 Unused CSS selector ".sidebar-footer"
 https://svelte.dev/e/css_unused_selector
-6:23:50 PM [vite-plugin-svelte] src/routes/+page.svelte:810:1 Unused CSS selector ".library-item-count"
+1:16:50 AM [vite-plugin-svelte] src/routes/+page.svelte:772:1 Unused CSS selector ".sidebar-link"
 https://svelte.dev/e/css_unused_selector
-6:23:50 PM [vite-plugin-svelte] src/routes/+page.svelte:815:1 Unused CSS selector ".sidebar-footer"
+1:16:50 AM [vite-plugin-svelte] src/routes/+page.svelte:782:1 Unused CSS selector ".sidebar-link:hover"
 https://svelte.dev/e/css_unused_selector
-6:23:50 PM [vite-plugin-svelte] src/routes/+page.svelte:820:1 Unused CSS selector ".sidebar-link"
+1:16:50 AM [vite-plugin-svelte] src/routes/+page.svelte:793:1 Unused CSS selector ".loading-container"
 https://svelte.dev/e/css_unused_selector
-6:23:50 PM [vite-plugin-svelte] src/routes/+page.svelte:830:1 Unused CSS selector ".sidebar-link:hover"
+1:16:50 AM [vite-plugin-svelte] src/routes/+page.svelte:803:1 Unused CSS selector ".spinner"
 https://svelte.dev/e/css_unused_selector
-6:23:50 PM [vite-plugin-svelte] src/routes/+page.svelte:841:1 Unused CSS selector ".loading-container"
+1:16:50 AM [vite-plugin-svelte] src/routes/+page.svelte:934:1 Unused CSS selector ".see-all"
 https://svelte.dev/e/css_unused_selector
-6:23:50 PM [vite-plugin-svelte] src/routes/+page.svelte:851:1 Unused CSS selector ".spinner"
+1:16:50 AM [vite-plugin-svelte] src/routes/+page.svelte:941:1 Unused CSS selector ".see-all:hover"
 https://svelte.dev/e/css_unused_selector
-6:23:50 PM [vite-plugin-svelte] src/routes/+page.svelte:982:1 Unused CSS selector ".see-all"
+1:16:50 AM [vite-plugin-svelte] src/routes/+page.svelte:962:1 Unused CSS selector ".search-container"
 https://svelte.dev/e/css_unused_selector
-6:23:50 PM [vite-plugin-svelte] src/routes/+page.svelte:989:1 Unused CSS selector ".see-all:hover"
+1:16:50 AM [vite-plugin-svelte] src/routes/+page.svelte:972:1 Unused CSS selector ".search-input-wrapper"
 https://svelte.dev/e/css_unused_selector
-6:23:50 PM [vite-plugin-svelte] src/routes/+page.svelte:1010:1 Unused CSS selector ".search-container"
+1:16:50 AM [vite-plugin-svelte] src/routes/+page.svelte:981:1 Unused CSS selector ".search-icon"
 https://svelte.dev/e/css_unused_selector
-6:23:50 PM [vite-plugin-svelte] src/routes/+page.svelte:1020:1 Unused CSS selector ".search-input-wrapper"
+1:16:50 AM [vite-plugin-svelte] src/routes/+page.svelte:990:1 Unused CSS selector ".search-input"
 https://svelte.dev/e/css_unused_selector
-6:23:50 PM [vite-plugin-svelte] src/routes/+page.svelte:1029:1 Unused CSS selector ".search-icon"
+1:16:50 AM [vite-plugin-svelte] src/routes/+page.svelte:1001:1 Unused CSS selector ".search-input:focus"
 https://svelte.dev/e/css_unused_selector
-6:23:50 PM [vite-plugin-svelte] src/routes/+page.svelte:1038:1 Unused CSS selector ".search-input"
+1:16:50 AM [vite-plugin-svelte] src/routes/+page.svelte:1007:1 Unused CSS selector ".search-input::placeholder"
 https://svelte.dev/e/css_unused_selector
-6:23:50 PM [vite-plugin-svelte] src/routes/+page.svelte:1049:1 Unused CSS selector ".search-input:focus"
+1:16:50 AM [vite-plugin-svelte] src/routes/+page.svelte:1011:1 Unused CSS selector ".search-clear"
 https://svelte.dev/e/css_unused_selector
-6:23:50 PM [vite-plugin-svelte] src/routes/+page.svelte:1055:1 Unused CSS selector ".search-input::placeholder"
+1:16:50 AM [vite-plugin-svelte] src/routes/+page.svelte:1028:1 Unused CSS selector ".search-clear:hover"
 https://svelte.dev/e/css_unused_selector
-6:23:50 PM [vite-plugin-svelte] src/routes/+page.svelte:1059:1 Unused CSS selector ".search-clear"
+1:16:50 AM [vite-plugin-svelte] src/routes/+page.svelte:1033:1 Unused CSS selector ".search-loading"
 https://svelte.dev/e/css_unused_selector
-6:23:50 PM [vite-plugin-svelte] src/routes/+page.svelte:1076:1 Unused CSS selector ".search-clear:hover"
+1:16:50 AM [vite-plugin-svelte] src/routes/+page.svelte:1043:1 Unused CSS selector ".spinner-small"
 https://svelte.dev/e/css_unused_selector
-6:23:50 PM [vite-plugin-svelte] src/routes/+page.svelte:1081:1 Unused CSS selector ".search-loading"
+1:16:50 AM [vite-plugin-svelte] src/routes/+page.svelte:1070:2 Unused CSS selector ".search-input-wrapper"
 https://svelte.dev/e/css_unused_selector
-6:23:50 PM [vite-plugin-svelte] src/routes/+page.svelte:1091:1 Unused CSS selector ".spinner-small"
+1:16:51 AM [vite-plugin-svelte] src/lib/components/layout/Navbar.svelte:128:1 Unused CSS selector ".search-icon"
 https://svelte.dev/e/css_unused_selector
-6:23:50 PM [vite-plugin-svelte] src/routes/+page.svelte:1118:2 Unused CSS selector ".search-input-wrapper"
-https://svelte.dev/e/css_unused_selector
-6:23:50 PM [vite-plugin-svelte] src/lib/components/comic/ComicCard.svelte:54:4 Self-closing HTML tags for non-void elements are ambiguous — use `<div ...></div>` rather than `<div ... />`
+1:16:57 AM [vite-plugin-svelte] src/lib/components/comic/ComicCard.svelte:56:4 Self-closing HTML tags for non-void elements are ambiguous — use `<div ...></div>` rather than `<div ... />`
 https://svelte.dev/e/element_invalid_self_closing_tag
-6:23:50 PM [vite-plugin-svelte] src/lib/components/common/InfiniteScroll.svelte:89:5 Self-closing HTML tags for non-void elements are ambiguous — use `<div ...></div>` rather than `<div ... />`
+1:16:57 AM [vite-plugin-svelte] src/lib/components/layout/SeriesTreeNode.svelte:48:4 Self-closing HTML tags for non-void elements are ambiguous — use `<span ...></span>` rather than `<span ... />`
 https://svelte.dev/e/element_invalid_self_closing_tag
-6:23:50 PM [vite-plugin-svelte] src/lib/components/common/HorizontalCarousel.svelte:133:1 `<div>` with a mousedown, mousemove, mouseup or mouseleave handler must have an ARIA role
+1:16:57 AM [vite-plugin-svelte] src/lib/components/common/InfiniteScroll.svelte:89:5 Self-closing HTML tags for non-void elements are ambiguous — use `<div ...></div>` rather than `<div ... />`
+https://svelte.dev/e/element_invalid_self_closing_tag
+1:16:57 AM [vite-plugin-svelte] src/lib/components/common/HorizontalCarousel.svelte:133:1 `<div>` with a mousedown, mousemove, mouseup or mouseleave handler must have an ARIA role
 https://svelte.dev/e/a11y_no_static_element_interactions
-6:23:50 PM [vite-plugin-svelte] src/lib/components/common/HorizontalCarousel.svelte:7:12 Component has unused export property 'visibleItems'. If it is for external reference only, please consider using `export const visibleItems`
+1:16:57 AM [vite-plugin-svelte] src/lib/components/common/HorizontalCarousel.svelte:7:12 Component has unused export property 'visibleItems'. If it is for external reference only, please consider using `export const visibleItems`
 https://svelte.dev/e/export_let_unused
-6:23:50 PM [vite-plugin-svelte] src/lib/components/common/SkeletonCard.svelte:15:1 Self-closing HTML tags for non-void elements are ambiguous — use `<div ...></div>` rather than `<div ... />`
+1:16:57 AM [vite-plugin-svelte] src/lib/components/common/SkeletonCard.svelte:15:1 Self-closing HTML tags for non-void elements are ambiguous — use `<div ...></div>` rather than `<div ... />`
 https://svelte.dev/e/element_invalid_self_closing_tag
-6:23:50 PM [vite-plugin-svelte] src/lib/components/common/SkeletonCard.svelte:17:2 Self-closing HTML tags for non-void elements are ambiguous — use `<div ...></div>` rather than `<div ... />`
+1:16:57 AM [vite-plugin-svelte] src/lib/components/common/SkeletonCard.svelte:17:2 Self-closing HTML tags for non-void elements are ambiguous — use `<div ...></div>` rather than `<div ... />`
 https://svelte.dev/e/element_invalid_self_closing_tag
-6:23:50 PM [vite-plugin-svelte] src/lib/components/common/SkeletonCard.svelte:18:2 Self-closing HTML tags for non-void elements are ambiguous — use `<div ...></div>` rather than `<div ... />`
+1:16:57 AM [vite-plugin-svelte] src/lib/components/common/SkeletonCard.svelte:18:2 Self-closing HTML tags for non-void elements are ambiguous — use `<div ...></div>` rather than `<div ... />`
 https://svelte.dev/e/element_invalid_self_closing_tag
-6:23:50 PM [vite-plugin-svelte] src/lib/components/layout/SeriesTreeNode.svelte:48:4 Self-closing HTML tags for non-void elements are ambiguous — use `<span ...></span>` rather than `<span ... />`
-https://svelte.dev/e/element_invalid_self_closing_tag
-6:23:52 PM [vite-plugin-svelte] src/routes/series/[libraryId]/[seriesName]/+page.svelte:92:5 Self-closing HTML tags for non-void elements are ambiguous — use `<div ...></div>` rather than `<div ... />`
-https://svelte.dev/e/element_invalid_self_closing_tag
-6:23:52 PM [vite-plugin-svelte] src/routes/series/[libraryId]/[seriesName]/+page.svelte:165:8 Self-closing HTML tags for non-void elements are ambiguous — use `<div ...></div>` rather than `<div ... />`
-https://svelte.dev/e/element_invalid_self_closing_tag
-6:23:52 PM [vite-plugin-svelte] src/routes/comic/[libraryId]/[comicId]/+page.svelte:88:4 Self-closing HTML tags for non-void elements are ambiguous — use `<div ...></div>` rather than `<div ... />`
-https://svelte.dev/e/element_invalid_self_closing_tag
-6:23:52 PM [vite-plugin-svelte] src/routes/comic/[libraryId]/[comicId]/+page.svelte:114:7 Self-closing HTML tags for non-void elements are ambiguous — use `<div ...></div>` rather than `<div ... />`
-https://svelte.dev/e/element_invalid_self_closing_tag
-6:23:52 PM [vite-plugin-svelte] src/routes/comic/[libraryId]/[comicId]/+page.svelte:210:8 Self-closing HTML tags for non-void elements are ambiguous — use `<div ...></div>` rather than `<div ... />`
-https://svelte.dev/e/element_invalid_self_closing_tag
-6:23:56 PM [vite-plugin-svelte] src/routes/admin/scanners/+page.svelte:330:5 A form label must be associated with a control
-https://svelte.dev/e/a11y_label_has_associated_control
-6:23:56 PM [vite-plugin-svelte] src/routes/admin/scanners/+page.svelte:358:5 A form label must be associated with a control
-https://svelte.dev/e/a11y_label_has_associated_control
-6:23:56 PM [vite-plugin-svelte] src/routes/admin/scanners/+page.svelte:451:5 A form label must be associated with a control
-https://svelte.dev/e/a11y_label_has_associated_control
-6:23:56 PM [vite-plugin-svelte] src/routes/admin/scanners/+page.svelte:537:5 A form label must be associated with a control
-https://svelte.dev/e/a11y_label_has_associated_control
-6:23:56 PM [vite-plugin-svelte] src/routes/admin/scanners/+page.svelte:554:5 A form label must be associated with a control
-https://svelte.dev/e/a11y_label_has_associated_control
-6:23:56 PM [vite-plugin-svelte] src/routes/admin/scanners/+page.svelte:577:5 A form label must be associated with a control
-https://svelte.dev/e/a11y_label_has_associated_control
-6:23:56 PM [vite-plugin-svelte] src/routes/admin/scanners/+page.svelte:600:5 A form label must be associated with a control
-https://svelte.dev/e/a11y_label_has_associated_control
-6:23:56 PM [vite] (client) hmr update /src/routes/admin/scanners/+page.svelte, /src/app.css
-6:23:56 PM [vite] (ssr) page reload src/routes/admin/scanners/+page.svelte
-6:23:56 PM [vite-plugin-svelte] src/routes/admin/scanners/+page.svelte:330:5 A form label must be associated with a control
-https://svelte.dev/e/a11y_label_has_associated_control
-6:23:56 PM [vite-plugin-svelte] src/routes/admin/scanners/+page.svelte:358:5 A form label must be associated with a control
-https://svelte.dev/e/a11y_label_has_associated_control
-6:23:56 PM [vite-plugin-svelte] src/routes/admin/scanners/+page.svelte:451:5 A form label must be associated with a control
-https://svelte.dev/e/a11y_label_has_associated_control
-6:23:56 PM [vite-plugin-svelte] src/routes/admin/scanners/+page.svelte:537:5 A form label must be associated with a control
-https://svelte.dev/e/a11y_label_has_associated_control
-6:23:56 PM [vite-plugin-svelte] src/routes/admin/scanners/+page.svelte:554:5 A form label must be associated with a control
-https://svelte.dev/e/a11y_label_has_associated_control
-6:23:56 PM [vite-plugin-svelte] src/routes/admin/scanners/+page.svelte:577:5 A form label must be associated with a control
-https://svelte.dev/e/a11y_label_has_associated_control
-6:23:56 PM [vite-plugin-svelte] src/routes/admin/scanners/+page.svelte:600:5 A form label must be associated with a control
-https://svelte.dev/e/a11y_label_has_associated_control
-6:24:06 PM [vite-plugin-svelte] src/routes/admin/scanners/+page.svelte:330:5 A form label must be associated with a control
-https://svelte.dev/e/a11y_label_has_associated_control
-6:24:06 PM [vite-plugin-svelte] src/routes/admin/scanners/+page.svelte:358:5 A form label must be associated with a control
-https://svelte.dev/e/a11y_label_has_associated_control
-6:24:06 PM [vite-plugin-svelte] src/routes/admin/scanners/+page.svelte:451:5 A form label must be associated with a control
-https://svelte.dev/e/a11y_label_has_associated_control
-6:24:06 PM [vite-plugin-svelte] src/routes/admin/scanners/+page.svelte:537:5 A form label must be associated with a control
-https://svelte.dev/e/a11y_label_has_associated_control
-6:24:06 PM [vite-plugin-svelte] src/routes/admin/scanners/+page.svelte:554:5 A form label must be associated with a control
-https://svelte.dev/e/a11y_label_has_associated_control
-6:24:06 PM [vite-plugin-svelte] src/routes/admin/scanners/+page.svelte:577:5 A form label must be associated with a control
-https://svelte.dev/e/a11y_label_has_associated_control
-6:24:06 PM [vite-plugin-svelte] src/routes/admin/scanners/+page.svelte:600:5 A form label must be associated with a control
-https://svelte.dev/e/a11y_label_has_associated_control
-6:24:06 PM [vite] (client) hmr update /src/routes/admin/scanners/+page.svelte, /src/app.css
-6:24:06 PM [vite] (ssr) page reload src/routes/admin/scanners/+page.svelte
-6:24:06 PM [vite-plugin-svelte] src/routes/admin/scanners/+page.svelte:330:5 A form label must be associated with a control
-https://svelte.dev/e/a11y_label_has_associated_control
-6:24:06 PM [vite-plugin-svelte] src/routes/admin/scanners/+page.svelte:358:5 A form label must be associated with a control
-https://svelte.dev/e/a11y_label_has_associated_control
-6:24:06 PM [vite-plugin-svelte] src/routes/admin/scanners/+page.svelte:451:5 A form label must be associated with a control
-https://svelte.dev/e/a11y_label_has_associated_control
-6:24:06 PM [vite-plugin-svelte] src/routes/admin/scanners/+page.svelte:537:5 A form label must be associated with a control
-https://svelte.dev/e/a11y_label_has_associated_control
-6:24:06 PM [vite-plugin-svelte] src/routes/admin/scanners/+page.svelte:554:5 A form label must be associated with a control
-https://svelte.dev/e/a11y_label_has_associated_control
-6:24:06 PM [vite-plugin-svelte] src/routes/admin/scanners/+page.svelte:577:5 A form label must be associated with a control
-https://svelte.dev/e/a11y_label_has_associated_control
-6:24:06 PM [vite-plugin-svelte] src/routes/admin/scanners/+page.svelte:600:5 A form label must be associated with a control
-https://svelte.dev/e/a11y_label_has_associated_control
-6:24:15 PM [vite-plugin-svelte] src/routes/admin/scanners/+page.svelte:330:5 A form label must be associated with a control
-https://svelte.dev/e/a11y_label_has_associated_control
-6:24:15 PM [vite-plugin-svelte] src/routes/admin/scanners/+page.svelte:358:5 A form label must be associated with a control
-https://svelte.dev/e/a11y_label_has_associated_control
-6:24:15 PM [vite-plugin-svelte] src/routes/admin/scanners/+page.svelte:451:5 A form label must be associated with a control
-https://svelte.dev/e/a11y_label_has_associated_control
-6:24:15 PM [vite-plugin-svelte] src/routes/admin/scanners/+page.svelte:537:5 A form label must be associated with a control
-https://svelte.dev/e/a11y_label_has_associated_control
-6:24:15 PM [vite-plugin-svelte] src/routes/admin/scanners/+page.svelte:554:5 A form label must be associated with a control
-https://svelte.dev/e/a11y_label_has_associated_control
-6:24:15 PM [vite-plugin-svelte] src/routes/admin/scanners/+page.svelte:577:5 A form label must be associated with a control
-https://svelte.dev/e/a11y_label_has_associated_control
-6:24:15 PM [vite-plugin-svelte] src/routes/admin/scanners/+page.svelte:600:5 A form label must be associated with a control
-https://svelte.dev/e/a11y_label_has_associated_control
-6:24:15 PM [vite] (client) hmr update /src/routes/admin/scanners/+page.svelte, /src/app.css
-6:24:15 PM [vite] (ssr) page reload src/routes/admin/scanners/+page.svelte
-6:24:15 PM [vite-plugin-svelte] src/routes/admin/scanners/+page.svelte:330:5 A form label must be associated with a control
-https://svelte.dev/e/a11y_label_has_associated_control
-6:24:15 PM [vite-plugin-svelte] src/routes/admin/scanners/+page.svelte:358:5 A form label must be associated with a control
-https://svelte.dev/e/a11y_label_has_associated_control
-6:24:15 PM [vite-plugin-svelte] src/routes/admin/scanners/+page.svelte:451:5 A form label must be associated with a control
-https://svelte.dev/e/a11y_label_has_associated_control
-6:24:15 PM [vite-plugin-svelte] src/routes/admin/scanners/+page.svelte:537:5 A form label must be associated with a control
-https://svelte.dev/e/a11y_label_has_associated_control
-6:24:15 PM [vite-plugin-svelte] src/routes/admin/scanners/+page.svelte:554:5 A form label must be associated with a control
-https://svelte.dev/e/a11y_label_has_associated_control
-6:24:15 PM [vite-plugin-svelte] src/routes/admin/scanners/+page.svelte:577:5 A form label must be associated with a control
-https://svelte.dev/e/a11y_label_has_associated_control
-6:24:15 PM [vite-plugin-svelte] src/routes/admin/scanners/+page.svelte:600:5 A form label must be associated with a control
-https://svelte.dev/e/a11y_label_has_associated_control
-6:24:27 PM [vite-plugin-svelte] src/routes/admin/scanners/+page.svelte:330:5 A form label must be associated with a control
-https://svelte.dev/e/a11y_label_has_associated_control
-6:24:27 PM [vite-plugin-svelte] src/routes/admin/scanners/+page.svelte:358:5 A form label must be associated with a control
-https://svelte.dev/e/a11y_label_has_associated_control
-6:24:27 PM [vite-plugin-svelte] src/routes/admin/scanners/+page.svelte:451:5 A form label must be associated with a control
-https://svelte.dev/e/a11y_label_has_associated_control
-6:24:27 PM [vite-plugin-svelte] src/routes/admin/scanners/+page.svelte:537:5 A form label must be associated with a control
-https://svelte.dev/e/a11y_label_has_associated_control
-6:24:27 PM [vite-plugin-svelte] src/routes/admin/scanners/+page.svelte:554:5 A form label must be associated with a control
-https://svelte.dev/e/a11y_label_has_associated_control
-6:24:27 PM [vite-plugin-svelte] src/routes/admin/scanners/+page.svelte:577:5 A form label must be associated with a control
-https://svelte.dev/e/a11y_label_has_associated_control
-6:24:27 PM [vite-plugin-svelte] src/routes/admin/scanners/+page.svelte:600:5 A form label must be associated with a control
-https://svelte.dev/e/a11y_label_has_associated_control
-6:24:27 PM [vite] (client) hmr update /src/routes/admin/scanners/+page.svelte, /src/app.css
-6:24:27 PM [vite] (ssr) page reload src/routes/admin/scanners/+page.svelte
-6:24:27 PM [vite-plugin-svelte] src/routes/admin/scanners/+page.svelte:330:5 A form label must be associated with a control
-https://svelte.dev/e/a11y_label_has_associated_control
-6:24:27 PM [vite-plugin-svelte] src/routes/admin/scanners/+page.svelte:358:5 A form label must be associated with a control
-https://svelte.dev/e/a11y_label_has_associated_control
-6:24:27 PM [vite-plugin-svelte] src/routes/admin/scanners/+page.svelte:451:5 A form label must be associated with a control
-https://svelte.dev/e/a11y_label_has_associated_control
-6:24:27 PM [vite-plugin-svelte] src/routes/admin/scanners/+page.svelte:537:5 A form label must be associated with a control
-https://svelte.dev/e/a11y_label_has_associated_control
-6:24:27 PM [vite-plugin-svelte] src/routes/admin/scanners/+page.svelte:554:5 A form label must be associated with a control
-https://svelte.dev/e/a11y_label_has_associated_control
-6:24:27 PM [vite-plugin-svelte] src/routes/admin/scanners/+page.svelte:577:5 A form label must be associated with a control
-https://svelte.dev/e/a11y_label_has_associated_control
-6:24:27 PM [vite-plugin-svelte] src/routes/admin/scanners/+page.svelte:600:5 A form label must be associated with a control
-https://svelte.dev/e/a11y_label_has_associated_control
-6:24:46 PM [vite-plugin-svelte] src/routes/admin/scanners/+page.svelte:330:5 A form label must be associated with a control
-https://svelte.dev/e/a11y_label_has_associated_control
-6:24:46 PM [vite-plugin-svelte] src/routes/admin/scanners/+page.svelte:358:5 A form label must be associated with a control
-https://svelte.dev/e/a11y_label_has_associated_control
-6:24:46 PM [vite-plugin-svelte] src/routes/admin/scanners/+page.svelte:451:5 A form label must be associated with a control
-https://svelte.dev/e/a11y_label_has_associated_control
-6:24:46 PM [vite-plugin-svelte] src/routes/admin/scanners/+page.svelte:537:5 A form label must be associated with a control
-https://svelte.dev/e/a11y_label_has_associated_control
-6:24:46 PM [vite-plugin-svelte] src/routes/admin/scanners/+page.svelte:554:5 A form label must be associated with a control
-https://svelte.dev/e/a11y_label_has_associated_control
-6:24:46 PM [vite-plugin-svelte] src/routes/admin/scanners/+page.svelte:577:5 A form label must be associated with a control
-https://svelte.dev/e/a11y_label_has_associated_control
-6:24:46 PM [vite-plugin-svelte] src/routes/admin/scanners/+page.svelte:600:5 A form label must be associated with a control
-https://svelte.dev/e/a11y_label_has_associated_control
-6:24:46 PM [vite] (client) hmr update /src/routes/admin/scanners/+page.svelte, /src/app.css
-6:24:46 PM [vite] (ssr) page reload src/routes/admin/scanners/+page.svelte
-6:24:46 PM [vite-plugin-svelte] src/routes/admin/scanners/+page.svelte:330:5 A form label must be associated with a control
-https://svelte.dev/e/a11y_label_has_associated_control
-6:24:46 PM [vite-plugin-svelte] src/routes/admin/scanners/+page.svelte:358:5 A form label must be associated with a control
-https://svelte.dev/e/a11y_label_has_associated_control
-6:24:46 PM [vite-plugin-svelte] src/routes/admin/scanners/+page.svelte:451:5 A form label must be associated with a control
-https://svelte.dev/e/a11y_label_has_associated_control
-6:24:46 PM [vite-plugin-svelte] src/routes/admin/scanners/+page.svelte:537:5 A form label must be associated with a control
-https://svelte.dev/e/a11y_label_has_associated_control
-6:24:46 PM [vite-plugin-svelte] src/routes/admin/scanners/+page.svelte:554:5 A form label must be associated with a control
-https://svelte.dev/e/a11y_label_has_associated_control
-6:24:46 PM [vite-plugin-svelte] src/routes/admin/scanners/+page.svelte:577:5 A form label must be associated with a control
-https://svelte.dev/e/a11y_label_has_associated_control
-6:24:46 PM [vite-plugin-svelte] src/routes/admin/scanners/+page.svelte:600:5 A form label must be associated with a control
-https://svelte.dev/e/a11y_label_has_associated_control
-6:25:05 PM [vite-plugin-svelte] src/routes/admin/+page.svelte:92:4 Self-closing HTML tags for non-void elements are ambiguous — use `<div ...></div>` rather than `<div ... />`
-https://svelte.dev/e/element_invalid_self_closing_tag
-6:25:05 PM [vite-plugin-svelte] src/routes/admin/+page.svelte:190:9 Self-closing HTML tags for non-void elements are ambiguous — use `<div ...></div>` rather than `<div ... />`
-https://svelte.dev/e/element_invalid_self_closing_tag
-6:25:09 PM [vite-plugin-svelte] src/lib/components/common/Card.svelte:12:0 noninteractive element cannot have nonnegative tabIndex value
-https://svelte.dev/e/a11y_no_noninteractive_tabindex
-6:25:09 PM [vite] (client) hmr update /src/lib/components/common/Card.svelte, /src/app.css
-6:25:09 PM [vite] (ssr) page reload src/lib/components/common/Card.svelte
-6:25:09 PM [vite-plugin-svelte] src/lib/components/common/Card.svelte:12:0 noninteractive element cannot have nonnegative tabIndex value
-https://svelte.dev/e/a11y_no_noninteractive_tabindex
-6:25:16 PM [vite-plugin-svelte] src/routes/admin/scanners/+page.svelte:330:5 A form label must be associated with a control
-https://svelte.dev/e/a11y_label_has_associated_control
-6:25:16 PM [vite-plugin-svelte] src/routes/admin/scanners/+page.svelte:358:5 A form label must be associated with a control
-https://svelte.dev/e/a11y_label_has_associated_control
-6:25:16 PM [vite-plugin-svelte] src/routes/admin/scanners/+page.svelte:451:5 A form label must be associated with a control
-https://svelte.dev/e/a11y_label_has_associated_control
-6:25:16 PM [vite-plugin-svelte] src/routes/admin/scanners/+page.svelte:537:5 A form label must be associated with a control
-https://svelte.dev/e/a11y_label_has_associated_control
-6:25:16 PM [vite-plugin-svelte] src/routes/admin/scanners/+page.svelte:554:5 A form label must be associated with a control
-https://svelte.dev/e/a11y_label_has_associated_control
-6:25:16 PM [vite-plugin-svelte] src/routes/admin/scanners/+page.svelte:577:5 A form label must be associated with a control
-https://svelte.dev/e/a11y_label_has_associated_control
-6:25:16 PM [vite-plugin-svelte] src/routes/admin/scanners/+page.svelte:600:5 A form label must be associated with a control
-https://svelte.dev/e/a11y_label_has_associated_control
-6:25:16 PM [vite-plugin-svelte] src/lib/components/common/Card.svelte:12:0 noninteractive element cannot have nonnegative tabIndex value
-https://svelte.dev/e/a11y_no_noninteractive_tabindex
 [Navbar] Search store query changed: 
-6:25:21 PM [vite] (client) hmr update /src/app.css
-6:25:21 PM [vite] (ssr) page reload src/lib/components/common/Modal.svelte
-6:25:32 PM [vite-plugin-svelte] src/lib/components/comic/ComicCard.svelte:54:4 Self-closing HTML tags for non-void elements are ambiguous — use `<div ...></div>` rather than `<div ... />`
+1:16:58 AM [vite-plugin-svelte] src/routes/+page.svelte:711:1 Unused CSS selector ".libraries-nav"
+https://svelte.dev/e/css_unused_selector
+1:16:58 AM [vite-plugin-svelte] src/routes/+page.svelte:717:1 Unused CSS selector ".library-item"
+https://svelte.dev/e/css_unused_selector
+1:16:58 AM [vite-plugin-svelte] src/routes/+page.svelte:729:1 Unused CSS selector ".library-item:hover"
+https://svelte.dev/e/css_unused_selector
+1:16:58 AM [vite-plugin-svelte] src/routes/+page.svelte:733:1 Unused CSS selector ".library-item-icon"
+https://svelte.dev/e/css_unused_selector
+1:16:58 AM [vite-plugin-svelte] src/routes/+page.svelte:745:1 Unused CSS selector ".library-item-content"
+https://svelte.dev/e/css_unused_selector
+1:16:58 AM [vite-plugin-svelte] src/routes/+page.svelte:753:1 Unused CSS selector ".library-item-name"
+https://svelte.dev/e/css_unused_selector
+1:16:58 AM [vite-plugin-svelte] src/routes/+page.svelte:762:1 Unused CSS selector ".library-item-count"
+https://svelte.dev/e/css_unused_selector
+1:16:58 AM [vite-plugin-svelte] src/routes/+page.svelte:767:1 Unused CSS selector ".sidebar-footer"
+https://svelte.dev/e/css_unused_selector
+1:16:58 AM [vite-plugin-svelte] src/routes/+page.svelte:772:1 Unused CSS selector ".sidebar-link"
+https://svelte.dev/e/css_unused_selector
+1:16:58 AM [vite-plugin-svelte] src/routes/+page.svelte:782:1 Unused CSS selector ".sidebar-link:hover"
+https://svelte.dev/e/css_unused_selector
+1:16:58 AM [vite-plugin-svelte] src/routes/+page.svelte:793:1 Unused CSS selector ".loading-container"
+https://svelte.dev/e/css_unused_selector
+1:16:58 AM [vite-plugin-svelte] src/routes/+page.svelte:803:1 Unused CSS selector ".spinner"
+https://svelte.dev/e/css_unused_selector
+1:16:58 AM [vite-plugin-svelte] src/routes/+page.svelte:934:1 Unused CSS selector ".see-all"
+https://svelte.dev/e/css_unused_selector
+1:16:58 AM [vite-plugin-svelte] src/routes/+page.svelte:941:1 Unused CSS selector ".see-all:hover"
+https://svelte.dev/e/css_unused_selector
+1:16:58 AM [vite-plugin-svelte] src/routes/+page.svelte:962:1 Unused CSS selector ".search-container"
+https://svelte.dev/e/css_unused_selector
+1:16:58 AM [vite-plugin-svelte] src/routes/+page.svelte:972:1 Unused CSS selector ".search-input-wrapper"
+https://svelte.dev/e/css_unused_selector
+1:16:58 AM [vite-plugin-svelte] src/routes/+page.svelte:981:1 Unused CSS selector ".search-icon"
+https://svelte.dev/e/css_unused_selector
+1:16:58 AM [vite-plugin-svelte] src/routes/+page.svelte:990:1 Unused CSS selector ".search-input"
+https://svelte.dev/e/css_unused_selector
+1:16:58 AM [vite-plugin-svelte] src/routes/+page.svelte:1001:1 Unused CSS selector ".search-input:focus"
+https://svelte.dev/e/css_unused_selector
+1:16:58 AM [vite-plugin-svelte] src/routes/+page.svelte:1007:1 Unused CSS selector ".search-input::placeholder"
+https://svelte.dev/e/css_unused_selector
+1:16:58 AM [vite-plugin-svelte] src/routes/+page.svelte:1011:1 Unused CSS selector ".search-clear"
+https://svelte.dev/e/css_unused_selector
+1:16:58 AM [vite-plugin-svelte] src/routes/+page.svelte:1028:1 Unused CSS selector ".search-clear:hover"
+https://svelte.dev/e/css_unused_selector
+1:16:58 AM [vite-plugin-svelte] src/routes/+page.svelte:1033:1 Unused CSS selector ".search-loading"
+https://svelte.dev/e/css_unused_selector
+1:16:58 AM [vite-plugin-svelte] src/routes/+page.svelte:1043:1 Unused CSS selector ".spinner-small"
+https://svelte.dev/e/css_unused_selector
+1:16:58 AM [vite-plugin-svelte] src/routes/+page.svelte:1070:2 Unused CSS selector ".search-input-wrapper"
+https://svelte.dev/e/css_unused_selector
+1:16:58 AM [vite-plugin-svelte] src/lib/components/layout/Navbar.svelte:128:1 Unused CSS selector ".search-icon"
+https://svelte.dev/e/css_unused_selector
+1:16:58 AM [vite-plugin-svelte] src/lib/components/comic/ComicCard.svelte:56:4 Self-closing HTML tags for non-void elements are ambiguous — use `<div ...></div>` rather than `<div ... />`
 https://svelte.dev/e/element_invalid_self_closing_tag
-6:25:32 PM [vite] (client) hmr update /src/lib/components/comic/ComicCard.svelte?svelte&type=style&lang.css, /src/app.css
-6:25:32 PM [vite] (ssr) page reload src/lib/components/comic/ComicCard.svelte
-6:45:46 PM [vite-plugin-svelte] src/routes/+page.svelte:759:1 Unused CSS selector ".libraries-nav"
-https://svelte.dev/e/css_unused_selector
-6:45:46 PM [vite-plugin-svelte] src/routes/+page.svelte:765:1 Unused CSS selector ".library-item"
-https://svelte.dev/e/css_unused_selector
-6:45:46 PM [vite-plugin-svelte] src/routes/+page.svelte:777:1 Unused CSS selector ".library-item:hover"
-https://svelte.dev/e/css_unused_selector
-6:45:46 PM [vite-plugin-svelte] src/routes/+page.svelte:781:1 Unused CSS selector ".library-item-icon"
-https://svelte.dev/e/css_unused_selector
-6:45:46 PM [vite-plugin-svelte] src/routes/+page.svelte:793:1 Unused CSS selector ".library-item-content"
-https://svelte.dev/e/css_unused_selector
-6:45:46 PM [vite-plugin-svelte] src/routes/+page.svelte:801:1 Unused CSS selector ".library-item-name"
-https://svelte.dev/e/css_unused_selector
-6:45:46 PM [vite-plugin-svelte] src/routes/+page.svelte:810:1 Unused CSS selector ".library-item-count"
-https://svelte.dev/e/css_unused_selector
-6:45:46 PM [vite-plugin-svelte] src/routes/+page.svelte:815:1 Unused CSS selector ".sidebar-footer"
-https://svelte.dev/e/css_unused_selector
-6:45:46 PM [vite-plugin-svelte] src/routes/+page.svelte:820:1 Unused CSS selector ".sidebar-link"
-https://svelte.dev/e/css_unused_selector
-6:45:46 PM [vite-plugin-svelte] src/routes/+page.svelte:830:1 Unused CSS selector ".sidebar-link:hover"
-https://svelte.dev/e/css_unused_selector
-6:45:46 PM [vite-plugin-svelte] src/routes/+page.svelte:841:1 Unused CSS selector ".loading-container"
-https://svelte.dev/e/css_unused_selector
-6:45:46 PM [vite-plugin-svelte] src/routes/+page.svelte:851:1 Unused CSS selector ".spinner"
-https://svelte.dev/e/css_unused_selector
-6:45:46 PM [vite-plugin-svelte] src/routes/+page.svelte:982:1 Unused CSS selector ".see-all"
-https://svelte.dev/e/css_unused_selector
-6:45:46 PM [vite-plugin-svelte] src/routes/+page.svelte:989:1 Unused CSS selector ".see-all:hover"
-https://svelte.dev/e/css_unused_selector
-6:45:46 PM [vite-plugin-svelte] src/routes/+page.svelte:1010:1 Unused CSS selector ".search-container"
-https://svelte.dev/e/css_unused_selector
-6:45:46 PM [vite-plugin-svelte] src/routes/+page.svelte:1020:1 Unused CSS selector ".search-input-wrapper"
-https://svelte.dev/e/css_unused_selector
-6:45:46 PM [vite-plugin-svelte] src/routes/+page.svelte:1029:1 Unused CSS selector ".search-icon"
-https://svelte.dev/e/css_unused_selector
-6:45:46 PM [vite-plugin-svelte] src/routes/+page.svelte:1038:1 Unused CSS selector ".search-input"
-https://svelte.dev/e/css_unused_selector
-6:45:46 PM [vite-plugin-svelte] src/routes/+page.svelte:1049:1 Unused CSS selector ".search-input:focus"
-https://svelte.dev/e/css_unused_selector
-6:45:46 PM [vite-plugin-svelte] src/routes/+page.svelte:1055:1 Unused CSS selector ".search-input::placeholder"
-https://svelte.dev/e/css_unused_selector
-6:45:46 PM [vite-plugin-svelte] src/routes/+page.svelte:1059:1 Unused CSS selector ".search-clear"
-https://svelte.dev/e/css_unused_selector
-6:45:46 PM [vite-plugin-svelte] src/routes/+page.svelte:1076:1 Unused CSS selector ".search-clear:hover"
-https://svelte.dev/e/css_unused_selector
-6:45:46 PM [vite-plugin-svelte] src/routes/+page.svelte:1081:1 Unused CSS selector ".search-loading"
-https://svelte.dev/e/css_unused_selector
-6:45:46 PM [vite-plugin-svelte] src/routes/+page.svelte:1091:1 Unused CSS selector ".spinner-small"
-https://svelte.dev/e/css_unused_selector
-6:45:46 PM [vite-plugin-svelte] src/routes/+page.svelte:1118:2 Unused CSS selector ".search-input-wrapper"
-https://svelte.dev/e/css_unused_selector
-6:45:46 PM [vite-plugin-svelte] src/lib/components/comic/ComicCard.svelte:54:4 Self-closing HTML tags for non-void elements are ambiguous — use `<div ...></div>` rather than `<div ... />`
+1:16:58 AM [vite-plugin-svelte] src/lib/components/common/InfiniteScroll.svelte:89:5 Self-closing HTML tags for non-void elements are ambiguous — use `<div ...></div>` rather than `<div ... />`
 https://svelte.dev/e/element_invalid_self_closing_tag
-6:45:46 PM [vite-plugin-svelte] src/lib/components/layout/SeriesTreeNode.svelte:48:4 Self-closing HTML tags for non-void elements are ambiguous — use `<span ...></span>` rather than `<span ... />`
-https://svelte.dev/e/element_invalid_self_closing_tag
-6:45:46 PM [vite-plugin-svelte] src/lib/components/common/InfiniteScroll.svelte:89:5 Self-closing HTML tags for non-void elements are ambiguous — use `<div ...></div>` rather than `<div ... />`
-https://svelte.dev/e/element_invalid_self_closing_tag
-6:45:46 PM [vite-plugin-svelte] src/lib/components/common/HorizontalCarousel.svelte:133:1 `<div>` with a mousedown, mousemove, mouseup or mouseleave handler must have an ARIA role
+1:16:58 AM [vite-plugin-svelte] src/lib/components/common/HorizontalCarousel.svelte:133:1 `<div>` with a mousedown, mousemove, mouseup or mouseleave handler must have an ARIA role
 https://svelte.dev/e/a11y_no_static_element_interactions
-6:45:46 PM [vite-plugin-svelte] src/lib/components/common/HorizontalCarousel.svelte:7:12 Component has unused export property 'visibleItems'. If it is for external reference only, please consider using `export const visibleItems`
+1:16:58 AM [vite-plugin-svelte] src/lib/components/common/HorizontalCarousel.svelte:7:12 Component has unused export property 'visibleItems'. If it is for external reference only, please consider using `export const visibleItems`
 https://svelte.dev/e/export_let_unused
-6:45:46 PM [vite-plugin-svelte] src/lib/components/common/SkeletonCard.svelte:15:1 Self-closing HTML tags for non-void elements are ambiguous — use `<div ...></div>` rather than `<div ... />`
+1:16:58 AM [vite-plugin-svelte] src/lib/components/common/SkeletonCard.svelte:15:1 Self-closing HTML tags for non-void elements are ambiguous — use `<div ...></div>` rather than `<div ... />`
 https://svelte.dev/e/element_invalid_self_closing_tag
-6:45:46 PM [vite-plugin-svelte] src/lib/components/common/SkeletonCard.svelte:17:2 Self-closing HTML tags for non-void elements are ambiguous — use `<div ...></div>` rather than `<div ... />`
+1:16:58 AM [vite-plugin-svelte] src/lib/components/common/SkeletonCard.svelte:17:2 Self-closing HTML tags for non-void elements are ambiguous — use `<div ...></div>` rather than `<div ... />`
 https://svelte.dev/e/element_invalid_self_closing_tag
-6:45:46 PM [vite-plugin-svelte] src/lib/components/common/SkeletonCard.svelte:18:2 Self-closing HTML tags for non-void elements are ambiguous — use `<div ...></div>` rather than `<div ... />`
+1:16:58 AM [vite-plugin-svelte] src/lib/components/common/SkeletonCard.svelte:18:2 Self-closing HTML tags for non-void elements are ambiguous — use `<div ...></div>` rather than `<div ... />`
+https://svelte.dev/e/element_invalid_self_closing_tag
+1:16:58 AM [vite-plugin-svelte] src/lib/components/layout/SeriesTreeNode.svelte:48:4 Self-closing HTML tags for non-void elements are ambiguous — use `<span ...></span>` rather than `<span ... />`
+https://svelte.dev/e/element_invalid_self_closing_tag
+1:19:00 AM [vite-plugin-svelte] src/routes/continue-reading/+page.svelte:196:4 Self-closing HTML tags for non-void elements are ambiguous — use `<div ...></div>` rather than `<div ... />`
+https://svelte.dev/e/element_invalid_self_closing_tag
+1:19:09 AM [vite] (client) hmr update /src/app.css
+1:19:09 AM [vite] (ssr) page reload src/routes/search/+page.svelte
+Failed to load scanner config: Error: Cannot call `fetch` eagerly during server-side rendering with relative URL (/v2/scanners/libraries) — put your `fetch` calls inside `onMount` or a `load` function instead
+    at globalThis.fetch (/mnt/Black/Apps/KottLib/yaclib-enhanced/webui/node_modules/@sveltejs/kit/src/runtime/server/page/render.js:212:13)
+    at loadScannerConfig (/mnt/Black/Apps/KottLib/yaclib-enhanced/webui/src/routes/series/[libraryId]/[seriesName]/+page.svelte:56:29)
+    at eval (/mnt/Black/Apps/KottLib/yaclib-enhanced/webui/src/routes/series/[libraryId]/[seriesName]/+page.svelte:163:5)
+    at Renderer.child (/mnt/Black/Apps/KottLib/yaclib-enhanced/webui/node_modules/svelte/src/internal/server/renderer.js:194:18)
+    at Renderer.component (/mnt/Black/Apps/KottLib/yaclib-enhanced/webui/node_modules/svelte/src/internal/server/renderer.js:219:22)
+    at _page (/mnt/Black/Apps/KottLib/yaclib-enhanced/webui/src/routes/series/[libraryId]/[seriesName]/+page.svelte:29:13)
+    at eval (/mnt/Black/Apps/KottLib/yaclib-enhanced/webui/.svelte-kit/generated/root.svelte:71:7)
+    at Module.slot (/mnt/Black/Apps/KottLib/yaclib-enhanced/webui/node_modules/svelte/src/internal/server/index.js:379:3)
+    at eval (/mnt/Black/Apps/KottLib/yaclib-enhanced/webui/src/routes/+layout.svelte:67:28)
+    at eval (/mnt/Black/Apps/KottLib/yaclib-enhanced/webui/node_modules/@tanstack/svelte-query/dist/QueryClientProvider.svelte:30:4)
+[Navbar] Search store query changed: 
+[Cache] Error: ReferenceError: indexedDB is not defined
+    at eval (/mnt/Black/Apps/KottLib/yaclib-enhanced/webui/src/lib/utils/persistentCache.js:23:19)
+    at new Promise (<anonymous>)
+    at openDB (/mnt/Black/Apps/KottLib/yaclib-enhanced/webui/src/lib/utils/persistentCache.js:22:9)
+    at getCached (/mnt/Black/Apps/KottLib/yaclib-enhanced/webui/src/lib/utils/persistentCache.js:47:20)
+    at APIClient.request (/mnt/Black/Apps/KottLib/yaclib-enhanced/webui/src/lib/api/client.js:50:60)
+    at APIClient.get (/mnt/Black/Apps/KottLib/yaclib-enhanced/webui/src/lib/api/client.js:142:15)
+    at getLibrary (/mnt/Black/Apps/KottLib/yaclib-enhanced/webui/src/lib/api/libraries.js:25:35)
+    at loadSeriesData (/mnt/Black/Apps/KottLib/yaclib-enhanced/webui/src/routes/series/[libraryId]/[seriesName]/+page.svelte:116:58)
+    at eval (/mnt/Black/Apps/KottLib/yaclib-enhanced/webui/src/routes/series/[libraryId]/[seriesName]/+page.svelte:162:5)
+    at Renderer.child (/mnt/Black/Apps/KottLib/yaclib-enhanced/webui/node_modules/svelte/src/internal/server/renderer.js:194:18)
+Failed to load series: APIError: Network error: Cannot use relative URL (/v2/library/1/info) with global fetch — use `event.fetch` instead: https://svelte.dev/docs/kit/web-standards#fetch-apis
+    at APIClient.request (/mnt/Black/Apps/KottLib/yaclib-enhanced/webui/src/lib/api/client.js:107:10)
+    at async loadSeriesData (/mnt/Black/Apps/KottLib/yaclib-enhanced/webui/src/routes/series/[libraryId]/[seriesName]/+page.svelte:116:16) {
+  status: 0,
+  response: null
+}
+1:19:55 AM [vite-plugin-svelte] src/lib/components/comic/ScannerMetadata.svelte:6:12 Component has unused export property 'libraryId'. If it is for external reference only, please consider using `export const libraryId`
+https://svelte.dev/e/export_let_unused
+1:20:25 AM [vite-plugin-svelte] src/routes/admin/+page.svelte:92:4 Self-closing HTML tags for non-void elements are ambiguous — use `<div ...></div>` rather than `<div ... />`
+https://svelte.dev/e/element_invalid_self_closing_tag
+1:20:25 AM [vite-plugin-svelte] src/routes/admin/+page.svelte:190:9 Self-closing HTML tags for non-void elements are ambiguous — use `<div ...></div>` rather than `<div ... />`
+https://svelte.dev/e/element_invalid_self_closing_tag
+1:20:25 AM [vite-plugin-svelte] src/lib/components/common/Card.svelte:12:0 noninteractive element cannot have nonnegative tabIndex value
+https://svelte.dev/e/a11y_no_noninteractive_tabindex
+1:20:27 AM [vite-plugin-svelte] src/routes/admin/scanners/+page.svelte:366:5 A form label must be associated with a control
+https://svelte.dev/e/a11y_label_has_associated_control
+1:20:27 AM [vite-plugin-svelte] src/routes/admin/scanners/+page.svelte:394:5 A form label must be associated with a control
+https://svelte.dev/e/a11y_label_has_associated_control
+1:20:27 AM [vite-plugin-svelte] src/routes/admin/scanners/+page.svelte:487:5 A form label must be associated with a control
+https://svelte.dev/e/a11y_label_has_associated_control
+1:20:27 AM [vite-plugin-svelte] src/routes/admin/scanners/+page.svelte:573:5 A form label must be associated with a control
+https://svelte.dev/e/a11y_label_has_associated_control
+1:20:27 AM [vite-plugin-svelte] src/routes/admin/scanners/+page.svelte:590:5 A form label must be associated with a control
+https://svelte.dev/e/a11y_label_has_associated_control
+1:20:27 AM [vite-plugin-svelte] src/routes/admin/scanners/+page.svelte:614:5 A form label must be associated with a control
+https://svelte.dev/e/a11y_label_has_associated_control
+1:20:27 AM [vite-plugin-svelte] src/routes/admin/scanners/+page.svelte:638:5 A form label must be associated with a control
+https://svelte.dev/e/a11y_label_has_associated_control
+1:21:17 AM [vite-plugin-svelte] src/lib/components/reader/PageViewer.svelte:116:0 Visible, non-interactive elements with a click event must be accompanied by a keyboard event handler. Consider whether an interactive element such as `<button type="button">` or `<a>` might be more appropriate
+https://svelte.dev/e/a11y_click_events_have_key_events
+1:21:17 AM [vite-plugin-svelte] src/lib/components/reader/PageViewer.svelte:128:3 Self-closing HTML tags for non-void elements are ambiguous — use `<div ...></div>` rather than `<div ... />`
+https://svelte.dev/e/element_invalid_self_closing_tag
+1:21:17 AM [vite-plugin-svelte] src/lib/components/reader/ReaderControls.svelte:176:3 Self-closing HTML tags for non-void elements are ambiguous — use `<div ...></div>` rather than `<div ... />`
+https://svelte.dev/e/element_invalid_self_closing_tag
+1:21:17 AM [vite-plugin-svelte] src/lib/components/reader/ReaderSettings.svelte:29:3 Buttons and links should either contain text or have an `aria-label`, `aria-labelledby` or `title` attribute
+https://svelte.dev/e/a11y_consider_explicit_label
+1:21:17 AM [vite-plugin-svelte] src/lib/components/reader/ReaderSettings.svelte:50:4 A form label must be associated with a control
+https://svelte.dev/e/a11y_label_has_associated_control
+1:21:17 AM [vite-plugin-svelte] src/lib/components/reader/ReaderSettings.svelte:87:4 A form label must be associated with a control
+https://svelte.dev/e/a11y_label_has_associated_control
+1:21:17 AM [vite-plugin-svelte] src/lib/components/reader/ReaderSettings.svelte:124:4 A form label must be associated with a control
+https://svelte.dev/e/a11y_label_has_associated_control
+1:21:17 AM [vite-plugin-svelte] src/lib/components/reader/ReaderSettings.svelte:151:4 A form label must be associated with a control
+https://svelte.dev/e/a11y_label_has_associated_control
+1:21:17 AM [vite-plugin-svelte] src/lib/components/reader/ReaderSettings.svelte:172:4 A form label must be associated with a control
+https://svelte.dev/e/a11y_label_has_associated_control
+1:21:17 AM [vite-plugin-svelte] src/lib/components/reader/ReaderSettings.svelte:215:4 A form label must be associated with a control
+https://svelte.dev/e/a11y_label_has_associated_control
+1:21:17 AM [vite-plugin-svelte] src/lib/components/reader/ReaderMenu.svelte:72:1 Elements with the 'dialog' interactive role must have a tabindex value
+https://svelte.dev/e/a11y_interactive_supports_focus
+1:21:17 AM [vite-plugin-svelte] src/lib/components/reader/ReaderMenu.svelte:72:1 Visible, non-interactive elements with a click event must be accompanied by a keyboard event handler. Consider whether an interactive element such as `<button type="button">` or `<a>` might be more appropriate
+https://svelte.dev/e/a11y_click_events_have_key_events
+1:22:00 AM [vite-plugin-svelte] src/routes/favorites/+page.svelte:122:4 Self-closing HTML tags for non-void elements are ambiguous — use `<div ...></div>` rather than `<div ... />`
 https://svelte.dev/e/element_invalid_self_closing_tag
 [Navbar] Search store query changed: 
+[Navbar] Search store query changed: 
+
+Google Chrome is requesting /.well-known/appspecific/com.chrome.devtools.json to automatically configure devtools project settings. To learn why, and how to prevent this message, see https://svelte.dev/docs/cli/devtools-json
+
+[Navbar] Search store query changed: 
+[Navbar] Search store query changed: 
+1:24:47 AM [vite-plugin-svelte] src/lib/components/comic/ScannerMetadata.svelte:6:12 Component has unused export property 'libraryId'. If it is for external reference only, please consider using `export const libraryId`
+https://svelte.dev/e/export_let_unused
+[Navbar] Search store query changed: 
+[Navbar] Search store query changed: 
+1:25:08 AM [vite] (client) hmr update /src/app.css
+1:25:08 AM [vite] (ssr) page reload src/routes/search/+page.svelte
+1:25:08 AM [vite] (client) hmr update /src/app.css
+1:25:08 AM [vite] (ssr) page reload src/routes/series/[libraryId]/[seriesName]/+page.svelte
+Failed to load scanner config: Error: Cannot call `fetch` eagerly during server-side rendering with relative URL (/v2/scanners/libraries) — put your `fetch` calls inside `onMount` or a `load` function instead
+    at globalThis.fetch (/mnt/Black/Apps/KottLib/yaclib-enhanced/webui/node_modules/@sveltejs/kit/src/runtime/server/page/render.js:212:13)
+    at loadScannerConfig (/mnt/Black/Apps/KottLib/yaclib-enhanced/webui/src/routes/series/[libraryId]/[seriesName]/+page.svelte:56:29)
+    at eval (/mnt/Black/Apps/KottLib/yaclib-enhanced/webui/src/routes/series/[libraryId]/[seriesName]/+page.svelte:163:5)
+    at Renderer.child (/mnt/Black/Apps/KottLib/yaclib-enhanced/webui/node_modules/svelte/src/internal/server/renderer.js:194:18)
+    at Renderer.component (/mnt/Black/Apps/KottLib/yaclib-enhanced/webui/node_modules/svelte/src/internal/server/renderer.js:219:22)
+    at _page (/mnt/Black/Apps/KottLib/yaclib-enhanced/webui/src/routes/series/[libraryId]/[seriesName]/+page.svelte:29:13)
+    at eval (/mnt/Black/Apps/KottLib/yaclib-enhanced/webui/.svelte-kit/generated/root.svelte:71:7)
+    at Module.slot (/mnt/Black/Apps/KottLib/yaclib-enhanced/webui/node_modules/svelte/src/internal/server/index.js:379:3)
+    at eval (/mnt/Black/Apps/KottLib/yaclib-enhanced/webui/src/routes/+layout.svelte:67:28)
+    at eval (/mnt/Black/Apps/KottLib/yaclib-enhanced/webui/node_modules/@tanstack/svelte-query/dist/QueryClientProvider.svelte:30:4)
+[Navbar] Search store query changed: 
+[Cache] Error: ReferenceError: indexedDB is not defined
+    at eval (/mnt/Black/Apps/KottLib/yaclib-enhanced/webui/src/lib/utils/persistentCache.js:23:19)
+    at new Promise (<anonymous>)
+    at openDB (/mnt/Black/Apps/KottLib/yaclib-enhanced/webui/src/lib/utils/persistentCache.js:22:9)
+    at getCached (/mnt/Black/Apps/KottLib/yaclib-enhanced/webui/src/lib/utils/persistentCache.js:47:20)
+    at APIClient.request (/mnt/Black/Apps/KottLib/yaclib-enhanced/webui/src/lib/api/client.js:50:60)
+    at APIClient.get (/mnt/Black/Apps/KottLib/yaclib-enhanced/webui/src/lib/api/client.js:142:15)
+    at getLibrary (/mnt/Black/Apps/KottLib/yaclib-enhanced/webui/src/lib/api/libraries.js:25:35)
+    at loadSeriesData (/mnt/Black/Apps/KottLib/yaclib-enhanced/webui/src/routes/series/[libraryId]/[seriesName]/+page.svelte:116:58)
+    at eval (/mnt/Black/Apps/KottLib/yaclib-enhanced/webui/src/routes/series/[libraryId]/[seriesName]/+page.svelte:162:5)
+    at Renderer.child (/mnt/Black/Apps/KottLib/yaclib-enhanced/webui/node_modules/svelte/src/internal/server/renderer.js:194:18)
+Failed to load series: APIError: Network error: Cannot use relative URL (/v2/library/1/info) with global fetch — use `event.fetch` instead: https://svelte.dev/docs/kit/web-standards#fetch-apis
+    at APIClient.request (/mnt/Black/Apps/KottLib/yaclib-enhanced/webui/src/lib/api/client.js:107:10)
+    at async loadSeriesData (/mnt/Black/Apps/KottLib/yaclib-enhanced/webui/src/routes/series/[libraryId]/[seriesName]/+page.svelte:116:16) {
+  status: 0,
+  response: null
+}

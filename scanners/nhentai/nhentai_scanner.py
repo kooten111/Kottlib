@@ -204,7 +204,7 @@ def scrape_search_results(query: str, base_url: str, page: int = 1) -> List[Dict
     :param int page: Page number
     :returns: List of dicts with basic doujin info (id, title, thumbnail)
     """
-    search_url = f"{base_url}/search/?key={quote(query)}&page={page}"
+    search_url = f"{base_url}/search/?q={quote(query)}&page={page}"
     
     try:
         response = _SESSION.get(search_url, timeout=10, headers={
@@ -256,63 +256,49 @@ def scrape_doujin_details(doujin_id: int, base_url: str) -> Dict:
     
     soup = BeautifulSoup(response.text, 'lxml')
     
-    # Extract title from h1 in the info section
-    info_section = soup.find('div', class_='info')
+    # Extract title
+    title_elem = soup.find('h1', class_='title')
+    pretty_title = title_elem.get_text(strip=True) if title_elem else 'Unknown'
     
-    pretty_title = 'Unknown'
-    japanese_title = ''
+    subtitle_elem = soup.find('h2', class_='subtitle')
+    japanese_title = subtitle_elem.get_text(strip=True) if subtitle_elem else ''
     
-    if info_section:
-        h1 = info_section.find('h1')
-        if h1:
-            pretty_title = h1.get_text(strip=True)
-        
-        h2 = info_section.find('h2')
-        if h2:
-            japanese_title = h2.get_text(strip=True)
-    
-    # Extract tags from li.tags elements
+    # Extract tags
     tags = []
-    
-    if info_section:
-        # Find all li elements with class 'tags'
-        tag_lists = info_section.find_all('li', class_='tags')
-        
-        for tag_list in tag_lists:
-            # Get the tag type from the span.text
-            type_span = tag_list.find('span', class_='text')
-            if not type_span:
+    tag_container = soup.find('section', id='tags')
+    if tag_container:
+        tag_rows = tag_container.find_all('div', class_='tag-container')
+        for row in tag_rows:
+            # Get tag type from the label
+            label = row.find('span', class_='tags')
+            if not label:
                 continue
-            
-            tag_type_text = type_span.get_text(strip=True).rstrip(':').lower()
+            tag_type = label.get_text(strip=True).rstrip(':').lower()
             
             # Map display names to API tag types
             type_mapping = {
-                'parodies': 'parody',
-                'tags': 'tag',
                 'artists': 'artist',
                 'groups': 'group',
+                'parodies': 'parody',
                 'characters': 'character',
+                'tags': 'tag',
                 'languages': 'language',
-                'category': 'category'
+                'categories': 'category'
             }
-            tag_type = type_mapping.get(tag_type_text, 'tag')
+            tag_type = type_mapping.get(tag_type, tag_type.rstrip('s'))
             
-            # Get all tag button links
-            tag_buttons = tag_list.find_all('a', class_='tag_btn')
-            for tag_btn in tag_buttons:
-                name_span = tag_btn.find('span', class_='tag_name')
-                if name_span:
-                    name = name_span.get_text(strip=True)
-                    
+            # Get all tag links
+            tag_links = row.find_all('a', class_='tag')
+            for tag_link in tag_links:
+                tag_name = tag_link.find('span', class_='name')
+                if tag_name:
+                    name = tag_name.get_text(strip=True)
                     # Extract count if available
-                    count_span = tag_btn.find('span', class_='tag_count')
+                    count_elem = tag_link.find('span', class_='count')
                     count = 0
-                    if count_span:
-                        count_text = count_span.get_text(strip=True)
-                        # Remove K suffix and convert
-                        count_text = count_text.replace('K', '000').replace(',', '')
-                        count_match = re.search(r'\d+', count_text)
+                    if count_elem:
+                        count_text = count_elem.get_text(strip=True)
+                        count_match = re.search(r'\d+', count_text.replace(',', ''))
                         if count_match:
                             count = int(count_match.group())
                     
@@ -320,24 +306,20 @@ def scrape_doujin_details(doujin_id: int, base_url: str) -> Dict:
                         'id': 0,  # Not available from HTML
                         'type': tag_type,
                         'name': name,
-                        'url': tag_btn.get('href', ''),
+                        'url': tag_link.get('href', ''),
                         'count': count
                     })
     
-    # Extract page count from the pages tag
+    # Extract page count and other info
+    info_elem = soup.find('div', id='info')
     num_pages = 0
-    if info_section:
-        # Look for the Pages li
-        for li in info_section.find_all('li'):
-            text = li.get_text()
-            if 'Pages:' in text or 'pages' in text.lower():
-                # Find span with class 'pages'
-                pages_span = li.find('span', class_='pages')
-                if pages_span:
-                    match = re.search(r'(\d+)', pages_span.get_text())
-                    if match:
-                        num_pages = int(match.group(1))
-                        break
+    if info_elem:
+        pages_div = info_elem.find('div', string=re.compile('Pages:'))
+        if pages_div:
+            pages_text = pages_div.get_text()
+            match = re.search(r'(\d+)', pages_text)
+            if match:
+                num_pages = int(match.group(1))
     
     # Build data structure compatible with API format
     data = {
@@ -396,51 +378,27 @@ def search_multiple_sources_with_scraping(query: str, page: int = 1, sort_by: st
     
     :returns: Tuple of (results, successful_source)
     """
-def search_multiple_sources_with_scraping(query: str, page: int = 1, sort_by: str = "date", sources: List[str] = None) -> Tuple[List[Doujin], str]:
-    """
-    Search across multiple nhentai sources, using API when available and scraping when not.
-    Tries nhentai.net first, then falls back to nhentai.xxx if no results are found.
-    
-    :param str query: Search term
-    :param int page: Page number
-    :param str sort_by: Sort method (popular/date)
-    :param list sources: List of base URLs to try (default: nhentai.net, then nhentai.xxx)
-    
-    :returns: Tuple of (results, successful_source)
-    """
     if sources is None:
         sources = ["https://nhentai.net", "https://nhentai.xxx"]
     
-    results_by_source = []
     last_error = None
-    
     for source in sources:
         try:
             # Try API first
             results = search(query, page=page, sort_by=sort_by, base_url=source)
-            if results:  # Got results from API
-                results_by_source.append((results, source))
-                # If this is nhentai.net and we got results, return immediately
-                if 'nhentai.net' in source:
-                    return results, source
+            return results, source
         except Exception as api_error:
             # If API fails and this is nhentai.xxx, try scraping
             if 'nhentai.xxx' in source:
                 try:
                     results = search_with_scraping(query, base_url=source, page=page, sort_by=sort_by)
-                    if results:  # Got results from scraping
-                        results_by_source.append((results, source))
+                    return results, source
                 except Exception as scrape_error:
                     last_error = scrape_error
                     continue
             else:
                 last_error = api_error
-    
-    # Return the first result set we found (nhentai.net preferred, then nhentai.xxx)
-    if results_by_source:
-        return results_by_source[0]
-    
-    # If no sources returned results, raise the last error
+    # If all sources failed, raise the last error
     if last_error:
         raise last_error
     return [], ""
@@ -755,22 +713,6 @@ def find_best_match(
             # Calculate final score
             final_score = min(score + total_bonus, 1.0)  # Cap at 1.0
 
-            # Language preference when scores are equal/close
-            # Get language tags for this doujin
-            language_tags = [tag.name.lower() for tag in doujin.tags if tag.type == 'language']
-            
-            # Apply small bonus/penalty based on language preference
-            # English = best (+0.02), Japanese = neutral (0), Chinese = worst (-0.02)
-            language_bonus = 0.0
-            if 'english' in language_tags:
-                language_bonus = 0.02
-            elif 'chinese' in language_tags:
-                language_bonus = -0.02
-            
-            final_score = min(final_score + language_bonus, 1.0)
-            if language_bonus != 0:
-                bonus_breakdown['language_preference'] = language_bonus
-
             # Update best match if this is better
             if final_score > best_score:
                 best_score = final_score
@@ -920,34 +862,6 @@ def get_tags_from_filename_enhanced(
         threshold=confidence_threshold,
         filename_metadata=extracted_metadata
     )
-
-    # FALLBACK TO nhentai.xxx: If confidence is too low and we haven't tried .xxx yet, try it
-    if (confidence < confidence_threshold and 
-        source_used == "https://nhentai.net" and 
-        "https://nhentai.xxx" in sources):
-        try:
-            xxx_results, xxx_source = search_multiple_sources_with_scraping(
-                cleaned, page=1, sort_by=sort_by, sources=["https://nhentai.xxx"]
-            )
-            if xxx_results:
-                # Try to find a better match in nhentai.xxx results
-                xxx_match, xxx_confidence, xxx_field, xxx_bonuses = find_best_match(
-                    filename,
-                    xxx_results,
-                    threshold=confidence_threshold,
-                    filename_metadata=extracted_metadata
-                )
-                # Use nhentai.xxx results if confidence is better
-                if xxx_confidence > confidence:
-                    best_match = xxx_match
-                    confidence = xxx_confidence
-                    matched_field = xxx_field
-                    score_bonuses = xxx_bonuses
-                    source_used = xxx_source
-                    results = xxx_results
-                    search_strategy = "nhentai.xxx_fallback"
-        except Exception:
-            pass  # Ignore errors from fallback source
 
     # Build metadata
     metadata = {

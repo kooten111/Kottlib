@@ -402,6 +402,9 @@ def search_comics(session: Session, library_id: int, query_str: str) -> List[Com
     - writer
     - publisher
     - description
+    - genre
+    - characters
+    - AND series table metadata (writer, artist, genre, tags, description, status)
 
     Args:
         session: Database session
@@ -411,11 +414,31 @@ def search_comics(session: Session, library_id: int, query_str: str) -> List[Com
     Returns:
         List of matching comics, ordered by relevance (title/series matches first)
     """
+    from .models import Series as SeriesModel
+    
     if not query_str or not query_str.strip():
         return []
 
     # Normalize search query (case-insensitive)
     search_pattern = f"%{query_str.strip()}%"
+
+    # First, search for matching series
+    series_matches = session.query(SeriesModel).filter(
+        SeriesModel.library_id == library_id
+    ).filter(
+        (SeriesModel.name.ilike(search_pattern)) |
+        (SeriesModel.display_name.ilike(search_pattern)) |
+        (SeriesModel.writer.ilike(search_pattern)) |
+        (SeriesModel.artist.ilike(search_pattern)) |
+        (SeriesModel.genre.ilike(search_pattern)) |
+        (SeriesModel.tags.ilike(search_pattern)) |
+        (SeriesModel.description.ilike(search_pattern)) |
+        (SeriesModel.publisher.ilike(search_pattern)) |
+        (SeriesModel.status.ilike(search_pattern))
+    ).all()
+
+    # Get series names that matched
+    matched_series_names = {series.name for series in series_matches}
 
     # Build query with OR conditions across multiple fields
     query = session.query(Comic).filter(
@@ -423,6 +446,7 @@ def search_comics(session: Session, library_id: int, query_str: str) -> List[Com
     ).filter(
         (Comic.title.ilike(search_pattern)) |
         (Comic.series.ilike(search_pattern)) |
+        (Comic.normalized_series_name.ilike(search_pattern)) |
         (Comic.filename.ilike(search_pattern)) |
         (Comic.writer.ilike(search_pattern)) |
         (Comic.publisher.ilike(search_pattern)) |
@@ -434,14 +458,49 @@ def search_comics(session: Session, library_id: int, query_str: str) -> List[Com
         (Comic.characters.ilike(search_pattern))
     )
 
-    # Order by relevance: title/series matches first, then filename
-    # We use case statements to prioritize matches in more important fields
+    # Get results
     results = query.all()
+    
+    # Also add comics from matched series (if not already included)
+    if matched_series_names:
+        series_comics = session.query(Comic).filter(
+            Comic.library_id == library_id,
+            Comic.normalized_series_name.in_(matched_series_names)
+        ).all()
+        
+        # Merge results, avoiding duplicates
+        existing_ids = {comic.id for comic in results}
+        for comic in series_comics:
+            if comic.id not in existing_ids:
+                results.append(comic)
+                existing_ids.add(comic.id)
 
-    # Sort results by relevance (title > series > filename > others)
+    # Sort results by relevance (series metadata > title > series > filename > others)
     def relevance_score(comic):
         q_lower = query_str.lower()
         score = 0
+        
+        # Highest priority: series-level metadata match
+        comic_series_name = comic.normalized_series_name or comic.series
+        if comic_series_name and comic_series_name in matched_series_names:
+            # Further boost if the query matches the series metadata directly
+            for series in series_matches:
+                if series.name == comic_series_name:
+                    if series.writer and q_lower in series.writer.lower():
+                        score += 200
+                    if series.artist and q_lower in series.artist.lower():
+                        score += 150
+                    if series.genre and q_lower in series.genre.lower():
+                        score += 120
+                    if series.tags and q_lower in series.tags.lower():
+                        score += 110
+                    if series.name and q_lower in series.name.lower():
+                        score += 100
+                    if series.display_name and q_lower in series.display_name.lower():
+                        score += 100
+                    break
+        
+        # Comic-level field matches
         if comic.title and q_lower in comic.title.lower():
             score += 100
         if comic.series and q_lower in comic.series.lower():

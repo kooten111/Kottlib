@@ -301,8 +301,8 @@ SCANNER_CAPABILITIES: Dict[str, ScannerCapabilities] = {
     ),
 
     # Future scanners
-    "anilist": ScannerCapabilities(
-        scanner_name="anilist",
+    "AniList": ScannerCapabilities(
+        scanner_name="AniList",
         provided_fields={
             MetadataField.TITLE,
             MetadataField.SERIES,
@@ -310,16 +310,22 @@ SCANNER_CAPABILITIES: Dict[str, ScannerCapabilities] = {
             MetadataField.ISSUE_NUMBER,
             MetadataField.YEAR,
             MetadataField.DESCRIPTION,
+            MetadataField.WRITER,
+            MetadataField.ARTIST,
             MetadataField.GENRE,
             MetadataField.TAGS,
+            MetadataField.CHARACTERS,
+            MetadataField.FORMAT_TYPE,
             MetadataField.WEB_LINK,
         },
         primary_fields={
             MetadataField.TITLE,
             MetadataField.SERIES,
             MetadataField.DESCRIPTION,
+            MetadataField.WRITER,
+            MetadataField.ARTIST,
         },
-        description="Manga metadata from AniList"
+        description="Manga and light novel metadata from AniList GraphQL API"
     ),
 
     "comicvine": ScannerCapabilities(

@@ -612,9 +612,16 @@ class ThreadedScanner:
                 # Build comic nodes (no user-specific data like reading progress)
                 comic_nodes = []
                 for comic in sorted(comics_in_folder, key=lambda c: (c.volume or 0, c.issue_number or 0, c.title or c.filename)):
+                    # For single comics, strip file extension from filename
+                    display_name = comic.title
+                    if not display_name:
+                        # Strip common comic extensions (.cbz, .cbr, .cb7, .cbt)
+                        import re
+                        display_name = re.sub(r'\.(cbz|cbr|cb7|cbt)$', '', comic.filename, flags=re.IGNORECASE)
+                    
                     comic_info = {
                         "id": comic.id,
-                        "name": comic.title or comic.filename,
+                        "name": display_name,
                         "type": "comic",
                         "libraryId": self.library_id,
                         "folderId": folder.id,
@@ -675,9 +682,16 @@ class ThreadedScanner:
             # Add root folder comics
             root_comics = comics_by_folder.get(root_folder.id, [])
             for comic in sorted(root_comics, key=lambda c: (c.volume or 0, c.issue_number or 0, c.title or c.filename)):
+                # For single comics, strip file extension from filename
+                display_name = comic.title
+                if not display_name:
+                    # Strip common comic extensions (.cbz, .cbr, .cb7, .cbt)
+                    import re
+                    display_name = re.sub(r'\.(cbz|cbr|cb7|cbt)$', '', comic.filename, flags=re.IGNORECASE)
+                
                 comic_info = {
                     "id": comic.id,
-                    "name": comic.title or comic.filename,
+                    "name": display_name,
                     "type": "comic",
                     "libraryId": self.library_id,
                     "hash": comic.hash,

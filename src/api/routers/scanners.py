@@ -90,6 +90,7 @@ class LibraryScannerConfig(BaseModel):
     library_name: str
     library_path: Optional[str] = None
     primary_scanner: Optional[str] = None
+    scan_level: Optional[ScanLevelEnum] = None  # FILE or SERIES - determines UI scanning options
     fallback_scanners: List[str] = Field(default_factory=list)
     fallback_threshold: float = Field(0.7, ge=0.0, le=1.0)
     confidence_threshold: float = Field(0.4, ge=0.0, le=1.0)
@@ -116,16 +117,17 @@ class UpdateLibraryScannerConfig(BaseModel):
 class ScanRequest(BaseModel):
     """Request to scan a file or series"""
     query: str = Field(..., description="Filename or series name to scan")
-    library_id: Optional[int] = Field(None, description="Library ID (optional)")
-    library_type: Optional[str] = Field(None, description="Library type (e.g., 'doujinshi')")
-    scanner_name: Optional[str] = Field(None, description="Specific scanner to use")
+    library_id: Optional[int] = Field(None, description="Library ID (recommended)")
+    scanner_name: Optional[str] = Field(None, description="Specific scanner to use (overrides library config)")
     confidence_threshold: Optional[float] = Field(None, ge=0.0, le=1.0)
+    # Deprecated fields for backward compatibility
+    library_type: Optional[str] = Field(None, description="[DEPRECATED] Use library_id instead")
 
     class Config:
         schema_extra = {
             "example": {
                 "query": "[Artist] Comic Title [English].cbz",
-                "library_type": "doujinshi",
+                "library_id": 1,
                 "confidence_threshold": 0.4
             }
         }
@@ -134,9 +136,10 @@ class ScanRequest(BaseModel):
 class BulkScanRequest(BaseModel):
     """Request to scan multiple files"""
     queries: List[str] = Field(..., description="List of filenames or series names")
-    library_id: Optional[int] = None
-    library_type: Optional[str] = None
+    library_id: int = Field(..., description="Library ID")
     confidence_threshold: Optional[float] = Field(0.4, ge=0.0, le=1.0)
+    # Deprecated field
+    library_type: Optional[str] = Field(None, description="[DEPRECATED] Use library_id instead")
 
 
 class BulkScanResult(BaseModel):
@@ -174,23 +177,48 @@ async def get_available_scanners():
     Returns information about all registered scanners including their capabilities.
     """
     from scanners.metadata_schema import get_scanner_capabilities
+    from scanners import NhentaiScanner, AniListScanner
     
     manager = get_scanner_manager()
     available = manager.get_available_scanners()
 
     scanners_info = []
     
-    # Get nhentai scanner info with capabilities
-    nhentai_caps = get_scanner_capabilities("nhentai")
-    scanners_info.append(ScannerInfo(
-        name="nhentai",
-        scan_level=ScanLevelEnum.FILE,
-        description=nhentai_caps.description if nhentai_caps else "File-level scanner for doujinshi metadata from nhentai.net",
-        requires_config=False,
-        config_keys=["confidence_threshold", "use_fallback_searches", "sort_by"],
-        provided_fields=[f.value for f in nhentai_caps.provided_fields] if nhentai_caps else [],
-        primary_fields=[f.value for f in nhentai_caps.primary_fields] if nhentai_caps else []
-    ))
+    # Scanner metadata mapping
+    scanner_metadata = {
+        "nhentai": {
+            "class": NhentaiScanner,
+            "scan_level": ScanLevelEnum.FILE,
+            "requires_config": False,
+            "config_keys": ["confidence_threshold", "use_fallback_searches", "sort_by"]
+        },
+        "AniList": {
+            "class": AniListScanner,
+            "scan_level": ScanLevelEnum.SERIES,
+            "requires_config": False,
+            "config_keys": ["confidence_threshold", "use_romaji_titles", "use_english_titles", "use_native_titles", "max_results"]
+        }
+    }
+    
+    # Build info for each available scanner
+    for scanner_name in available:
+        # Get capabilities from metadata schema (try exact match first, then lowercase)
+        caps = get_scanner_capabilities(scanner_name)
+        if not caps:
+            caps = get_scanner_capabilities(scanner_name.lower())
+        
+        # Get scanner metadata
+        meta = scanner_metadata.get(scanner_name, {})
+        
+        scanners_info.append(ScannerInfo(
+            name=scanner_name,
+            scan_level=meta.get("scan_level", ScanLevelEnum.SERIES),
+            description=caps.description if caps else f"Metadata scanner: {scanner_name}",
+            requires_config=meta.get("requires_config", False),
+            config_keys=meta.get("config_keys", []),
+            provided_fields=[f.value for f in caps.provided_fields] if caps else [],
+            primary_fields=[f.value for f in caps.primary_fields] if caps else []
+        ))
 
     return scanners_info
 
@@ -207,18 +235,37 @@ async def get_library_scanner_configs(request: Request):
 
     with db.get_session() as session:
         libraries = session.query(Library).all()
+        manager = get_scanner_manager()
 
         configs = []
         for lib in libraries:
             # Get scanner settings from library settings JSON
             settings = lib.settings or {}
             scanner_config = settings.get('scanner', {})
+            primary_scanner = scanner_config.get('primary_scanner')
+            
+            # Determine scan level from the primary scanner
+            scan_level = None
+            if primary_scanner and primary_scanner in manager.get_available_scanners():
+                try:
+                    # Get the scanner class and instantiate to check scan_level
+                    scanner_class = manager._available_scanners.get(primary_scanner)
+                    if scanner_class:
+                        temp_scanner = scanner_class()
+                        # Map from ScanLevel enum to ScanLevelEnum
+                        if temp_scanner.scan_level.value == 'file':
+                            scan_level = ScanLevelEnum.FILE
+                        elif temp_scanner.scan_level.value == 'series':
+                            scan_level = ScanLevelEnum.SERIES
+                except Exception:
+                    pass  # Fallback to None if scanner can't be instantiated
 
             configs.append(LibraryScannerConfig(
                 library_id=lib.id,
                 library_name=lib.name,
                 library_path=lib.path,
-                primary_scanner=scanner_config.get('primary_scanner'),
+                primary_scanner=primary_scanner,
+                scan_level=scan_level,
                 fallback_scanners=scanner_config.get('fallback_scanners', []),
                 fallback_threshold=scanner_config.get('fallback_threshold', 0.7),
                 confidence_threshold=scanner_config.get('confidence_threshold', 0.4)
@@ -247,6 +294,7 @@ async def scan_single(scan_request: ScanRequest, request: Request):
     # Get library scanner configuration
     scanner_config = None
     library_name = None
+    primary_scanner = None
 
     if scan_request.library_id:
         with db.get_session() as session:
@@ -257,51 +305,43 @@ async def scan_single(scan_request: ScanRequest, request: Request):
             settings = library.settings or {}
             scanner_config = settings.get('scanner', {})
             library_name = library.name
-    elif scan_request.library_type:
-        # Legacy support: use library_type as a fallback
-        library_name = scan_request.library_type
-    else:
-        raise HTTPException(status_code=400, detail="library_id or library_type required")
-
-    # Check if scanner is configured
-    primary_scanner = scanner_config.get('primary_scanner') if scanner_config else None
-
+            primary_scanner = scanner_config.get('primary_scanner') if scanner_config else None
+    
+    # Allow scanner_name override from request
+    if scan_request.scanner_name:
+        primary_scanner = scan_request.scanner_name
+    
     if not primary_scanner:
-        # Fallback to default scanners for backward compatibility
-        manager = get_scanner_manager()
-        if scan_request.library_type and scan_request.library_type in manager.get_configured_libraries():
-            # Use manager's default configuration
-            kwargs = {}
-            if scan_request.confidence_threshold is not None:
-                kwargs['confidence_threshold'] = scan_request.confidence_threshold
-            result, candidates = manager.scan(scan_request.library_type, scan_request.query, **kwargs)
-        else:
-            raise HTTPException(
-                status_code=400,
-                detail=f"No scanner configured for library '{library_name}'"
-            )
-    else:
-        # Use configured scanner
-        manager = get_scanner_manager()
+        raise HTTPException(
+            status_code=400,
+            detail=f"No scanner configured for library '{library_name}'. Please configure a scanner in the admin panel."
+        )
 
-        if primary_scanner not in manager.get_available_scanners():
-            raise HTTPException(
-                status_code=500,
-                detail=f"Configured scanner '{primary_scanner}' is not available"
-            )
+    # Get the scanner manager and instantiate the scanner directly
+    manager = get_scanner_manager()
+    
+    if primary_scanner not in manager.get_available_scanners():
+        raise HTTPException(
+            status_code=500,
+            detail=f"Scanner '{primary_scanner}' is not available"
+        )
 
-        # For now, use the library_type approach with manager
-        # TODO: Direct scanner invocation
-        # Use library_type if provided, otherwise default to 'doujinshi' for nhentai
-        library_type_for_scan = scan_request.library_type if scan_request.library_type else 'doujinshi'
+    # Instantiate the scanner class directly
+    scanner_class = manager._available_scanners[primary_scanner]
+    scanner_instance = scanner_class()
 
-        kwargs = {}
-        if scan_request.confidence_threshold is not None:
-            kwargs['confidence_threshold'] = scan_request.confidence_threshold
-        elif scanner_config:
-            kwargs['confidence_threshold'] = scanner_config.get('confidence_threshold', 0.4)
+    # Set confidence threshold
+    confidence_threshold = scan_request.confidence_threshold
+    if confidence_threshold is None and scanner_config:
+        confidence_threshold = scanner_config.get('confidence_threshold', 0.4)
+    if confidence_threshold is None:
+        confidence_threshold = 0.4
 
-        result, candidates = manager.scan(library_type_for_scan, scan_request.query, **kwargs)
+    # Perform scan
+    try:
+        result, candidates = scanner_instance.scan(scan_request.query, confidence_threshold=confidence_threshold)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Scan failed: {str(e)}")
 
     if not result:
         raise HTTPException(
@@ -335,16 +375,16 @@ async def scan_bulk(bulk_request: BulkScanRequest, request: Request):
         POST /scanners/scan/bulk
         {
             "queries": ["file1.cbz", "file2.cbz", "file3.cbz"],
-            "library_type": "doujinshi",
+            "library_id": 1,
             "confidence_threshold": 0.4
         }
     """
     db = request.app.state.db
     manager = get_scanner_manager()
 
-    # Get library configuration
-    library_name = None
+    # Get library configuration and scanner
     scanner_config = None
+    primary_scanner = None
 
     if bulk_request.library_id:
         with db.get_session() as session:
@@ -354,41 +394,41 @@ async def scan_bulk(bulk_request: BulkScanRequest, request: Request):
 
             settings = library.settings or {}
             scanner_config = settings.get('scanner', {})
-            library_name = library.name
+            primary_scanner = scanner_config.get('primary_scanner')
 
-            # Check if scanner is configured
-            if not scanner_config.get('primary_scanner'):
+            if not primary_scanner:
                 raise HTTPException(
                     status_code=400,
-                    detail=f"No scanner configured for library '{library_name}'"
+                    detail=f"No scanner configured for library '{library.name}'. Please configure a scanner in the admin panel."
                 )
-    elif bulk_request.library_type:
-        # Legacy support
-        library_name = bulk_request.library_type
-        if library_name not in manager.get_configured_libraries():
-            raise HTTPException(
-                status_code=404,
-                detail=f"Library type '{library_name}' not configured"
-            )
     else:
-        raise HTTPException(status_code=400, detail="library_id or library_type required")
+        raise HTTPException(status_code=400, detail="library_id is required")
+
+    # Verify scanner is available
+    if primary_scanner not in manager.get_available_scanners():
+        raise HTTPException(
+            status_code=500,
+            detail=f"Scanner '{primary_scanner}' is not available"
+        )
+
+    # Instantiate scanner
+    scanner_class = manager._available_scanners[primary_scanner]
+    scanner_instance = scanner_class()
+
+    # Set confidence threshold
+    confidence_threshold = bulk_request.confidence_threshold
+    if confidence_threshold is None and scanner_config:
+        confidence_threshold = scanner_config.get('confidence_threshold', 0.4)
+    if confidence_threshold is None:
+        confidence_threshold = 0.4
 
     results = []
     matched = 0
     rejected = 0
 
-    kwargs = {}
-    if bulk_request.confidence_threshold is not None:
-        kwargs['confidence_threshold'] = bulk_request.confidence_threshold
-    elif scanner_config:
-        kwargs['confidence_threshold'] = scanner_config.get('confidence_threshold', 0.4)
-
-    # Use library_type for backward compatibility with manager
-    scan_library_type = bulk_request.library_type if bulk_request.library_type else 'doujinshi'  # Fallback default
-
     for query in bulk_request.queries:
         try:
-            result, _ = manager.scan(scan_library_type, query, **kwargs)
+            result, _ = scanner_instance.scan(query, confidence_threshold=confidence_threshold)
 
             if result:
                 matched += 1
@@ -419,11 +459,187 @@ async def scan_bulk(bulk_request: BulkScanRequest, request: Request):
             })
 
     return BulkScanResult(
-        total=len(request.queries),
+        total=len(bulk_request.queries),
         matched=matched,
         rejected=rejected,
         results=results
     )
+
+
+@router.post("/scan/series")
+async def scan_and_save_series(
+    library_id: int,
+    series_name: str,
+    confidence_threshold: Optional[float] = None,
+    overwrite: bool = False,
+    request: Request = None
+):
+    """
+    Scan and save metadata for a series
+    
+    Scans the series using the library's configured scanner and saves
+    the metadata to the database.
+    """
+    from ...database.models import Series, Library
+    import time
+    
+    db = request.app.state.db
+    
+    with db.get_session() as session:
+        # Get library and scanner config
+        library = session.query(Library).filter(Library.id == library_id).first()
+        if not library:
+            raise HTTPException(status_code=404, detail=f"Library {library_id} not found")
+        
+        settings = library.settings or {}
+        scanner_config = settings.get('scanner', {})
+        primary_scanner = scanner_config.get('primary_scanner')
+        
+        if not primary_scanner:
+            raise HTTPException(
+                status_code=400,
+                detail=f"No scanner configured for library '{library.name}'"
+            )
+        
+        # Get or create series
+        series = session.query(Series).filter(
+            Series.library_id == library_id,
+            Series.name == series_name
+        ).first()
+        
+        if not series:
+            series = Series(
+                library_id=library_id,
+                name=series_name,
+                display_name=series_name,
+                created_at=int(time.time()),
+                updated_at=int(time.time())
+            )
+            session.add(series)
+            session.flush()
+        
+        # Scan for metadata
+        manager = get_scanner_manager()
+        
+        if primary_scanner not in manager.get_available_scanners():
+            raise HTTPException(
+                status_code=500,
+                detail=f"Scanner '{primary_scanner}' is not available"
+            )
+        
+        # Determine library type for scanner
+        library_type = 'manga' if primary_scanner == 'AniList' else 'doujinshi'
+        
+        kwargs = {}
+        if confidence_threshold is not None:
+            kwargs['confidence_threshold'] = confidence_threshold
+        elif scanner_config:
+            kwargs['confidence_threshold'] = scanner_config.get('confidence_threshold', 0.6)
+        
+        # Debug logging
+        import logging
+        logger = logging.getLogger(__name__)
+        logger.info(f"[SERIES SCAN] series_name='{series_name}', library_type='{library_type}', scanner='{primary_scanner}', kwargs={kwargs}")
+        
+        try:
+            result, candidates = manager.scan(library_type, series_name, **kwargs)
+            
+            logger.info(f"[SERIES SCAN] result={result is not None}, candidates={len(candidates) if candidates else 0}")
+            if result:
+                logger.info(f"[SERIES SCAN] confidence={result.confidence}, title={result.metadata.get('title')}")
+            
+            if not result:
+                return {
+                    "success": False,
+                    "error": "No match found with sufficient confidence",
+                    "series_id": series.id
+                }
+            
+            # Apply metadata to series
+            fields_updated = []
+            metadata = result.metadata
+            
+            # Update fields if overwrite=True or field is empty
+            def should_update(field_value):
+                return overwrite or not field_value
+            
+            if metadata.get('title') and should_update(series.display_name):
+                series.display_name = metadata['title']
+                fields_updated.append('display_name')
+            
+            if metadata.get('description') and should_update(series.description):
+                series.description = metadata['description']
+                fields_updated.append('description')
+            
+            if metadata.get('writer') and should_update(series.writer):
+                series.writer = metadata['writer']
+                fields_updated.append('writer')
+            
+            if metadata.get('artist') and should_update(series.artist):
+                series.artist = metadata['artist']
+                fields_updated.append('artist')
+            
+            if metadata.get('genre') and should_update(series.genre):
+                series.genre = metadata['genre']
+                fields_updated.append('genre')
+            
+            if metadata.get('year') and should_update(series.year_start):
+                series.year_start = metadata['year']
+                fields_updated.append('year_start')
+            
+            if metadata.get('publisher') and should_update(series.publisher):
+                series.publisher = metadata['publisher']
+                fields_updated.append('publisher')
+            
+            if metadata.get('status') and should_update(series.status):
+                series.status = metadata['status']
+                fields_updated.append('status')
+            
+            if metadata.get('format') and should_update(series.format):
+                series.format = metadata['format']
+                fields_updated.append('format')
+            
+            if metadata.get('volume') and should_update(series.volumes):
+                series.volumes = metadata['volume']
+                fields_updated.append('volumes')
+            
+            if metadata.get('count') and should_update(series.chapters):
+                series.chapters = metadata['count']
+                fields_updated.append('chapters')
+            
+            # Join tags if they're a list
+            if result.tags and should_update(series.tags):
+                series.tags = ', '.join(result.tags) if isinstance(result.tags, list) else str(result.tags)
+                fields_updated.append('tags')
+            
+            # Store scanner metadata
+            series.scanner_source = primary_scanner
+            series.scanner_source_id = result.source_id
+            series.scanner_source_url = result.source_url
+            series.scanned_at = int(time.time())
+            series.scan_confidence = result.confidence
+            series.updated_at = int(time.time())
+            fields_updated.append('scanner_metadata')
+            
+            session.commit()
+            session.refresh(series)
+            
+            return {
+                "success": True,
+                "series_id": series.id,
+                "confidence": result.confidence,
+                "fields_updated": fields_updated,
+                "metadata": metadata,
+                "source_url": result.source_url
+            }
+            
+        except Exception as e:
+            session.rollback()
+            return {
+                "success": False,
+                "error": str(e),
+                "series_id": series.id if series else None
+            }
 
 
 @router.get("/test/{scanner_name}")

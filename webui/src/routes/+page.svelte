@@ -200,58 +200,9 @@
 			displayedSeries = librarySeries.slice(0, seriesPageSize);
 			hasMoreSeries = librarySeries.length > seriesPageSize;
 		} else if (type === 'folder') {
-			// Find all comics in this folder recursively from the tree
-			const library = seriesTree.find(l => l.id === libraryId);
-			if (library) {
-				const allComics = [];
-
-				// Helper function to collect all comics from a folder node
-				function collectComics(node) {
-					if (!node.children) return;
-
-					for (const child of node.children) {
-						if (child.type === 'comic') {
-							allComics.push(child);
-						} else if (child.type === 'folder') {
-							// Recursively collect from subfolders
-							collectComics(child);
-						}
-					}
-				}
-
-				// Find the folder node
-				function findFolder(children) {
-					for (const child of children) {
-						if (child.type === 'folder' && child.folderId === folderId) {
-							return child;
-						}
-						if (child.children) {
-							const found = findFolder(child.children);
-							if (found) return found;
-						}
-					}
-					return null;
-				}
-
-				const folder = findFolder(library.children);
-				if (folder) {
-					collectComics(folder);
-
-					// Convert comics to series format for display
-					if (allComics.length > 0) {
-						displayedSeries = [{
-							series_name: folderName,
-							libraryId: libraryId,
-							first_comic_id: allComics[0]?.id,
-							cover_hash: allComics[0]?.hash,
-							total_issues: allComics.length,
-							volumes: allComics
-						}];
-					} else {
-						displayedSeries = [];
-					}
-				}
-			}
+			// Navigate to series view page
+			// The folder name corresponds to the series name
+			window.location.href = `/series/${libraryId}/${encodeURIComponent(folderName)}`;
 		} else if (type === 'comic') {
 			// Navigate to comic reader
 			window.location.href = `/comic/${libraryId}/${comicId}/read`;

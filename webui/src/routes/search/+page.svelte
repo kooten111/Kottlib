@@ -61,7 +61,16 @@
 			// Search across all libraries
 			const results = await Promise.all(
 				libraries.map((lib) =>
-					searchComics(lib.id, searchQuery).catch(() => [])
+					searchComics(lib.id, searchQuery)
+						.then(comics => comics.map(comic => ({
+							...comic,
+							libraryId: lib.id,
+							libraryName: lib.name
+						})))
+						.catch((err) => {
+							console.error(`Search failed for library ${lib.id}:`, err);
+							return [];
+						})
 				)
 			);
 

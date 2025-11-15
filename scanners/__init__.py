@@ -25,6 +25,7 @@ from .scanner_manager import (
 
 # Import available scanners
 from .nhentai.nhentai_scanner import NhentaiScanner
+from .AniList.anilist_scanner import AniListScanner
 
 __all__ = [
     # Base classes
@@ -48,6 +49,7 @@ __all__ = [
 
     # Scanners
     'NhentaiScanner',
+    'AniListScanner',
 ]
 
 __version__ = '1.0.0'

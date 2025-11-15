@@ -35,7 +35,8 @@
 	loadConfig();
 
 	async function handleScanLibrary() {
-		if (!confirm(`Scan all comics in library "${libraryName}"?\n\nThis may take a while for large libraries.`)) {
+		const scanMode = scannerConfig?.scan_level === 'file' ? 'individual files' : 'series';
+		if (!confirm(`Scan all ${scanMode} in library "${libraryName}"?\n\nThis may take a while for large libraries.`)) {
 			return;
 		}
 
@@ -130,6 +131,11 @@
 		<div class="scanner-info">
 			<span class="info-label">Scanner:</span>
 			<span class="info-value">{scannerConfig.primary_scanner}</span>
+			{#if scannerConfig.scan_level}
+				<span class="scan-mode">
+					({scannerConfig.scan_level === 'file' ? 'Individual Files' : 'By Series'})
+				</span>
+			{/if}
 		</div>
 	{/if}
 
@@ -182,7 +188,7 @@
 			<span class:spinning={isScanning}>
 				<RefreshCw class="w-4 h-4" />
 			</span>
-			{isScanning ? 'Scanning...' : 'Scan Library'}
+			{isScanning ? 'Scanning...' : (scannerConfig?.scan_level === 'file' ? 'Scan Files' : 'Scan Series')}
 		</button>
 		<button
 			on:click={handleClearLibrary}
@@ -270,6 +276,13 @@
 	.info-value {
 		color: #60a5fa;
 		font-weight: 600;
+	}
+
+	.scan-mode {
+		color: #9ca3af;
+		font-size: 0.8125rem;
+		font-weight: 400;
+		margin-left: 0.25rem;
 	}
 
 	.warning-message {

@@ -42,6 +42,29 @@ _series_tree_cache = {}
 
 
 # ============================================================================
+# Helper Functions
+# ============================================================================
+
+def get_comic_display_name(comic) -> str:
+    """
+    Get the display name for a comic.
+    
+    Returns the comic title if available, otherwise the filename without extension.
+    This ensures folders show their actual names and comics show clean filenames.
+    
+    Args:
+        comic: Comic model instance
+        
+    Returns:
+        Display name for the comic
+    """
+    if comic.title:
+        return comic.title
+    # Strip common comic extensions (.cbz, .cbr, .cb7, .cbt)
+    return re.sub(r'\.(cbz|cbr|cb7|cbt)$', '', comic.filename, flags=re.IGNORECASE)
+
+
+# ============================================================================
 # Pydantic Models for v2 API
 # ============================================================================
 
@@ -990,7 +1013,7 @@ async def get_reading_list(
                 "date": "",
                 "rating": 0,
                 "synopsis": "",
-                "title": comic.title or comic.filename,
+                "title": get_comic_display_name(comic),
                 "has_been_opened": progress.current_page > 0,
                 "last_time_opened": progress.last_read_at,
                 "current_page_bookmarked": False,
@@ -1060,7 +1083,7 @@ async def get_favorites(library_id: int, request: Request):
                 "manga": comic.reading_direction == "rtl",
                 "file_type": 1,
                 "number": comic.issue_number or 0,
-                "title": comic.title or comic.filename,
+                "title": get_comic_display_name(comic),
                 "added": comic.created_at
             })
 
@@ -1238,7 +1261,7 @@ async def get_tag_content(library_id: int, tag_id: int, request: Request):
                 "manga": comic.reading_direction == "rtl",
                 "file_type": 1,
                 "number": comic.issue_number or 0,
-                "title": comic.title or comic.filename,
+                "title": get_comic_display_name(comic),
                 "added": comic.created_at
             })
 
@@ -1543,7 +1566,7 @@ async def get_reading_list_content(library_id: int, list_id: int, request: Reque
                 "manga": comic.reading_direction == "rtl",
                 "file_type": 1,
                 "number": comic.issue_number or 0,
-                "title": comic.title or comic.filename,
+                "title": get_comic_display_name(comic),
                 "added": comic.created_at
             })
 
@@ -2111,7 +2134,7 @@ async def get_series_list(
             for comic in comics_in_series:
                 volume_info = {
                     "id": comic.id,
-                    "title": comic.title or comic.filename,
+                    "title": get_comic_display_name(comic),
                     "volume": comic.volume,
                     "issue_number": comic.issue_number,
                     "filename": comic.filename,
@@ -2183,6 +2206,7 @@ async def get_series_detail(
         Series object with volumes array and aggregated metadata
     """
     from urllib.parse import unquote
+    from ...database.models import Series as SeriesModel
 
     db = request.app.state.db
 
@@ -2195,14 +2219,41 @@ async def get_series_detail(
         # Decode series name from URL
         decoded_series_name = unquote(series_name)
 
-        # Get comics by normalized_series_name (which is pre-computed during scan)
+        # Try to find the Series record first
+        series_record = session.query(SeriesModel).filter(
+            SeriesModel.library_id == library_id,
+            SeriesModel.name == decoded_series_name
+        ).first()
+
+        # Try to find comics by normalized_series_name first (pre-computed during scan)
         comics = session.query(Comic).filter(
             Comic.library_id == library_id,
             Comic.normalized_series_name == decoded_series_name
         ).all()
 
+        # Fallback: Try to find by series field if normalized_series_name is not set
         if not comics:
-            raise HTTPException(status_code=404, detail="Series not found")
+            comics = session.query(Comic).filter(
+                Comic.library_id == library_id,
+                Comic.series == decoded_series_name
+            ).all()
+
+        # Fallback 2: Try to find by folder name
+        if not comics:
+            from ...database.models import Folder as FolderModel
+            folder = session.query(FolderModel).filter(
+                FolderModel.library_id == library_id,
+                FolderModel.name == decoded_series_name
+            ).first()
+            
+            if folder:
+                comics = session.query(Comic).filter(
+                    Comic.library_id == library_id,
+                    Comic.folder_id == folder.id
+                ).all()
+
+        if not comics:
+            raise HTTPException(status_code=404, detail=f"Series not found: {decoded_series_name}")
 
         # Get user for reading progress
         user_id = get_current_user_id(request)
@@ -2239,7 +2290,7 @@ async def get_series_detail(
             volume = {
                 "type": "comic",
                 "id": str(comic.id),
-                "title": comic.title or comic.filename,
+                "title": get_comic_display_name(comic),
                 "series": comic.series,
                 "volume": comic.volume,
                 "issue_number": comic.issue_number,
@@ -2283,15 +2334,45 @@ async def get_series_detail(
             "volumes": volumes
         }
 
-        # Add aggregated metadata
-        if hasattr(first_comic, 'publisher') and first_comic.publisher:
-            series_detail["publisher"] = first_comic.publisher
-        if hasattr(first_comic, 'year') and first_comic.year:
-            series_detail["year"] = first_comic.year
-        if hasattr(first_comic, 'genre') and first_comic.genre:
-            series_detail["genre"] = first_comic.genre
-        if hasattr(first_comic, 'synopsis') and first_comic.synopsis:
-            series_detail["synopsis"] = first_comic.synopsis
+        # Prefer Series table metadata over comic metadata (series scanners take priority)
+        if series_record:
+            # Use series-level metadata if available
+            if series_record.display_name:
+                series_detail["display_name"] = series_record.display_name
+            if series_record.description:
+                series_detail["synopsis"] = series_record.description
+            if series_record.writer:
+                series_detail["writer"] = series_record.writer
+            if series_record.artist:
+                series_detail["artist"] = series_record.artist
+            if series_record.genre:
+                series_detail["genre"] = series_record.genre
+            if series_record.publisher:
+                series_detail["publisher"] = series_record.publisher
+            if series_record.year_start:
+                series_detail["year"] = series_record.year_start
+            if series_record.status:
+                series_detail["status"] = series_record.status
+            if series_record.format:
+                series_detail["format"] = series_record.format
+            if series_record.tags:
+                series_detail["tags"] = series_record.tags
+            if series_record.scanner_source_url:
+                series_detail["scanner_source_url"] = series_record.scanner_source_url
+            if series_record.scanner_source:
+                series_detail["scanner_source"] = series_record.scanner_source
+            if series_record.scan_confidence is not None:
+                series_detail["scan_confidence"] = series_record.scan_confidence
+        else:
+            # Fallback to comic-level metadata (aggregated from first comic)
+            if hasattr(first_comic, 'publisher') and first_comic.publisher:
+                series_detail["publisher"] = first_comic.publisher
+            if hasattr(first_comic, 'year') and first_comic.year:
+                series_detail["year"] = first_comic.year
+            if hasattr(first_comic, 'genre') and first_comic.genre:
+                series_detail["genre"] = first_comic.genre
+            if hasattr(first_comic, 'synopsis') and first_comic.synopsis:
+                series_detail["synopsis"] = first_comic.synopsis
 
         # Calculate overall reading progress
         completed_volumes = sum(1 for v in volumes if v["is_completed"])

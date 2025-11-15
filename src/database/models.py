@@ -305,6 +305,23 @@ class Series(Base):
     comic_count: Mapped[int] = mapped_column(Integer, default=0)
     total_issues: Mapped[int] = mapped_column(Integer, default=0)
 
+    # Scanner metadata
+    scanner_source: Mapped[Optional[str]] = mapped_column(String, nullable=True)
+    scanner_source_id: Mapped[Optional[str]] = mapped_column(String, nullable=True)
+    scanner_source_url: Mapped[Optional[str]] = mapped_column(String, nullable=True)
+    scanned_at: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)
+    scan_confidence: Mapped[Optional[float]] = mapped_column(Float, nullable=True)
+
+    # Additional metadata fields
+    writer: Mapped[Optional[str]] = mapped_column(String, nullable=True)
+    artist: Mapped[Optional[str]] = mapped_column(String, nullable=True)
+    genre: Mapped[Optional[str]] = mapped_column(String, nullable=True)
+    tags: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    status: Mapped[Optional[str]] = mapped_column(String, nullable=True)
+    format: Mapped[Optional[str]] = mapped_column(String, nullable=True)
+    chapters: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)
+    volumes: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)
+
     created_at: Mapped[int] = mapped_column(Integer, nullable=False)
     updated_at: Mapped[int] = mapped_column(Integer, nullable=False)
 

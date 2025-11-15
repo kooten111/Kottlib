@@ -13,9 +13,9 @@ from pathlib import Path
 # Add src to path
 sys.path.insert(0, str(Path(__file__).parent.parent / 'src'))
 
+from config import load_config
 from database import (
     Database,
-    get_default_db_path,
     create_library,
     get_library_by_path,
 )
@@ -81,12 +81,23 @@ Examples:
         help='Show detailed per-file progress (recommended with --workers 1)'
     )
 
+    parser.add_argument(
+        '--db',
+        type=Path,
+        default=None,
+        help='Database path (default: system default location)'
+    )
+
     args = parser.parse_args()
 
     library_path = args.library_path.resolve()
     library_name = args.name or library_path.name
     max_workers = args.workers
     verbose = args.verbose
+    
+    # Load config to get database path
+    config = load_config()
+    db_path = Path(config.database.path) if config.database.path else None
 
     # Validation
     if not library_path.exists():
@@ -111,7 +122,17 @@ Examples:
     print(f"=" * 60 + "\n")
 
     # Initialize database
-    db_path = get_default_db_path()
+    if db_path is None and args.db is None:
+        # Fallback to default if not in config and not specified
+        from database import get_default_db_path
+        db_path = get_default_db_path()
+    elif args.db is not None:
+        # Command line overrides config
+        db_path = args.db.resolve()
+    else:
+        # Use config path
+        db_path = db_path.resolve()
+        
     print(f"Database: {db_path}\n")
 
     db = Database(db_path)

@@ -1,6 +1,7 @@
 <script>
 	import { onMount } from 'svelte';
 	import { page } from '$app/stores';
+	import { goto } from '$app/navigation';
 	import Navbar from '$lib/components/layout/Navbar.svelte';
 	import ComicCard from '$lib/components/comic/ComicCard.svelte';
 	import Button from '$lib/components/common/Button.svelte';
@@ -22,6 +23,16 @@
 	onMount(async () => {
 		await loadComicData();
 	});
+
+	function handleBack() {
+		// Check if there's a history to go back to
+		if (window.history.length > 1) {
+			window.history.back();
+		} else {
+			// Fallback to library browse if no history
+			goto(`/browse/${libraryId}`);
+		}
+	}
 
 	async function loadComicData() {
 		try {
@@ -96,10 +107,10 @@
 			</div>
 		{:else if comic}
 			<!-- Back Button -->
-			<a href="/browse/{libraryId}" class="back-link">
+			<button on:click={handleBack} class="back-link">
 				<ArrowLeft class="w-4 h-4" />
-				<span>Back to Library</span>
-			</a>
+				<span>Back</span>
+			</button>
 
 			<!-- Comic Detail Section -->
 			<div class="comic-detail">
@@ -263,6 +274,11 @@
 		font-size: 0.875rem;
 		margin-bottom: 2rem;
 		transition: color 0.2s;
+		background: none;
+		border: none;
+		cursor: pointer;
+		padding: 0;
+		font-family: inherit;
 	}
 
 	.back-link:hover {
