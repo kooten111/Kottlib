@@ -38,14 +38,15 @@ router = APIRouter(prefix="/scanners", tags=["scanners"])
 _scan_progress: Dict[int, Dict[str, Any]] = {}
 
 
-def update_scan_progress(library_id: int, scanned: int, total: int, failed: int = 0, skipped: int = 0):
+def update_scan_progress(library_id: int, processed: int, total: int, scanned: int = 0, failed: int = 0, skipped: int = 0):
     """Update scan progress for a library"""
     _scan_progress[library_id] = {
+        "processed": processed,
         "scanned": scanned,
         "total": total,
         "failed": failed,
         "skipped": skipped,
-        "in_progress": scanned < total,
+        "in_progress": processed < total,
         "completed": False
     }
 
@@ -962,7 +963,7 @@ def _run_library_scan_task(
         total_comics = len(comics)
 
         # Initialize progress
-        update_scan_progress(library_id, 0, total_comics)
+        update_scan_progress(library_id, 0, total_comics, 0, 0, 0)
 
         scanned = 0
         failed = 0
@@ -1001,7 +1002,7 @@ def _run_library_scan_task(
                 failed += 1
 
             # Update progress after each comic
-            update_scan_progress(library_id, index + 1, total_comics, failed, skipped)
+            update_scan_progress(library_id, index + 1, total_comics, scanned, failed, skipped)
 
         # Mark scan as complete (but keep progress available for frontend to read)
         # Don't clear immediately - let frontend read final state
@@ -1086,13 +1087,14 @@ async def get_library_scan_progress(library_id: int):
     """
     Get the current progress of a library scan
 
-    Returns the number of comics scanned and total to scan.
+    Returns the number of comics processed, scanned, and total to scan.
     """
     progress = get_scan_progress(library_id)
     if not progress:
         return {
             "in_progress": False,
             "completed": False,
+            "processed": 0,
             "scanned": 0,
             "total": 0,
             "failed": 0,

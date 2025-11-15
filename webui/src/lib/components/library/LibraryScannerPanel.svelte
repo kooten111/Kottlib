@@ -8,7 +8,7 @@
 	let isScanning = false;
 	let isClearing = false;
 	let scanProgress = null;
-	let currentProgress = { scanned: 0, total: 0 };
+	let currentProgress = { processed: 0, scanned: 0, total: 0 };
 	let error = null;
 	let showOptions = false;
 	let scanOptions = {
@@ -42,8 +42,9 @@
 			if (response.ok) {
 				const progress = await response.json();
 				currentProgress = {
-					scanned: progress.scanned,
-					total: progress.total
+					processed: progress.processed || 0,
+					scanned: progress.scanned || 0,
+					total: progress.total || 0
 				};
 				return progress.in_progress;
 			}
@@ -63,7 +64,7 @@
 			isScanning = true;
 			error = null;
 			scanProgress = null;
-			currentProgress = { scanned: 0, total: 0 };
+			currentProgress = { processed: 0, scanned: 0, total: 0 };
 
 			// Start the scan request - this now returns immediately
 			const response = await scanLibrary(
@@ -256,21 +257,24 @@
 			<div class="progress-header-row">
 				<span class="progress-label">
 					{#if currentProgress.total > 0}
-						Scanning library... ({currentProgress.scanned} / {currentProgress.total} comics)
+						Scanning library... ({currentProgress.processed} / {currentProgress.total} comics)
+						{#if currentProgress.scanned > 0}
+							<span class="scanned-count">({currentProgress.scanned} matched)</span>
+						{/if}
 					{:else}
 						Preparing scan...
 					{/if}
 				</span>
 				{#if currentProgress.total > 0}
 					<span class="progress-percentage">
-						{Math.round((currentProgress.scanned / currentProgress.total) * 100)}%
+						{Math.round((currentProgress.processed / currentProgress.total) * 100)}%
 					</span>
 				{/if}
 			</div>
 			<div class="progress-bar-wrapper">
 				<div
 					class="progress-bar-fill"
-					style="width: {currentProgress.total > 0 ? (currentProgress.scanned / currentProgress.total * 100) : 0}%"
+					style="width: {currentProgress.total > 0 ? (currentProgress.processed / currentProgress.total * 100) : 0}%"
 				></div>
 			</div>
 		</div>
@@ -549,6 +553,13 @@
 	.progress-percentage {
 		font-size: 0.875rem;
 		color: #9ca3af;
+		font-weight: 500;
+	}
+
+	.scanned-count {
+		margin-left: 0.5rem;
+		color: #22c55e;
+		font-size: 0.8125rem;
 		font-weight: 500;
 	}
 
