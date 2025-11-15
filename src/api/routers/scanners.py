@@ -31,6 +31,37 @@ router = APIRouter(prefix="/scanners", tags=["scanners"])
 
 
 # ============================================================================
+# Progress Tracking
+# ============================================================================
+
+# In-memory progress tracking for library scans
+_scan_progress: Dict[int, Dict[str, Any]] = {}
+
+
+def update_scan_progress(library_id: int, scanned: int, total: int, failed: int = 0, skipped: int = 0):
+    """Update scan progress for a library"""
+    _scan_progress[library_id] = {
+        "scanned": scanned,
+        "total": total,
+        "failed": failed,
+        "skipped": skipped,
+        "in_progress": scanned < total,
+        "completed": False
+    }
+
+
+def get_scan_progress(library_id: int) -> Optional[Dict[str, Any]]:
+    """Get scan progress for a library"""
+    return _scan_progress.get(library_id)
+
+
+def clear_scan_progress(library_id: int):
+    """Clear scan progress for a library"""
+    if library_id in _scan_progress:
+        del _scan_progress[library_id]
+
+
+# ============================================================================
 # Pydantic Models
 # ============================================================================
 
@@ -905,7 +936,80 @@ async def scan_comic(
             )
 
 
-@router.post("/scan/library", response_model=ScanLibraryResponse)
+def _run_library_scan_task(
+    db,
+    library_id: int,
+    scanner_name: str,
+    overwrite: bool,
+    rescan_existing: bool,
+    confidence_threshold: Optional[float]
+):
+    """Background task to scan all comics in a library"""
+    from ...services.metadata_service import MetadataService
+    from ...database.models import Comic
+
+    manager = get_scanner_manager()
+
+    with db.get_session() as session:
+        # Get all comics in library
+        query = session.query(Comic).filter(Comic.library_id == library_id)
+
+        # Filter out already scanned if not rescanning
+        if not rescan_existing:
+            query = query.filter(Comic.scanned_at.is_(None))
+
+        comics = query.all()
+        total_comics = len(comics)
+
+        # Initialize progress
+        update_scan_progress(library_id, 0, total_comics)
+
+        scanned = 0
+        failed = 0
+        skipped = 0
+
+        # TODO: Use direct scanner invocation
+        library_type = 'doujinshi'  # Default for nhentai
+
+        for index, comic in enumerate(comics):
+            try:
+                # Scan using filename
+                result, _ = manager.scan(
+                    library_type,
+                    comic.filename,
+                    confidence_threshold=confidence_threshold
+                )
+
+                if not result:
+                    skipped += 1
+                else:
+                    # Apply metadata
+                    application_result = MetadataService.apply_scan_result_to_comic(
+                        session,
+                        comic,
+                        result,
+                        scanner_name,
+                        overwrite=overwrite
+                    )
+
+                    if application_result.success:
+                        scanned += 1
+                    else:
+                        failed += 1
+
+            except Exception as e:
+                failed += 1
+
+            # Update progress after each comic
+            update_scan_progress(library_id, index + 1, total_comics, failed, skipped)
+
+        # Mark scan as complete (but keep progress available for frontend to read)
+        # Don't clear immediately - let frontend read final state
+        _scan_progress[library_id]["in_progress"] = False
+        _scan_progress[library_id]["completed"] = True
+
+
+@router.post("/scan/library")
 async def scan_library(
     scan_request: ScanLibraryRequest,
     background_tasks: BackgroundTasks,
@@ -914,9 +1018,9 @@ async def scan_library(
     """
     Scan all comics in a library for metadata
 
-    This can take a while for large libraries.
+    This starts a background task and returns immediately.
+    Use the /scan/library/{library_id}/progress endpoint to check progress.
     """
-    from ...services.metadata_service import MetadataService
     from ...database.models import Comic, Library
 
     db = request.app.state.db
@@ -947,83 +1051,65 @@ async def scan_library(
                 detail=f"Scanner '{primary_scanner}' is not available"
             )
 
-        # Get all comics in library
-        query = session.query(Comic).filter(Comic.library_id == scan_request.library_id)
-        
-        # Filter out already scanned if not rescanning
-        if not scan_request.rescan_existing:
-            query = query.filter(Comic.scanned_at.is_(None))
-        
-        comics = query.all()
+        # Check if a scan is already in progress
+        current_progress = get_scan_progress(scan_request.library_id)
+        if current_progress and current_progress.get("in_progress", False):
+            raise HTTPException(
+                status_code=409,
+                detail=f"A scan is already in progress for library '{library.name}'"
+            )
 
         # Determine confidence threshold
         threshold = scan_request.confidence_threshold
         if threshold is None:
             threshold = scanner_config.get('confidence_threshold', 0.4)
 
-        results = []
-        scanned = 0
-        failed = 0
-        skipped = 0
-
-        # TODO: Use direct scanner invocation
-        library_type = 'doujinshi'  # Default for nhentai
-
-        for comic in comics:
-            try:
-                # Scan using filename
-                result, _ = manager.scan(
-                    library_type,
-                    comic.filename,
-                    confidence_threshold=threshold
-                )
-
-                if not result:
-                    skipped += 1
-                    results.append(ScanComicResponse(
-                        comic_id=comic.id,
-                        success=False,
-                        error="No match found with sufficient confidence"
-                    ))
-                    continue
-
-                # Apply metadata
-                application_result = MetadataService.apply_scan_result_to_comic(
-                    session,
-                    comic,
-                    result,
-                    primary_scanner,
-                    overwrite=scan_request.overwrite
-                )
-
-                if application_result.success:
-                    scanned += 1
-                else:
-                    failed += 1
-
-                results.append(ScanComicResponse(
-                    comic_id=comic.id,
-                    success=application_result.success,
-                    confidence=result.confidence,
-                    fields_updated=application_result.fields_updated,
-                    error=application_result.error
-                ))
-
-            except Exception as e:
-                failed += 1
-                results.append(ScanComicResponse(
-                    comic_id=comic.id,
-                    success=False,
-                    error=str(e)
-                ))
-
-        return ScanLibraryResponse(
-            total_comics=len(comics),
-            scanned=scanned,
-            failed=failed,
-            skipped=skipped,
-            results=results
+        # Start background task
+        background_tasks.add_task(
+            _run_library_scan_task,
+            db,
+            scan_request.library_id,
+            primary_scanner,
+            scan_request.overwrite,
+            scan_request.rescan_existing,
+            threshold
         )
+
+        return {
+            "status": "started",
+            "message": "Library scan started in background. Use /scan/library/{library_id}/progress to check progress."
+        }
+
+
+@router.get("/scan/library/{library_id}/progress")
+async def get_library_scan_progress(library_id: int):
+    """
+    Get the current progress of a library scan
+
+    Returns the number of comics scanned and total to scan.
+    """
+    progress = get_scan_progress(library_id)
+    if not progress:
+        return {
+            "in_progress": False,
+            "completed": False,
+            "scanned": 0,
+            "total": 0,
+            "failed": 0,
+            "skipped": 0
+        }
+    return progress
+
+
+@router.delete("/scan/library/{library_id}/progress")
+async def clear_library_scan_progress(library_id: int):
+    """
+    Clear the scan progress for a library
+
+    Use this after reading the final progress state.
+    """
+    clear_scan_progress(library_id)
+    return {"status": "cleared"}
 
 
 @router.post("/clear-metadata")

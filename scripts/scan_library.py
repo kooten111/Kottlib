@@ -10,8 +10,11 @@ import sys
 import argparse
 from pathlib import Path
 
-# Add src to path
-sys.path.insert(0, str(Path(__file__).parent.parent / 'src'))
+# Add src and scanners to path
+SRC_PATH = Path(__file__).parent.parent / 'src'
+SCANNERS_PATH = Path(__file__).parent.parent
+sys.path.insert(0, str(SRC_PATH))
+sys.path.insert(0, str(SCANNERS_PATH))
 
 from config import load_config
 from database import (
@@ -19,7 +22,11 @@ from database import (
     create_library,
     get_library_by_path,
 )
+from database.models import Comic, Library
 from scanner.threaded_scanner import scan_library_threaded
+from scanners.scanner_manager import ScannerManager
+from scanners.nhentai.nhentai_scanner import NhentaiScanner
+from scanners.base_scanner import ScanResult
 
 
 def progress_callback_verbose(current, total, message):
@@ -32,6 +39,130 @@ def progress_callback_simple(current, total, message):
     """Print simple progress bar (default mode)"""
     percent = (current / total * 100) if total > 0 else 0
     print(f"\r  Progress: {current}/{total} ({percent:.1f}%)", end='', flush=True)
+
+
+def scan_metadata(
+    db: Database,
+    library_id: int,
+    scanner_name: str,
+    scan_new_only: bool = True,
+    overwrite: bool = False,
+    confidence_threshold: float = 0.4,
+    verbose: bool = False
+):
+    """Scan library for metadata using the specified scanner"""
+
+    # Initialize scanner
+    manager = ScannerManager()
+    manager.register_scanner('nhentai', NhentaiScanner)
+
+    if scanner_name not in manager.get_available_scanners():
+        print(f"Error: Scanner '{scanner_name}' not available")
+        print(f"Available scanners: {', '.join(manager.get_available_scanners())}")
+        return {
+            'total': 0,
+            'scanned': 0,
+            'failed': 0,
+            'skipped': 0
+        }
+
+    # Get scanner instance
+    scanner_class = manager._available_scanners[scanner_name]
+    scanner = scanner_class()
+
+    with db.get_session() as session:
+        # Get all comics in library
+        query = session.query(Comic).filter(Comic.library_id == library_id)
+
+        # Filter out already scanned if requested
+        if scan_new_only:
+            query = query.filter(Comic.scanned_at.is_(None))
+
+        comics = query.all()
+        total = len(comics)
+
+        if total == 0:
+            print("No comics to scan for metadata")
+            return {
+                'total': 0,
+                'scanned': 0,
+                'failed': 0,
+                'skipped': 0
+            }
+
+        print(f"\nScanning {total} comics for metadata using {scanner_name}...")
+        print(f"Confidence threshold: {confidence_threshold}")
+        print(f"Overwrite existing: {overwrite}")
+        print()
+
+        scanned = 0
+        failed = 0
+        skipped = 0
+
+        for i, comic in enumerate(comics, 1):
+            if verbose:
+                print(f"[{i}/{total}] Scanning: {comic.filename}")
+            else:
+                print(f"\r  Metadata Progress: {i}/{total} ({i/total*100:.1f}%)", end='', flush=True)
+
+            try:
+                # Scan using filename
+                result, _ = scanner.scan(comic.filename)
+
+                if not result:
+                    skipped += 1
+                    if verbose:
+                        print(f"  → No match found")
+                    continue
+
+                if result.confidence < confidence_threshold:
+                    skipped += 1
+                    if verbose:
+                        print(f"  → Confidence too low: {result.confidence:.2f}")
+                    continue
+
+                # Apply metadata directly
+                import time
+                fields_updated = []
+
+                # Update basic metadata from result
+                if result.metadata.get('title') and (overwrite or not comic.title):
+                    comic.title = result.metadata['title']
+                    fields_updated.append('title')
+
+                # Store scanner metadata
+                comic.scanner_source = scanner_name
+                comic.scanner_source_id = result.source_id
+                comic.scanner_source_url = result.source_url
+                comic.scanned_at = int(time.time())
+                comic.scan_confidence = result.confidence
+
+                # Store source URL
+                if result.source_url and (overwrite or not comic.web):
+                    comic.web = result.source_url
+                    fields_updated.append('web')
+
+                # Commit changes
+                session.commit()
+
+                scanned += 1
+                if verbose:
+                    print(f"  → Success! Confidence: {result.confidence:.2f}, Updated {len(fields_updated)} fields")
+
+            except Exception as e:
+                failed += 1
+                if verbose:
+                    print(f"  → Error: {str(e)}")
+
+        if not verbose:
+            print()  # New line after progress
+
+    return {
+        'total': total,
+        'scanned': scanned,
+        'failed': failed,
+        'skipped': skipped
+    }
 
 
 def main():
@@ -52,6 +183,15 @@ Examples:
 
   # Custom library name
   python scan_library.py /mnt/Comics --name "My Comics"
+
+  # Scan files and then fetch metadata with scanner
+  python scan_library.py /mnt/Comics --scan-metadata --scanner nhentai
+
+  # Only scan new comics for metadata (skip already scanned)
+  python scan_library.py /mnt/Comics --scan-metadata --scanner nhentai --scan-new-only
+
+  # Scan with custom confidence threshold
+  python scan_library.py /mnt/Comics --scan-metadata --scanner nhentai --confidence 0.6
         """
     )
 
@@ -88,6 +228,38 @@ Examples:
         help='Database path (default: system default location)'
     )
 
+    parser.add_argument(
+        '--scan-metadata',
+        action='store_true',
+        help='Scan for metadata after adding files to database'
+    )
+
+    parser.add_argument(
+        '--scanner',
+        type=str,
+        default='nhentai',
+        help='Scanner to use for metadata (default: nhentai)'
+    )
+
+    parser.add_argument(
+        '--scan-new-only',
+        action='store_true',
+        help='Only scan comics that have not been scanned before (skip comics with existing metadata)'
+    )
+
+    parser.add_argument(
+        '--overwrite',
+        action='store_true',
+        help='Overwrite existing metadata fields when scanning'
+    )
+
+    parser.add_argument(
+        '--confidence',
+        type=float,
+        default=0.4,
+        help='Minimum confidence threshold for metadata matches (0.0-1.0, default: 0.4)'
+    )
+
     args = parser.parse_args()
 
     library_path = args.library_path.resolve()
@@ -119,6 +291,8 @@ Examples:
     print(f"Library:  {library_name}")
     print(f"Path:     {library_path}")
     print(f"Mode:     {mode}")
+    if args.scan_metadata:
+        print(f"Metadata: {args.scanner} (threshold: {args.confidence})")
     print(f"=" * 60 + "\n")
 
     # Initialize database
@@ -195,6 +369,31 @@ Examples:
         if max_workers < optimal_workers:
             print(f"Tip: For {result.comics_found} comics, try {optimal_workers} workers for better performance:")
             print(f"     python scan_library.py '{library_path}' --workers {optimal_workers}\n")
+
+    # Metadata scanning (if requested)
+    if args.scan_metadata:
+        print(f"\n{'=' * 60}")
+        print(f"Starting Metadata Scan")
+        print(f"{'=' * 60}")
+
+        metadata_result = scan_metadata(
+            db=db,
+            library_id=library_id,
+            scanner_name=args.scanner,
+            scan_new_only=args.scan_new_only,
+            overwrite=args.overwrite,
+            confidence_threshold=args.confidence,
+            verbose=verbose
+        )
+
+        print(f"\n{'=' * 60}")
+        print(f"Metadata Scan Complete!")
+        print(f"{'=' * 60}")
+        print(f"Comics processed:    {metadata_result['total']}")
+        print(f"Successfully scanned: {metadata_result['scanned']}")
+        print(f"Failed:              {metadata_result['failed']}")
+        print(f"Skipped:             {metadata_result['skipped']}")
+        print(f"{'=' * 60}\n")
 
     db.close()
     return 0

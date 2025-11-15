@@ -8,6 +8,7 @@
 	let isScanning = false;
 	let isClearing = false;
 	let scanProgress = null;
+	let currentProgress = { scanned: 0, total: 0 };
 	let error = null;
 	let showOptions = false;
 	let scanOptions = {
@@ -21,6 +22,7 @@
 		clearMetadata: false
 	};
 	let scannerConfig = null;
+	let progressInterval = null;
 
 	// Load scanner configuration
 	async function loadConfig() {
@@ -34,6 +36,23 @@
 
 	loadConfig();
 
+	async function pollScanProgress() {
+		try {
+			const response = await fetch(`/v2/scanners/scan/library/${libraryId}/progress`);
+			if (response.ok) {
+				const progress = await response.json();
+				currentProgress = {
+					scanned: progress.scanned,
+					total: progress.total
+				};
+				return progress.in_progress;
+			}
+		} catch (err) {
+			console.error('Failed to poll progress:', err);
+		}
+		return false;
+	}
+
 	async function handleScanLibrary() {
 		const scanMode = scannerConfig?.scan_level === 'file' ? 'individual files' : 'series';
 		if (!confirm(`Scan all ${scanMode} in library "${libraryName}"?\n\nThis may take a while for large libraries.`)) {
@@ -44,33 +63,65 @@
 			isScanning = true;
 			error = null;
 			scanProgress = null;
+			currentProgress = { scanned: 0, total: 0 };
 
-			const result = await scanLibrary(
+			// Start the scan request - this now returns immediately
+			const response = await scanLibrary(
 				libraryId,
 				scanOptions.overwrite,
 				scanOptions.rescanExisting,
 				scanOptions.confidenceThreshold
 			);
 
-			scanProgress = result;
-
-			// Show completion message
-			alert(
-				`Library scan complete!\n\n` +
-				`Total: ${result.total_comics}\n` +
-				`Scanned: ${result.scanned}\n` +
-				`Failed: ${result.failed}\n` +
-				`Skipped: ${result.skipped}`
-			);
-
-			// Optionally reload the page to show updated data
-			if (result.scanned > 0) {
-				window.location.reload();
+			// Check if scan started successfully
+			if (response.status !== 'started') {
+				throw new Error('Failed to start library scan');
 			}
+
+			// Wait a bit for backend to initialize, then start polling
+			await new Promise(resolve => setTimeout(resolve, 500));
+
+			// Start polling for progress
+			progressInterval = setInterval(async () => {
+				const stillInProgress = await pollScanProgress();
+				if (!stillInProgress && progressInterval) {
+					clearInterval(progressInterval);
+					progressInterval = null;
+
+					// Scan completed - fetch final progress one more time
+					const finalProgress = await pollScanProgress();
+
+					// Set final results
+					scanProgress = {
+						total_comics: currentProgress.total,
+						scanned: currentProgress.scanned,
+						failed: finalProgress ? finalProgress.failed : 0,
+						skipped: finalProgress ? finalProgress.skipped : 0
+					};
+
+					isScanning = false;
+
+					// Clear progress on backend
+					await fetch(`/v2/scanners/scan/library/${libraryId}/progress`, {
+						method: 'DELETE'
+					});
+
+					// Optionally reload the page to show updated data
+					if (currentProgress.scanned > 0) {
+						setTimeout(() => {
+							window.location.reload();
+						}, 2000);
+					}
+				}
+			}, 500); // Poll every 500ms
+
 		} catch (err) {
 			error = err.message;
-		} finally {
 			isScanning = false;
+			if (progressInterval) {
+				clearInterval(progressInterval);
+				progressInterval = null;
+			}
 		}
 	}
 
@@ -200,18 +251,43 @@
 		</button>
 	</div>
 
+	{#if isScanning}
+		<div class="progress-container">
+			<div class="progress-header-row">
+				<span class="progress-label">
+					{#if currentProgress.total > 0}
+						Scanning library... ({currentProgress.scanned} / {currentProgress.total} comics)
+					{:else}
+						Preparing scan...
+					{/if}
+				</span>
+				{#if currentProgress.total > 0}
+					<span class="progress-percentage">
+						{Math.round((currentProgress.scanned / currentProgress.total) * 100)}%
+					</span>
+				{/if}
+			</div>
+			<div class="progress-bar-wrapper">
+				<div
+					class="progress-bar-fill"
+					style="width: {currentProgress.total > 0 ? (currentProgress.scanned / currentProgress.total * 100) : 0}%"
+				></div>
+			</div>
+		</div>
+	{/if}
+
 	{#if error}
 		<div class="error-message">
 			{error}
 		</div>
 	{/if}
 
-	{#if scanProgress}
+	{#if scanProgress && !isScanning}
 		<div class="progress-message">
 			<p>Scan complete!</p>
 			<ul>
-				<li>Total: {scanProgress.total_comics}</li>
-				<li>Scanned: {scanProgress.scanned}</li>
+				<li>Total comics: {scanProgress.total_comics}</li>
+				<li>Successfully scanned: {scanProgress.scanned}</li>
 				<li>Failed: {scanProgress.failed}</li>
 				<li>Skipped: {scanProgress.skipped}</li>
 			</ul>
@@ -448,5 +524,47 @@
 
 	.mt-4 {
 		margin-top: 1rem;
+	}
+
+	.progress-container {
+		margin-top: 1rem;
+		padding: 1rem;
+		background: rgba(0, 0, 0, 0.2);
+		border-radius: 6px;
+	}
+
+	.progress-header-row {
+		display: flex;
+		justify-content: space-between;
+		align-items: center;
+		margin-bottom: 0.5rem;
+	}
+
+	.progress-label {
+		font-size: 0.875rem;
+		font-weight: 600;
+		color: #e5e7eb;
+	}
+
+	.progress-percentage {
+		font-size: 0.875rem;
+		color: #9ca3af;
+		font-weight: 500;
+	}
+
+	.progress-bar-wrapper {
+		width: 100%;
+		height: 8px;
+		background: rgba(255, 255, 255, 0.1);
+		border-radius: 4px;
+		overflow: hidden;
+	}
+
+	.progress-bar-fill {
+		height: 100%;
+		background: linear-gradient(90deg, #22c55e 0%, #16a34a 100%);
+		border-radius: 4px;
+		transition: width 0.3s ease;
+		box-shadow: 0 0 10px rgba(34, 197, 94, 0.5);
 	}
 </style>

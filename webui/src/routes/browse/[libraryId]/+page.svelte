@@ -147,6 +147,12 @@
 					<!-- Back Button -->
 					<BackButton href="/" label="Home" />
 
+					<!-- Scanner Panel -->
+					{#if selectedLibraryId}
+						{@const library = allLibraries.find(l => l.id === selectedLibraryId)}
+						<LibraryScannerPanel libraryId={selectedLibraryId} libraryName={library?.name || 'Library'} />
+					{/if}
+
 					<!-- Library Header with Controls -->
 					<div class="library-header">
 						<div>
@@ -183,11 +189,6 @@
 							</button>
 						</div>
 					</div>
-
-					<!-- Scanner Panel -->
-					{#if selectedLibraryId}
-						<LibraryScannerPanel libraryId={selectedLibraryId} />
-					{/if}
 
 					<!-- Series Section -->
 					{#if displayedSeries.length > 0}

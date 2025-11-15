@@ -291,7 +291,7 @@
 
 	// Exit reader
 	function exitReader() {
-		goto(`/comic/${libraryId}/${comicId}`);
+		goto(`/comic/${libraryId}/${comicId}`, { replaceState: true });
 	}
 
 	// Event handlers

@@ -21,6 +21,19 @@
 	let bulkResults = null;
 	let isBulkScanning = false;
 
+	// Library scan state
+	let selectedLibraryToScan = null;
+	let libraryScanOptions = {
+		overwrite: false,
+		rescanExisting: false,
+		confidenceThreshold: null
+	};
+	let isLibraryScanning = false;
+	let libraryScanResult = null;
+	let libraryScanError = null;
+	let scanProgress = { scanned: 0, total: 0 };
+	let progressInterval = null;
+
 	// Configuration modal state
 	let showConfigModal = false;
 	let configLibrary = null;
@@ -150,6 +163,108 @@
 		} catch (err) {
 			console.error('Bulk scan failed:', err);
 			isBulkScanning = false;
+		}
+	}
+
+	async function pollScanProgress(libraryId) {
+		try {
+			const response = await fetch(`/v2/scanners/scan/library/${libraryId}/progress`);
+			if (response.ok) {
+				const progress = await response.json();
+				console.log('[SCAN PROGRESS]', progress);
+				scanProgress = {
+					scanned: progress.scanned,
+					total: progress.total
+				};
+				return progress.in_progress;
+			} else {
+				console.error('Progress endpoint returned:', response.status, response.statusText);
+			}
+		} catch (err) {
+			console.error('Failed to poll progress:', err);
+		}
+		return false;
+	}
+
+	async function runLibraryScan() {
+		if (!selectedLibraryToScan) {
+			libraryScanError = 'Please select a library to scan';
+			return;
+		}
+
+		const library = libraryConfigs.find(l => l.library_id === selectedLibraryToScan);
+		if (!library?.primary_scanner) {
+			libraryScanError = 'Selected library does not have a scanner configured';
+			return;
+		}
+
+		if (!confirm(`Scan all comics in library "${library.library_name}"?\n\nThis may take a while for large libraries.`)) {
+			return;
+		}
+
+		try {
+			isLibraryScanning = true;
+			libraryScanError = null;
+			libraryScanResult = null;
+			scanProgress = { scanned: 0, total: 0 };
+
+			// Start the scan request - this now returns immediately
+			const response = await fetch('/v2/scanners/scan/library', {
+				method: 'POST',
+				headers: { 'Content-Type': 'application/json' },
+				body: JSON.stringify({
+					library_id: selectedLibraryToScan,
+					overwrite: libraryScanOptions.overwrite,
+					rescan_existing: libraryScanOptions.rescanExisting,
+					confidence_threshold: libraryScanOptions.confidenceThreshold
+				})
+			});
+
+			if (!response.ok) {
+				const errorData = await response.json();
+				throw new Error(errorData.detail || 'Library scan failed to start');
+			}
+
+			const startResult = await response.json();
+			if (startResult.status !== 'started') {
+				throw new Error('Failed to start library scan');
+			}
+
+			// Wait a bit for backend to initialize, then start polling
+			await new Promise(resolve => setTimeout(resolve, 500));
+
+			// Start polling for progress
+			progressInterval = setInterval(async () => {
+				const stillInProgress = await pollScanProgress(selectedLibraryToScan);
+				if (!stillInProgress && progressInterval) {
+					clearInterval(progressInterval);
+					progressInterval = null;
+
+					// Scan completed - set final results
+					libraryScanResult = {
+						total_comics: scanProgress.total,
+						scanned: scanProgress.scanned,
+						failed: 0,
+						skipped: 0
+					};
+
+					isLibraryScanning = false;
+
+					// Clear progress on backend
+					await fetch(`/v2/scanners/scan/library/${selectedLibraryToScan}/progress`, {
+						method: 'DELETE'
+					});
+				}
+			}, 500); // Poll every 500ms
+
+		} catch (err) {
+			console.error('Library scan failed:', err);
+			libraryScanError = err.message;
+			if (progressInterval) {
+				clearInterval(progressInterval);
+				progressInterval = null;
+			}
+			isLibraryScanning = false;
 		}
 	}
 
@@ -353,6 +468,163 @@
 					{/each}
 				</div>
 			{/if}
+		</Card>
+
+		<!-- Library-Wide Scanning -->
+		<Card class="mb-6">
+			<h2 class="text-xl font-semibold mb-4 flex items-center gap-2 text-dark-text">
+				<Scan class="w-5 h-5" />
+				Scan Entire Library
+			</h2>
+			<p class="text-sm text-dark-text-secondary mb-4">
+				Scan all comics in a library for metadata. This may take a while for large libraries.
+			</p>
+			<div class="space-y-4">
+				<div>
+					<label class="block text-sm font-medium text-dark-text mb-3">
+						Select Library
+					</label>
+					<div class="grid gap-3 md:grid-cols-2 lg:grid-cols-3">
+						{#each libraryConfigs as config}
+							<button
+								on:click={() => selectedLibraryToScan = config.library_id}
+								class="library-card {selectedLibraryToScan === config.library_id ? 'library-card-selected' : ''}"
+							>
+								<div class="flex items-start justify-between">
+									<div class="flex-1 min-w-0">
+										<h3 class="font-medium text-dark-text truncate">{config.library_name}</h3>
+										<p class="text-xs text-dark-text-secondary mt-1 truncate">{config.library_path}</p>
+									</div>
+									{#if selectedLibraryToScan === config.library_id}
+										<CheckCircle class="w-5 h-5 text-accent-orange flex-shrink-0 ml-2" />
+									{/if}
+								</div>
+								<div class="mt-2 pt-2 border-t border-gray-700">
+									{#if config.primary_scanner}
+										<span class="text-xs text-accent-blue">Scanner: {config.primary_scanner}</span>
+									{:else}
+										<span class="text-xs text-status-warning">No scanner configured</span>
+									{/if}
+								</div>
+							</button>
+						{/each}
+					</div>
+				</div>
+
+				<div class="border border-gray-700 rounded-lg p-4 bg-dark-bg-secondary">
+					<h3 class="text-sm font-medium text-dark-text mb-3">Scan Options</h3>
+					<div class="space-y-2">
+						<label class="flex items-center gap-2 text-sm text-dark-text cursor-pointer">
+							<input
+								type="checkbox"
+								bind:checked={libraryScanOptions.overwrite}
+								class="rounded border-gray-700 bg-dark-bg-tertiary text-accent-orange focus:ring-accent-orange focus:ring-offset-dark-bg"
+							/>
+							<span>Overwrite existing metadata</span>
+						</label>
+						<label class="flex items-center gap-2 text-sm text-dark-text cursor-pointer">
+							<input
+								type="checkbox"
+								bind:checked={libraryScanOptions.rescanExisting}
+								class="rounded border-gray-700 bg-dark-bg-tertiary text-accent-orange focus:ring-accent-orange focus:ring-offset-dark-bg"
+							/>
+							<span>Rescan already scanned comics</span>
+						</label>
+						<div>
+							<label class="block text-sm text-dark-text mb-1">
+								Custom confidence threshold (optional, 0-1)
+							</label>
+							<input
+								type="number"
+								min="0"
+								max="1"
+								step="0.1"
+								bind:value={libraryScanOptions.confidenceThreshold}
+								placeholder="Use library default"
+								class="w-full border border-gray-700 bg-dark-bg-tertiary text-dark-text rounded-lg px-3 py-2 focus:border-accent-orange focus:ring-2 focus:ring-accent-orange focus:ring-offset-2 focus:ring-offset-dark-bg transition-all"
+							/>
+						</div>
+					</div>
+				</div>
+
+				<button
+					on:click={runLibraryScan}
+					disabled={isLibraryScanning || !selectedLibraryToScan}
+					class="px-4 py-2 bg-accent-orange text-white rounded-lg hover:bg-accent-orange-hover disabled:bg-gray-600 disabled:cursor-not-allowed flex items-center gap-2 transition-all duration-200 shadow-sm hover:shadow-md"
+				>
+					{#if isLibraryScanning}
+						<div class="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
+						Scanning Library...
+					{:else}
+						<Scan class="w-4 h-4" />
+						Scan Library
+					{/if}
+				</button>
+
+				{#if isLibraryScanning}
+					<div class="scan-progress-container">
+						<div class="flex justify-between items-center mb-2">
+							<span class="text-sm font-medium text-dark-text">
+								{#if scanProgress.total > 0}
+									Scanning library... ({scanProgress.scanned} / {scanProgress.total} comics)
+								{:else}
+									Preparing scan...
+								{/if}
+							</span>
+							{#if scanProgress.total > 0}
+								<span class="text-sm text-dark-text-secondary">
+									{Math.round((scanProgress.scanned / scanProgress.total) * 100)}%
+								</span>
+							{/if}
+						</div>
+						<div class="progress-bar-wrapper">
+							<div
+								class="progress-bar-fill"
+								style="width: {scanProgress.total > 0 ? (scanProgress.scanned / scanProgress.total * 100) : 0}%"
+							></div>
+						</div>
+					</div>
+				{/if}
+
+				{#if libraryScanError}
+					<div class="bg-red-950 border border-red-800 rounded-lg p-4 flex items-start gap-3">
+						<XCircle class="w-5 h-5 text-status-error flex-shrink-0 mt-0.5" />
+						<div>
+							<p class="font-medium text-red-200">Library Scan Failed</p>
+							<p class="text-sm text-red-300 mt-1">{libraryScanError}</p>
+						</div>
+					</div>
+				{/if}
+
+				{#if libraryScanResult}
+					<div class="bg-green-950 border border-green-800 rounded-lg p-4">
+						<div class="flex items-start gap-3">
+							<CheckCircle class="w-5 h-5 text-status-success flex-shrink-0 mt-0.5" />
+							<div class="flex-1">
+								<p class="font-medium text-green-200 mb-3">Library Scan Complete!</p>
+								<div class="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
+									<div>
+										<span class="text-dark-text-secondary block">Total Comics in Library</span>
+										<span class="text-lg font-bold text-green-200">{libraryScanResult.total_comics}</span>
+									</div>
+									<div>
+										<span class="text-dark-text-secondary block">Successfully Scanned</span>
+										<span class="text-lg font-bold text-green-200">{libraryScanResult.scanned}</span>
+									</div>
+									<div>
+										<span class="text-dark-text-secondary block">Failed to Scan</span>
+										<span class="text-lg font-bold text-yellow-200">{libraryScanResult.failed}</span>
+									</div>
+									<div>
+										<span class="text-dark-text-secondary block">Skipped</span>
+										<span class="text-lg font-bold text-gray-300">{libraryScanResult.skipped}</span>
+									</div>
+								</div>
+							</div>
+						</div>
+					</div>
+				{/if}
+			</div>
 		</Card>
 
 		<!-- Test Scanner -->
@@ -702,3 +974,53 @@
 		</div>
 	</div>
 {/if}
+
+<style>
+	.library-card {
+		text-align: left;
+		padding: 1rem;
+		border: 2px solid var(--color-gray-700, #374151);
+		background: var(--color-dark-bg-tertiary, #1f2937);
+		border-radius: 8px;
+		transition: all 0.2s;
+		cursor: pointer;
+	}
+
+	.library-card:hover {
+		border-color: var(--color-gray-600, #4b5563);
+		background: var(--color-gray-800, #1f2937);
+	}
+
+	.library-card-selected {
+		border-color: var(--color-accent-orange, #ff6740);
+		background: rgba(255, 103, 64, 0.1);
+	}
+
+	.library-card-selected:hover {
+		border-color: var(--color-accent-orange, #ff6740);
+		background: rgba(255, 103, 64, 0.15);
+	}
+
+	.scan-progress-container {
+		padding: 1rem;
+		background: rgba(0, 0, 0, 0.2);
+		border: 1px solid var(--color-gray-700, #374151);
+		border-radius: 8px;
+	}
+
+	.progress-bar-wrapper {
+		width: 100%;
+		height: 8px;
+		background: rgba(255, 255, 255, 0.1);
+		border-radius: 4px;
+		overflow: hidden;
+	}
+
+	.progress-bar-fill {
+		height: 100%;
+		background: linear-gradient(90deg, #ff6740 0%, #ff4520 100%);
+		border-radius: 4px;
+		transition: width 0.3s ease;
+		box-shadow: 0 0 10px rgba(255, 103, 64, 0.5);
+	}
+</style>

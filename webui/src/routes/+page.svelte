@@ -9,7 +9,7 @@
 	import { getLibraries, getSeries, getContinueReading, getLibrariesSeriesTree } from '$lib/api/libraries';
 	import { searchComics } from '$lib/api/search';
 	import { BookOpen, Library, TrendingUp, Grid, List, SlidersHorizontal } from 'lucide-svelte';
-	import { navigationContext } from '$lib/stores/library';
+	import { navigationContext, currentFilterStore } from '$lib/stores/library';
 	import { searchStore } from '$lib/stores/search';
 	import { preferencesStore } from '$lib/stores/preferences';
 
@@ -25,7 +25,7 @@
 	let isLoadingMore = false;
 	let error = null;
 	let seriesTree = [];
-	let currentFilter = null;
+	let currentFilter = $currentFilterStore;
 	let searchQuery = '';
 	let searchResults = [];
 	let hasMoreSeries = true;
@@ -52,6 +52,12 @@
 
 	onMount(async () => {
 		await loadHomeData();
+
+		// Restore filter from persistent store if present
+		if ($currentFilterStore) {
+			console.log('[Home] Restoring filter from store:', $currentFilterStore);
+			await restoreFilter($currentFilterStore);
+		}
 
 		// Restore search from URL if present
 		if (typeof window !== 'undefined') {
@@ -181,6 +187,8 @@
 		const { type, libraryId, folderId, folderName, comicId, libraryName } = event.detail;
 
 		currentFilter = event.detail;
+		// Persist filter to localStorage
+		currentFilterStore.set(event.detail);
 
 		// Update navigation context for continue reading filtering
 		if (type === 'all') {
@@ -211,9 +219,47 @@
 
 	function resetFilter() {
 		currentFilter = null;
+		// Clear persisted filter
+		currentFilterStore.set(null);
 		navigationContext.set({ type: 'all' });
 		displayedSeries = allSeries.slice(0, seriesPageSize);
 		hasMoreSeries = allSeries.length > seriesPageSize;
+	}
+
+	async function restoreFilter(filter) {
+		if (!filter) return;
+
+		console.log('[Home] Restoring filter:', filter);
+		currentFilter = filter;
+
+		// Apply the filter based on its type
+		if (filter.type === 'all') {
+			navigationContext.set({ type: 'all', seriesNames: [] });
+			displayedSeries = allSeries.slice(0, seriesPageSize);
+			hasMoreSeries = allSeries.length > seriesPageSize;
+		} else if (filter.type === 'library') {
+			const librarySeries = allSeries.filter(s => s.libraryId === filter.libraryId);
+			navigationContext.set({
+				type: 'library',
+				libraryId: filter.libraryId,
+				libraryName: filter.libraryName,
+				seriesNames: librarySeries.map(s => s.series_name)
+			});
+			displayedSeries = librarySeries.slice(0, seriesPageSize);
+			hasMoreSeries = librarySeries.length > seriesPageSize;
+		} else if (filter.type === 'folder') {
+			const librarySeries = allSeries.filter(s =>
+				s.libraryId === filter.libraryId && s.series_name === filter.folderName
+			);
+			navigationContext.set({
+				type: 'folder',
+				libraryId: filter.libraryId,
+				folderName: filter.folderName,
+				seriesNames: librarySeries.map(s => s.series_name)
+			});
+			displayedSeries = librarySeries.slice(0, seriesPageSize);
+			hasMoreSeries = librarySeries.length > seriesPageSize;
+		}
 	}
 
 	async function loadMoreSeries() {
