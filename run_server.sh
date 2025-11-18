@@ -107,6 +107,11 @@ if [ ! -f "config.yml" ]; then
 fi
 
 echo ""
+echo "Initializing database..."
+python src/init_db.py
+echo -e "${GREEN}✓ Database initialized${NC}"
+
+echo ""
 echo "Starting YACLib Enhanced Server..."
 echo ""
 

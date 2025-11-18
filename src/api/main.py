@@ -9,7 +9,7 @@ import logging
 from contextlib import asynccontextmanager
 from pathlib import Path
 
-from fastapi import FastAPI, Request
+from fastapi import FastAPI, Request, APIRouter
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import JSONResponse
@@ -48,7 +48,8 @@ async def lifespan(app: FastAPI):
     logger.info(f"Database: {db_path}")
 
     db = Database(db_path, echo=config.database.echo)
-    db.init_db()
+    # Note: Database schema initialization is handled by init_db.py script
+    # which must be run before starting the server (see run_server.sh)
 
     # Store in app state
     app.state.db = db
@@ -152,12 +153,12 @@ async def server_info():
 # API Routers
 # ============================================================================
 
-from .routers import legacy_v1, libraries, api_v2, scanners
+from .routers import legacy_v1, api_v2, scanners, libraries, user_interactions
 
 # Legacy API v1 (YACReader compatible - plain text format)
 app.include_router(legacy_v1.router, prefix="/library", tags=["Legacy API v1"])
 
-# API v2 (YACReader compatible - JSON format)
+# API v2 (YACReader compatible - JSON format) - mounted at /v2 for compatibility
 app.include_router(api_v2.router, tags=["API v2"])
 
 # Modern JSON API (Internal use)
@@ -165,6 +166,9 @@ app.include_router(libraries.router, prefix="/api/v1/libraries", tags=["Librarie
 
 # Scanner API (Metadata scanning) - Part of v2 enhanced API
 app.include_router(scanners.router, prefix="/v2", tags=["Scanners"])
+
+# User Interactions API (New features)
+app.include_router(user_interactions.router, prefix="/api/v2", tags=["User Interactions"])
 
 # TODO: Add more routers
 # from .routers import comics, reading

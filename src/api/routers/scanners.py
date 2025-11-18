@@ -798,25 +798,13 @@ async def test_scanner(scanner_name: str, query: str):
     if scanner_name not in manager.get_available_scanners():
         raise HTTPException(status_code=404, detail=f"Scanner '{scanner_name}' not found")
 
-    # For now, we'll use the configured library for this scanner
-    # TODO: Allow direct scanner invocation
-    configured = manager.get_configured_libraries()
-    library_type = None
-
-    for lib in configured:
-        lib_config = manager.get_library_config(lib)
-        if lib_config and lib_config[0].scanner_class({}).source_name == scanner_name:
-            library_type = lib
-            break
-
-    if not library_type:
-        raise HTTPException(
-            status_code=400,
-            detail=f"Scanner '{scanner_name}' not configured for any library"
-        )
+    # Instantiate the scanner class directly
+    scanner_class = manager._available_scanners[scanner_name]
+    scanner_instance = scanner_class()
 
     try:
-        result, candidates = manager.scan(library_type, query)
+        # Use default confidence threshold for testing
+        result, candidates = scanner_instance.scan(query, confidence_threshold=0.4)
 
         return {
             "scanner": scanner_name,

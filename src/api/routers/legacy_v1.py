@@ -91,19 +91,17 @@ async def list_libraries(request: Request):
     db = request.app.state.db
 
     with db.get_session() as session:
-        libraries = []
-        # For now, we'll use hardcoded library for testing
-        # In production, this would query the database
+        # Get all libraries
+        from ...database import get_all_libraries
+        libs = get_all_libraries(session)
+        
         libraries_text = "type:libraries\ncode:0\n\n"
+        
+        for lib in libs:
+            libraries_text += f"library:{lib.name}\n"
+            libraries_text += f"id:{lib.id}\n"
+            libraries_text += f"path:{lib.path}\n\n"
 
-        # TODO: Get from database
-        # libs = get_all_libraries(session)
-        # for lib in libs:
-        #     libraries_text += f"library:{lib.name}\n"
-        #     libraries_text += f"id:{lib.id}\n"
-        #     libraries_text += f"path:{lib.path}\n\n"
-
-        # For now, return empty library list
         return PlainTextResponse(format_v1_response(libraries_text))
 
 
@@ -214,9 +212,31 @@ async def get_folder_content(
             # Newest first
             comics_list.sort(key=lambda c: c.created_at, reverse=True)
         elif sort == "recently_read":
-            # TODO: Sort by last_read_at from reading_progress
-            # For now, fall back to date_added
-            comics_list.sort(key=lambda c: c.created_at, reverse=True)
+            # Sort by last_read_at from reading_progress
+            user_id = get_current_user_id(request)
+            if user_id:
+                user = get_user_by_id(session, user_id)
+            else:
+                user = get_user_by_username(session, 'admin')
+            
+            if user:
+                # Get reading progress for all comics in this folder
+                comic_ids = [c.id for c in comics_list]
+                from ...database.models import ReadingProgress
+                progress_map = {}
+                if comic_ids:
+                    progress_records = session.query(ReadingProgress).filter(
+                        ReadingProgress.user_id == user.id,
+                        ReadingProgress.comic_id.in_(comic_ids)
+                    ).all()
+                    for p in progress_records:
+                        progress_map[p.comic_id] = p.last_read_at
+                
+                # Sort by last_read_at (descending), then date_added
+                comics_list.sort(key=lambda c: (progress_map.get(c.id, 0), c.created_at), reverse=True)
+            else:
+                # Fallback if no user
+                comics_list.sort(key=lambda c: c.created_at, reverse=True)
 
         # Output folders first (always), then comics
         for folder in child_folders:
