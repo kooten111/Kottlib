@@ -35,6 +35,27 @@
 	let searchDebounceTimer;
 	let showSizeSlider = false;
 
+	// PERFORMANCE OPTIMIZATION: Cache for tree filtering
+	let treeFilterCache = new Map();
+	let filterDebounceTimer;
+
+	// React to filter store changes - sync currentFilter with store
+	$: if (!isLoading) {
+		const filterChanged = JSON.stringify(currentFilter) !== JSON.stringify($currentFilterStore);
+		if (filterChanged) {
+			console.log('[Home] Filter store changed from', currentFilter, 'to', $currentFilterStore);
+			if ($currentFilterStore === null && currentFilter !== null) {
+				// Filter was cleared externally (e.g., from Navbar)
+				currentFilter = null;
+				navigationContext.set({ type: 'all' });
+				displayedSeries = allSeries.slice(0, seriesPageSize);
+				hasMoreSeries = allSeries.length > seriesPageSize;
+			} else if ($currentFilterStore !== null) {
+				restoreFilter($currentFilterStore);
+			}
+		}
+	}
+
 	// React to search store changes with debounce (increased from 300ms to 500ms)
 	$: if (!isLoading) {
 		const newQuery = $searchStore.query || '';
@@ -67,6 +88,16 @@
 				searchQuery = queryParam;
 				await handleSearch(queryParam);
 			}
+		}
+
+		// PERFORMANCE OPTIMIZATION: Load remaining libraries in background
+		// after initial page is interactive
+		if (data?.isPartialLoad && libraries.length > 1) {
+			console.log('[Home] Starting background load of remaining libraries');
+			// Small delay to ensure page is interactive first
+			setTimeout(() => {
+				loadRemainingLibraries();
+			}, 100);
 		}
 	});
 
@@ -181,6 +212,41 @@
 			error = err.message;
 			isLoading = false;
 		}
+	}
+
+	// PERFORMANCE OPTIMIZATION: Load remaining libraries in background
+	async function loadRemainingLibraries() {
+		const remainingLibs = libraries.slice(1);
+		console.log(`[Home] Loading ${remainingLibs.length} remaining libraries in background`);
+
+		// Load libraries one at a time to avoid overwhelming the browser
+		for (const lib of remainingLibs) {
+			try {
+				const [contReading, series] = await Promise.all([
+					getContinueReading(lib.id, 50).catch(() => []),
+					getSeries(lib.id, 'recent').catch(() => [])
+				]);
+
+				// Merge into existing data
+				const newContinueReading = contReading.map(c => ({ ...c, libraryId: lib.id }));
+				const newSeries = series.map(s => ({ ...s, libraryId: lib.id }));
+
+				continueReading = [...continueReading, ...newContinueReading];
+				allSeries = [...allSeries, ...newSeries];
+
+				// Update display if we're showing all libraries
+				if (!currentFilter || currentFilter.type === 'all') {
+					displayedSeries = allSeries.slice(0, Math.max(displayedSeries.length, seriesPageSize));
+					hasMoreSeries = allSeries.length > displayedSeries.length;
+				}
+
+				console.log(`[Home] Loaded library ${lib.id}: +${newSeries.length} series, +${newContinueReading.length} continue reading`);
+			} catch (err) {
+				console.error(`[Home] Failed to load library ${lib.id}:`, err);
+			}
+		}
+
+		console.log('[Home] Background loading complete. Total series:', allSeries.length);
 	}
 
 	function handleTreeFilter(event) {
@@ -384,17 +450,39 @@
 		}
 	}
 
+	// PERFORMANCE OPTIMIZATION: Debounced and cached tree filtering
 	function filterSidebarTree() {
+		// Debounce to avoid excessive filtering during rapid searches
+		clearTimeout(filterDebounceTimer);
+		filterDebounceTimer = setTimeout(() => {
+			performTreeFiltering();
+		}, 50);
+	}
+
+	function performTreeFiltering() {
 		if (!searchQuery || !searchResults.length) {
 			filteredSeriesTree = seriesTree;
+			treeFilterCache.clear();
 			return;
 		}
 
-		// Get unique series names from search results
+		// Create cache key from search query and result count
+		const cacheKey = `${searchQuery}_${searchResults.length}`;
+
+		// Check cache first
+		if (treeFilterCache.has(cacheKey)) {
+			console.log('[Home] Tree filter cache hit for:', cacheKey);
+			filteredSeriesTree = treeFilterCache.get(cacheKey);
+			return;
+		}
+
+		console.log('[Home] Filtering tree for:', searchQuery);
+
+		// Use Set for O(1) lookups instead of array operations
 		const matchingSeriesNames = new Set(searchResults.map(s => s.series_name));
 
 		// Filter tree to only show libraries/folders that contain matching series
-		filteredSeriesTree = seriesTree.map(library => {
+		const filtered = seriesTree.map(library => {
 			const filteredChildren = filterTreeNodesBySearch(library.children || [], matchingSeriesNames);
 
 			if (filteredChildren.length > 0) {
@@ -405,6 +493,16 @@
 			}
 			return null;
 		}).filter(Boolean);
+
+		// Cache the result (limit cache size to prevent memory issues)
+		if (treeFilterCache.size > 20) {
+			// Remove oldest entry
+			const firstKey = treeFilterCache.keys().next().value;
+			treeFilterCache.delete(firstKey);
+		}
+		treeFilterCache.set(cacheKey, filtered);
+
+		filteredSeriesTree = filtered;
 	}
 
 	function filterTreeNodesBySearch(nodes, matchingSeriesNames) {
@@ -658,7 +756,13 @@
 													id: series.first_comic_id,
 													title: series.series_name,
 													hash: series.cover_hash,
-													itemCount: series.total_issues
+													itemCount: series.total_issues,
+													writer: series.writer,
+													artist: series.artist,
+													publisher: series.publisher,
+													year: series.year,
+													genre: series.genre,
+													synopsis: series.synopsis
 												}}
 												libraryId={series.libraryId}
 												showProgress={false}

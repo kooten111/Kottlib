@@ -31,7 +31,14 @@
 	let isLibraryScanning = false;
 	let libraryScanResult = null;
 	let libraryScanError = null;
-	let scanProgress = { scanned: 0, total: 0 };
+	let scanProgress = {
+		processed: 0,
+		scanned: 0,
+		total: 0,
+		failed: 0,
+		skipped: 0,
+		error: null
+	};
 	let progressInterval = null;
 
 	// Configuration modal state
@@ -173,17 +180,21 @@
 				const progress = await response.json();
 				console.log('[SCAN PROGRESS]', progress);
 				scanProgress = {
-					scanned: progress.scanned,
-					total: progress.total
+					processed: progress.processed ?? progress.scanned ?? 0,
+					scanned: progress.scanned ?? 0,
+					total: progress.total ?? 0,
+					failed: progress.failed ?? 0,
+					skipped: progress.skipped ?? 0,
+					error: progress.error ?? null
 				};
-				return progress.in_progress;
+				return progress;
 			} else {
 				console.error('Progress endpoint returned:', response.status, response.statusText);
 			}
 		} catch (err) {
 			console.error('Failed to poll progress:', err);
 		}
-		return false;
+		return null;
 	}
 
 	async function runLibraryScan() {
@@ -206,7 +217,14 @@
 			isLibraryScanning = true;
 			libraryScanError = null;
 			libraryScanResult = null;
-			scanProgress = { scanned: 0, total: 0 };
+			scanProgress = {
+				processed: 0,
+				scanned: 0,
+				total: 0,
+				failed: 0,
+				skipped: 0,
+				error: null
+			};
 
 			// Start the scan request - this now returns immediately
 			const response = await fetch('/v2/scanners/scan/library', {
@@ -235,18 +253,27 @@
 
 			// Start polling for progress
 			progressInterval = setInterval(async () => {
-				const stillInProgress = await pollScanProgress(selectedLibraryToScan);
-				if (!stillInProgress && progressInterval) {
+				const progress = await pollScanProgress(selectedLibraryToScan);
+				if (!progress) {
+					return;
+				}
+
+				if (!progress.in_progress && progressInterval) {
 					clearInterval(progressInterval);
 					progressInterval = null;
 
-					// Scan completed - set final results
-					libraryScanResult = {
-						total_comics: scanProgress.total,
-						scanned: scanProgress.scanned,
-						failed: 0,
-						skipped: 0
-					};
+					if (progress.error) {
+						libraryScanError = progress.error;
+						libraryScanResult = null;
+					} else {
+						libraryScanResult = {
+							total_comics: scanProgress.total,
+							scanned: scanProgress.scanned,
+							failed: scanProgress.failed,
+							skipped: scanProgress.skipped,
+							processed: scanProgress.processed
+						};
+					}
 
 					isLibraryScanning = false;
 
@@ -566,22 +593,27 @@
 						<div class="flex justify-between items-center mb-2">
 							<span class="text-sm font-medium text-dark-text">
 								{#if scanProgress.total > 0}
-									Scanning library... ({scanProgress.scanned} / {scanProgress.total} comics)
+									Scanning library... ({scanProgress.processed} / {scanProgress.total} comics)
 								{:else}
 									Preparing scan...
 								{/if}
 							</span>
 							{#if scanProgress.total > 0}
 								<span class="text-sm text-dark-text-secondary">
-									{Math.round((scanProgress.scanned / scanProgress.total) * 100)}%
+									{Math.round((scanProgress.processed / scanProgress.total) * 100)}%
 								</span>
 							{/if}
 						</div>
 						<div class="progress-bar-wrapper">
 							<div
 								class="progress-bar-fill"
-								style="width: {scanProgress.total > 0 ? (scanProgress.scanned / scanProgress.total * 100) : 0}%"
+								style="width: {scanProgress.total > 0 ? (scanProgress.processed / scanProgress.total * 100) : 0}%"
 							></div>
+						</div>
+						<div class="mt-2 text-xs text-dark-text-secondary flex flex-wrap gap-3">
+							<span>Matched: {scanProgress.scanned}</span>
+							<span>Failed: {scanProgress.failed}</span>
+							<span>Skipped: {scanProgress.skipped}</span>
 						</div>
 					</div>
 				{/if}
@@ -635,10 +667,11 @@
 			</h2>
 			<div class="space-y-4">
 				<div>
-					<label class="block text-sm font-medium text-dark-text mb-2">
+					<label for="test-library-select" class="block text-sm font-medium text-dark-text mb-2">
 						Library
 					</label>
 					<select
+						id="test-library-select"
 						bind:value={testLibraryId}
 						class="w-full border border-gray-700 bg-dark-bg-tertiary text-dark-text rounded-lg px-3 py-2 focus:border-accent-orange focus:ring-2 focus:ring-accent-orange focus:ring-offset-2 focus:ring-offset-dark-bg transition-all"
 					>
@@ -663,10 +696,11 @@
 				</div>
 
 				<div>
-					<label class="block text-sm font-medium text-dark-text mb-2">
+					<label for="test-filename-input" class="block text-sm font-medium text-dark-text mb-2">
 						Filename to Scan
 					</label>
 					<input
+						id="test-filename-input"
 						type="text"
 						bind:value={testQuery}
 						placeholder="[Artist] Comic Title [English].cbz"
@@ -756,10 +790,11 @@
 			<h2 class="text-xl font-semibold mb-4 text-dark-text">Bulk Scan</h2>
 			<div class="space-y-4">
 				<div>
-					<label class="block text-sm font-medium text-dark-text mb-2">
+					<label for="bulk-filenames-textarea" class="block text-sm font-medium text-dark-text mb-2">
 						Filenames (one per line)
 					</label>
 					<textarea
+						id="bulk-filenames-textarea"
 						bind:value={bulkQueries}
 						placeholder="[Artist1] Title1.cbz&#10;[Artist2] Title2.cbz&#10;[Artist3] Title3.cbz"
 						rows="5"
@@ -842,10 +877,11 @@
 			<div class="px-6 py-4 space-y-6">
 				<!-- Primary Scanner -->
 				<div>
-					<label class="block text-sm font-medium text-dark-text mb-2">
+					<label for="config-primary-scanner" class="block text-sm font-medium text-dark-text mb-2">
 						Primary Scanner <span class="text-status-error">*</span>
 					</label>
 					<select
+						id="config-primary-scanner"
 						bind:value={configForm.primary_scanner}
 						class="w-full border border-gray-700 bg-dark-bg-tertiary text-dark-text rounded-lg px-3 py-2 focus:ring-2 focus:ring-accent-orange focus:border-accent-orange transition-all"
 					>
@@ -859,10 +895,11 @@
 
 				<!-- Confidence Threshold -->
 				<div>
-					<label class="block text-sm font-medium text-dark-text mb-2">
+					<label for="config-confidence-threshold" class="block text-sm font-medium text-dark-text mb-2">
 						Confidence Threshold: {(configForm.confidence_threshold * 100).toFixed(0)}%
 					</label>
 					<input
+						id="config-confidence-threshold"
 						type="range"
 						value={configForm.confidence_threshold}
 						on:input={(e) => configForm.confidence_threshold = parseFloat(e.target.value)}
@@ -883,10 +920,11 @@
 
 				<!-- Fallback Threshold -->
 				<div>
-					<label class="block text-sm font-medium text-dark-text mb-2">
+					<label for="config-fallback-threshold" class="block text-sm font-medium text-dark-text mb-2">
 						Fallback Threshold: {(configForm.fallback_threshold * 100).toFixed(0)}%
 					</label>
 					<input
+						id="config-fallback-threshold"
 						type="range"
 						value={configForm.fallback_threshold}
 						on:input={(e) => configForm.fallback_threshold = parseFloat(e.target.value)}
@@ -907,9 +945,9 @@
 
 				<!-- Fallback Scanners -->
 				<div>
-					<label class="block text-sm font-medium text-dark-text mb-2">
+					<span class="block text-sm font-medium text-dark-text mb-2">
 						Fallback Scanners (Optional)
-					</label>
+					</span>
 					<div class="space-y-2">
 						{#each availableScanners as scanner}
 							{#if scanner.name !== configForm.primary_scanner}

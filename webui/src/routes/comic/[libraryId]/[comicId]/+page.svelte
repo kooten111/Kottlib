@@ -8,7 +8,7 @@
 	import ScannerMetadata from '$lib/components/comic/ScannerMetadata.svelte';
 	import { getComicInfo } from '$lib/api/comics';
 	import { addFavorite, removeFavorite } from '$lib/api/favorites';
-	import { Heart, Book, Play, ArrowLeft, ArrowRight } from 'lucide-svelte';
+	import { Heart, Book, Play, ArrowLeft, ArrowRight, Library } from 'lucide-svelte';
 
 	$: libraryId = parseInt($page.params.libraryId);
 	$: comicId = parseInt($page.params.comicId);
@@ -85,6 +85,23 @@
 
 	$: readProgress = comic ? ((comic.current_page || comic.currentPage || 0) / (comic.num_pages || comic.numPages || 1)) * 100 : 0;
 	$: hasStarted = comic && (comic.current_page || comic.currentPage || 0) > 0;
+
+	// Determine series name for navigation - use series metadata or fallback to path-based series
+	$: seriesName = comic?.series || getSeriesFromPath(comic?.path || comic?.file_name);
+
+	function getSeriesFromPath(path) {
+		if (!path) return null;
+		// Extract series from path like "/Series Name/Volume 1/chapter.cbz"
+		const parts = path.split('/').filter(p => p);
+		// Return the first folder (typically the series name)
+		return parts.length > 1 ? parts[0] : null;
+	}
+
+	function handleViewSeries() {
+		if (seriesName) {
+			goto(`/series/${libraryId}/${encodeURIComponent(seriesName)}`);
+		}
+	}
 </script>
 
 <svelte:head>
@@ -106,11 +123,19 @@
 				<a href="/browse" class="btn-primary mt-4">Back to Browse</a>
 			</div>
 		{:else if comic}
-			<!-- Back Button -->
-			<button on:click={handleBack} class="back-link">
-				<ArrowLeft class="w-4 h-4" />
-				<span>Back</span>
-			</button>
+			<!-- Navigation Buttons -->
+			<div class="nav-buttons">
+				<button on:click={handleBack} class="nav-button">
+					<ArrowLeft class="w-4 h-4" />
+					<span>Back</span>
+				</button>
+				{#if seriesName}
+					<button on:click={handleViewSeries} class="nav-button">
+						<Library class="w-4 h-4" />
+						<span>View Series</span>
+					</button>
+				{/if}
+			</div>
 
 			<!-- Comic Detail Section -->
 			<div class="comic-detail">
@@ -139,7 +164,9 @@
 						{#if comic.series}
 							<div class="metadata-item">
 								<span class="metadata-label">Series:</span>
-								<span class="metadata-value">{comic.series}</span>
+								<a href="/series/{libraryId}/{encodeURIComponent(comic.series)}" class="metadata-value series-link">
+									{comic.series}
+								</a>
 							</div>
 						{/if}
 						{#if comic.volume}
@@ -266,13 +293,19 @@
 		}
 	}
 
-	.back-link {
+	.nav-buttons {
+		display: flex;
+		gap: 1rem;
+		margin-bottom: 2rem;
+		flex-wrap: wrap;
+	}
+
+	.nav-button {
 		display: inline-flex;
 		align-items: center;
 		gap: 0.5rem;
 		color: var(--color-text-secondary);
 		font-size: 0.875rem;
-		margin-bottom: 2rem;
 		transition: color 0.2s;
 		background: none;
 		border: none;
@@ -281,7 +314,7 @@
 		font-family: inherit;
 	}
 
-	.back-link:hover {
+	.nav-button:hover {
 		color: var(--color-text);
 	}
 
@@ -354,6 +387,17 @@
 
 	.metadata-value {
 		color: var(--color-text);
+	}
+
+	.series-link {
+		color: var(--color-accent);
+		text-decoration: none;
+		transition: opacity 0.2s;
+	}
+
+	.series-link:hover {
+		opacity: 0.8;
+		text-decoration: underline;
 	}
 
 	.actions {

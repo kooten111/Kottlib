@@ -1,13 +1,13 @@
 <script>
 	import { createEventDispatcher, onMount } from 'svelte';
 	import { browser } from '$app/environment';
+	import { treeExpandedNodes } from '$lib/stores/library';
 	import SeriesTreeNode from './SeriesTreeNode.svelte';
 
 	const dispatch = createEventDispatcher();
 
 	export let tree = []; // Array of library nodes from API
 
-	let expandedNodes = new Set(['libraries-root']); // Expand root by default
 	let activeNodeId = null;
 	let filteredTree = [];
 
@@ -44,34 +44,36 @@
 				try {
 					const savedSet = new Set(JSON.parse(saved));
 					// Always keep root expanded, merge with saved state
-					expandedNodes = new Set(['libraries-root', ...savedSet]);
+					treeExpandedNodes.set(new Set(['libraries-root', ...savedSet]));
 				} catch (e) {
 					console.error('Failed to load tree state:', e);
-					expandedNodes = new Set(['libraries-root']);
+					treeExpandedNodes.set(new Set(['libraries-root']));
 				}
 			}
 		}
 	});
 
 	// Save expanded state to localStorage
-	function saveExpandedState() {
+	function saveExpandedState(nodes) {
 		if (browser) {
 			localStorage.setItem(
 				'series-tree-expanded',
-				JSON.stringify([...expandedNodes])
+				JSON.stringify([...nodes])
 			);
 		}
 	}
 
 	function toggleNode(nodeId) {
-		if (expandedNodes.has(nodeId)) {
-			expandedNodes.delete(nodeId);
-		} else {
-			expandedNodes.add(nodeId);
-		}
-		// Create a new Set to trigger Svelte reactivity
-		expandedNodes = new Set(expandedNodes);
-		saveExpandedState();
+		treeExpandedNodes.update(nodes => {
+			const newNodes = new Set(nodes);
+			if (newNodes.has(nodeId)) {
+				newNodes.delete(nodeId);
+			} else {
+				newNodes.add(nodeId);
+			}
+			saveExpandedState(newNodes);
+			return newNodes;
+		});
 	}
 
 	function handleNodeClick(node, event) {
@@ -113,8 +115,8 @@
 		}
 	}
 
-	// Make isExpanded reactive by recreating it when expandedNodes changes
-	$: isExpanded = (nodeId) => expandedNodes.has(nodeId);
+	// Make isExpanded reactive by recreating it when treeExpandedNodes changes
+	$: isExpanded = (nodeId) => $treeExpandedNodes.has(nodeId);
 
 	function handleToggle(event) {
 		toggleNode(event.detail.nodeId);

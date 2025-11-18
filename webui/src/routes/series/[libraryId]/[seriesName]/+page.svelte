@@ -100,13 +100,59 @@
 			// Load series detail
 			series = await getSeriesDetail(libraryId, seriesName);
 
-			// Sort volumes by title naturally (v01, v02, v03, etc.)
+			// Sort volumes by volume number first (volumes before chapters), then by issue number
+			// Volumes have a volume number (>0), chapters have issue_number but volume=0/null
+			// When metadata is missing, detect from filename patterns
 			if (series && series.volumes) {
 				sortedVolumes = [...series.volumes].sort((a, b) => {
-					return a.title.localeCompare(b.title, undefined, {
-						numeric: true,
-						sensitivity: 'base'
-					});
+					const getSortKey = (v) => {
+						const vol = parseInt(v.volume) || 0;
+						const issue = parseInt(v.issue_number) || 0;
+						const title = (v.title || '').toLowerCase();
+
+						// If metadata exists, use it
+						if (vol > 0) {
+							// Has volume metadata - it's a volume
+							return [0, vol, issue];
+						} else if (issue > 0) {
+							// Has issue metadata but no volume - likely a chapter
+							// But check title for volume patterns first (in case metadata is incomplete)
+							const volMatch = title.match(/\bv(?:ol)?\.?\s*(\d+)/i) || title.match(/\bvolume\s+(\d+)/i);
+							if (volMatch) {
+								const volNum = parseInt(volMatch[1]);
+								return [0, volNum, 0];
+							}
+							// It's a chapter
+							return [1, issue, 0];
+						} else {
+							// No metadata - rely on filename patterns
+							// Check for volume patterns: v01, vol01, volume 1, etc.
+							const volMatch = title.match(/\bv(?:ol)?\.?\s*(\d+)/i) || title.match(/\bvolume\s+(\d+)/i);
+							if (volMatch) {
+								const volNum = parseInt(volMatch[1]);
+								return [0, volNum, 0];
+							}
+							// Check for chapter patterns: c001, ch01, chapter 1, etc.
+							const chMatch = title.match(/\bc(?:h|hapter)?\.?\s*(\d+)/i) || title.match(/\bchapter\s+(\d+)/i);
+							if (chMatch) {
+								const chNum = parseInt(chMatch[1]);
+								return [1, chNum, 0];
+							}
+							// Fallback: sort by title
+							return [2, 0, 0];
+						}
+					};
+
+					const keyA = getSortKey(a);
+					const keyB = getSortKey(b);
+
+					// Compare arrays element by element
+					for (let i = 0; i < 3; i++) {
+						if (keyA[i] !== keyB[i]) {
+							return keyA[i] - keyB[i];
+						}
+					}
+					return 0;
 				});
 
 				// Determine which volume to read next
@@ -173,7 +219,22 @@
 					</div>
 
 					<div class="series-info">
-						<h1 class="series-title">{series.display_name || series.series_name}</h1>
+						<div class="title-row">
+							<h1 class="series-title">{series.display_name || series.series_name}</h1>
+
+							<!-- Show scanner button if metadata is missing and scanner is configured -->
+							{#if scannerConfig?.primary_scanner && scannerConfig?.scan_level === 'series' && (!series.writer && !series.artist && !series.synopsis)}
+								<button
+									on:click={scanSeriesMetadata}
+									disabled={isScanning}
+									class="btn-scan-compact"
+									title="Scan for metadata"
+								>
+									<Search class="w-4 h-4" />
+									{isScanning ? 'Scanning...' : 'Get Metadata'}
+								</button>
+							{/if}
+						</div>
 
 						<div class="series-meta">
 							{#if series.writer}
@@ -264,99 +325,18 @@
 					</div>
 				</div>
 
-				<!-- Scanner Section -->
-				{#if scannerConfig?.primary_scanner && scannerConfig?.scan_level === 'series'}
-					<div class="scanner-section">
-						<div class="scanner-header">
-							<h3 class="scanner-title">Series Metadata Scanner</h3>
-							<button
-								on:click={scanSeriesMetadata}
-								disabled={isScanning}
-								class="btn-scan-series"
-							>
-								<Search class="w-4 h-4" />
-								{isScanning ? 'Scanning...' : 'Scan Metadata'}
-							</button>
-						</div>
+				<!-- Scan error/result feedback -->
+				{#if scanError}
+					<div class="scan-feedback error">
+						<X class="w-4 h-4" />
+						<span>{scanError}</span>
+					</div>
+				{/if}
 
-						{#if scanError}
-							<div class="scan-error">
-								<X class="w-4 h-4" />
-								<span>{scanError}</span>
-							</div>
-						{/if}
-
-						{#if scanResult && showMetadata}
-							<div class="scan-result">
-								<div class="result-header">
-									<div class="result-title">
-										<Check class="w-5 h-5 text-green-400" />
-										<span>Metadata Saved</span>
-									</div>
-									<div class="confidence-badge" class:high={scanResult.confidence >= 0.7}>
-										{Math.round(scanResult.confidence * 100)}% Match
-									</div>
-								</div>
-
-								<div class="fields-saved">
-									<span class="saved-label">Updated Fields:</span>
-									<span class="saved-count">{scanResult.fields_updated?.length || 0} fields</span>
-								</div>
-
-								<div class="metadata-grid">
-									{#if scanResult.metadata?.title}
-										<div class="metadata-item">
-											<span class="metadata-label">Title:</span>
-											<span class="metadata-value">{scanResult.metadata.title}</span>
-										</div>
-									{/if}
-									{#if scanResult.metadata?.writer}
-										<div class="metadata-item">
-											<span class="metadata-label">Writer:</span>
-											<span class="metadata-value">{scanResult.metadata.writer}</span>
-										</div>
-									{/if}
-									{#if scanResult.metadata?.artist}
-										<div class="metadata-item">
-											<span class="metadata-label">Artist:</span>
-											<span class="metadata-value">{scanResult.metadata.artist}</span>
-										</div>
-									{/if}
-									{#if scanResult.metadata?.genre}
-										<div class="metadata-item">
-											<span class="metadata-label">Genres:</span>
-											<span class="metadata-value">{scanResult.metadata.genre}</span>
-										</div>
-									{/if}
-									{#if scanResult.metadata?.year}
-										<div class="metadata-item">
-											<span class="metadata-label">Year:</span>
-											<span class="metadata-value">{scanResult.metadata.year}</span>
-										</div>
-									{/if}
-									{#if scanResult.metadata?.status}
-										<div class="metadata-item">
-											<span class="metadata-label">Status:</span>
-											<span class="metadata-value">{scanResult.metadata.status}</span>
-										</div>
-									{/if}
-									{#if scanResult.metadata?.description}
-										<div class="metadata-item full-width">
-											<span class="metadata-label">Description:</span>
-											<p class="metadata-description">{scanResult.metadata.description}</p>
-										</div>
-									{/if}
-									{#if scanResult.source_url}
-										<div class="metadata-item full-width">
-											<span class="metadata-label">Source:</span>
-											<a href={scanResult.source_url} target="_blank" class="metadata-link">
-												{scanResult.source_url}
-											</a>
-										</div>
-									{/if}
-								</div>
-							</div>
-						{/if}
+				{#if scanResult && showMetadata}
+					<div class="scan-feedback success">
+						<Check class="w-4 h-4" />
+						<span>Metadata updated successfully! ({Math.round(scanResult.confidence * 100)}% match)</span>
 					</div>
 				{/if}
 
@@ -439,11 +419,45 @@
 		gap: 1.5rem;
 	}
 
+	.title-row {
+		display: flex;
+		align-items: center;
+		justify-content: space-between;
+		gap: 1rem;
+	}
+
 	.series-title {
 		font-size: 2rem;
 		font-weight: 700;
 		color: var(--color-text);
 		margin: 0;
+		flex: 1;
+	}
+
+	.btn-scan-compact {
+		display: flex;
+		align-items: center;
+		gap: 0.5rem;
+		padding: 0.5rem 1rem;
+		background: rgba(96, 165, 250, 0.15);
+		color: #60a5fa;
+		border: 1px solid rgba(96, 165, 250, 0.3);
+		border-radius: 6px;
+		font-weight: 500;
+		font-size: 0.875rem;
+		cursor: pointer;
+		transition: all 0.2s;
+		flex-shrink: 0;
+	}
+
+	.btn-scan-compact:hover:not(:disabled) {
+		background: rgba(96, 165, 250, 0.25);
+		border-color: rgba(96, 165, 250, 0.5);
+	}
+
+	.btn-scan-compact:disabled {
+		opacity: 0.5;
+		cursor: not-allowed;
 	}
 
 	.series-meta {
@@ -574,168 +588,38 @@
 		gap: 1.5rem;
 	}
 
-	.scanner-section {
-		background: var(--color-secondary-bg);
-		border-radius: 12px;
-		padding: 2rem;
-		margin-bottom: 3rem;
-	}
-
-	.scanner-header {
-		display: flex;
-		justify-content: space-between;
-		align-items: center;
-		margin-bottom: 1.5rem;
-	}
-
-	.scanner-title {
-		font-size: 1.25rem;
-		font-weight: 600;
-		color: var(--color-text);
-		margin: 0;
-	}
-
-	.btn-scan-series {
+	.scan-feedback {
 		display: flex;
 		align-items: center;
-		gap: 0.5rem;
-		padding: 0.625rem 1.25rem;
-		background: rgba(96, 165, 250, 0.2);
-		color: #60a5fa;
-		border: 1px solid rgba(96, 165, 250, 0.3);
+		gap: 0.75rem;
+		padding: 1rem 1.5rem;
 		border-radius: 8px;
-		font-weight: 600;
 		font-size: 0.875rem;
-		cursor: pointer;
-		transition: all 0.2s;
+		margin-bottom: 2rem;
+		animation: slideDown 0.3s ease-out;
 	}
 
-	.btn-scan-series:hover:not(:disabled) {
-		background: rgba(96, 165, 250, 0.3);
-		border-color: rgba(96, 165, 250, 0.5);
-	}
-
-	.btn-scan-series:disabled {
-		opacity: 0.5;
-		cursor: not-allowed;
-	}
-
-	.scan-error {
-		display: flex;
-		align-items: center;
-		gap: 0.5rem;
-		padding: 0.75rem 1rem;
-		background: rgba(239, 68, 68, 0.2);
+	.scan-feedback.error {
+		background: rgba(239, 68, 68, 0.15);
 		color: #ef4444;
-		border-radius: 8px;
-		font-size: 0.875rem;
-		margin-bottom: 1rem;
+		border: 1px solid rgba(239, 68, 68, 0.3);
 	}
 
-	.scan-result {
-		background: rgba(0, 0, 0, 0.2);
-		border-radius: 8px;
-		padding: 1.5rem;
-	}
-
-	.result-header {
-		display: flex;
-		justify-content: space-between;
-		align-items: center;
-		margin-bottom: 1.5rem;
-		padding-bottom: 1rem;
-		border-bottom: 1px solid rgba(255, 255, 255, 0.1);
-	}
-
-	.result-title {
-		display: flex;
-		align-items: center;
-		gap: 0.5rem;
-		font-size: 1rem;
-		font-weight: 600;
-		color: var(--color-text);
-	}
-
-	.confidence-badge {
-		padding: 0.375rem 0.875rem;
-		background: rgba(251, 191, 36, 0.2);
-		color: #fbbf24;
-		border-radius: 6px;
-		font-size: 0.875rem;
-		font-weight: 600;
-	}
-
-	.confidence-badge.high {
-		background: rgba(34, 197, 94, 0.2);
+	.scan-feedback.success {
+		background: rgba(34, 197, 94, 0.15);
 		color: #22c55e;
+		border: 1px solid rgba(34, 197, 94, 0.3);
 	}
 
-	.fields-saved {
-		display: flex;
-		align-items: center;
-		gap: 0.5rem;
-		padding: 0.75rem 1rem;
-		background: rgba(34, 197, 94, 0.1);
-		border-radius: 6px;
-		margin-bottom: 1rem;
-	}
-
-	.saved-label {
-		font-size: 0.875rem;
-		color: var(--color-text-secondary);
-	}
-
-	.saved-count {
-		font-size: 0.875rem;
-		font-weight: 600;
-		color: #22c55e;
-	}
-
-	.metadata-grid {
-		display: grid;
-		grid-template-columns: 1fr 1fr;
-		gap: 1rem;
-	}
-
-	.metadata-item {
-		display: flex;
-		flex-direction: column;
-		gap: 0.25rem;
-	}
-
-	.metadata-item.full-width {
-		grid-column: 1 / -1;
-	}
-
-	.metadata-label {
-		font-size: 0.75rem;
-		font-weight: 600;
-		color: var(--color-text-secondary);
-		text-transform: uppercase;
-		letter-spacing: 0.05em;
-	}
-
-	.metadata-value {
-		color: var(--color-text);
-		font-size: 0.875rem;
-	}
-
-	.metadata-description {
-		color: var(--color-text-secondary);
-		font-size: 0.875rem;
-		line-height: 1.6;
-		margin: 0.5rem 0 0 0;
-	}
-
-	.metadata-link {
-		color: #60a5fa;
-		font-size: 0.875rem;
-		text-decoration: none;
-		word-break: break-all;
-	}
-
-	.metadata-link:hover {
-		text-decoration: underline;
+	@keyframes slideDown {
+		from {
+			opacity: 0;
+			transform: translateY(-10px);
+		}
+		to {
+			opacity: 1;
+			transform: translateY(0);
+		}
 	}
 
 	@media (max-width: 768px) {
@@ -750,28 +634,24 @@
 			margin: 0 auto;
 		}
 
+		.title-row {
+			flex-direction: column;
+			align-items: flex-start;
+			gap: 0.75rem;
+		}
+
 		.series-title {
 			font-size: 1.5rem;
+		}
+
+		.btn-scan-compact {
+			width: 100%;
+			justify-content: center;
 		}
 
 		.volumes-grid {
 			grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
 			gap: 1rem;
-		}
-
-		.scanner-header {
-			flex-direction: column;
-			align-items: flex-start;
-			gap: 1rem;
-		}
-
-		.btn-scan-series {
-			width: 100%;
-			justify-content: center;
-		}
-
-		.metadata-grid {
-			grid-template-columns: 1fr;
 		}
 	}
 </style>

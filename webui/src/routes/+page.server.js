@@ -37,59 +37,29 @@ export async function load({ fetch: svelteKitFetch }) {
 				libraries: [],
 				seriesTree: [],
 				firstLibrary: null,
-				continueReading: [],
-				recentSeries: []
+				isPartialLoad: false
 			};
 		}
 
-		// Load data from ALL libraries
-		const [continueReadingResults, allSeriesResults] = await Promise.all([
-			// Continue reading from all libraries
-			Promise.all(
-				libraries.map(async (lib) => {
-					try {
-						const comics = await customFetch(`/library/${lib.id}/reading?limit=50`);
-						return comics ? comics.map(comic => ({ ...comic, libraryId: lib.id })) : [];
-					} catch {
-						return [];
-					}
-				})
-			),
-			// All series from all libraries
-			Promise.all(
-				libraries.map(async (lib) => {
-					try {
-						const series = await customFetch(`/library/${lib.id}/series?sort=recent`);
-						return series ? series.map(s => ({ ...s, libraryId: lib.id })) : [];
-					} catch (err) {
-						console.error(`Failed to fetch series for library ${lib.id}:`, err);
-						return [];
-					}
-				})
-			)
+		// PERFORMANCE OPTIMIZATION: Only load FIRST library's data on SSR
+		// Remaining libraries will be loaded in background on client
+		const firstLibrary = libraries[0];
+
+		const [continueReading, recentSeries] = await Promise.all([
+			customFetch(`/library/${firstLibrary.id}/reading?limit=50`),
+			customFetch(`/library/${firstLibrary.id}/series?sort=recent&limit=100`)
 		]);
-
-		// Flatten and combine continue reading from all libraries
-		const continueReading = continueReadingResults.flat().slice(0, 20);
-
-		// Interleave series from different libraries for variety
-		const maxLength = Math.max(...allSeriesResults.map(r => r.length));
-		const allSeries = [];
-		for (let i = 0; i < maxLength; i++) {
-			for (const libraryResults of allSeriesResults) {
-				if (i < libraryResults.length) {
-					allSeries.push(libraryResults[i]);
-				}
-			}
-		}
 
 		return {
 			libraries: libraries || [],
 			seriesTree: seriesTree || [],
 			firstLibrary: {
-				continueReading: continueReading,
-				recentSeries: allSeries  // Return all series, not just 50
-			}
+				id: firstLibrary.id,
+				continueReading: continueReading ? continueReading.map(comic => ({ ...comic, libraryId: firstLibrary.id })) : [],
+				recentSeries: recentSeries ? recentSeries.map(s => ({ ...s, libraryId: firstLibrary.id })) : []
+			},
+			// Flag to indicate only first library loaded, rest need background loading
+			isPartialLoad: libraries.length > 1
 		};
 	} catch (error) {
 		console.error('Server-side data loading error:', error);
@@ -99,8 +69,7 @@ export async function load({ fetch: svelteKitFetch }) {
 			libraries: [],
 			seriesTree: [],
 			firstLibrary: null,
-			continueReading: [],
-			recentSeries: [],
+			isPartialLoad: false,
 			serverError: error.message
 		};
 	}

@@ -5,8 +5,9 @@
   "scanning_mode": "by_series",
   "api_endpoint": "https://graphql.anilist.co",
   "rate_limit": {
-    "requests_per_minute": 90,
-    "delay_between_requests": 0.7
+    "requests_per_minute": 30,
+    "delay_between_requests": 2.5,
+    "note": "AniList API is currently in degraded mode (30 req/min). Normal rate is 90 req/min with 0.7s delay."
   },
   "matching": {
     "confidence_threshold": 0.6,

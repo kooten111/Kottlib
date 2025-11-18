@@ -5,6 +5,11 @@
 		<link rel="icon" href="%sveltekit.assets%/favicon.png" />
 		<meta name="viewport" content="width=device-width, initial-scale=1" />
 		<meta name="description" content="YACLib Enhanced - Modern Comic Library Server" />
+
+		<!-- PERFORMANCE OPTIMIZATION: Resource hints for faster API connections -->
+		<link rel="preconnect" href="http://localhost:8081" crossorigin />
+		<link rel="dns-prefetch" href="http://localhost:8081" />
+
 		%sveltekit.head%
 	</head>
 	<body data-sveltekit-preload-data="hover" class="bg-dark-bg text-dark-text">

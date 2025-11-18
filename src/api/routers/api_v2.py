@@ -2047,7 +2047,8 @@ async def get_libraries_series_tree(request: Request, max_depth: int = 10):
 async def get_series_list(
     library_id: int,
     request: Request,
-    sort: Optional[str] = "name"
+    sort: Optional[str] = "name",
+    include_metadata: Optional[bool] = True
 ):
     """
     Get all series in a library with metadata aggregation (OPTIMIZED)
@@ -2058,6 +2059,7 @@ async def get_series_list(
     Args:
         library_id: ID of the library
         sort: Sort order - 'name', 'recent', 'progress'
+        include_metadata: Include series metadata (writer, artist, etc.) - default True
 
     Returns:
         Array of series objects with aggregated metadata
@@ -2082,18 +2084,52 @@ async def get_series_list(
 
         # OPTIMIZATION 1: Use SQL to group and aggregate series data
         # This replaces the Python loops with database aggregation
-        series_aggregation = session.query(
-            Comic.normalized_series_name.label('series_name'),
-            func.count(Comic.id).label('total_issues'),
-            func.min(Comic.id).label('first_comic_id'),
-            func.max(Comic.id).label('last_comic_id'),
-            func.min(Comic.hash).label('cover_hash'),
-            func.max(Comic.publisher).label('publisher')
-        ).filter(
-            Comic.library_id == library_id
-        ).group_by(
-            Comic.normalized_series_name
-        ).all()
+        from sqlalchemy import outerjoin
+        from ...database.models import Series as SeriesModel
+
+        # Build base query
+        if include_metadata:
+            # Join with Series table to get metadata
+            series_aggregation = session.query(
+                Comic.normalized_series_name.label('series_name'),
+                func.count(Comic.id).label('total_issues'),
+                func.min(Comic.id).label('first_comic_id'),
+                func.max(Comic.id).label('last_comic_id'),
+                func.min(Comic.hash).label('cover_hash'),
+                func.max(Comic.publisher).label('publisher'),
+                SeriesModel.writer.label('writer'),
+                SeriesModel.artist.label('artist'),
+                SeriesModel.genre.label('genre'),
+                SeriesModel.year_start.label('year'),
+                SeriesModel.description.label('synopsis')
+            ).outerjoin(
+                SeriesModel,
+                (SeriesModel.library_id == Comic.library_id) &
+                (SeriesModel.name == Comic.normalized_series_name)
+            ).filter(
+                Comic.library_id == library_id
+            ).group_by(
+                Comic.normalized_series_name,
+                SeriesModel.writer,
+                SeriesModel.artist,
+                SeriesModel.genre,
+                SeriesModel.year_start,
+                SeriesModel.description
+            ).all()
+        else:
+            # Minimal query without metadata join
+            series_aggregation = session.query(
+                Comic.normalized_series_name.label('series_name'),
+                func.count(Comic.id).label('total_issues'),
+                func.min(Comic.id).label('first_comic_id'),
+                func.max(Comic.id).label('last_comic_id'),
+                func.min(Comic.hash).label('cover_hash'),
+                func.max(Comic.publisher).label('publisher')
+            ).filter(
+                Comic.library_id == library_id
+            ).group_by(
+                Comic.normalized_series_name
+            ).all()
 
         # OPTIMIZATION 2: Fetch all comics with reading progress in ONE query (fixes N+1)
         if user:
@@ -2158,17 +2194,28 @@ async def get_series_list(
 
             # Determine if this is a standalone volume (single comic, not part of a series)
             is_standalone = series_data.total_issues == 1
-            
-            series_list.append({
+
+            series_info = {
                 "series_name": series_name,
                 "volumes": volumes,
                 "publisher": series_data.publisher,
-                "year": None,
                 "total_issues": series_data.total_issues,
                 "cover_hash": series_data.cover_hash,
                 "first_comic_id": series_data.first_comic_id,
                 "is_standalone": is_standalone  # Flag for single-volume series
-            })
+            }
+
+            # Add metadata fields if included
+            if include_metadata:
+                series_info["year"] = series_data.year
+                series_info["writer"] = series_data.writer
+                series_info["artist"] = series_data.artist
+                series_info["genre"] = series_data.genre
+                series_info["synopsis"] = series_data.synopsis
+            else:
+                series_info["year"] = None
+
+            series_list.append(series_info)
 
         # Sort the results
         if sort == "name":
@@ -2322,8 +2369,48 @@ async def get_series_detail(
 
             volumes.append(volume)
 
-        # Sort volumes by issue number or volume
-        volumes.sort(key=lambda v: (v.get("volume") or 0, v.get("issue_number") or 0))
+        # Sort volumes by volume number first (volumes before chapters), then by issue number
+        # Volumes have a volume number (>0), chapters have issue_number but volume=0/null
+        # We want volumes to appear before chapters
+        # When metadata is missing, detect from filename patterns
+        def sort_key(v):
+            vol = v.get("volume") or 0
+            issue = v.get("issue_number") or 0
+            title = v.get("title", "").lower()
+
+            # If metadata exists, use it
+            if vol > 0:
+                # Has volume metadata - it's a volume
+                return (0, vol, issue)
+            elif issue > 0:
+                # Has issue metadata but no volume - likely a chapter
+                # But check title for volume patterns first (in case metadata is incomplete)
+                if re.search(r'\bv(?:ol)?\.?\s*\d+', title) or re.search(r'\bvolume\s+\d+', title):
+                    # Title suggests it's a volume, extract number
+                    match = re.search(r'\bv(?:ol)?\.?\s*(\d+)', title) or re.search(r'\bvolume\s+(\d+)', title)
+                    if match:
+                        vol_num = int(match.group(1))
+                        return (0, vol_num, 0)
+                # It's a chapter
+                return (1, issue, 0)
+            else:
+                # No metadata - rely on filename patterns
+                # Check for volume patterns: v01, vol01, volume 1, etc.
+                if re.search(r'\bv(?:ol)?\.?\s*\d+', title) or re.search(r'\bvolume\s+\d+', title):
+                    match = re.search(r'\bv(?:ol)?\.?\s*(\d+)', title) or re.search(r'\bvolume\s+(\d+)', title)
+                    if match:
+                        vol_num = int(match.group(1))
+                        return (0, vol_num, 0)
+                # Check for chapter patterns: c001, ch01, chapter 1, etc.
+                elif re.search(r'\bc(?:h|hapter)?\.?\s*\d+', title) or re.search(r'\bchapter\s+\d+', title):
+                    match = re.search(r'\bc(?:h|hapter)?\.?\s*(\d+)', title) or re.search(r'\bchapter\s+(\d+)', title)
+                    if match:
+                        ch_num = int(match.group(1))
+                        return (1, ch_num, 0)
+                # Fallback: sort by title
+                return (2, 0, 0)
+
+        volumes.sort(key=sort_key)
 
         # Aggregate series metadata from first comic
         first_comic = comics[0]

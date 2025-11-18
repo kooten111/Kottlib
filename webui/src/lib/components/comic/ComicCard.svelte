@@ -44,14 +44,14 @@
 			</div>
 		{/if}
 
-		{#if isFolder && actualItemCount > 0}
+		{#if isFolder && actualItemCount > 0 && variant === 'grid'}
 			<div class="folder-info-bar">
 				<div class="series-name">{title}</div>
 				<div class="item-count">
 					{actualItemCount} {actualItemCount === 1 ? 'comic' : 'comics'}
 				</div>
 			</div>
-		{:else if showProgress && hasProgress}
+		{:else if showProgress && hasProgress && variant === 'grid'}
 			<div class="progress-overlay">
 				<div class="progress-bar" style="width: {progress}%" />
 			</div>
@@ -66,8 +66,64 @@
 					<span class="meta-badge">
 						{actualItemCount} {actualItemCount === 1 ? 'volume' : 'volumes'}
 					</span>
+					{#if comic.writer}
+						<span class="meta-item">
+							<svg class="meta-icon" xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+								<path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2"></path>
+								<circle cx="12" cy="7" r="4"></circle>
+							</svg>
+							{comic.writer}
+						</span>
+					{/if}
+					{#if comic.artist && comic.artist !== comic.writer}
+						<span class="meta-item">
+							<svg class="meta-icon" xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+								<path d="m15 5 4 4L7 21l-4.3-4.3a1 1 0 0 1 0-1.4l9.7-9.7a1 1 0 0 1 1.4 0Z"></path>
+								<path d="m9 11 4 4"></path>
+							</svg>
+							{comic.artist}
+						</span>
+					{/if}
+					{#if comic.year}
+						<span class="meta-item">
+							<svg class="meta-icon" xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+								<rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect>
+								<line x1="16" y1="2" x2="16" y2="6"></line>
+								<line x1="8" y1="2" x2="8" y2="6"></line>
+								<line x1="3" y1="10" x2="21" y2="10"></line>
+							</svg>
+							{comic.year}
+						</span>
+					{/if}
+					{#if comic.publisher}
+						<span class="meta-item">
+							<svg class="meta-icon" xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+								<path d="m7.5 4.27 9 5.15"></path>
+								<path d="M21 8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16Z"></path>
+								<path d="m3.3 7 8.7 5 8.7-5"></path>
+								<path d="M12 22V12"></path>
+							</svg>
+							{comic.publisher}
+						</span>
+					{/if}
+					{#if comic.genre}
+						<span class="meta-item">
+							<svg class="meta-icon" xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+								<path d="m3 7 5 5-5 5V7"></path>
+								<path d="m21 7-5 5 5 5V7"></path>
+								<path d="M12 20v2"></path>
+								<path d="M12 14v2"></path>
+								<path d="M12 8v2"></path>
+								<path d="M12 2v2"></path>
+							</svg>
+							{comic.genre}
+						</span>
+					{/if}
 				</div>
 			</div>
+			{#if comic.synopsis}
+				<p class="list-synopsis">{comic.synopsis}</p>
+			{/if}
 			<div class="list-actions">
 				<button class="action-btn primary">Continue Reading</button>
 			</div>
@@ -75,6 +131,48 @@
 	{:else if !isFolder}
 		<div class="comic-info">
 			<h3 class="comic-title">{title}</h3>
+			{#if variant === 'list'}
+				<div class="list-meta">
+					{#if comic.series}
+						<span class="meta-item">
+							<svg class="meta-icon" xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+								<path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20" />
+								<path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z" />
+							</svg>
+							{comic.series}
+						</span>
+					{/if}
+					{#if comic.writer}
+						<span class="meta-item">
+							<svg class="meta-icon" xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+								<path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2"></path>
+								<circle cx="12" cy="7" r="4"></circle>
+							</svg>
+							{comic.writer}
+						</span>
+					{/if}
+					{#if comic.year}
+						<span class="meta-item">
+							<svg class="meta-icon" xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+								<rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect>
+								<line x1="16" y1="2" x2="16" y2="6"></line>
+								<line x1="8" y1="2" x2="8" y2="6"></line>
+								<line x1="3" y1="10" x2="21" y2="10"></line>
+							</svg>
+							{comic.year}
+						</span>
+					{/if}
+					{#if comic.num_pages}
+						<span class="meta-item">
+							<svg class="meta-icon" xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+								<path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+								<polyline points="14 2 14 8 20 8"></polyline>
+							</svg>
+							{comic.num_pages} pages
+						</span>
+					{/if}
+				</div>
+			{/if}
 			{#if showProgress && hasProgress}
 				<p class="comic-progress">
 					Page {comic.current_page} of {comic.num_pages}
@@ -109,8 +207,9 @@
 
 	.comic-card.list {
 		flex-direction: row;
-		padding: 1rem;
-		gap: 1rem;
+		padding: calc(1rem + (0.25rem * var(--cover-size-multiplier, 1)));
+		gap: calc(1.25rem + (0.25rem * var(--cover-size-multiplier, 1)));
+		min-height: 200px;
 	}
 
 	.cover-container {
@@ -227,12 +326,16 @@
 	.comic-info {
 		padding: 1rem;
 		flex: 1;
+		display: flex;
+		flex-direction: column;
+		gap: 0.5rem;
 	}
 
 	.comic-card.list .comic-info {
 		display: flex;
 		flex-direction: column;
 		justify-content: center;
+		padding: 0;
 	}
 
 	.comic-title {
@@ -273,57 +376,97 @@
 	}
 
 	.list-title {
-		font-size: calc(1.125rem * var(--cover-size-multiplier, 1));
+		font-size: 1.25rem;
 		font-weight: 700;
 		color: var(--color-text);
-		margin: 0;
+		margin: 0 0 0.75rem 0;
+		line-height: 1.3;
 	}
 
 	.list-meta {
 		display: flex;
-		gap: 0.5rem;
+		gap: 1rem;
 		flex-wrap: wrap;
+		align-items: center;
+		margin-bottom: 0.5rem;
 	}
 
 	.meta-badge {
-		padding: calc(0.25rem * var(--cover-size-multiplier, 1)) calc(0.75rem * var(--cover-size-multiplier, 1));
+		padding: 0.375rem 0.875rem;
 		background: rgba(255, 103, 64, 0.15);
 		color: var(--color-accent);
-		border-radius: 12px;
-		font-size: calc(0.75rem * var(--cover-size-multiplier, 1));
+		border-radius: 16px;
+		font-size: 0.813rem;
 		font-weight: 600;
+		letter-spacing: 0.01em;
+	}
+
+	.meta-item {
+		display: flex;
+		align-items: center;
+		gap: 0.5rem;
+		color: var(--color-text-secondary);
+		font-size: 0.875rem;
+		line-height: 1.4;
+		font-weight: 500;
+	}
+
+	.meta-icon {
+		flex-shrink: 0;
+		opacity: 0.6;
+		width: 16px;
+		height: 16px;
+	}
+
+	.list-synopsis {
+		margin: 0.875rem 0 0 0;
+		color: var(--color-text-secondary);
+		font-size: 0.938rem;
+		line-height: 1.6;
+		display: -webkit-box;
+		-webkit-line-clamp: 2;
+		-webkit-box-orient: vertical;
+		overflow: hidden;
+		text-overflow: ellipsis;
+		font-weight: 400;
 	}
 
 	.list-actions {
 		display: flex;
-		gap: 0.5rem;
-		margin-top: 0.5rem;
+		gap: 0.75rem;
+		margin-top: auto;
+		padding-top: 1rem;
 	}
 
 	.action-btn {
-		padding: calc(0.5rem * var(--cover-size-multiplier, 1)) calc(1rem * var(--cover-size-multiplier, 1));
+		padding: 0.625rem 1.25rem;
 		border: none;
-		border-radius: 6px;
-		font-size: calc(0.875rem * var(--cover-size-multiplier, 1));
+		border-radius: 8px;
+		font-size: 0.875rem;
 		font-weight: 600;
 		cursor: pointer;
 		transition: all 0.2s;
+		white-space: nowrap;
 	}
 
 	.action-btn.primary {
 		background: var(--color-accent);
 		color: white;
+		box-shadow: 0 2px 4px rgba(255, 103, 64, 0.2);
 	}
 
 	.action-btn.primary:hover {
 		background: #ff7d5a;
 		transform: translateY(-1px);
+		box-shadow: 0 4px 8px rgba(255, 103, 64, 0.3);
 	}
 
-	/* Update list view cover size */
+	/* Update list view cover size - scales with multiplier but with limits */
 	.comic-card.list .cover-container {
-		width: calc(120px * var(--cover-size-multiplier, 1));
-		height: calc(180px * var(--cover-size-multiplier, 1));
+		width: calc(120px + (20px * var(--cover-size-multiplier, 1)));
+		height: calc(180px + (30px * var(--cover-size-multiplier, 1)));
 		flex-shrink: 0;
+		border-radius: 6px;
+		overflow: hidden;
 	}
 </style>

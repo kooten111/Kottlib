@@ -206,7 +206,13 @@
 													id: series.first_comic_id,
 													title: series.series_name,
 													hash: series.cover_hash,
-													itemCount: series.total_issues
+													itemCount: series.total_issues,
+													writer: series.writer,
+													artist: series.artist,
+													publisher: series.publisher,
+													year: series.year,
+													genre: series.genre,
+													synopsis: series.synopsis
 												}}
 												libraryId={series.libraryId}
 												variant={viewMode}

@@ -8,8 +8,12 @@ from fastapi import APIRouter, HTTPException, BackgroundTasks, Request
 from pydantic import BaseModel, Field
 from typing import List, Optional, Dict, Any
 from enum import Enum
+import logging
 import sys
 from pathlib import Path
+
+from sqlalchemy import or_
+from sqlalchemy.orm import Session
 
 # Add scanners to path
 SCANNERS_PATH = Path(__file__).parent.parent.parent.parent / "scanners"
@@ -28,6 +32,7 @@ from scanners import (
 from ...database.models import Library
 
 router = APIRouter(prefix="/scanners", tags=["scanners"])
+logger = logging.getLogger(__name__)
 
 
 # ============================================================================
@@ -38,17 +43,121 @@ router = APIRouter(prefix="/scanners", tags=["scanners"])
 _scan_progress: Dict[int, Dict[str, Any]] = {}
 
 
+def _normalize_progress(progress: Dict[str, Any]) -> Dict[str, Any]:
+    """Normalize progress payload to expected shape and types"""
+    if not progress:
+        return {}
+
+    normalized = {
+        "processed": int(progress.get("processed", 0) or 0),
+        "scanned": int(progress.get("scanned", 0) or 0),
+        "total": int(progress.get("total", 0) or 0),
+        "failed": int(progress.get("failed", 0) or 0),
+        "skipped": int(progress.get("skipped", 0) or 0),
+        "in_progress": bool(progress.get("in_progress", False)),
+        "completed": bool(progress.get("completed", False)),
+        "error": progress.get("error")
+    }
+
+    if normalized["processed"] > normalized["total"]:
+        normalized["processed"] = normalized["total"]
+
+    return normalized
+
+
+def _sanitize_progress(progress: Dict[str, Any]) -> Dict[str, Any]:
+    """Return a copy of progress without internal bookkeeping keys"""
+    if not progress:
+        return progress
+    cleaned = {
+        key: value
+        for key, value in progress.items()
+        if not str(key).startswith("_")
+    }
+    return _normalize_progress(cleaned)
+
+
+def _merge_progress(primary: Dict[str, Any], secondary: Dict[str, Any]) -> Dict[str, Any]:
+    """Merge two progress dictionaries, keeping the most advanced values"""
+    if not primary:
+        return dict(secondary or {})
+    if not secondary:
+        return dict(primary or {})
+
+    primary = _normalize_progress(primary)
+    secondary = _normalize_progress(secondary)
+
+    merged = dict(primary)
+
+    for key in ("processed", "scanned", "failed", "skipped", "total"):
+        merged[key] = max(primary.get(key, 0), secondary.get(key, 0))
+
+    merged["in_progress"] = primary.get("in_progress", False) or secondary.get("in_progress", False)
+    merged["completed"] = primary.get("completed", False) or secondary.get("completed", False)
+    merged["error"] = primary.get("error") or secondary.get("error")
+
+    return merged
+
+
+def _persist_progress_to_db(session: Session, library: Library, progress: Dict[str, Any]):
+    """Persist scan progress to the database for cross-worker visibility"""
+    if not library:
+        return
+
+    serialized = _sanitize_progress(progress or {})
+
+    settings = dict(library.settings or {})
+    settings['scanner_progress'] = serialized
+    library.settings = settings
+    session.add(library)
+    session.commit()
+
+
+def start_scan_progress(library_id: int) -> Dict[str, Any]:
+    """Initialize scan progress for a library"""
+    progress = {
+        "processed": 0,
+        "scanned": 0,
+        "total": 0,
+        "failed": 0,
+        "skipped": 0,
+        "in_progress": True,
+        "completed": False,
+        "error": None
+    }
+    _scan_progress[library_id] = progress
+    return progress
+
+
 def update_scan_progress(library_id: int, processed: int, total: int, scanned: int = 0, failed: int = 0, skipped: int = 0):
     """Update scan progress for a library"""
-    _scan_progress[library_id] = {
+    progress = _scan_progress.get(library_id)
+    if not progress:
+        progress = start_scan_progress(library_id)
+
+    progress.update({
         "processed": processed,
         "scanned": scanned,
         "total": total,
         "failed": failed,
         "skipped": skipped,
         "in_progress": processed < total,
-        "completed": False
-    }
+        "completed": False,
+        "error": None
+    })
+
+    # Log occasional progress snapshots for troubleshooting large scans
+    log_interval = max(1, total // 10) if total else 1
+    if processed in (0, total) or (processed and processed % log_interval == 0):
+        logger.info(
+            "Library %s scan progress: processed=%s/%s scanned=%s failed=%s skipped=%s",
+            library_id,
+            processed,
+            total,
+            scanned,
+            failed,
+            skipped
+        )
 
 
 def get_scan_progress(library_id: int) -> Optional[Dict[str, Any]]:
@@ -947,67 +1056,310 @@ def _run_library_scan_task(
 ):
     """Background task to scan all comics in a library"""
     from ...services.metadata_service import MetadataService
-    from ...database.models import Comic
+    from ...database.models import Comic, Library, Series
+    import time
 
     manager = get_scanner_manager()
+    scanned = 0
+    failed = 0
+    skipped = 0
+    processed = 0
+    total_items = 0
 
-    with db.get_session() as session:
-        # Get all comics in library
-        query = session.query(Comic).filter(Comic.library_id == library_id)
+    try:
+        with db.get_session() as session:
+            library = session.query(Library).filter(Library.id == library_id).first()
+            if not library:
+                logger.warning("Library %s no longer exists; aborting scan", library_id)
+                return
 
-        # Filter out already scanned if not rescanning
-        if not rescan_existing:
-            query = query.filter(Comic.scanned_at.is_(None))
+            # Get scanner and determine scan level
+            if scanner_name not in manager.get_available_scanners():
+                logger.error("Scanner %s not available", scanner_name)
+                return
 
-        comics = query.all()
-        total_comics = len(comics)
+            scanner_class = manager._available_scanners[scanner_name]
+            scanner_instance = scanner_class()
+            scan_level = scanner_instance.scan_level
 
-        # Initialize progress
-        update_scan_progress(library_id, 0, total_comics, 0, 0, 0)
+            logger.info(
+                "Starting library scan for library %s with scanner %s (scan_level=%s, rescan_existing=%s)",
+                library_id,
+                scanner_name,
+                scan_level.value,
+                rescan_existing
+            )
 
-        scanned = 0
-        failed = 0
-        skipped = 0
+            # Determine library type for scanner
+            library_type = 'manga' if scanner_name == 'AniList' else 'doujinshi'
 
-        # TODO: Use direct scanner invocation
-        library_type = 'doujinshi'  # Default for nhentai
+            # Branch based on scan level (use string comparison to avoid enum import issues)
+            if scan_level.value == 'file':
+                # FILE-level scanning: scan each comic individually
+                logger.info("Using FILE-level scanning (each comic individually)")
 
-        for index, comic in enumerate(comics):
-            try:
-                # Scan using filename
-                result, _ = manager.scan(
-                    library_type,
-                    comic.filename,
-                    confidence_threshold=confidence_threshold
-                )
+                # Get all comics in library
+                query = session.query(Comic).filter(Comic.library_id == library_id)
 
-                if not result:
-                    skipped += 1
-                else:
-                    # Apply metadata
-                    application_result = MetadataService.apply_scan_result_to_comic(
-                        session,
-                        comic,
-                        result,
-                        scanner_name,
-                        overwrite=overwrite
-                    )
+                # Filter out already scanned if not rescanning
+                if not rescan_existing:
+                    query = query.filter(or_(Comic.scanned_at.is_(None), Comic.scanned_at == 0))
 
-                    if application_result.success:
-                        scanned += 1
-                    else:
+                comics = query.all()
+                total_items = len(comics)
+
+                # Initialize progress with known totals
+                update_scan_progress(library_id, 0, total_items, 0, 0, 0)
+                _persist_progress_to_db(session, library, _scan_progress.get(library_id, {}))
+
+                for index, comic in enumerate(comics):
+                    processed = index + 1
+
+                    try:
+                        # Scan using filename
+                        result, _ = manager.scan(
+                            library_type,
+                            comic.filename,
+                            confidence_threshold=confidence_threshold
+                        )
+
+                        if not result:
+                            skipped += 1
+                        else:
+                            # Apply metadata
+                            application_result = MetadataService.apply_scan_result_to_comic(
+                                session,
+                                comic,
+                                result,
+                                scanner_name,
+                                overwrite=overwrite
+                            )
+
+                            if application_result.success:
+                                scanned += 1
+                            else:
+                                failed += 1
+
+                    except Exception:
                         failed += 1
+                        logger.exception("Failed to scan comic %s in library %s", comic.id, library_id)
 
-            except Exception as e:
-                failed += 1
+                    # Update progress after each comic
+                    update_scan_progress(library_id, processed, total_items, scanned, failed, skipped)
+                    _persist_progress_to_db(session, library, _scan_progress.get(library_id, {}))
 
-            # Update progress after each comic
-            update_scan_progress(library_id, index + 1, total_comics, scanned, failed, skipped)
+            elif scan_level.value == 'series':
+                # SERIES-level scanning: scan each unique series
+                logger.info("Using SERIES-level scanning (by series name)")
 
-        # Mark scan as complete (but keep progress available for frontend to read)
-        # Don't clear immediately - let frontend read final state
-        _scan_progress[library_id]["in_progress"] = False
-        _scan_progress[library_id]["completed"] = True
+                # Get all unique series names from comics
+                # Use normalized_series_name if available, otherwise use series field
+                series_query = session.query(
+                    Comic.normalized_series_name
+                ).filter(
+                    Comic.library_id == library_id,
+                    Comic.normalized_series_name.isnot(None),
+                    Comic.normalized_series_name != ''
+                ).distinct()
+
+                unique_series = [s[0] for s in series_query.all()]
+
+                # If no normalized series names, fall back to series field
+                if not unique_series:
+                    series_query = session.query(
+                        Comic.series
+                    ).filter(
+                        Comic.library_id == library_id,
+                        Comic.series.isnot(None),
+                        Comic.series != ''
+                    ).distinct()
+                    unique_series = [s[0] for s in series_query.all()]
+
+                total_items = len(unique_series)
+                logger.info("Found %s unique series to scan", total_items)
+
+                # Initialize progress with known totals
+                update_scan_progress(library_id, 0, total_items, 0, 0, 0)
+                _persist_progress_to_db(session, library, _scan_progress.get(library_id, {}))
+
+                for index, series_name in enumerate(unique_series):
+                    processed = index + 1
+
+                    try:
+                        logger.info("Scanning series: %s", series_name)
+
+                        # Scan for series metadata with retry logic for rate limiting
+                        max_retries = 3
+                        result = None
+
+                        for attempt in range(max_retries):
+                            try:
+                                result, _ = manager.scan(
+                                    library_type,
+                                    series_name,
+                                    confidence_threshold=confidence_threshold
+                                )
+                                break  # Success, exit retry loop
+                            except Exception as scan_error:
+                                error_str = str(scan_error)
+                                # Check if it's a rate limit error
+                                if '429' in error_str or 'Too Many Requests' in error_str or 'Rate limit exceeded' in error_str:
+                                    if attempt < max_retries - 1:
+                                        # Try to extract Retry-After value from error message
+                                        wait_time = 60  # Default to 60 seconds
+                                        if '||RETRY_AFTER:' in error_str:
+                                            try:
+                                                retry_after_str = error_str.split('||RETRY_AFTER:')[1].strip()
+                                                wait_time = int(retry_after_str)
+                                            except (IndexError, ValueError):
+                                                pass
+
+                                        logger.warning(
+                                            "Rate limit hit for series '%s', waiting %s seconds before retry %s/%s",
+                                            series_name, wait_time, attempt + 1, max_retries
+                                        )
+                                        time.sleep(wait_time)
+                                    else:
+                                        logger.error("Max retries reached for series '%s' due to rate limiting", series_name)
+                                        raise
+                                else:
+                                    # Not a rate limit error, raise immediately
+                                    raise
+
+                        if not result:
+                            skipped += 1
+                            logger.info("No match found for series: %s", series_name)
+                        else:
+                            # Get or create series record
+                            series = session.query(Series).filter(
+                                Series.library_id == library_id,
+                                Series.name == series_name
+                            ).first()
+
+                            if not series:
+                                series = Series(
+                                    library_id=library_id,
+                                    name=series_name,
+                                    display_name=series_name,
+                                    created_at=int(time.time()),
+                                    updated_at=int(time.time())
+                                )
+                                session.add(series)
+                                session.flush()
+
+                            # Apply metadata to series
+                            metadata = result.metadata
+
+                            def should_update(field_value):
+                                return overwrite or not field_value
+
+                            if metadata.get('title') and should_update(series.display_name):
+                                series.display_name = metadata['title']
+
+                            if metadata.get('description') and should_update(series.description):
+                                series.description = metadata['description']
+
+                            if metadata.get('writer') and should_update(series.writer):
+                                series.writer = metadata['writer']
+
+                            if metadata.get('artist') and should_update(series.artist):
+                                series.artist = metadata['artist']
+
+                            if metadata.get('genre') and should_update(series.genre):
+                                series.genre = metadata['genre']
+
+                            if metadata.get('year') and should_update(series.year_start):
+                                series.year_start = metadata['year']
+
+                            if metadata.get('publisher') and should_update(series.publisher):
+                                series.publisher = metadata['publisher']
+
+                            if metadata.get('status') and should_update(series.status):
+                                series.status = metadata['status']
+
+                            if metadata.get('format') and should_update(series.format):
+                                series.format = metadata['format']
+
+                            if metadata.get('volume') and should_update(series.volumes):
+                                series.volumes = metadata['volume']
+
+                            if metadata.get('count') and should_update(series.chapters):
+                                series.chapters = metadata['count']
+
+                            if result.tags and should_update(series.tags):
+                                series.tags = ', '.join(result.tags) if isinstance(result.tags, list) else str(result.tags)
+
+                            # Store scanner metadata
+                            series.scanner_source = scanner_name
+                            series.scanner_source_id = result.source_id
+                            series.scanner_source_url = result.source_url
+                            series.scanned_at = int(time.time())
+                            series.scan_confidence = result.confidence
+                            series.updated_at = int(time.time())
+
+                            session.commit()
+                            scanned += 1
+                            logger.info("Successfully scanned series: %s (confidence: %.2f)", series_name, result.confidence)
+
+                    except Exception:
+                        failed += 1
+                        logger.exception("Failed to scan series %s in library %s", series_name, library_id)
+                        session.rollback()
+
+                    # Update progress after each series
+                    update_scan_progress(library_id, processed, total_items, scanned, failed, skipped)
+                    _persist_progress_to_db(session, library, _scan_progress.get(library_id, {}))
+
+            else:
+                logger.error("Unsupported scan level: %s", scan_level)
+                return
+
+    except Exception as exc:
+        logger.exception("Library scan failed for library %s", library_id)
+        progress = _scan_progress.get(library_id) or start_scan_progress(library_id)
+        progress.update({
+            "processed": processed,
+            "scanned": scanned,
+            "total": total_items,
+            "failed": failed,
+            "skipped": skipped,
+            "error": str(exc)
+        })
+        try:
+            with db.get_session() as session:
+                library = session.query(Library).filter(Library.id == library_id).first()
+                if library:
+                    _persist_progress_to_db(session, library, progress)
+        except Exception:
+            logger.exception("Failed to persist error progress for library %s", library_id)
+
+    finally:
+        progress = _scan_progress.get(library_id) or start_scan_progress(library_id)
+        progress.update({
+            "processed": processed,
+            "scanned": scanned,
+            "total": total_items,
+            "failed": failed,
+            "skipped": skipped,
+            "in_progress": False,
+            "completed": True
+        })
+        try:
+            with db.get_session() as session:
+                library = session.query(Library).filter(Library.id == library_id).first()
+                if library:
+                    _persist_progress_to_db(session, library, progress)
+        except Exception:
+            logger.exception("Failed to persist final progress for library %s", library_id)
+
+        logger.info(
+            "Library scan completed for library %s: processed=%s scanned=%s failed=%s skipped=%s",
+            library_id,
+            processed,
+            scanned,
+            failed,
+            skipped
+        )
 
 
 @router.post("/scan/library")
@@ -1060,6 +1412,13 @@ async def scan_library(
                 detail=f"A scan is already in progress for library '{library.name}'"
             )
 
+        # Initialize progress immediately so the frontend sees in-progress status
+        progress = start_scan_progress(scan_request.library_id)
+        settings = dict(library.settings or {})
+        settings['scanner_progress'] = _sanitize_progress(progress)
+        library.settings = settings
+        session.add(library)
+
         # Determine confidence threshold
         threshold = scan_request.confidence_threshold
         if threshold is None:
@@ -1083,14 +1442,33 @@ async def scan_library(
 
 
 @router.get("/scan/library/{library_id}/progress")
-async def get_library_scan_progress(library_id: int):
+async def get_library_scan_progress(library_id: int, request: Request):
     """
     Get the current progress of a library scan
 
     Returns the number of comics processed, scanned, and total to scan.
     """
-    progress = get_scan_progress(library_id)
+    memory_progress = get_scan_progress(library_id)
+    db_progress = None
+
+    db = request.app.state.db
+    with db.get_session() as session:
+        library = session.query(Library).filter(Library.id == library_id).first()
+        if library:
+            settings = library.settings or {}
+            stored_progress = settings.get('scanner_progress')
+            if stored_progress:
+                db_progress = stored_progress
+
+    progress = _merge_progress(memory_progress, db_progress)
+    progress = _sanitize_progress(progress)
+
+    if progress:
+        # Update in-memory cache so future reads on this worker stay current
+        _scan_progress[library_id] = progress
+
     if not progress:
+        logger.info("Progress requested but no entry found for library %s", library_id)
         return {
             "in_progress": False,
             "completed": False,
@@ -1098,19 +1476,40 @@ async def get_library_scan_progress(library_id: int):
             "scanned": 0,
             "total": 0,
             "failed": 0,
-            "skipped": 0
+            "skipped": 0,
+            "error": None
         }
+
+    progress = _sanitize_progress(progress)
+    logger.info(
+        "Progress requested for library %s: processed=%s/%s scanned=%s failed=%s skipped=%s in_progress=%s",
+        library_id,
+        progress.get("processed"),
+        progress.get("total"),
+        progress.get("scanned"),
+        progress.get("failed"),
+        progress.get("skipped"),
+        progress.get("in_progress")
+    )
     return progress
 
 
 @router.delete("/scan/library/{library_id}/progress")
-async def clear_library_scan_progress(library_id: int):
+async def clear_library_scan_progress(library_id: int, request: Request):
     """
     Clear the scan progress for a library
 
     Use this after reading the final progress state.
     """
     clear_scan_progress(library_id)
+    db = request.app.state.db
+    with db.get_session() as session:
+        library = session.query(Library).filter(Library.id == library_id).first()
+        if library:
+            settings = dict(library.settings or {})
+            if settings.pop('scanner_progress', None) is not None:
+                library.settings = settings
+                session.add(library)
     return {"status": "cleared"}
 
 

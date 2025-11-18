@@ -47,13 +47,13 @@ class AniListAPI:
     
     BASE_URL = "https://graphql.anilist.co"
     
-    def __init__(self, timeout: int = 10, rate_limit_delay: float = 0.7):
+    def __init__(self, timeout: int = 10, rate_limit_delay: float = 2.5):
         """
         Initialize AniList API client
-        
+
         Args:
             timeout: Request timeout in seconds
-            rate_limit_delay: Delay between requests to respect rate limits (90 req/min)
+            rate_limit_delay: Delay between requests to respect rate limits (default 2.5s for 30 req/min degraded mode)
         """
         self.timeout = timeout
         self.rate_limit_delay = rate_limit_delay
@@ -98,17 +98,28 @@ class AniListAPI:
                 json=payload,
                 timeout=self.timeout
             )
+
+            # Handle rate limiting with Retry-After header
+            if response.status_code == 429:
+                retry_after = response.headers.get('Retry-After', '60')
+                rate_limit_reset = response.headers.get('X-RateLimit-Reset', '')
+                error_msg = f"Rate limit exceeded (429). Retry after {retry_after} seconds"
+                if rate_limit_reset:
+                    error_msg += f" (resets at Unix timestamp {rate_limit_reset})"
+                # Include retry info in the exception for the caller to handle
+                raise Exception(f"{error_msg}||RETRY_AFTER:{retry_after}")
+
             response.raise_for_status()
-            
+
             data = response.json()
-            
+
             if 'errors' in data:
                 errors = data['errors']
                 error_msgs = [e.get('message', str(e)) for e in errors]
                 raise Exception(f"GraphQL errors: {', '.join(error_msgs)}")
-            
+
             return data.get('data', {})
-            
+
         except requests.exceptions.RequestException as e:
             raise Exception(f"AniList API request failed: {e}")
     
@@ -691,7 +702,7 @@ class AniListScanner(BaseScanner):
             - use_english_titles: Match English titles (default: True)
             - use_native_titles: Match native titles (default: False)
             - timeout: API request timeout (default: 10)
-            - rate_limit_delay: Delay between requests (default: 0.7)
+            - rate_limit_delay: Delay between requests (default: 2.5s for 30 req/min degraded mode)
             - max_results: Maximum search results (default: 10)
             - max_characters: Maximum characters to extract (default: 10)
             - include_spoiler_tags: Include spoiler tags (default: False)
@@ -704,10 +715,10 @@ class AniListScanner(BaseScanner):
         self.max_results = self.config.get('max_results', 10)
         self.max_characters = self.config.get('max_characters', 10)
         self.include_spoiler_tags = self.config.get('include_spoiler_tags', False)
-        
+
         # Initialize API client
         timeout = self.config.get('timeout', 10)
-        rate_limit_delay = self.config.get('rate_limit_delay', 0.7)
+        rate_limit_delay = self.config.get('rate_limit_delay', 2.5)
         self.api = AniListAPI(timeout=timeout, rate_limit_delay=rate_limit_delay)
     
     def scan(self, query: str, **kwargs) -> Tuple[Optional[ScanResult], List[ScanResult]]:

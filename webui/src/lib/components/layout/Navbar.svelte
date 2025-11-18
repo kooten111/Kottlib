@@ -2,6 +2,7 @@
 	import { page } from '$app/stores';
 	import { themeStore } from '$stores/theme';
 	import { searchStore } from '$stores/search';
+	import { currentFilterStore, treeExpandedNodes } from '$stores/library';
 	import { Moon, Sun, Home, BookOpen, Heart, List, Search as SearchIcon, X } from 'lucide-svelte';
 
 	let searchInput;
@@ -20,6 +21,24 @@
 		}
 	}
 
+	function clearFilters() {
+		console.log('[Navbar] Clearing filters');
+		currentFilterStore.set(null);
+		clearSearch();
+	}
+
+	function handleHomeClick() {
+		clearFilters();
+		// Collapse all tree nodes except the root
+		const collapsedState = new Set(['libraries-root']);
+		treeExpandedNodes.set(collapsedState);
+
+		// Persist the collapsed state to localStorage immediately
+		if (typeof window !== 'undefined') {
+			localStorage.setItem('series-tree-expanded', JSON.stringify([...collapsedState]));
+		}
+	}
+
 	function handleSearchKeydown(e) {
 		if (e.key === 'Escape') {
 			clearSearch();
@@ -33,7 +52,7 @@
 		<div class="flex items-center justify-between h-16">
 			<!-- Logo and Brand -->
 			<div class="flex items-center space-x-8">
-				<a href="/" class="flex items-center space-x-2 hover:opacity-80 transition-opacity">
+				<a href="/" class="flex items-center space-x-2 hover:opacity-80 transition-opacity" on:click={handleHomeClick}>
 					<BookOpen class="w-8 h-8 text-accent-orange" />
 					<span class="text-xl font-bold text-dark-text">YACLib</span>
 				</a>
@@ -44,6 +63,7 @@
 						href="/"
 						class="flex items-center space-x-2 text-dark-text-secondary hover:text-dark-text transition-colors"
 						class:text-accent-orange={$page.url.pathname === '/'}
+						on:click={handleHomeClick}
 					>
 						<Home class="w-4 h-4" />
 						<span>Home</span>
