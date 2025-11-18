@@ -118,19 +118,28 @@ class Database:
         logger.info("Database schema created")
 
         # Create default admin user if not exists
-        with self.get_session() as session:
-            admin = session.query(User).filter_by(username='admin').first()
-            if not admin:
-                admin = User(
-                    username='admin',
-                    password_hash='changeme',  # Should be hashed in production!
-                    is_admin=True,
-                    is_active=True,
-                    created_at=int(time.time())
-                )
-                session.add(admin)
-                session.commit()
-                logger.info("Created default admin user")
+        # Use try-except to handle race condition in multi-process environments
+        try:
+            with self.get_session() as session:
+                admin = session.query(User).filter_by(username='admin').first()
+                if not admin:
+                    admin = User(
+                        username='admin',
+                        password_hash='changeme',  # Should be hashed in production!
+                        is_admin=True,
+                        is_active=True,
+                        created_at=int(time.time())
+                    )
+                    session.add(admin)
+                    session.commit()
+                    logger.info("Created default admin user")
+        except Exception as e:
+            # If admin user already exists (race condition), silently ignore
+            if "UNIQUE constraint failed" in str(e) or "username" in str(e).lower():
+                logger.debug("Admin user already exists (created by another process)")
+            else:
+                # Re-raise unexpected errors
+                raise
 
     @contextmanager
     def get_session(self):
