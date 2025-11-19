@@ -79,7 +79,7 @@ def get_default_db_path() -> Path:
     base_dir = project_root / 'data'
 
     # Create directory if it doesn't exist
-ain    try:
+    try:
         base_dir.mkdir(parents=True, exist_ok=True)
     except PermissionError as e:
         logger.error(f"Permission denied creating data directory: {base_dir}")
