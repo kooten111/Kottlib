@@ -382,6 +382,45 @@ class CBRArchive(ComicArchive):
             self.archive.close()
 
 
+class _MemoryWriter:
+    """Simple in-memory writer for py7zr extraction"""
+    def __init__(self):
+        self._buffer = BytesIO()
+
+    def write(self, data: bytes) -> int:
+        return self._buffer.write(data)
+
+    def seek(self, offset: int, whence: int = 0) -> int:
+        return self._buffer.seek(offset, whence)
+
+    def tell(self) -> int:
+        return self._buffer.tell()
+
+    def flush(self):
+        pass
+
+    def close(self):
+        pass
+
+    def get_bytes(self) -> bytes:
+        return self._buffer.getvalue()
+
+
+class _MemoryWriterFactory:
+    """Factory for creating in-memory writers for py7zr"""
+    def __init__(self, target_file: str):
+        self.target_file = target_file
+        self.writer = None
+
+    def create(self, filename: str):
+        """Create writer for the target file"""
+        if filename == self.target_file:
+            self.writer = _MemoryWriter()
+            return self.writer
+        # For other files, return a dummy writer that discards data
+        return _MemoryWriter()
+
+
 class CB7Archive(ComicArchive):
     """7-Zip-based comic archive (.cb7)"""
 
@@ -393,22 +432,22 @@ class CB7Archive(ComicArchive):
         """Load pages from 7z archive"""
         pages = []
 
-        # Get all files
-        for filename, info in sorted(self.archive.list(), key=lambda x: x[0]):
+        # Get all files - list() returns FileInfo objects directly
+        for info in sorted(self.archive.list(), key=lambda x: x.filename):
             # Skip directories
             if info.is_directory:
                 continue
 
             # Skip hidden files
-            if Path(filename).name.startswith('.'):
+            if Path(info.filename).name.startswith('.'):
                 continue
 
             # Skip ComicInfo.xml
-            if filename.lower() == 'comicinfo.xml':
+            if info.filename.lower() == 'comicinfo.xml':
                 continue
 
             page = ComicPage(
-                filename=filename,
+                filename=info.filename,
                 index=len(pages),
                 size=info.uncompressed
             )
@@ -421,17 +460,30 @@ class CB7Archive(ComicArchive):
     def get_file(self, filename: str) -> Optional[bytes]:
         """Get file contents from 7z archive"""
         try:
-            # 7z requires extracting to dict
-            data = self.archive.read([filename])
-            if filename in data:
-                # Read the BytesIO object
-                return data[filename].read()
+            # Find the actual filename (might be case-insensitive)
+            target_name = filename
+            found = False
 
-            # Try case-insensitive search
             for name in self.archive.getnames():
-                if name.lower() == filename.lower():
-                    data = self.archive.read([name])
-                    return data[name].read()
+                if name == filename:
+                    found = True
+                    break
+                elif name.lower() == filename.lower():
+                    target_name = name
+                    found = True
+                    break
+
+            if not found:
+                return None
+
+            # Extract to memory using factory pattern
+            factory = _MemoryWriterFactory(target_name)
+            self.archive.reset()  # Reset archive position for extraction
+            self.archive.extract(targets=[target_name], factory=factory)
+
+            if factory.writer:
+                return factory.writer.get_bytes()
+
         except Exception as e:
             logger.error(f"Failed to read {filename} from 7z: {e}")
         return None
