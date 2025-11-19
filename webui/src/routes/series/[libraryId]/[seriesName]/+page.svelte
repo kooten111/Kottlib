@@ -297,7 +297,7 @@
 						{#if nextVolumeToRead}
 							<div class="reading-actions">
 								<a
-									href="/comic/{libraryId}/{nextVolumeToRead.id}/read"
+									href="/comic/{libraryId}/{nextVolumeToRead.id}/read{nextVolumeToRead.current_page > 0 ? `?page=${nextVolumeToRead.current_page}` : ''}"
 									class="btn-reading"
 								>
 									<BookOpen class="w-5 h-5" />

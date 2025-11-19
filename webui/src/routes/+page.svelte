@@ -34,13 +34,14 @@
 	let lastSearchQuery = '';
 	let searchDebounceTimer;
 	let showSizeSlider = false;
+	let initialFilterRestored = false; // Track if initial filter has been restored
 
 	// PERFORMANCE OPTIMIZATION: Cache for tree filtering
 	let treeFilterCache = new Map();
 	let filterDebounceTimer;
 
 	// React to filter store changes - sync currentFilter with store
-	$: if (!isLoading) {
+	$: if (!isLoading && initialFilterRestored) {
 		const filterChanged = JSON.stringify(currentFilter) !== JSON.stringify($currentFilterStore);
 		if (filterChanged) {
 			console.log('[Home] Filter store changed from', currentFilter, 'to', $currentFilterStore);
@@ -79,6 +80,10 @@
 			console.log('[Home] Restoring filter from store:', $currentFilterStore);
 			await restoreFilter($currentFilterStore);
 		}
+
+		// Mark that initial filter restoration is complete
+		// This prevents reactive statements from interfering
+		initialFilterRestored = true;
 
 		// Restore search from URL if present
 		if (typeof window !== 'undefined') {

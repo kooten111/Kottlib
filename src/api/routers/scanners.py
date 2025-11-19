@@ -198,7 +198,7 @@ class ScanResultModel(BaseModel):
     tags: List[str] = Field(default_factory=list)
 
     class Config:
-        schema_extra = {
+        json_schema_extra = {
             "example": {
                 "confidence": 1.0,
                 "confidence_level": "EXACT",
@@ -245,7 +245,7 @@ class UpdateLibraryScannerConfig(BaseModel):
     fallback_threshold: float = Field(0.7, ge=0.0, le=1.0, description="Threshold to trigger fallback")
 
     class Config:
-        schema_extra = {
+        json_schema_extra = {
             "example": {
                 "primary_scanner": "nhentai",
                 "fallback_scanners": [],
@@ -265,7 +265,7 @@ class ScanRequest(BaseModel):
     library_type: Optional[str] = Field(None, description="[DEPRECATED] Use library_id instead")
 
     class Config:
-        schema_extra = {
+        json_schema_extra = {
             "example": {
                 "query": "[Artist] Comic Title [English].cbz",
                 "library_id": 1,
