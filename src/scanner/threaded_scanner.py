@@ -28,6 +28,7 @@ try:
         create_folder,
         get_folder_by_path,
         get_or_create_root_folder,
+        get_library_by_id,
         get_covers_dir,
         update_library_series_tree_cache,
     )
@@ -48,6 +49,7 @@ except ImportError:
         create_folder,
         get_folder_by_path,
         get_or_create_root_folder,
+        get_library_by_id,
         get_covers_dir,
         update_library_series_tree_cache,
     )
@@ -110,7 +112,6 @@ class ThreadedScanner:
 
         # Get library name for per-library data directories
         with self.db.get_session() as session:
-            from ..database import get_library_by_id
             library = get_library_by_id(session, library_id)
             self.library_name = library.name if library else None
 
