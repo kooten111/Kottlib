@@ -31,6 +31,33 @@ except ImportError:
 # Database Configuration
 # ============================================================================
 
+def get_project_root() -> Path:
+    """
+    Get the project root directory
+
+    This finds the project root by looking for key files (config.yml, src/ directory)
+    starting from this file's location and walking up the directory tree.
+    """
+    # Start from this file's directory
+    current = Path(__file__).parent.parent.parent.resolve()
+
+    # Walk up to find project root (directory containing config.yml or src/)
+    max_depth = 10
+    for _ in range(max_depth):
+        # Check for project markers
+        if (current / 'config.yml').exists() or (current / 'src').exists():
+            return current
+
+        # Move up one level
+        parent = current.parent
+        if parent == current:  # Reached filesystem root
+            break
+        current = parent
+
+    # Fallback to current working directory if not found
+    return Path.cwd()
+
+
 def get_default_db_path() -> Path:
     """
     Get the default main database path in ./data directory
@@ -38,9 +65,10 @@ def get_default_db_path() -> Path:
     This is the main database containing global settings, users, and sessions.
     Each library will have its own database.
 
-    Returns ./data/main.db relative to the current working directory
+    Returns ./data/main.db relative to the project root
     """
-    base_dir = Path.cwd() / 'data'
+    project_root = get_project_root()
+    base_dir = project_root / 'data'
 
     # Create directory if it doesn't exist
     base_dir.mkdir(parents=True, exist_ok=True)
@@ -49,8 +77,9 @@ def get_default_db_path() -> Path:
 
 
 def get_data_dir() -> Path:
-    """Get the data directory (./data)"""
-    data_dir = Path.cwd() / 'data'
+    """Get the data directory (./data relative to project root)"""
+    project_root = get_project_root()
+    data_dir = project_root / 'data'
     data_dir.mkdir(parents=True, exist_ok=True)
     return data_dir
 

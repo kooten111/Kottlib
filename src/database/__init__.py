@@ -24,6 +24,7 @@ from .models import (
 
 from .database import (
     Database,
+    get_project_root,
     get_default_db_path,
     get_data_dir,
     get_library_data_dir,
@@ -115,6 +116,7 @@ __all__ = [
     'ReadingListItem',
     # Database
     'Database',
+    'get_project_root',
     'get_default_db_path',
     'get_data_dir',
     'get_library_data_dir',
