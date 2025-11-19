@@ -6,10 +6,13 @@ server:
   cors_origins:
   - '*'
 database:
-  path: yaclib.db
+  # Main database for global settings, users, and sessions
+  path: data/main.db
   echo: false
 storage:
-  covers_dir: covers
+  # Note: Each library will have its own covers directory under ./data/<LibraryName>/covers/
+  # This setting is for legacy/fallback shared covers
+  covers_dir: data/covers
   cache_dir: null
 features:
   legacy_api: true

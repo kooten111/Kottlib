@@ -33,36 +33,78 @@ except ImportError:
 
 def get_default_db_path() -> Path:
     """
-    Get the default database path based on platform
+    Get the default main database path in ./data directory
 
-    Linux: ~/.local/share/yaclib/yaclib.db
-    macOS: ~/Library/Application Support/YACLib/yaclib.db
-    Windows: %APPDATA%/YACLib/yaclib.db
+    This is the main database containing global settings, users, and sessions.
+    Each library will have its own database.
+
+    Returns ./data/main.db relative to the current working directory
     """
-    import platform
-
-    system = platform.system()
-
-    if system == 'Linux':
-        base_dir = Path.home() / '.local' / 'share' / 'yaclib'
-    elif system == 'Darwin':  # macOS
-        base_dir = Path.home() / 'Library' / 'Application Support' / 'YACLib'
-    elif system == 'Windows':
-        base_dir = Path(os.environ.get('APPDATA', Path.home())) / 'YACLib'
-    else:
-        # Fallback
-        base_dir = Path.home() / '.yaclib'
+    base_dir = Path.cwd() / 'data'
 
     # Create directory if it doesn't exist
     base_dir.mkdir(parents=True, exist_ok=True)
 
-    return base_dir / 'yaclib.db'
+    return base_dir / 'main.db'
 
 
-def get_covers_dir() -> Path:
-    """Get the covers directory (same location as database)"""
-    db_path = get_default_db_path()
-    covers_dir = db_path.parent / 'covers'
+def get_data_dir() -> Path:
+    """Get the data directory (./data)"""
+    data_dir = Path.cwd() / 'data'
+    data_dir.mkdir(parents=True, exist_ok=True)
+    return data_dir
+
+
+def get_library_data_dir(library_name: str) -> Path:
+    """
+    Get the data directory for a specific library
+
+    Args:
+        library_name: Name of the library (e.g., 'Manga', 'Comics')
+
+    Returns:
+        Path to library-specific data directory (./data/<LibraryName>/)
+    """
+    data_dir = get_data_dir()
+    library_dir = data_dir / library_name
+    library_dir.mkdir(parents=True, exist_ok=True)
+    return library_dir
+
+
+def get_library_db_path(library_name: str) -> Path:
+    """
+    Get the database path for a specific library
+
+    Args:
+        library_name: Name of the library (e.g., 'Manga', 'Comics')
+
+    Returns:
+        Path to library database (./data/<LibraryName>/library.db)
+    """
+    library_dir = get_library_data_dir(library_name)
+    return library_dir / 'library.db'
+
+
+def get_covers_dir(library_name: Optional[str] = None) -> Path:
+    """
+    Get the covers directory for a library
+
+    Args:
+        library_name: Name of the library (optional, for library-specific covers)
+
+    Returns:
+        Path to covers directory:
+        - With library_name: ./data/<LibraryName>/covers/
+        - Without library_name: ./data/covers/ (shared/legacy)
+    """
+    if library_name:
+        library_dir = get_library_data_dir(library_name)
+        covers_dir = library_dir / 'covers'
+    else:
+        # Shared covers directory (legacy/fallback)
+        data_dir = get_data_dir()
+        covers_dir = data_dir / 'covers'
+
     covers_dir.mkdir(parents=True, exist_ok=True)
     return covers_dir
 

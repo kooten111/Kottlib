@@ -120,14 +120,19 @@
 				// Use SSR data directly - all data pre-loaded on server
 				continueReading = data.firstLibrary.continueReading || [];
 				allSeries = data.firstLibrary.recentSeries || [];
-				displayedSeries = allSeries.slice(0, seriesPageSize);
-				hasMoreSeries = allSeries.length > seriesPageSize;
+				// Only set displayedSeries if there's no filter to restore
+				// This prevents showing all series before filter restoration
+				if (!$currentFilterStore) {
+					displayedSeries = allSeries.slice(0, seriesPageSize);
+					hasMoreSeries = allSeries.length > seriesPageSize;
+				}
 
 				console.log('[Home] SSR data loaded:', {
 					totalSeries: allSeries.length,
 					displayedSeries: displayedSeries.length,
 					seriesPageSize,
-					hasMoreSeries
+					hasMoreSeries,
+					hasFilter: !!$currentFilterStore
 				});
 
 				// Initialize filtered tree
@@ -199,14 +204,18 @@
 				}
 			}
 
-			displayedSeries = allSeries.slice(0, seriesPageSize);
-			hasMoreSeries = allSeries.length > seriesPageSize;
+			// Only set displayedSeries if there's no filter to restore
+			if (!$currentFilterStore) {
+				displayedSeries = allSeries.slice(0, seriesPageSize);
+				hasMoreSeries = allSeries.length > seriesPageSize;
+			}
 
 			console.log('[Home] Client-side data loaded:', {
 				totalSeries: allSeries.length,
 				displayedSeries: displayedSeries.length,
 				seriesPageSize,
-				hasMoreSeries
+				hasMoreSeries,
+				hasFilter: !!$currentFilterStore
 			});
 
 			// Initialize filtered tree

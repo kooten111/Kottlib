@@ -351,6 +351,10 @@ async def get_comic_cover(
         if not comic:
             raise HTTPException(status_code=404, detail="Comic not found")
 
+        # Get library to determine covers directory
+        library = get_library_by_id(session, library_id)
+        library_name = library.name if library else None
+
         # Try to get best cover (custom or auto)
         cover = get_best_cover(session, comic_id)
 
@@ -363,7 +367,7 @@ async def get_comic_cover(
             )
 
         # Fall back to hash-based path (for backward compatibility)
-        covers_dir = get_covers_dir()
+        covers_dir = get_covers_dir(library_name)
         cover_path = covers_dir / f"{comic.hash}.jpg"
 
         if not cover_path.exists():
@@ -401,6 +405,10 @@ async def set_custom_cover(
         if not comic:
             raise HTTPException(status_code=404, detail="Comic not found")
 
+        # Get library to determine covers directory
+        library = get_library_by_id(session, library_id)
+        library_name = library.name if library else None
+
         if page_num < 0 or page_num >= comic.num_pages:
             raise HTTPException(status_code=400, detail="Invalid page number")
 
@@ -424,8 +432,8 @@ async def set_custom_cover(
             from io import BytesIO
             page_image = Image.open(BytesIO(page_data))
 
-            # Generate custom cover thumbnails
-            covers_dir = get_covers_dir()
+            # Generate custom cover thumbnails (library-specific directory)
+            covers_dir = get_covers_dir(library_name)
             custom_hash = f"{comic.hash}_custom"
 
             jpeg_ok, webp_ok = generate_dual_thumbnails(

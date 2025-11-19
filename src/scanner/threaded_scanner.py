@@ -108,6 +108,12 @@ class ThreadedScanner:
         self.max_workers = max_workers
         self.progress_callback = progress_callback
 
+        # Get library name for per-library data directories
+        with self.db.get_session() as session:
+            from ..database import get_library_by_id
+            library = get_library_by_id(session, library_id)
+            self.library_name = library.name if library else None
+
         # Thread-safe counters
         self._lock = Lock()
         self._comics_processed = 0
@@ -546,7 +552,8 @@ class ThreadedScanner:
             file_hash: File hash
         """
         try:
-            covers_dir = get_covers_dir()
+            # Get library-specific covers directory
+            covers_dir = get_covers_dir(self.library_name)
 
             # Check if thumbnails already exist
             if thumbnail_exists(covers_dir, file_hash, 'JPEG'):

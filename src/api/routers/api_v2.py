@@ -774,11 +774,18 @@ async def get_cover_v2(
     Serves WebP format when available (better quality, smaller size),
     with JPEG fallback for compatibility.
     """
+    db = request.app.state.db
+
+    # Get library to determine covers directory
+    with db.get_session() as session:
+        library = get_library_by_id(session, library_id)
+        library_name = library.name if library else None
+
     # Extract hash from path (e.g., "abc123.jpg" -> "abc123")
     hash_value = cover_path.replace('.jpg', '').replace('.jpeg', '').replace('.png', '').replace('.webp', '')
 
     # Get covers directory - uses hierarchical storage (first 2 chars as subdirectory)
-    covers_dir = get_covers_dir()
+    covers_dir = get_covers_dir(library_name)
 
     # Try WebP first (better quality and smaller size)
     if len(hash_value) >= 2:
