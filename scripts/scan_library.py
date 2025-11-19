@@ -24,6 +24,7 @@ from database import (
 )
 from database.models import Comic, Library
 from scanner.threaded_scanner import scan_library_threaded
+from scanner.tool_check import check_tools_and_warn
 from scanners.scanner_manager import ScannerManager
 from scanners.nhentai.nhentai_scanner import NhentaiScanner
 from scanners.base_scanner import ScanResult
@@ -294,6 +295,9 @@ Examples:
     if args.scan_metadata:
         print(f"Metadata: {args.scanner} (threshold: {args.confidence})")
     print(f"=" * 60 + "\n")
+
+    # Check for external tools
+    check_tools_and_warn(verbose=verbose)
 
     # Initialize database
     if db_path is None and args.db is None:

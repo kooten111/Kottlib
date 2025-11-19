@@ -23,6 +23,11 @@ import logging
 
 logger = logging.getLogger(__name__)
 
+# Configure rarfile to use system unrar tool
+rarfile.UNRAR_TOOL = "unrar"
+rarfile.NEED_COMMENTS = 0
+rarfile.USE_DATETIME = 0
+
 
 # Supported image extensions for comic pages
 IMAGE_EXTENSIONS = {'.jpg', '.jpeg', '.png', '.gif', '.bmp', '.webp', '.tiff', '.tif'}
@@ -331,7 +336,14 @@ class CBRArchive(ComicArchive):
 
     def __init__(self, file_path: Path):
         super().__init__(file_path)
-        self.archive = rarfile.RarFile(file_path, 'r')
+        try:
+            self.archive = rarfile.RarFile(file_path, 'r')
+        except rarfile.RarCannotExec as e:
+            raise RuntimeError(
+                f"Cannot extract RAR files: unrar tool not found. "
+                f"Please install unrar to read CBR archives. "
+                f"(Arch: sudo pacman -S unrar, Debian/Ubuntu: sudo apt install unrar)"
+            ) from e
 
     def _load_pages(self) -> List[ComicPage]:
         """Load pages from RAR archive"""
@@ -578,6 +590,9 @@ def open_comic(file_path: Path) -> Optional[ComicArchive]:
         return None
 
     # Try each format
+    last_error = None
+    tool_missing = False
+
     for fmt in formats_to_try:
         try:
             if fmt == 'zip':
@@ -586,12 +601,22 @@ def open_comic(file_path: Path) -> Optional[ComicArchive]:
                 return CBRArchive(file_path)
             elif fmt == '7z':
                 return CB7Archive(file_path)
+        except RuntimeError as e:
+            # RuntimeError indicates missing external tool
+            last_error = e
+            tool_missing = True
+            logger.debug(f"Failed to open as {fmt}: {e}")
+            continue
         except Exception as e:
+            last_error = e
             logger.debug(f"Failed to open as {fmt}: {e}")
             continue
 
     # All formats failed
-    if detected_format and ext_format and detected_format != ext_format:
+    if tool_missing:
+        # Specific error for missing external tools
+        logger.error(f"Failed to read {file_path.name} from RAR: {last_error}")
+    elif detected_format and ext_format and detected_format != ext_format:
         logger.error(
             f"Failed to open {file_path.name}: "
             f"File appears to be {detected_format} but has .{ext_format} extension. "
