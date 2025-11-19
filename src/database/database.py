@@ -40,12 +40,18 @@ def get_project_root() -> Path:
     """
     # Start from this file's directory
     current = Path(__file__).parent.parent.parent.resolve()
+    logger.debug(f"Looking for project root, starting from: {current}")
 
     # Walk up to find project root (directory containing config.yml or src/)
     max_depth = 10
     for _ in range(max_depth):
         # Check for project markers
-        if (current / 'config.yml').exists() or (current / 'src').exists():
+        has_config = (current / 'config.yml').exists()
+        has_src = (current / 'src').exists()
+        logger.debug(f"Checking {current}: config.yml={has_config}, src/={has_src}")
+
+        if has_config or has_src:
+            logger.info(f"Found project root: {current}")
             return current
 
         # Move up one level
@@ -55,7 +61,9 @@ def get_project_root() -> Path:
         current = parent
 
     # Fallback to current working directory if not found
-    return Path.cwd()
+    fallback = Path.cwd()
+    logger.warning(f"Could not find project root, falling back to cwd: {fallback}")
+    return fallback
 
 
 def get_default_db_path() -> Path:
@@ -71,9 +79,19 @@ def get_default_db_path() -> Path:
     base_dir = project_root / 'data'
 
     # Create directory if it doesn't exist
-    base_dir.mkdir(parents=True, exist_ok=True)
+    try:
+        base_dir.mkdir(parents=True, exist_ok=True)
+    except PermissionError as e:
+        logger.error(f"Permission denied creating data directory: {base_dir}")
+        raise
+    except Exception as e:
+        logger.error(f"Error creating data directory {base_dir}: {e}")
+        raise
 
-    return base_dir / 'main.db'
+    db_path = base_dir / 'main.db'
+    logger.debug(f"Database path: {db_path}")
+
+    return db_path
 
 
 def get_data_dir() -> Path:
