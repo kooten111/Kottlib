@@ -30,16 +30,56 @@ from scanners.nhentai.nhentai_scanner import NhentaiScanner
 from scanners.base_scanner import ScanResult
 
 
-def progress_callback_verbose(current, total, message):
+def progress_callback_verbose(current, total, message, series_name=None, filename=None, running_comics=None):
     """Print detailed progress updates (verbose mode)"""
     percent = (current / total * 100) if total > 0 else 0
-    print(f"  [{current}/{total}] ({percent:.1f}%) - {message}")
+
+    # In verbose mode, only print when a comic completes (not for active workers update)
+    if running_comics is None:
+        if series_name and filename:
+            print(f"  [{current}/{total}] ({percent:.1f}%) - {series_name} / {filename}")
+        else:
+            print(f"  [{current}/{total}] ({percent:.1f}%) - {message}")
 
 
-def progress_callback_simple(current, total, message):
-    """Print simple progress bar (default mode)"""
+def progress_callback_simple(current, total, message, series_name=None, filename=None, running_comics=None):
+    """Print progress bar with active workers (default mode)"""
+    import sys
+
     percent = (current / total * 100) if total > 0 else 0
-    print(f"\r  Progress: {current}/{total} ({percent:.1f}%)", end='', flush=True)
+
+    # Create progress bar
+    bar_width = 40
+    filled = int(bar_width * current / total) if total > 0 else 0
+    bar = '█' * filled + '░' * (bar_width - filled)
+
+    # Calculate lines needed
+    worker_lines = len(running_comics) if running_comics else 0
+    total_lines = 2 + worker_lines  # Progress bar + blank line + worker lines
+
+    # Move cursor up to overwrite previous output
+    if current > 1:  # Don't move up on first iteration
+        sys.stdout.write(f'\033[{total_lines}A')  # Move up N lines
+
+    # Clear and print progress bar
+    sys.stdout.write(f'\r\033[K  [{bar}] {percent:5.1f}% ({current}/{total})\n')
+
+    # Print active workers
+    if running_comics:
+        sys.stdout.write('\r\033[K  Active workers:\n')
+        for series, fname in running_comics[:8]:  # Limit to 8 workers
+            # Truncate for display
+            max_series_len = 25
+            max_file_len = 45
+            if len(series) > max_series_len:
+                series = series[:max_series_len-3] + "..."
+            if len(fname) > max_file_len:
+                fname = fname[:max_file_len-3] + "..."
+            sys.stdout.write(f'\r\033[K    └─ {series} / {fname}\n')
+    else:
+        sys.stdout.write('\r\033[K\n')  # Blank line
+
+    sys.stdout.flush()
 
 
 def scan_metadata(
@@ -104,7 +144,18 @@ def scan_metadata(
             if verbose:
                 print(f"[{i}/{total}] Scanning: {comic.filename}")
             else:
-                print(f"\r  Metadata Progress: {i}/{total} ({i/total*100:.1f}%)", end='', flush=True)
+                # Progress bar for metadata scanning
+                percent = (i / total * 100) if total > 0 else 0
+                bar_width = 40
+                filled = int(bar_width * i / total) if total > 0 else 0
+                bar = '█' * filled + '░' * (bar_width - filled)
+
+                # Truncate filename if too long
+                filename = comic.filename
+                if len(filename) > 50:
+                    filename = filename[:47] + "..."
+
+                print(f"\r  [{bar}] {percent:5.1f}% ({i}/{total}) - {filename}", end='', flush=True)
 
             try:
                 # Scan using filename

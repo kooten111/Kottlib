@@ -29,8 +29,8 @@
 		if (window.history.length > 1) {
 			window.history.back();
 		} else {
-			// Fallback to library browse if no history
-			goto(`/browse/${libraryId}`);
+			// Fallback to home page if no history
+			goto('/');
 		}
 	}
 
@@ -120,7 +120,7 @@
 		{:else if error}
 			<div class="error-container">
 				<p class="text-red-400">Failed to load comic: {error}</p>
-				<a href="/browse" class="btn-primary mt-4">Back to Browse</a>
+				<a href="/" class="btn-primary mt-4">Back to Home</a>
 			</div>
 		{:else if comic}
 			<!-- Navigation Buttons -->

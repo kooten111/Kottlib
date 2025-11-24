@@ -793,26 +793,6 @@
 							</InfiniteScroll>
 						</section>
 					{/if}
-
-					{#if continueReading.length === 0 && allSeries.length === 0}
-						<div class="empty-state">
-							<svg
-								xmlns="http://www.w3.org/2000/svg"
-								width="64"
-								height="64"
-								viewBox="0 0 24 24"
-								fill="none"
-								stroke="currentColor"
-								stroke-width="2"
-								class="text-gray-500 mb-4"
-							>
-								<path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20" />
-								<path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z" />
-							</svg>
-							<p class="text-gray-400 mb-4">No comics yet!</p>
-							<a href="/browse" class="btn-primary">Browse Libraries</a>
-						</div>
-					{/if}
 				{/if}
 			</div>
 		</main>

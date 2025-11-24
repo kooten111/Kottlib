@@ -125,6 +125,9 @@ class ThreadedScanner:
         self._thumbnails_generated = 0
         self._errors = 0
 
+        # Track active workers for progress display
+        self._active_workers = {}  # worker_id -> (series_name, filename)
+
     def scan_library(self, library_path: Path) -> ScanResult:
         """
         Scan entire library with multi-threading
@@ -178,6 +181,13 @@ class ThreadedScanner:
             f"{result.comics_updated} updated), "
             f"{result.errors} errors in {duration:.2f}s"
         )
+
+        # Rebuild series table from comics (ensures series are up-to-date)
+        try:
+            self._rebuild_series_table()
+        except Exception as e:
+            logger.error(f"Failed to rebuild series table: {e}")
+            # Don't fail the scan if series rebuild fails
 
         # Build and cache the series tree for fast loading
         try:
@@ -294,6 +304,9 @@ class ThreadedScanner:
 
         YACReader compatibility: Comics at library root get folder_id set to root_folder_id.
 
+        IMPORTANT: Comics are processed and committed in file order. If the scan is interrupted,
+        all processed comics will be fully available (metadata + thumbnails) in the database.
+
         Args:
             comic_files: List of (comic_path, parent_folder_path) tuples
             folder_map: Mapping of folder paths to folder IDs
@@ -302,7 +315,7 @@ class ThreadedScanner:
         """
         # Use thread pool to process comics in parallel
         with ThreadPoolExecutor(max_workers=self.max_workers) as executor:
-            # Submit all tasks
+            # Submit all tasks and keep them in order
             futures = []
             for comic_path, parent_folder in comic_files:
                 if parent_folder:
@@ -312,27 +325,78 @@ class ThreadedScanner:
                     # Comic is at library root - use root folder ID (YACReader convention)
                     folder_id = root_folder_id
 
-                future = executor.submit(self._process_single_comic, comic_path, folder_id)
-                futures.append(future)
+                future = executor.submit(self._process_single_comic_tracked, comic_path, folder_id)
+                futures.append((future, comic_path))
 
-            # Process completed tasks
-            for future in as_completed(futures):
+            # Progress monitoring thread
+            from threading import Thread, current_thread
+            import threading
+
+            def monitor_progress():
+                """Update progress display with active workers"""
+                while self._comics_processed < total:
+                    with self._lock:
+                        if self.progress_callback:
+                            # Get list of active workers
+                            running_comics = list(self._active_workers.values())
+                            self.progress_callback(
+                                self._comics_processed,
+                                total,
+                                "Processing...",
+                                None,
+                                None,
+                                running_comics
+                            )
+                    import time
+                    time.sleep(0.3)  # Update every 300ms
+
+            # Start progress monitor thread
+            monitor = Thread(target=monitor_progress, daemon=True)
+            monitor.start()
+
+            # IMPORTANT: Process completed tasks IN ORDER (not as_completed)
+            # This ensures that if the scan is interrupted, all processed comics
+            # are fully complete (metadata + thumbnails) in the database
+            for i, (future, comic_path) in enumerate(futures, 1):
                 try:
-                    future.result()
+                    future.result()  # Wait for this specific comic to complete
                 except Exception as e:
-                    logger.error(f"Error processing comic: {e}")
+                    logger.error(f"Error processing comic {comic_path}: {e}")
                     with self._lock:
                         self._errors += 1
 
-                # Update progress
+                # Update progress counter
                 with self._lock:
                     self._comics_processed += 1
-                    if self.progress_callback:
-                        self.progress_callback(
-                            self._comics_processed,
-                            total,
-                            f"Processed {self._comics_processed}/{total} comics"
-                        )
+
+            # Final progress update to clear active workers
+            if self.progress_callback:
+                self.progress_callback(self._comics_processed, total, "Complete", None, None, [])
+
+    def _process_single_comic_tracked(self, comic_path: Path, folder_id: Optional[int]):
+        """
+        Wrapper for _process_single_comic that tracks active workers
+
+        Args:
+            comic_path: Path to comic file
+            folder_id: Parent folder ID (or None)
+        """
+        from threading import current_thread
+        thread_id = current_thread().ident
+
+        # Register this worker as active
+        series_name = comic_path.parent.name if comic_path.parent else "Root"
+        filename = comic_path.name
+        with self._lock:
+            self._active_workers[thread_id] = (series_name, filename)
+
+        try:
+            # Process the comic
+            self._process_single_comic(comic_path, folder_id)
+        finally:
+            # Unregister this worker
+            with self._lock:
+                self._active_workers.pop(thread_id, None)
 
     def _process_single_comic(self, comic_path: Path, folder_id: Optional[int]):
         """
@@ -581,6 +645,72 @@ class ThreadedScanner:
 
         except Exception as e:
             logger.error(f"Error generating thumbnails for {file_hash}: {e}")
+
+    def _rebuild_series_table(self):
+        """
+        Rebuild the series table from comics
+
+        Groups comics by normalized_series_name and creates/updates series records.
+        This ensures the series table is always in sync with the comics.
+        """
+        logger.info(f"Rebuilding series table for library {self.library_id}...")
+
+        with self.db.get_session() as session:
+            from sqlalchemy import func
+            from ..database.models import Series as SeriesModel
+            import time
+
+            # Get all unique series names with comic counts
+            series_data = session.query(
+                Comic.normalized_series_name,
+                func.count(Comic.id).label('comic_count')
+            ).filter(
+                Comic.library_id == self.library_id,
+                Comic.normalized_series_name.isnot(None)
+            ).group_by(
+                Comic.normalized_series_name
+            ).all()
+
+            if not series_data:
+                logger.info("No series found in comics")
+                return
+
+            created = 0
+            updated = 0
+            now = int(time.time())
+
+            for series_name, comic_count in series_data:
+                if not series_name:
+                    continue
+
+                # Check if series already exists
+                existing = session.query(SeriesModel).filter(
+                    SeriesModel.library_id == self.library_id,
+                    SeriesModel.name == series_name
+                ).first()
+
+                if existing:
+                    # Update comic count
+                    existing.comic_count = comic_count
+                    existing.total_issues = comic_count
+                    existing.updated_at = now
+                    updated += 1
+                else:
+                    # Create new series
+                    new_series = SeriesModel(
+                        library_id=self.library_id,
+                        name=series_name,
+                        display_name=series_name,
+                        comic_count=comic_count,
+                        total_issues=comic_count,
+                        created_at=now,
+                        updated_at=now
+                    )
+                    session.add(new_series)
+                    created += 1
+
+            session.commit()
+            logger.info(f"Series table rebuilt: {created} created, {updated} updated")
 
     def _build_series_tree_cache(self):
         """

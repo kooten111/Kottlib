@@ -4,7 +4,7 @@
 	$: comicCount = library.comicCount || 0;
 </script>
 
-<a href="/browse/{library.id}" class="library-card">
+<a href="/" class="library-card">
 	<div class="library-icon">
 		<svg
 			xmlns="http://www.w3.org/2000/svg"

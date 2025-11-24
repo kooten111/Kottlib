@@ -155,6 +155,7 @@ def get_covers_dir(library_name: Optional[str] = None) -> Path:
         - With library_name: ./data/<LibraryName>/covers/
         - Without library_name: ./data/covers/ (shared/legacy)
     """
+    logger.debug(f"[DB] get_covers_dir: library_name={library_name}")
     if library_name:
         library_dir = get_library_data_dir(library_name)
         covers_dir = library_dir / 'covers'
@@ -163,6 +164,7 @@ def get_covers_dir(library_name: Optional[str] = None) -> Path:
         data_dir = get_data_dir()
         covers_dir = data_dir / 'covers'
 
+    logger.debug(f"[DB] Covers directory: {covers_dir}, exists={covers_dir.exists()}")
     covers_dir.mkdir(parents=True, exist_ok=True)
     return covers_dir
 
@@ -221,6 +223,9 @@ class Database:
         Base.metadata.create_all(bind=self.engine)
         logger.info("Database schema created")
 
+        # Run migrations to ensure schema is up to date
+        self._run_migrations()
+
         # Create default admin user if not exists
         # Use try-except to handle race condition in multi-process environments
         try:
@@ -245,6 +250,45 @@ class Database:
                 # Re-raise unexpected errors
                 raise
 
+    def _run_migrations(self):
+        """
+        Run database migrations to update schema for existing databases
+
+        This ensures that databases created with older versions of the code
+        are updated to match the current schema.
+        """
+        from sqlalchemy import text
+
+        try:
+            with self.engine.connect() as conn:
+                # Migration 1: Add missing columns to sessions table
+                # Check if device_type column exists
+                result = conn.execute(text("PRAGMA table_info(sessions)")).fetchall()
+                column_names = [row[1] for row in result]
+
+                if 'device_type' not in column_names:
+                    logger.info("Running migration: Adding device_type to sessions table")
+                    conn.execute(text("ALTER TABLE sessions ADD COLUMN device_type TEXT NULL"))
+                    conn.commit()
+                    logger.info("Migration complete: device_type column added")
+
+                if 'display_type' not in column_names:
+                    logger.info("Running migration: Adding display_type to sessions table")
+                    conn.execute(text("ALTER TABLE sessions ADD COLUMN display_type TEXT NULL"))
+                    conn.commit()
+                    logger.info("Migration complete: display_type column added")
+
+                if 'downloaded_comics' not in column_names:
+                    logger.info("Running migration: Adding downloaded_comics to sessions table")
+                    conn.execute(text("ALTER TABLE sessions ADD COLUMN downloaded_comics TEXT NULL"))
+                    conn.commit()
+                    logger.info("Migration complete: downloaded_comics column added")
+
+        except Exception as e:
+            logger.error(f"Error running migrations: {e}")
+            # Don't fail startup if migrations fail - the app might still work
+            # This is a best-effort attempt to update the schema
+
     @contextmanager
     def get_session(self):
         """
@@ -268,6 +312,21 @@ class Database:
     def close(self):
         """Close database connection"""
         self.engine.dispose()
+
+
+def get_library_database(library_name: str, echo: bool = False) -> Database:
+    """
+    Get a Database connection for a specific library
+
+    Args:
+        library_name: Name of the library (e.g., 'Manga', 'Comics')
+        echo: If True, log all SQL statements
+
+    Returns:
+        Database instance connected to the library's database
+    """
+    library_db_path = get_library_db_path(library_name)
+    return Database(db_path=library_db_path, echo=echo)
 
 
 # ============================================================================
@@ -302,7 +361,13 @@ def create_library(
 
 def get_library_by_id(session: Session, library_id: int) -> Optional[Library]:
     """Get library by ID"""
-    return session.query(Library).filter_by(id=library_id).first()
+    logger.debug(f"[DB] get_library_by_id: library_id={library_id}")
+    result = session.query(Library).filter_by(id=library_id).first()
+    if result:
+        logger.debug(f"[DB] Library found: id={result.id}, name={result.name}, path={result.path}")
+    else:
+        logger.debug(f"[DB] Library not found: library_id={library_id}")
+    return result
 
 
 def get_library_by_path(session: Session, path: str) -> Optional[Library]:
@@ -439,7 +504,13 @@ def create_comic(
 
 def get_comic_by_id(session: Session, comic_id: int) -> Optional[Comic]:
     """Get comic by ID"""
-    return session.query(Comic).filter_by(id=comic_id).first()
+    logger.debug(f"[DB] get_comic_by_id: comic_id={comic_id}")
+    result = session.query(Comic).filter_by(id=comic_id).first()
+    if result:
+        logger.debug(f"[DB] Comic found: id={result.id}, filename={result.filename}, path={result.path}, num_pages={result.num_pages}")
+    else:
+        logger.debug(f"[DB] Comic not found: comic_id={comic_id}")
+    return result
 
 
 def get_comic_by_hash(session: Session, file_hash: str, library_id: Optional[int] = None) -> Optional[Comic]:
@@ -973,10 +1044,16 @@ def get_reading_progress(
     comic_id: int
 ) -> Optional[ReadingProgress]:
     """Get reading progress for a specific comic"""
-    return session.query(ReadingProgress).filter_by(
+    logger.debug(f"[DB] get_reading_progress: user_id={user_id}, comic_id={comic_id}")
+    result = session.query(ReadingProgress).filter_by(
         user_id=user_id,
         comic_id=comic_id
     ).first()
+    if result:
+        logger.debug(f"[DB] Reading progress found: current_page={result.current_page}, total_pages={result.total_pages}, progress={result.progress_percent}%, completed={result.is_completed}")
+    else:
+        logger.debug(f"[DB] No reading progress found for user_id={user_id}, comic_id={comic_id}")
+    return result
 
 
 def get_continue_reading(

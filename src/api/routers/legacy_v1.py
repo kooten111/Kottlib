@@ -344,40 +344,75 @@ async def get_comic_cover(
     Returns JPEG thumbnail for mobile app compatibility
     Uses custom cover if available, otherwise falls back to auto-generated cover
     """
-    db = request.app.state.db
+    main_db = request.app.state.db
 
-    with db.get_session() as session:
-        comic = get_comic_by_id(session, comic_id)
-        if not comic:
+    # Get library metadata from main DB
+    with main_db.get_session() as session:
+        library = get_library_by_id(session, library_id)
+        if not library:
+            raise HTTPException(status_code=404, detail="Library not found")
+        library_name = library.name
+
+    # Get comic from library-specific DB
+    from ...database import get_library_database
+    library_db = get_library_database(library_name)
+
+    with library_db.get_session() as session:
+        # Use raw SQL to get comic hash (avoid ORM library_id issue)
+        from sqlalchemy import text
+        comic_result = session.execute(text(
+            "SELECT hash FROM comics WHERE id = :comic_id"
+        ), {"comic_id": comic_id}).fetchone()
+
+        if not comic_result:
             raise HTTPException(status_code=404, detail="Comic not found")
 
-        # Get library to determine covers directory
-        library = get_library_by_id(session, library_id)
-        library_name = library.name if library else None
+        comic_hash = comic_result[0]
 
-        # Try to get best cover (custom or auto)
+        # Try to get best cover (custom or auto) - but covers table might be empty
         cover = get_best_cover(session, comic_id)
 
-        if cover and Path(cover.jpeg_path).exists():
-            # Use cover from database
-            return FileResponse(
-                cover.jpeg_path,
-                media_type="image/jpeg",
-                headers={"Cache-Control": "public, max-age=31536000"}  # Cache for 1 year
-            )
-
-        # Fall back to hash-based path (for backward compatibility)
-        covers_dir = get_covers_dir(library_name)
-        cover_path = covers_dir / f"{comic.hash}.jpg"
-
-        if not cover_path.exists():
-            raise HTTPException(status_code=404, detail="Cover not found")
-
+    if cover and Path(cover.jpeg_path).exists():
+        # Use cover from database
         return FileResponse(
-            cover_path,
+            cover.jpeg_path,
             media_type="image/jpeg",
             headers={"Cache-Control": "public, max-age=31536000"}  # Cache for 1 year
         )
+
+    # Fall back to hash-based path (for backward compatibility)
+    covers_dir = get_covers_dir(library_name)
+
+    # Try hierarchical path first (covers/ab/abc123.jpg)
+    if len(comic_hash) >= 2:
+        subdir = comic_hash[:2]
+        # Try WebP first
+        webp_path = covers_dir / subdir / f"{comic_hash}.webp"
+        if webp_path.exists():
+            return FileResponse(
+                webp_path,
+                media_type="image/webp",
+                headers={"Cache-Control": "public, max-age=31536000"}
+            )
+        # Try JPEG
+        jpeg_path = covers_dir / subdir / f"{comic_hash}.jpg"
+        if jpeg_path.exists():
+            return FileResponse(
+                jpeg_path,
+                media_type="image/jpeg",
+                headers={"Cache-Control": "public, max-age=31536000"}
+            )
+
+    # Try flat path as fallback
+    cover_path = covers_dir / f"{comic_hash}.jpg"
+    if cover_path.exists():
+        return FileResponse(
+            cover_path,
+            media_type="image/jpeg",
+            headers={"Cache-Control": "public, max-age=31536000"}
+        )
+
+    raise HTTPException(status_code=404, detail="Cover not found")
 
 
 @router.post("/{library_id}/comic/{comic_id}/setCustomCover")

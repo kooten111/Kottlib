@@ -140,7 +140,7 @@
 				<p class="text-gray-500 text-sm mb-6">
 					Tap the heart icon on any comic to add it to your favorites
 				</p>
-				<a href="/browse" class="btn-primary">Browse Comics</a>
+				<a href="/" class="btn-primary">Go to Home</a>
 			</div>
 		{/if}
 	</main>

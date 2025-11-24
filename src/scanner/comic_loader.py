@@ -211,7 +211,9 @@ class ComicArchive:
     def pages(self) -> List[ComicPage]:
         """Get list of pages in the comic"""
         if self._pages is None:
+            logger.debug(f"[COMIC_LOADER] Loading pages from archive: {self.file_path.name}")
             self._pages = self._load_pages()
+            logger.debug(f"[COMIC_LOADER] Loaded {len(self._pages)} pages from {self.file_path.name}")
         return self._pages
 
     @property
@@ -246,8 +248,17 @@ class ComicArchive:
 
     def get_page(self, index: int) -> Optional[bytes]:
         """Get page data by index"""
+        logger.debug(f"[COMIC_LOADER] get_page called: index={index}, total_pages={len(self.pages)}")
         if 0 <= index < len(self.pages):
-            return self.get_file(self.pages[index].filename)
+            page_filename = self.pages[index].filename
+            logger.debug(f"[COMIC_LOADER] Extracting page: {page_filename}")
+            page_data = self.get_file(page_filename)
+            if page_data:
+                logger.debug(f"[COMIC_LOADER] Page extracted successfully: size={len(page_data)} bytes")
+            else:
+                logger.error(f"[COMIC_LOADER] Failed to extract page: {page_filename}")
+            return page_data
+        logger.error(f"[COMIC_LOADER] Page index out of range: index={index}, total_pages={len(self.pages)}")
         return None
 
     def get_cover(self) -> Optional[bytes]:
@@ -558,12 +569,17 @@ def open_comic(file_path: Path) -> Optional[ComicArchive]:
         ...     print(f"Pages: {comic.page_count}")
         ...     cover = comic.get_cover()
     """
+    logger.info(f"[COMIC_LOADER] Opening comic: {file_path}")
+    logger.debug(f"[COMIC_LOADER] File exists: {file_path.exists()}, is_file: {file_path.is_file() if file_path.exists() else 'N/A'}")
+
     if not file_path.exists():
-        logger.error(f"File not found: {file_path}")
+        logger.error(f"[COMIC_LOADER] File not found: {file_path}")
         return None
 
     # First, try to detect the actual format by magic numbers
+    logger.debug(f"[COMIC_LOADER] Detecting archive format by magic numbers")
     detected_format = detect_archive_format(file_path)
+    logger.debug(f"[COMIC_LOADER] Detected format: {detected_format}")
 
     # Try detected format first, then fall back to extension-based detection
     formats_to_try = []
@@ -573,6 +589,7 @@ def open_comic(file_path: Path) -> Optional[ComicArchive]:
 
     # Also try extension-based format if different from detected
     ext = file_path.suffix.lower()
+    logger.debug(f"[COMIC_LOADER] File extension: {ext}")
     ext_format = None
     if ext in {'.cbz', '.zip'}:
         ext_format = 'zip'
@@ -581,12 +598,16 @@ def open_comic(file_path: Path) -> Optional[ComicArchive]:
     elif ext == '.cb7':
         ext_format = '7z'
 
+    logger.debug(f"[COMIC_LOADER] Extension-based format: {ext_format}")
+
     if ext_format and ext_format != detected_format:
         formats_to_try.append(ext_format)
 
+    logger.debug(f"[COMIC_LOADER] Formats to try: {formats_to_try}")
+
     # If we have no format to try, give up
     if not formats_to_try:
-        logger.error(f"Unsupported or unrecognized format: {file_path.name}")
+        logger.error(f"[COMIC_LOADER] Unsupported or unrecognized format: {file_path.name}")
         return None
 
     # Try each format
@@ -594,22 +615,29 @@ def open_comic(file_path: Path) -> Optional[ComicArchive]:
     tool_missing = False
 
     for fmt in formats_to_try:
+        logger.debug(f"[COMIC_LOADER] Attempting to open as {fmt}")
         try:
             if fmt == 'zip':
-                return CBZArchive(file_path)
+                archive = CBZArchive(file_path)
+                logger.info(f"[COMIC_LOADER] Successfully opened as CBZ: {file_path.name}")
+                return archive
             elif fmt == 'rar':
-                return CBRArchive(file_path)
+                archive = CBRArchive(file_path)
+                logger.info(f"[COMIC_LOADER] Successfully opened as CBR: {file_path.name}")
+                return archive
             elif fmt == '7z':
-                return CB7Archive(file_path)
+                archive = CB7Archive(file_path)
+                logger.info(f"[COMIC_LOADER] Successfully opened as CB7: {file_path.name}")
+                return archive
         except RuntimeError as e:
             # RuntimeError indicates missing external tool
             last_error = e
             tool_missing = True
-            logger.debug(f"Failed to open as {fmt}: {e}")
+            logger.warning(f"[COMIC_LOADER] Failed to open as {fmt} (tool missing): {e}")
             continue
         except Exception as e:
             last_error = e
-            logger.debug(f"Failed to open as {fmt}: {e}")
+            logger.warning(f"[COMIC_LOADER] Failed to open as {fmt}: {type(e).__name__}: {e}")
             continue
 
     # All formats failed
