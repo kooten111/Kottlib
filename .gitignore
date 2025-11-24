@@ -57,8 +57,7 @@ covers/
 
 # Claude Code
 .claude/
-webui.log
 yaclib.db.backup
-webui.log
-webui.log
+
+# Logs
 webui.log
