@@ -29,6 +29,17 @@ from pathlib import Path
 from dataclasses import dataclass
 from abc import ABC, abstractmethod
 
+try:
+    # Try to import from parent package (when running as part of the app)
+    from ..base_scanner import BaseScanner, ScanResult, ScanLevel, MatchConfidence, ScannerAPIError
+except ImportError:
+    # Fallback for standalone execution
+    BaseScanner = ABC
+    ScanResult = None  # Will be defined below
+    ScanLevel = None
+    MatchConfidence = None
+    ScannerAPIError = Exception
+
 import requests
 from bs4 import BeautifulSoup
 
@@ -916,122 +927,106 @@ def format_tags_summary(tags: List[Doujin.Tag]) -> dict:
 # Scanner Framework
 # ============================================================================
 
-class ScanLevel(Enum):
-    """What level the scanner operates at"""
-    FILE = "file"  # Per-file metadata (e.g., nhentai for doujinshi)
-    SERIES = "series"  # Per-series metadata (e.g., Comic Vine, AniList)
-    LIBRARY = "library"  # Library-wide metadata
+if ScanLevel is None:
+    class ScanLevel(Enum):
+        """What level the scanner operates at"""
+        FILE = "file"  # Per-file metadata (e.g., nhentai for doujinshi)
+        SERIES = "series"  # Per-series metadata (e.g., Comic Vine, AniList)
+        LIBRARY = "library"  # Library-wide metadata
 
 
-class MatchConfidence(Enum):
-    """Confidence level for metadata matches"""
-    NONE = 0  # No match found
-    LOW = 1  # 0-40% confidence
-    MEDIUM = 2  # 40-70% confidence
-    HIGH = 3  # 70-90% confidence
-    EXACT = 4  # 90-100% confidence
+if MatchConfidence is None:
+    class MatchConfidence(Enum):
+        """Confidence level for metadata matches"""
+        NONE = 0  # No match found
+        LOW = 1  # 0-40% confidence
+        MEDIUM = 2  # 40-70% confidence
+        HIGH = 3  # 70-90% confidence
+        EXACT = 4  # 90-100% confidence
 
 
-@dataclass
-class ScanResult:
-    """
-    Result from a metadata scan
+if ScanResult is None:
+    @dataclass
+    class ScanResult:
+        """
+        Result from a metadata scan
 
-    Attributes:
-        confidence: How confident we are in this match (0.0 to 1.0)
-        source_id: ID from the external source (e.g., nhentai ID, AniList ID)
-        source_url: URL to the source entry
-        metadata: Dictionary of extracted metadata
-        tags: List of tags/genres
-        raw_response: Optional raw API response for debugging
-    """
-    confidence: float
-    source_id: Optional[str] = None
-    source_url: Optional[str] = None
-    metadata: Dict = None
-    tags: List[str] = None
-    raw_response: Optional[Dict] = None
+        Attributes:
+            confidence: How confident we are in this match (0.0 to 1.0)
+            source_id: ID from the external source (e.g., nhentai ID, AniList ID)
+            source_url: URL to the source entry
+            metadata: Dictionary of extracted metadata
+            tags: List of tags/genres
+            raw_response: Optional raw API response for debugging
+        """
+        confidence: float
+        source_id: Optional[str] = None
+        source_url: Optional[str] = None
+        metadata: Dict = None
+        tags: List[str] = None
+        raw_response: Optional[Dict] = None
 
-    def __post_init__(self):
-        if self.metadata is None:
-            self.metadata = {}
-        if self.tags is None:
-            self.tags = []
+        def __post_init__(self):
+            if self.metadata is None:
+                self.metadata = {}
+            if self.tags is None:
+                self.tags = []
 
-    @property
-    def confidence_level(self) -> MatchConfidence:
-        """Get confidence as an enum"""
-        if self.confidence == 0:
-            return MatchConfidence.NONE
-        elif self.confidence < 0.4:
-            return MatchConfidence.LOW
-        elif self.confidence < 0.7:
-            return MatchConfidence.MEDIUM
-        elif self.confidence < 0.9:
-            return MatchConfidence.HIGH
-        else:
-            return MatchConfidence.EXACT
+        @property
+        def confidence_level(self) -> MatchConfidence:
+            """Get confidence as an enum"""
+            if self.confidence == 0:
+                return MatchConfidence.NONE
+            elif self.confidence < 0.4:
+                return MatchConfidence.LOW
+            elif self.confidence < 0.7:
+                return MatchConfidence.MEDIUM
+            elif self.confidence < 0.9:
+                return MatchConfidence.HIGH
+            else:
+                return MatchConfidence.EXACT
 
-    def to_dict(self) -> Dict:
-        """Convert to dictionary for storage"""
-        return {
-            'confidence': self.confidence,
-            'confidence_level': self.confidence_level.name,
-            'source_id': self.source_id,
-            'source_url': self.source_url,
-            'metadata': self.metadata,
-            'tags': self.tags
-        }
+        def to_dict(self) -> Dict:
+            """Convert to dictionary for storage"""
+            return {
+                'confidence': self.confidence,
+                'confidence_level': self.confidence_level.name,
+                'source_id': self.source_id,
+                'source_url': self.source_url,
+                'metadata': self.metadata,
+                'tags': self.tags
+            }
 
 
 class BaseScanner(ABC):
     """
     Base class for all metadata scanners
     """
+    # Only define if not imported
+    if 'BaseScanner' not in globals() or globals()['BaseScanner'] is ABC:
+        def __init__(self, config: Optional[Dict] = None):
+            self.config = config or {}
+            self._validate_config()
 
-    def __init__(self, config: Optional[Dict] = None):
-        """
-        Initialize scanner with optional configuration
+        @property
+        @abstractmethod
+        def source_name(self) -> str:
+            pass
 
-        Args:
-            config: Scanner-specific configuration (API keys, rate limits, etc.)
-        """
-        self.config = config or {}
-        self._validate_config()
+        @property
+        @abstractmethod
+        def scan_level(self) -> ScanLevel:
+            pass
 
-    @property
-    @abstractmethod
-    def source_name(self) -> str:
-        """Name of the metadata source"""
-        pass
+        @abstractmethod
+        def scan(self, query: str, **kwargs) -> Tuple[Optional[ScanResult], List[ScanResult]]:
+            pass
 
-    @property
-    @abstractmethod
-    def scan_level(self) -> ScanLevel:
-        """What level this scanner operates at"""
-        pass
+        def _validate_config(self):
+            pass
 
-    @abstractmethod
-    def scan(self, query: str, **kwargs) -> Tuple[Optional[ScanResult], List[ScanResult]]:
-        """
-        Scan for metadata based on a query
-
-        Args:
-            query: Search query (filename for FILE level, series name for SERIES level)
-            **kwargs: Additional scanner-specific parameters
-
-        Returns:
-            Tuple of (best_match, all_matches)
-        """
-        pass
-
-    def _validate_config(self):
-        """Validate scanner configuration"""
-        pass
-
-    def get_required_config_keys(self) -> List[str]:
-        """Get list of required configuration keys"""
-        return []
+        def get_required_config_keys(self) -> List[str]:
+            return []
 
 
 class ScannerError(Exception):
@@ -1039,9 +1034,10 @@ class ScannerError(Exception):
     pass
 
 
-class ScannerAPIError(ScannerError):
-    """API communication error"""
-    pass
+if ScannerAPIError is Exception:
+    class ScannerAPIError(ScannerError):
+        """API communication error"""
+        pass
 
 
 # ============================================================================
@@ -1166,6 +1162,21 @@ class NhentaiScanner(BaseScanner):
             'extracted_metadata': metadata.get('extracted_metadata', {}),
             'score_bonuses': metadata.get('score_bonuses', {}),
         }
+
+        # Add metadata_json field containing the full metadata
+        # This is used by the single-DB architecture to store flexible metadata
+        try:
+            import json
+            # Create a clean copy for JSON serialization
+            json_metadata = scan_metadata.copy()
+            # Add raw response data if available
+            if metadata:
+                json_metadata['_raw'] = {k: v for k, v in metadata.items() if k not in json_metadata}
+            
+            scan_metadata['metadata_json'] = json.dumps(json_metadata, ensure_ascii=False)
+        except Exception as e:
+            # Don't fail if JSON serialization fails
+            pass
 
         # All tags (categorized by type) - kept for backward compatibility
         all_tags_list = []

@@ -109,6 +109,70 @@ async def list_libraries(request: Request):
 # Folder/Comic Listing
 # ============================================================================
 
+@router.get("/{library_id}/folder/{folder_id}/info")
+async def get_folder_info(
+    library_id: int,
+    folder_id: int,
+    request: Request
+):
+    """
+    Get folder information in custom text format (v1 API)
+
+    Returns a list of comics and subfolders in custom delimited format:
+    /library/{libId}/comic/{comicId}:{fileName}:{fileSize}
+
+    This is used by YACReader mobile apps for efficient folder browsing.
+    """
+    db = request.app.state.db
+
+    with db.get_session() as session:
+        # Get library
+        library = get_library_by_id(session, library_id)
+        if not library:
+            raise HTTPException(status_code=404, detail="Library not found")
+
+        # Get folders and comics recursively
+        folders = get_folders_in_library(session, library_id)
+
+        # Determine if this is a root request
+        is_root_request = (folder_id <= 1)
+
+        # Build response with recursive folder traversal
+        lines = []
+
+        def add_folder_comics(fid: int, recursive: bool = True):
+            """Recursively add comics from folder and subfolders"""
+            # Get comics in this folder
+            comics = get_comics_in_folder(session, fid, library_id=library_id)
+            for comic in comics:
+                line = f"/library/{library_id}/comic/{comic.id}:{comic.filename}:{comic.file_size}"
+                lines.append(line)
+
+            # If recursive, process subfolders
+            if recursive:
+                for folder in folders:
+                    if folder.parent_id == fid and folder.name != "__ROOT__":
+                        add_folder_comics(folder.id, recursive=True)
+
+        if is_root_request:
+            # Root request - get all comics recursively from root
+            root_folder = next((f for f in folders if f.name == "__ROOT__"), None)
+            if root_folder:
+                add_folder_comics(root_folder.id, recursive=True)
+            else:
+                # Fallback: get all comics in library
+                all_comics = get_comics_in_library(session, library_id)
+                for comic in all_comics:
+                    line = f"/library/{library_id}/comic/{comic.id}:{comic.filename}:{comic.file_size}"
+                    lines.append(line)
+        else:
+            # Specific folder - get comics recursively from this folder
+            add_folder_comics(folder_id, recursive=True)
+
+        response_text = "\n".join(lines)
+        return PlainTextResponse(format_v1_response(response_text))
+
+
 @router.get("/{library_id}/folder/{folder_id}")
 async def get_folder_content(
     library_id: int,
@@ -254,6 +318,158 @@ async def get_folder_content(
 # Comic Metadata
 # ============================================================================
 
+@router.get("/{library_id}/comic/{comic_id}/info")
+async def get_comic_full_info(
+    library_id: int,
+    comic_id: int,
+    request: Request,
+    yacread_session: Optional[str] = Cookie(None)
+):
+    """
+    Get full comic information in text format (v1 API)
+
+    YACReader format:
+    library:{libraryName}
+    libraryId:{libraryId}
+    {key}:{value}
+    ...
+
+    This returns all comic metadata fields in the key:value text format.
+    """
+    db = request.app.state.db
+
+    with db.get_session() as session:
+        comic = get_comic_by_id(session, comic_id)
+        if not comic:
+            raise HTTPException(status_code=404, detail="Comic not found")
+
+        library = get_library_by_id(session, library_id)
+
+        # Get reading progress
+        current_page = 0
+        is_read = 0
+        user_id = get_current_user_id(request)
+        if user_id:
+            user = get_user_by_id(session, user_id)
+        else:
+            user = get_user_by_username(session, 'admin')
+        if user:
+            progress = get_reading_progress(session, user.id, comic_id)
+            if progress:
+                current_page = progress.current_page
+                is_read = 1 if progress.is_completed else 0
+
+        # Build response with all comic fields
+        response_text = f"library:{library.name if library else 'Unknown'}\n"
+        response_text += f"libraryId:{library_id}\n"
+        response_text += f"comicid:{comic_id}\n"
+        response_text += f"hash:{comic.hash}\n"
+        response_text += f"path:{comic.path}\n"
+        response_text += f"numpages:{comic.num_pages}\n"
+        response_text += f"rating:{comic.rating or 0}\n"
+        response_text += f"currentPage:{current_page}\n"
+        response_text += f"contrast:-1\n"
+        response_text += f"read:{is_read}\n"
+        response_text += f"coverPage:{comic.cover_page or 1}\n"
+        response_text += f"manga:{1 if comic.reading_direction == 'rtl' else 0}\n"
+        response_text += f"added:{comic.created_at}\n"
+        response_text += f"type:0\n"
+
+        # Add optional metadata fields if present
+        if comic.title:
+            response_text += f"title:{comic.title}\n"
+        if comic.series:
+            response_text += f"series:{comic.series}\n"
+        if comic.volume:
+            response_text += f"volume:{comic.volume}\n"
+        if comic.issue_number:
+            response_text += f"number:{comic.issue_number}\n"
+        if comic.year:
+            response_text += f"year:{comic.year}\n"
+        if comic.writer:
+            response_text += f"writer:{comic.writer}\n"
+        if comic.artist:
+            response_text += f"artist:{comic.artist}\n"
+        if comic.publisher:
+            response_text += f"publisher:{comic.publisher}\n"
+        if comic.description:
+            response_text += f"synopsis:{comic.description}\n"
+        if comic.genre:
+            response_text += f"genre:{comic.genre}\n"
+
+        return PlainTextResponse(format_v1_response(response_text))
+
+
+@router.get("/{library_id}/comic/{comic_id}/remote")
+async def get_comic_remote(
+    library_id: int,
+    comic_id: int,
+    request: Request,
+    yacread_session: Optional[str] = Cookie(None)
+):
+    """
+    Get comic information for remote reading (v1 API)
+
+    Similar to /info but includes previous/next comic navigation.
+    """
+    db = request.app.state.db
+
+    with db.get_session() as session:
+        comic = get_comic_by_id(session, comic_id)
+        if not comic:
+            raise HTTPException(status_code=404, detail="Comic not found")
+
+        library = get_library_by_id(session, library_id)
+
+        # Get reading progress
+        current_page = 0
+        is_read = 0
+        user_id = get_current_user_id(request)
+        if user_id:
+            user = get_user_by_id(session, user_id)
+        else:
+            user = get_user_by_username(session, 'admin')
+        if user:
+            progress = get_reading_progress(session, user.id, comic_id)
+            if progress:
+                current_page = progress.current_page
+                is_read = 1 if progress.is_completed else 0
+
+        # Get previous/next comic for navigation
+        prev_comic_id, next_comic_id = get_sibling_comics(session, comic_id)
+
+        response_text = f"library:{library.name if library else 'Unknown'}\n"
+        response_text += f"libraryId:{library_id}\n"
+        if prev_comic_id is not None:
+            response_text += f"previousComic:{prev_comic_id}\n"
+        if next_comic_id is not None:
+            response_text += f"nextComic:{next_comic_id}\n"
+        response_text += f"comicid:{comic_id}\n"
+        response_text += f"hash:{comic.hash}\n"
+        response_text += f"path:{comic.path}\n"
+        response_text += f"numpages:{comic.num_pages}\n"
+        response_text += f"rating:{comic.rating or 0}\n"
+        response_text += f"currentPage:{current_page}\n"
+        response_text += f"contrast:-1\n"
+        response_text += f"read:{is_read}\n"
+        response_text += f"coverPage:{comic.cover_page or 1}\n"
+        response_text += f"manga:{1 if comic.reading_direction == 'rtl' else 0}\n"
+        response_text += f"added:{comic.created_at}\n"
+        response_text += f"type:0\n"
+
+        # Add optional metadata fields if present
+        if comic.title:
+            response_text += f"title:{comic.title}\n"
+        if comic.series:
+            response_text += f"series:{comic.series}\n"
+        if comic.volume:
+            response_text += f"volume:{comic.volume}\n"
+        if comic.issue_number:
+            response_text += f"number:{comic.issue_number}\n"
+
+        return PlainTextResponse(format_v1_response(response_text))
+
+
 @router.get("/{library_id}/comic/{comic_id}")
 async def get_comic_info(
     library_id: int,
@@ -346,30 +562,24 @@ async def get_comic_cover(
     """
     main_db = request.app.state.db
 
-    # Get library metadata from main DB
+    # Get comic from main DB
     with main_db.get_session() as session:
+        # Get library metadata
         library = get_library_by_id(session, library_id)
         if not library:
             raise HTTPException(status_code=404, detail="Library not found")
         library_name = library.name
 
-    # Get comic from library-specific DB
-    from ...database import get_library_database
-    library_db = get_library_database(library_name)
+        # Get comic hash
+        from ...database.models import Comic
+        comic = session.query(Comic).filter(Comic.id == comic_id).first()
 
-    with library_db.get_session() as session:
-        # Use raw SQL to get comic hash (avoid ORM library_id issue)
-        from sqlalchemy import text
-        comic_result = session.execute(text(
-            "SELECT hash FROM comics WHERE id = :comic_id"
-        ), {"comic_id": comic_id}).fetchone()
-
-        if not comic_result:
+        if not comic:
             raise HTTPException(status_code=404, detail="Comic not found")
 
-        comic_hash = comic_result[0]
+        comic_hash = comic.hash
 
-        # Try to get best cover (custom or auto) - but covers table might be empty
+        # Try to get best cover (custom or auto)
         cover = get_best_cover(session, comic_id)
 
     if cover and Path(cover.jpeg_path).exists():
@@ -734,3 +944,71 @@ async def search_comics(
             response_text += f"id:{comic.id}\n\n"
 
         return PlainTextResponse(format_v1_response(response_text))
+
+
+# ============================================================================
+# Sync (v1)
+# ============================================================================
+
+@router.post("/sync")
+async def sync_reading_progress_v1(
+    request: Request,
+    yacread_session: Optional[str] = Cookie(None)
+):
+    """
+    Sync reading progress (v1 API)
+
+    Accepts JSON body with reading progress data and syncs it to the server.
+    Expected format:
+    {
+        "comics": [
+            {"comicId": 123, "currentPage": 5, "totalPages": 20},
+            ...
+        ]
+    }
+    """
+    db = request.app.state.db
+
+    try:
+        # Parse JSON body
+        body = await request.json()
+        comics = body.get("comics", [])
+
+        # Get user from session
+        user_id = get_current_user_id(request)
+        if user_id:
+            user = None
+            with db.get_session() as session:
+                user = get_user_by_id(session, user_id)
+        else:
+            user = None
+            with db.get_session() as session:
+                user = get_user_by_username(session, 'admin')
+
+        if not user:
+            return PlainTextResponse("ERROR: User not found", status_code=401)
+
+        # Update reading progress for each comic
+        synced_count = 0
+        with db.get_session() as session:
+            for comic_data in comics:
+                comic_id = comic_data.get("comicId")
+                current_page = comic_data.get("currentPage", 0)
+                total_pages = comic_data.get("totalPages")
+
+                if comic_id is not None:
+                    update_reading_progress(
+                        session,
+                        user_id=user.id,
+                        comic_id=comic_id,
+                        current_page=current_page,
+                        total_pages=total_pages
+                    )
+                    synced_count += 1
+
+        logger.info(f"v1 Sync: Updated {synced_count} comics for user {user.username}")
+        return PlainTextResponse(f"OK: Synced {synced_count} comics")
+
+    except Exception as e:
+        logger.error(f"v1 Sync error: {e}", exc_info=True)
+        return PlainTextResponse(f"ERROR: {str(e)}", status_code=500)

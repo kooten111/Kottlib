@@ -133,14 +133,9 @@ def get_library_db_path(library_name: str) -> Path:
     """
     Get the database path for a specific library
 
-    Args:
-        library_name: Name of the library (e.g., 'Manga', 'Comics')
-
-    Returns:
-        Path to library database (./data/<LibraryName>/library.db)
+    DEPRECATED: Now returns the main database path as we use a single DB.
     """
-    library_dir = get_library_data_dir(library_name)
-    return library_dir / 'library.db'
+    return get_default_db_path()
 
 
 def get_covers_dir(library_name: Optional[str] = None) -> Path:
@@ -318,15 +313,10 @@ def get_library_database(library_name: str, echo: bool = False) -> Database:
     """
     Get a Database connection for a specific library
 
-    Args:
-        library_name: Name of the library (e.g., 'Manga', 'Comics')
-        echo: If True, log all SQL statements
-
-    Returns:
-        Database instance connected to the library's database
+    DEPRECATED: Now returns a connection to the main database.
+    Args are ignored but kept for compatibility.
     """
-    library_db_path = get_library_db_path(library_name)
-    return Database(db_path=library_db_path, echo=echo)
+    return Database(db_path=get_default_db_path(), echo=echo)
 
 
 # ============================================================================
@@ -436,44 +426,23 @@ def create_comic(
     """Create a new comic entry"""
     now = int(time.time())
 
-    # Get TOP-LEVEL folder name for series (not immediate parent!)
-    # Top-level folder = first folder under library root
-    # Example: "Jojo's Bizarre Adventure (Colorized)/Part 3/Volume 01.cbz"
-    #   -> TOP-LEVEL = "Jojo's Bizarre Adventure (Colorized)"
-    #   -> NOT "Part 3"
-    top_level_folder_name = None
+    # Get IMMEDIATE parent folder name for series
+    # The folder containing the comic IS the series
+    # Example: "Batman/Night of Owls/Batman Vol 1.cbz"
+    #   -> SERIES = "Night of Owls" (immediate parent)
+    # Example: "Berserk/Berserk v01.cbz"
+    #   -> SERIES = "Berserk" (immediate parent)
+    immediate_folder_name = None
     if folder_id:
-        # OPTIMIZED: Use a recursive CTE to find top-level folder in ONE query
-        # Get the folder and walk up parent chain
         from sqlalchemy import text
 
         result = session.execute(
-            text("""
-                WITH RECURSIVE folder_path AS (
-                    -- Start with the comic's folder
-                    SELECT id, name, parent_id, 0 as depth
-                    FROM folders
-                    WHERE id = :folder_id
-
-                    UNION ALL
-
-                    -- Walk up to parent
-                    SELECT f.id, f.name, f.parent_id, fp.depth + 1
-                    FROM folders f
-                    INNER JOIN folder_path fp ON f.id = fp.parent_id
-                    WHERE f.name != '__ROOT__'
-                )
-                -- Get the top-most folder (highest depth, before __ROOT__)
-                SELECT name
-                FROM folder_path
-                ORDER BY depth DESC
-                LIMIT 1
-            """),
+            text("SELECT name FROM folders WHERE id = :folder_id"),
             {"folder_id": folder_id}
         ).fetchone()
 
         if result:
-            top_level_folder_name = result[0]
+            immediate_folder_name = result[0]
 
     # Create comic with metadata
     comic = Comic(
@@ -491,14 +460,15 @@ def create_comic(
         **metadata
     )
 
-    # Auto-populate normalized_series_name for fast series grouping
-    # Use top-level folder name (the actual series folder)
-    comic.normalized_series_name = get_series_name_from_comic(comic, top_level_folder_name)
+    # Auto-populate series field from folder structure if not provided by ComicInfo.xml
+    # Use immediate parent folder name (the folder IS the series)
+    if not comic.series:
+        comic.series = get_series_name_from_comic(comic, immediate_folder_name)
 
     session.add(comic)
     session.flush()  # Flush to get the ID without committing
 
-    logger.debug(f"Created comic: {filename} (series: {comic.normalized_series_name})")
+    logger.debug(f"Created comic: {filename} (series: {comic.series})")
     return comic
 
 
@@ -556,23 +526,35 @@ def get_comic_by_path_and_mtime(
 
 
 def get_comics_in_library(session: Session, library_id: int) -> List[Comic]:
-    """Get all comics in a library"""
+    """
+    Get all comics in a library from the main database.
+    """
     return session.query(Comic).filter_by(library_id=library_id).all()
+
+
+def get_all_comics_in_db(session: Session) -> List[Comic]:
+    """
+    Get all comics from the database.
+    """
+    return session.query(Comic).all()
 
 
 def get_comics_in_folder(session: Session, folder_id: int, library_id: Optional[int] = None) -> List[Comic]:
     """
     Get all comics in a folder
 
-    Args:
-        session: Database session
-        folder_id: ID of the folder
-        library_id: Optional library ID to filter by (recommended to avoid cross-library issues)
     """
     query = session.query(Comic).filter_by(folder_id=folder_id)
     if library_id is not None:
         query = query.filter_by(library_id=library_id)
     return query.all()
+
+
+def get_comics_in_folder_simple(session: Session, folder_id: int) -> List[Comic]:
+    """
+    Get all comics in a folder.
+    """
+    return session.query(Comic).filter_by(folder_id=folder_id).all()
 
 
 def search_comics(session: Session, library_id: int, query_str: str) -> List[Comic]:
@@ -630,7 +612,7 @@ def search_comics(session: Session, library_id: int, query_str: str) -> List[Com
     ).filter(
         (Comic.title.ilike(search_pattern)) |
         (Comic.series.ilike(search_pattern)) |
-        (Comic.normalized_series_name.ilike(search_pattern)) |
+        # normalized_series_name removed
         (Comic.filename.ilike(search_pattern)) |
         (Comic.writer.ilike(search_pattern)) |
         (Comic.publisher.ilike(search_pattern)) |
@@ -649,7 +631,7 @@ def search_comics(session: Session, library_id: int, query_str: str) -> List[Com
     if matched_series_names:
         series_comics = session.query(Comic).filter(
             Comic.library_id == library_id,
-            Comic.normalized_series_name.in_(matched_series_names)
+            Comic.series.in_(matched_series_names)
         ).all()
         
         # Merge results, avoiding duplicates
@@ -665,7 +647,7 @@ def search_comics(session: Session, library_id: int, query_str: str) -> List[Com
         score = 0
         
         # Highest priority: series-level metadata match
-        comic_series_name = comic.normalized_series_name or comic.series
+        comic_series_name = comic.series
         if comic_series_name and comic_series_name in matched_series_names:
             # Further boost if the query matches the series metadata directly
             for series in series_matches:
@@ -779,8 +761,13 @@ def get_folder_by_path(session: Session, library_id: int, path: str) -> Optional
 
 
 def get_folders_in_library(session: Session, library_id: int) -> List[Folder]:
-    """Get all folders in a library"""
+    """
+    Get all folders in a library from the main database.
+    """
     return session.query(Folder).filter_by(library_id=library_id).all()
+
+
+    return session.query(Folder).all()
 
 
 def get_or_create_root_folder(session: Session, library_id: int, library_path: str) -> Folder:

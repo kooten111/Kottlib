@@ -33,8 +33,11 @@ class Library(Base):
     path: Mapped[str] = mapped_column(String, unique=True, nullable=False)
     created_at: Mapped[int] = mapped_column(Integer, nullable=False)
     updated_at: Mapped[int] = mapped_column(Integer, nullable=False)
-    last_scan_at: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)
+
     scan_status: Mapped[str] = mapped_column(String, default='pending')
+    last_scan_started: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)
+    last_scan_completed: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)
+    scanner_type: Mapped[str] = mapped_column(String, default='comic')
     settings: Mapped[Optional[dict]] = mapped_column(JSON, nullable=True)
 
     # Performance cache - stores pre-built series tree as JSON
@@ -55,10 +58,12 @@ class Folder(Base):
     __tablename__ = 'folders'
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
-    library_id: Mapped[int] = mapped_column(ForeignKey('libraries.id', ondelete='CASCADE'), nullable=False)
+    # library_id is nullable to support both main DB (has library_id) and library-specific DBs (no library_id)
+    library_id: Mapped[Optional[int]] = mapped_column(ForeignKey('libraries.id', ondelete='CASCADE'), nullable=True)
     parent_id: Mapped[Optional[int]] = mapped_column(ForeignKey('folders.id', ondelete='CASCADE'), nullable=True)
     path: Mapped[str] = mapped_column(String, nullable=False)
     name: Mapped[str] = mapped_column(String, nullable=False)
+    first_child_hash: Mapped[Optional[str]] = mapped_column(String, nullable=True)
     position: Mapped[int] = mapped_column(Integer, default=0)
     created_at: Mapped[int] = mapped_column(Integer, nullable=False)
     updated_at: Mapped[int] = mapped_column(Integer, nullable=False)
@@ -87,11 +92,12 @@ class Comic(Base):
     __tablename__ = 'comics'
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
-    library_id: Mapped[int] = mapped_column(ForeignKey('libraries.id', ondelete='CASCADE'), nullable=False)
+    # library_id is nullable to support both main DB (has library_id) and library-specific DBs (no library_id)
+    library_id: Mapped[Optional[int]] = mapped_column(ForeignKey('libraries.id', ondelete='CASCADE'), nullable=True)
     folder_id: Mapped[Optional[int]] = mapped_column(ForeignKey('folders.id', ondelete='SET NULL'), nullable=True)
     path: Mapped[str] = mapped_column(String, nullable=False)
     filename: Mapped[str] = mapped_column(String, nullable=False)
-    hash: Mapped[str] = mapped_column(String, nullable=False)  # Removed unique=True to allow same file in different libraries
+    hash: Mapped[str] = mapped_column(String, unique=True, nullable=False)
 
     # File metadata
     file_size: Mapped[int] = mapped_column(Integer, nullable=False)
@@ -101,7 +107,7 @@ class Comic(Base):
     # Comic metadata
     title: Mapped[Optional[str]] = mapped_column(String, nullable=True)
     series: Mapped[Optional[str]] = mapped_column(String, nullable=True)
-    normalized_series_name: Mapped[Optional[str]] = mapped_column(String, nullable=True)  # Pre-computed normalized name
+    # normalized_series_name removed as per user request
     volume: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)
     issue_number: Mapped[Optional[float]] = mapped_column(Float, nullable=True)
     year: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)
@@ -153,6 +159,9 @@ class Comic(Base):
     # External IDs
     comic_vine_id: Mapped[Optional[str]] = mapped_column(String, nullable=True)
     web: Mapped[Optional[str]] = mapped_column(String, nullable=True)  # Web URL / source URL
+
+    # Flexible Metadata (JSON)
+    metadata_json: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
 
     # Scanner metadata
     scanner_source: Mapped[Optional[str]] = mapped_column(String, nullable=True)  # Scanner name (e.g., 'nhentai')
@@ -216,8 +225,6 @@ class Comic(Base):
         Index('idx_comics_library_folder', 'library_id', 'folder_id'),
         Index('idx_comics_file_modified', 'file_modified_at'),
         Index('idx_comics_library_count', 'library_id'),
-        Index('idx_comics_normalized_series', 'normalized_series_name'),
-        Index('idx_comics_library_normalized_series', 'library_id', 'normalized_series_name'),
     )
 
 

@@ -35,7 +35,7 @@ try:
     from ..database.models import Folder as FolderModel, Comic
     from .comic_loader import open_comic, is_comic_file
     from .thumbnail_generator import (
-        calculate_file_hash,
+        calculate_yacreader_hash,
         generate_dual_thumbnails,
         thumbnail_exists,
     )
@@ -56,7 +56,7 @@ except ImportError:
     from database.models import Folder as FolderModel, Comic
     from scanner.comic_loader import open_comic, is_comic_file
     from scanner.thumbnail_generator import (
-        calculate_file_hash,
+        calculate_yacreader_hash,
         generate_dual_thumbnails,
         thumbnail_exists,
     )
@@ -410,6 +410,10 @@ class ThreadedScanner:
             # FAST PATH: Check by path + mtime first (avoids expensive hash calculation)
             # This makes re-scans MUCH faster by skipping unchanged files
             file_mtime = int(comic_path.stat().st_mtime)
+            
+            # DEBUG LOGGING
+            if "67% Inertia" in str(comic_path):
+                logger.info(f"DEBUG: Checking {comic_path.name}, folder_id arg={folder_id}")
 
             with self.db.get_session() as session:
                 existing = get_comic_by_path_and_mtime(
@@ -419,16 +423,30 @@ class ThreadedScanner:
                     library_id=self.library_id
                 )
                 if existing:
-                    # File hasn't changed since last scan - skip it completely
-                    with self._lock:
-                        self._comics_skipped += 1
-                        self._comics_skipped_unchanged += 1
-                    logger.debug(f"Skipping unchanged file: {comic_path.name}")
+                    # DEBUG LOGGING
+                    if "67% Inertia" in str(comic_path):
+                        logger.info(f"DEBUG: Existing found. existing.folder_id={existing.folder_id}, new folder_id={folder_id}")
+
+                    # File hasn't changed since last scan
+                    # File hasn't changed since last scan
+                    # BUT check if it moved to a different folder (folder_id changed)
+                    if existing.folder_id != folder_id:
+                        existing.folder_id = folder_id
+                        session.commit()
+                        with self._lock:
+                            self._comics_updated += 1
+                        logger.info(f"Updated folder for unchanged file: {comic_path.name}")
+                    else:
+                        # Truly unchanged
+                        with self._lock:
+                            self._comics_skipped += 1
+                            self._comics_skipped_unchanged += 1
+                        logger.debug(f"Skipping unchanged file: {comic_path.name}")
                     return
 
             # SLOW PATH: Calculate hash for new/modified files
             # This catches renamed files and ensures proper deduplication
-            file_hash = calculate_file_hash(comic_path)
+            file_hash = calculate_yacreader_hash(comic_path)
 
             # Check if already in database by hash (catches moved/renamed files)
             with self.db.get_session() as session:
@@ -606,6 +624,17 @@ class ThreadedScanner:
                 # but this could be used for validation
                 pass
 
+        # Serialize flexible metadata to JSON
+        # We store everything in metadata_json to preserve it, even if mapped to columns
+        # This allows for future schema changes without losing data
+        try:
+            import json
+            # Filter out large fields or binary data if any
+            json_safe_metadata = {k: v for k, v in metadata.items() if isinstance(v, (str, int, float, bool, list, dict, type(None)))}
+            metadata['metadata_json'] = json.dumps(json_safe_metadata)
+        except Exception as e:
+            logger.warning(f"Failed to serialize metadata to JSON: {e}")
+
         return metadata
 
     def _generate_thumbnails(self, comic, file_hash: str):
@@ -650,25 +679,25 @@ class ThreadedScanner:
         """
         Rebuild the series table from comics
 
-        Groups comics by normalized_series_name and creates/updates series records.
+        Groups comics by series and creates/updates series records.
         This ensures the series table is always in sync with the comics.
         """
         logger.info(f"Rebuilding series table for library {self.library_id}...")
 
         with self.db.get_session() as session:
             from sqlalchemy import func
-            from ..database.models import Series as SeriesModel
+            from src.database.models import Series as SeriesModel
             import time
 
             # Get all unique series names with comic counts
             series_data = session.query(
-                Comic.normalized_series_name,
+                Comic.series,
                 func.count(Comic.id).label('comic_count')
             ).filter(
                 Comic.library_id == self.library_id,
-                Comic.normalized_series_name.isnot(None)
+                Comic.series.isnot(None)
             ).group_by(
-                Comic.normalized_series_name
+                Comic.series
             ).all()
 
             if not series_data:

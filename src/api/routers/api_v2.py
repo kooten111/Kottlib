@@ -7,6 +7,7 @@ This is the v2 API that newer mobile app versions prefer.
 
 import logging
 import re
+import json
 from typing import Optional, List
 from pathlib import Path
 from functools import lru_cache
@@ -45,87 +46,9 @@ _series_tree_cache = {}
 # Helper Functions
 # ============================================================================
 
-def get_comic_by_id_raw(session, comic_id: int):
-    """
-    Get comic by ID using raw SQL (for library-specific databases without library_id column)
-    Returns a dictionary with comic data
-    """
-    from sqlalchemy import text
-    from collections import namedtuple
-
-    result = session.execute(text(
-        """SELECT id, folder_id, path, filename, hash, file_size, file_modified_at, format,
-           title, series, normalized_series_name, volume, issue_number, year, publisher,
-           writer, artist, description, penciller, inker, colorist, letterer, cover_artist,
-           editor, story_arc, arc_number, arc_count, alternate_series, alternate_number,
-           alternate_count, genre, language_iso, age_rating, imprint, format_type, is_color,
-           characters, teams, locations, main_character_or_team, series_group, notes, review,
-           tags, comic_vine_id, web, scanner_source, scanner_source_id, scanner_source_url,
-           scanned_at, scan_confidence, is_bis, count, date, num_pages, reading_direction,
-           rating, brightness, contrast, gamma, bookmark1, bookmark2, bookmark3, cover_page,
-           cover_size_ratio, original_cover_size, last_time_opened, has_been_opened, edited,
-           position, created_at, updated_at
-           FROM comics WHERE id = :comic_id"""
-    ), {"comic_id": comic_id}).fetchone()
-
-    if not result:
-        return None
-
-    # Create a Comic-like object from the result
-    ComicData = namedtuple('ComicData', [
-        'id', 'folder_id', 'path', 'filename', 'hash', 'file_size', 'file_modified_at', 'format',
-        'title', 'series', 'normalized_series_name', 'volume', 'issue_number', 'year', 'publisher',
-        'writer', 'artist', 'description', 'penciller', 'inker', 'colorist', 'letterer', 'cover_artist',
-        'editor', 'story_arc', 'arc_number', 'arc_count', 'alternate_series', 'alternate_number',
-        'alternate_count', 'genre', 'language_iso', 'age_rating', 'imprint', 'format_type', 'is_color',
-        'characters', 'teams', 'locations', 'main_character_or_team', 'series_group', 'notes', 'review',
-        'tags', 'comic_vine_id', 'web', 'scanner_source', 'scanner_source_id', 'scanner_source_url',
-        'scanned_at', 'scan_confidence', 'is_bis', 'count', 'date', 'num_pages', 'reading_direction',
-        'rating', 'brightness', 'contrast', 'gamma', 'bookmark1', 'bookmark2', 'bookmark3', 'cover_page',
-        'cover_size_ratio', 'original_cover_size', 'last_time_opened', 'has_been_opened', 'edited',
-        'position', 'created_at', 'updated_at'
-    ])
-
-    return ComicData(*result)
-
-
-def get_sibling_comics_raw(session, comic_id: int):
-    """
-    Get previous and next comic IDs using raw SQL
-    Returns (prev_comic_id, next_comic_id)
-    """
-    from sqlalchemy import text
-
-    # First get the current comic's folder_id and filename
-    comic = session.execute(text(
-        "SELECT folder_id, filename FROM comics WHERE id = :comic_id"
-    ), {"comic_id": comic_id}).fetchone()
-
-    if not comic:
-        return (None, None)
-
-    folder_id, filename = comic
-
-    # Get all comics in the same folder, ordered by filename
-    comics = session.execute(text(
-        "SELECT id FROM comics WHERE folder_id = :folder_id ORDER BY filename"
-    ), {"folder_id": folder_id}).fetchall()
-
-    # Find current comic's position
-    current_index = None
-    for i, row in enumerate(comics):
-        if row[0] == comic_id:
-            current_index = i
-            break
-
-    if current_index is None:
-        return (None, None)
-
-    # Get previous and next
-    prev_id = comics[current_index - 1][0] if current_index > 0 else None
-    next_id = comics[current_index + 1][0] if current_index < len(comics) - 1 else None
-
-    return (prev_id, next_id)
+# Helper functions get_comic_by_id_raw and get_sibling_comics_raw removed
+# as they are no longer needed with single DB architecture.
+# We can now use standard ORM queries.
 
 
 def get_comic_display_name(comic) -> str:
@@ -255,10 +178,7 @@ async def get_folder_v2(
 
     This is what the mobile app calls when browsing folders
     """
-    # Get main database for library metadata
-    main_db = request.app.state.db
-
-    # First, get library info from main database
+    # Use main database for everything
     with main_db.get_session() as session:
         library = get_library_by_id(session, library_id)
         if not library:
@@ -267,25 +187,16 @@ async def get_folder_v2(
         library_path = library.path
         library_uuid = library.uuid
 
-    # Now connect to library-specific database for folders and comics
-    from ...database import get_library_database
-    library_db = get_library_database(library_name)
-
-    with library_db.get_session() as session:
-
         logger.info(f"v2 API: Getting folder {folder_id} in library {library_id}")
 
-        # Get folders using raw SQL (library-specific DB doesn't have library_id column)
-        from sqlalchemy import text
-        from collections import namedtuple
+        # Get folders using ORM
+        from ...database.models import Folder
+        folder_result = session.query(Folder).filter(Folder.library_id == library_id).all()
+        
+        # Convert to list for processing
+        folders = folder_result
 
-        folder_result = session.execute(text(
-            "SELECT id, parent_id, path, name, position, created_at, updated_at FROM folders"
-        )).fetchall()
 
-        # Convert to simple objects for easier access
-        FolderData = namedtuple('FolderData', ['id', 'parent_id', 'path', 'name', 'position', 'created_at', 'updated_at'])
-        folders = [FolderData(*row) for row in folder_result]
 
         logger.debug(f"v2 API: Found {len(folders)} total folders in library {library_id}")
         child_folders = []
@@ -320,32 +231,25 @@ async def get_folder_v2(
                 if folder.parent_id != folder_id:
                     continue
 
-            # Get first comic in this folder for the cover (using raw SQL)
-            comic_result = session.execute(text(
-                "SELECT hash FROM comics WHERE folder_id = :folder_id ORDER BY filename LIMIT 1"
-            ), {"folder_id": folder.id}).fetchone()
+            # Get first comic in this folder for the cover
+            # We can use ORM now
+            first_comic = session.query(Comic).filter(
+                Comic.folder_id == folder.id,
+                Comic.library_id == library_id
+            ).order_by(Comic.filename).first()
+            
+            first_comic_hash = first_comic.hash if first_comic else ""
+            
+            # If no comics, check subfolders recursively (simplified for performance)
+            if not first_comic_hash and folder.first_child_hash:
+                 first_comic_hash = folder.first_child_hash
 
-            # If no comics in this folder, recursively search subfolders
-            if not comic_result:
-                subfolder_result = session.execute(text(
-                    "SELECT id FROM folders WHERE parent_id = :parent_id ORDER BY name"
-                ), {"parent_id": folder.id}).fetchall()
-                for subfolder_row in subfolder_result:
-                    comic_result = session.execute(text(
-                        "SELECT hash FROM comics WHERE folder_id = :folder_id ORDER BY filename LIMIT 1"
-                    ), {"folder_id": subfolder_row[0]}).fetchone()
-                    if comic_result:
-                        break
-
-            first_comic_hash = comic_result[0] if comic_result else ""
-
-            # Count child folders and comics (using raw SQL)
-            num_child_folders = session.execute(text(
-                "SELECT COUNT(*) FROM folders WHERE parent_id = :parent_id"
-            ), {"parent_id": folder.id}).scalar()
-            num_child_comics = session.execute(text(
-                "SELECT COUNT(*) FROM comics WHERE folder_id = :folder_id"
-            ), {"folder_id": folder.id}).scalar()
+            # Count children
+            num_child_folders = session.query(Folder).filter(Folder.parent_id == folder.id).count()
+            num_child_comics = session.query(Comic).filter(
+                Comic.folder_id == folder.id,
+                Comic.library_id == library_id
+            ).count()
             num_children = num_child_folders + num_child_comics
 
             try:
@@ -377,55 +281,37 @@ async def get_folder_v2(
         child_folders.sort(key=lambda f: f['folder_name'].lower())
         logger.info(f"v2 API: Returning {len(child_folders)} folders for folder_id={folder_id}")
 
-        # Get comics using raw SQL - need to handle root folder specially
-        # folder_id <= 1 means root (0 or 1)
-        is_root_request = (folder_id <= 1)
-
         if is_root_request:
             # Root folder request - get comics in the __ROOT__ folder for this library
-            # Find the root folder ID (marked with __ROOT__ name)
             root_folder = next((f for f in folders if f.name == "__ROOT__"), None)
             if root_folder:
-                # Get comics with folder_id pointing to root folder
-                comics_result = session.execute(text(
-                    """SELECT id, folder_id, path, filename, hash, file_size, format, num_pages,
-                              issue_number, volume, reading_direction, has_been_opened, last_time_opened
-                       FROM comics
-                       WHERE folder_id = :folder_id OR folder_id IS NULL"""
-                ), {"folder_id": root_folder.id}).fetchall()
+                comics_result = session.query(Comic).filter(
+                    (Comic.folder_id == root_folder.id) | (Comic.folder_id == None),
+                    Comic.library_id == library_id
+                ).all()
             else:
-                # Fallback: no root folder found, get comics with folder_id=NULL
-                comics_result = session.execute(text(
-                    """SELECT id, folder_id, path, filename, hash, file_size, format, num_pages,
-                              issue_number, volume, reading_direction, has_been_opened, last_time_opened
-                       FROM comics
-                       WHERE folder_id IS NULL"""
-                )).fetchall()
+                comics_result = session.query(Comic).filter(
+                    Comic.folder_id == None,
+                    Comic.library_id == library_id
+                ).all()
         else:
             # Specific folder - get its comics
-            comics_result = session.execute(text(
-                """SELECT id, folder_id, path, filename, hash, file_size, format, num_pages,
-                          issue_number, volume, reading_direction, has_been_opened, last_time_opened
-                   FROM comics
-                   WHERE folder_id = :folder_id"""
-            ), {"folder_id": folder_id}).fetchall()
+            comics_result = session.query(Comic).filter(
+                Comic.folder_id == folder_id,
+                Comic.library_id == library_id
+            ).all()
 
-        # Convert to namedtuple for easier access
-        ComicData = namedtuple('ComicData', ['id', 'folder_id', 'path', 'filename', 'hash', 'file_size',
-                                              'format', 'num_pages', 'issue_number', 'volume',
-                                              'reading_direction', 'has_been_opened', 'last_time_opened'])
-        comics = [ComicData(*row) for row in comics_result]
+        comics = comics_result
 
-        # Get user for reading progress (from MAIN database, not library-specific DB)
+        # Get user for reading progress (already have session)
         user_id = get_current_user_id(request)
         user = None
-        with main_db.get_session() as main_session:
-            if user_id:
-                user = get_user_by_id(main_session, user_id)
-            else:
-                user = get_user_by_username(main_session, 'admin')
-            # Get the user ID for use in reading progress queries
-            user_id_for_progress = user.id if user else None
+        if user_id:
+            user = get_user_by_id(session, user_id)
+        else:
+            user = get_user_by_username(session, 'admin')
+        # Get the user ID for use in reading progress queries
+        user_id_for_progress = user.id if user else None
 
         comics_list = []
         for comic in comics:
@@ -521,6 +407,116 @@ async def get_folder_v2(
         return JSONResponse(result)
 
 
+@router.get("/library/{library_id}/folder/{folder_id}/info")
+async def get_folder_info_v2(
+    library_id: int,
+    folder_id: int,
+    request: Request
+):
+    """
+    Get folder information in custom text format (v2 API)
+
+    Returns recursive listing of comics in custom delimited format:
+    /v2/library/{libId}/comic/{comicId}:{fileName}:{fileSize}:{readStatus}:{hash}
+
+    This is the v2 version which includes read status and hash.
+    """
+    from fastapi.responses import PlainTextResponse
+
+    # Get main database for library metadata
+    main_db = request.app.state.db
+
+    # First, get library info from main database
+    with main_db.get_session() as session:
+        library = get_library_by_id(session, library_id)
+        if not library:
+            raise HTTPException(status_code=404, detail="Library not found")
+        library_name = library.name
+
+        # Get user for reading progress
+        user_id = get_current_user_id(request)
+        if user_id:
+            user = get_user_by_id(session, user_id)
+        else:
+            user = get_user_by_username(session, 'admin')
+        user_id_for_progress = user.id if user else None
+
+    # Now connect to library-specific database
+    from ...database import get_library_database
+    library_db = get_library_database(library_name)
+
+    with library_db.get_session() as session:
+        from sqlalchemy import text
+
+        # Get all folders
+        folder_result = session.execute(text(
+            "SELECT id, parent_id, name FROM folders"
+        )).fetchall()
+
+        from collections import namedtuple
+        FolderData = namedtuple('FolderData', ['id', 'parent_id', 'name'])
+        folders = [FolderData(*row) for row in folder_result]
+
+        # Determine if this is a root request
+        is_root_request = (folder_id <= 1)
+
+        # Build response with recursive folder traversal
+        lines = []
+
+        def add_folder_comics(fid: int, recursive: bool = True):
+            """Recursively add comics from folder and subfolders"""
+            # Get comics in this folder
+            comics_result = session.execute(text(
+                """SELECT id, filename, file_size, hash
+                   FROM comics WHERE folder_id = :folder_id"""
+            ), {"folder_id": fid}).fetchall()
+
+            for comic_row in comics_result:
+                comic_id, filename, file_size, comic_hash = comic_row
+
+                # Get reading status
+                read_status = 0
+                if user_id_for_progress:
+                    progress = get_reading_progress(session, user_id_for_progress, comic_id)
+                    if progress and progress.is_completed:
+                        read_status = 1
+
+                line = f"/v2/library/{library_id}/comic/{comic_id}:{filename}:{file_size}:{read_status}:{comic_hash}"
+                lines.append(line)
+
+            # If recursive, process subfolders
+            if recursive:
+                for folder in folders:
+                    if folder.parent_id == fid and folder.name != "__ROOT__":
+                        add_folder_comics(folder.id, recursive=True)
+
+        if is_root_request:
+            # Root request - get all comics recursively from root
+            root_folder = next((f for f in folders if f.name == "__ROOT__"), None)
+            if root_folder:
+                add_folder_comics(root_folder.id, recursive=True)
+            else:
+                # Fallback: get all comics
+                all_comics = session.execute(text(
+                    "SELECT id, filename, file_size, hash FROM comics"
+                )).fetchall()
+                for comic_row in all_comics:
+                    comic_id, filename, file_size, comic_hash = comic_row
+                    read_status = 0
+                    if user_id_for_progress:
+                        progress = get_reading_progress(session, user_id_for_progress, comic_id)
+                        if progress and progress.is_completed:
+                            read_status = 1
+                    line = f"/v2/library/{library_id}/comic/{comic_id}:{filename}:{file_size}:{read_status}:{comic_hash}"
+                    lines.append(line)
+        else:
+            # Specific folder - get comics recursively from this folder
+            add_folder_comics(folder_id, recursive=True)
+
+        response_text = "\r\n".join(lines)
+        return PlainTextResponse(response_text, media_type="text/plain; charset=utf-8")
+
+
 @router.get("/library/{library_id}/folder/{folder_id}/content")
 async def get_folder_content_json(
     library_id: int,
@@ -556,10 +552,7 @@ async def get_comic_fullinfo_v2(
     logger.debug(f"[FULLINFO] Client: {request.client.host if request.client else 'unknown'}")
     logger.debug(f"[FULLINFO] User-Agent: {request.headers.get('user-agent', 'unknown')}")
 
-    # Get main database for library and user data
-    main_db = request.app.state.db
-
-    # First, get library info from main database
+    # Use main database for everything
     with main_db.get_session() as session:
         logger.debug(f"[FULLINFO] Fetching library: library_id={library_id}")
         library = get_library_by_id(session, library_id)
@@ -570,7 +563,7 @@ async def get_comic_fullinfo_v2(
         library_path = library.path
         logger.debug(f"[FULLINFO] Library found: name={library_name}, path={library_path}")
 
-        # Get user for reading progress (from main DB)
+        # Get user for reading progress
         user_id = get_current_user_id(request)
         logger.debug(f"[FULLINFO] User ID from session: {user_id}")
         if user_id:
@@ -578,13 +571,8 @@ async def get_comic_fullinfo_v2(
         else:
             user = get_user_by_username(session, 'admin')
 
-    # Now connect to library-specific database for comic and progress data
-    from ...database import get_library_database
-    library_db = get_library_database(library_name)
-
-    with library_db.get_session() as session:
-        logger.debug(f"[FULLINFO] Fetching comic from library database: library={library_name}, comic_id={comic_id}")
-        comic = get_comic_by_id_raw(session, comic_id)
+        logger.debug(f"[FULLINFO] Fetching comic: comic_id={comic_id}")
+        comic = get_comic_by_id(session, comic_id)
         if not comic:
             logger.error(f"[FULLINFO] Comic not found: comic_id={comic_id}")
             raise HTTPException(status_code=404, detail="Comic not found")
@@ -678,6 +666,83 @@ async def get_comic_fullinfo_v2(
 
 
 # ============================================================================
+# Comic Info and Download (v2)
+# ============================================================================
+
+@router.get("/library/{library_id}/comic/{comic_id}/info")
+async def get_comic_info_v2(
+    library_id: int,
+    comic_id: int,
+    request: Request
+):
+    """
+    Get comic download info in text format (v2 API)
+
+    Returns:
+    fileName:{fileName}
+    fileSize:{fileSize}
+    """
+    from fastapi.responses import PlainTextResponse
+
+    # Get main database for library metadata
+    main_db = request.app.state.db
+
+    with main_db.get_session() as session:
+        library = get_library_by_id(session, library_id)
+        if not library:
+            raise HTTPException(status_code=404, detail="Library not found")
+        library_name = library.name
+
+    # Now connect to library-specific database
+    from ...database import get_library_database
+    library_db = get_library_database(library_name)
+
+    with library_db.get_session() as session:
+        comic = get_comic_by_id_raw(session, comic_id)
+        if not comic:
+            raise HTTPException(status_code=404, detail="Comic not found")
+
+        response_text = f"fileName:{comic.filename}\r\nfileSize:{comic.file_size}\r\n"
+        return PlainTextResponse(response_text, media_type="text/plain; charset=utf-8")
+
+
+@router.get("/library/{library_id}/comic/{comic_id}")
+async def open_comic_download_v2(
+    library_id: int,
+    comic_id: int,
+    request: Request
+):
+    """
+    Open comic for downloading (v2 API)
+
+    Returns similar format to /info but indicates comic is being opened for download.
+    """
+    from fastapi.responses import PlainTextResponse
+
+    # Get main database for library metadata
+    main_db = request.app.state.db
+
+    with main_db.get_session() as session:
+        library = get_library_by_id(session, library_id)
+        if not library:
+            raise HTTPException(status_code=404, detail="Library not found")
+        library_name = library.name
+
+    # Now connect to library-specific database
+    from ...database import get_library_database
+    library_db = get_library_database(library_name)
+
+    with library_db.get_session() as session:
+        comic = get_comic_by_id_raw(session, comic_id)
+        if not comic:
+            raise HTTPException(status_code=404, detail="Comic not found")
+
+        # Return basic info for download
+        response_text = f"fileName:{comic.filename}\r\nfileSize:{comic.file_size}\r\npath:{comic.path}\r\n"
+        return PlainTextResponse(response_text, media_type="text/plain; charset=utf-8")
+
+
+# ============================================================================
 # Comic Remote Reading (v2)
 # ============================================================================
 
@@ -734,6 +799,18 @@ async def open_comic_remote_v2(
         # Get previous/next comic for navigation
         prev_comic_id, next_comic_id = get_sibling_comics_raw(session, comic_id)
 
+        # Get hashes for previous/next comics (v2 requirement)
+        prev_comic_hash = None
+        next_comic_hash = None
+        if prev_comic_id is not None:
+            prev_result = session.execute(text("SELECT hash FROM comics WHERE id = :id"), {"id": prev_comic_id}).fetchone()
+            if prev_result:
+                prev_comic_hash = prev_result[0]
+        if next_comic_id is not None:
+            next_result = session.execute(text("SELECT hash FROM comics WHERE id = :id"), {"id": next_comic_id}).fetchone()
+            if next_result:
+                next_comic_hash = next_result[0]
+
         # --- START FIX 3 ---
         try:
             relative_path = str(Path(comic.path).relative_to(library_path))
@@ -747,11 +824,15 @@ async def open_comic_remote_v2(
         lines.append(f"library:{library_name}")
         lines.append(f"libraryId:{library_id}")
 
-        # Add navigation (previousComic/nextComic)
+        # Add navigation (previousComic/nextComic) with hashes (v2 format)
         if prev_comic_id is not None:
             lines.append(f"previousComic:{prev_comic_id}")
+            if prev_comic_hash:
+                lines.append(f"previousComicHash:{prev_comic_hash}")
         if next_comic_id is not None:
             lines.append(f"nextComic:{next_comic_id}")
+            if next_comic_hash:
+                lines.append(f"nextComicHash:{next_comic_hash}")
 
         # Comic info (matching comic.toTXT() format)
         lines.append(f"comicid:{comic_id}")
@@ -792,8 +873,75 @@ async def open_comic_remote_v2(
 # Comic Page (v2)
 # ============================================================================
 
+@router.get("/library/{library_id}/comic/{comic_id}/page/{page_num}")
+async def get_comic_page_v2_nonremote(
+    library_id: int,
+    comic_id: int,
+    page_num: int,
+    request: Request
+):
+    """
+    Get comic page image (v2 non-remote)
+
+    Standard page access without remote reading context
+    """
+    logger.info(f"[PAGE-NONREMOTE] Request: library_id={library_id}, comic_id={comic_id}, page_num={page_num}")
+
+    # Get main database for library metadata
+    main_db = request.app.state.db
+
+    # Use main database for everything
+    with main_db.get_session() as session:
+        # Verify library exists
+        library = get_library_by_id(session, library_id)
+        if not library:
+            raise HTTPException(status_code=404, detail="Library not found")
+
+        comic = get_comic_by_id_raw(session, comic_id)
+        if not comic:
+            raise HTTPException(status_code=404, detail="Comic not found")
+
+        # Import here to avoid circular imports
+        from ...scanner import open_comic
+
+        # Open comic archive
+        comic_path = Path(comic.path)
+        with open_comic(comic_path) as archive:
+            if archive is None:
+                raise HTTPException(status_code=500, detail="Failed to open comic")
+
+            if page_num < 0 or page_num >= archive.page_count:
+                raise HTTPException(status_code=404, detail="Page not found")
+
+            # Get page data
+            page_data = archive.get_page(page_num)
+            if page_data is None:
+                raise HTTPException(status_code=404, detail="Failed to read page")
+
+            # Determine content type from page filename
+            page = archive.pages[page_num]
+            ext = Path(page.filename).suffix.lower()
+
+            content_type_map = {
+                '.jpg': 'image/jpeg',
+                '.jpeg': 'image/jpeg',
+                '.png': 'image/png',
+                '.gif': 'image/gif',
+                '.webp': 'image/webp',
+                '.bmp': 'image/bmp',
+            }
+
+            content_type = content_type_map.get(ext, 'image/jpeg')
+
+            return Response(
+                content=page_data,
+                media_type=content_type,
+                headers={"Cache-Control": "public, max-age=86400"}
+            )
+
+
 @router.get("/library/{library_id}/comic/{comic_id}/page/{page_num}/remote")
-async def get_comic_page_v2(
+async def get_comic_page_v2_remote(
     library_id: int,
     comic_id: int,
     page_num: int,
@@ -811,18 +959,14 @@ async def get_comic_page_v2(
     main_db = request.app.state.db
 
     # First, get library info from main database
+    # Use main database for everything
     with main_db.get_session() as session:
+        # Verify library exists
         library = get_library_by_id(session, library_id)
         if not library:
             raise HTTPException(status_code=404, detail="Library not found")
-        library_name = library.name
 
-    # Now connect to library-specific database for comic data
-    from ...database import get_library_database
-    library_db = get_library_database(library_name)
-
-    with library_db.get_session() as session:
-        logger.debug(f"[PAGE] Fetching comic from library database: library={library_name}, comic_id={comic_id}")
+        logger.debug(f"[PAGE] Fetching comic from main database: comic_id={comic_id}")
         comic = get_comic_by_id_raw(session, comic_id)
         if not comic:
             logger.error(f"[PAGE] Comic not found: comic_id={comic_id}")
@@ -938,13 +1082,14 @@ async def update_comic_progress_v2(
     main_db = request.app.state.db
 
     # First, get library info from main database
+    # Use main database for everything
     with main_db.get_session() as session:
+        # Verify library exists
         library = get_library_by_id(session, library_id)
         if not library:
             raise HTTPException(status_code=404, detail="Library not found")
-        library_name = library.name
 
-        # Get user from session (from main DB)
+        # Get user from session
         user_id = get_current_user_id(request)
         if user_id:
             user = get_user_by_id(session, user_id)
@@ -954,11 +1099,6 @@ async def update_comic_progress_v2(
         if not user:
             raise HTTPException(status_code=404, detail="User not found")
 
-    # Now connect to library-specific database for comic and progress data
-    from ...database import get_library_database
-    library_db = get_library_database(library_name)
-
-    with library_db.get_session() as session:
         # Get comic to verify it exists and get num_pages
         comic = get_comic_by_id_raw(session, comic_id)
         if not comic:
@@ -2298,6 +2438,138 @@ async def get_libraries_series_tree(request: Request, max_depth: int = 10):
 
 
 # ============================================================================
+# Folder Browsing (Flat List)
+# ============================================================================
+
+@router.get("/library/{library_id}/folders")
+async def get_library_folders(
+    library_id: int,
+    request: Request,
+    folder_id: Optional[int] = None
+):
+    """
+    Get folders in a library as a flat list (for card/grid display)
+
+    If folder_id is provided, returns children of that folder.
+    If folder_id is None, returns top-level folders.
+
+    This is similar to /tree but returns a flat list instead of nested structure,
+    making it easier to display as cards in the UI.
+
+    Returns:
+        Array of folder objects with comic counts and cover images
+    """
+    from ...database.models import Folder as FolderModel
+
+    # Get main DB
+    main_db = request.app.state.db
+
+    with main_db.get_session() as session:
+        # Verify library exists
+        library = get_library_by_id(session, library_id)
+        if not library:
+            raise HTTPException(status_code=404, detail="Library not found")
+
+        # Get all folders for this library
+        all_folders = session.query(FolderModel).filter(
+            FolderModel.library_id == library_id
+        ).all()
+
+        # Find root folder
+        root_folder = next((f for f in all_folders if f.name == "__ROOT__"), None)
+        root_folder_id = root_folder.id if root_folder else None
+
+        # Get target folders
+        if folder_id is None:
+            # Get top-level folders (children of root)
+            target_folders = [
+                f for f in all_folders
+                if f.parent_id == root_folder_id or
+                (f.parent_id is None and f.name != "__ROOT__")
+            ]
+        else:
+            # Get children of specified folder
+            target_folders = [f for f in all_folders if f.parent_id == folder_id]
+
+        # Build folder list with metadata
+        from sqlalchemy import text
+        folders_list = []
+
+        for folder in sorted(target_folders, key=lambda x: x.name):
+            # Count comics in this folder
+            comic_count = session.execute(
+                text("SELECT COUNT(*) FROM comics WHERE folder_id = :folder_id AND library_id = :library_id"),
+                {"folder_id": folder.id, "library_id": library_id}
+            ).scalar() or 0
+
+            # Get first comic for cover image
+            first_comic_row = session.execute(
+                text("SELECT id, hash FROM comics WHERE folder_id = :folder_id AND library_id = :library_id LIMIT 1"),
+                {"folder_id": folder.id, "library_id": library_id}
+            ).first()
+
+            # Check if folder has subfolders
+            has_children = any(f.parent_id == folder.id for f in all_folders)
+
+            # Determine if this is a series (has comics but no subfolders)
+            # This is a heuristic - folders with comics are usually series
+            is_series = comic_count > 0
+
+            folder_data = {
+                "id": folder.id,
+                "name": folder.name,
+                "title": folder.name, # Alias
+                "series": folder.name, # Alias
+                "series_name": folder.name, # Legacy alias required by frontend
+                "type": "folder",
+                "parent_id": folder.parent_id,
+                "comic_count": comic_count,
+                "has_children": has_children,
+                "is_series": is_series
+            }
+
+            if first_comic_row:
+                folder_data["first_comic_id"] = first_comic_row.id
+                folder_data["cover_hash"] = first_comic_row.hash
+
+            folders_list.append(folder_data)
+
+        # Add loose files (comics without folder_id or folder_id = 0)
+        # These are files directly in the library root
+        if folder_id is None:
+            # Get loose comics (no folder or in root folder)
+            loose_comics = session.execute(
+                text("""
+                    SELECT id, filename, hash, series, title
+                    FROM comics
+                    WHERE folder_id IS NULL OR folder_id = 0 OR folder_id = :root_id
+                    ORDER BY filename
+                """),
+                {"root_id": root_folder_id if root_folder_id else 0}
+            ).fetchall()
+
+            # Add each loose comic as a standalone item
+            for comic_row in loose_comics:
+                comic_id, filename, hash_val, series, title = comic_row
+                # Use series name if available, otherwise use filename without extension
+                display_name = series or title or filename.rsplit('.', 1)[0]
+
+                folders_list.append({
+                    "id": comic_id,
+                    "name": display_name,
+                    "type": "comic",
+                    "parent_id": root_folder_id,
+                    "comic_count": 1,
+                    "has_children": False,
+                    "cover_hash": hash_val,
+                    "first_comic_id": comic_id,
+                    "filename": filename
+                })
+
+        return JSONResponse(folders_list)
+
+
+# ============================================================================
 # Series Grouping
 # ============================================================================
 
@@ -2322,13 +2594,12 @@ async def get_series_list(
     Returns:
         Array of series objects with aggregated metadata
     """
-    db = request.app.state.db
+    # Get main database for library and user info
+    # Get main database
+    main_db = request.app.state.db
 
-    with db.get_session() as session:
-        from sqlalchemy.orm import selectinload
-        from sqlalchemy import func
-
-        # Get library
+    with main_db.get_session() as session:
+        # Verify library exists
         library = get_library_by_id(session, library_id)
         if not library:
             raise HTTPException(status_code=404, detail="Library not found")
@@ -2339,17 +2610,19 @@ async def get_series_list(
             user = get_user_by_id(session, user_id)
         else:
             user = get_user_by_username(session, 'admin')
+        user_id_for_progress = user.id if user else None
 
-        # OPTIMIZATION 1: Use SQL to group and aggregate series data
-        # This replaces the Python loops with database aggregation
+        from sqlalchemy.orm import selectinload
+        from sqlalchemy import func
         from sqlalchemy import outerjoin
         from ...database.models import Series as SeriesModel
 
-        # Build base query
+        # OPTIMIZATION 1: Use SQL to group and aggregate series data
         if include_metadata:
             # Join with Series table to get metadata
             series_aggregation = session.query(
-                Comic.normalized_series_name.label('series_name'),
+                Comic.series.label('series_name'),
+                SeriesModel.id.label('series_id'),
                 func.count(Comic.id).label('total_issues'),
                 func.min(Comic.id).label('first_comic_id'),
                 func.max(Comic.id).label('last_comic_id'),
@@ -2360,14 +2633,14 @@ async def get_series_list(
                 SeriesModel.genre.label('genre'),
                 SeriesModel.year_start.label('year'),
                 SeriesModel.description.label('synopsis')
-            ).outerjoin(
-                SeriesModel,
-                (SeriesModel.library_id == Comic.library_id) &
-                (SeriesModel.name == Comic.normalized_series_name)
             ).filter(
                 Comic.library_id == library_id
+            ).outerjoin(
+                SeriesModel,
+                (SeriesModel.name == Comic.series) & (SeriesModel.library_id == library_id)
             ).group_by(
-                Comic.normalized_series_name,
+                Comic.series,
+                SeriesModel.id,
                 SeriesModel.writer,
                 SeriesModel.artist,
                 SeriesModel.genre,
@@ -2376,8 +2649,10 @@ async def get_series_list(
             ).all()
         else:
             # Minimal query without metadata join
+            from sqlalchemy import literal
             series_aggregation = session.query(
-                Comic.normalized_series_name.label('series_name'),
+                Comic.series.label('series_name'),
+                literal(None).label('series_id'),
                 func.count(Comic.id).label('total_issues'),
                 func.min(Comic.id).label('first_comic_id'),
                 func.max(Comic.id).label('last_comic_id'),
@@ -2386,22 +2661,22 @@ async def get_series_list(
             ).filter(
                 Comic.library_id == library_id
             ).group_by(
-                Comic.normalized_series_name
+                Comic.series
             ).all()
 
         # OPTIMIZATION 2: Fetch all comics with reading progress in ONE query (fixes N+1)
-        if user:
+        if user_id_for_progress:
             # Eager load reading progress for ALL comics at once
-            comics_query = session.query(Comic).options(
-                selectinload(Comic.reading_progress)
-            ).filter(
+            comics_query = session.query(Comic).filter(
                 Comic.library_id == library_id
+            ).options(
+                selectinload(Comic.reading_progress)
             ).all()
 
             # Build a lookup dict: series_name -> list of comics
             comics_by_series = {}
             for comic in comics_query:
-                series_name = comic.normalized_series_name or "Unknown"
+                series_name = comic.series or "Unknown"
                 if series_name not in comics_by_series:
                     comics_by_series[series_name] = []
                 comics_by_series[series_name].append(comic)
@@ -2412,7 +2687,7 @@ async def get_series_list(
             ).all()
             comics_by_series = {}
             for comic in comics_query:
-                series_name = comic.normalized_series_name or "Unknown"
+                series_name = comic.series or "Unknown"
                 if series_name not in comics_by_series:
                     comics_by_series[series_name] = []
                 comics_by_series[series_name].append(comic)
@@ -2453,14 +2728,21 @@ async def get_series_list(
             # Determine if this is a standalone volume (single comic, not part of a series)
             is_standalone = series_data.total_issues == 1
 
+            # Generate a stable ID for the series (use SeriesModel ID if available, else hash)
+            series_id = series_data.series_id or abs(hash(series_name))
+
             series_info = {
-                "series_name": series_name,
+                "id": series_id,
+                "name": series_name,
+                "title": series_name,  # Alias for name
+                "series": series_name, # Alias for name
+                "series_name": series_name, # Legacy alias required by frontend
                 "volumes": volumes,
                 "publisher": series_data.publisher,
                 "total_issues": series_data.total_issues,
                 "cover_hash": series_data.cover_hash,
                 "first_comic_id": series_data.first_comic_id,
-                "is_standalone": is_standalone  # Flag for single-volume series
+                "is_standalone": is_standalone
             }
 
             # Add metadata fields if included
@@ -2477,7 +2759,7 @@ async def get_series_list(
 
         # Sort the results
         if sort == "name":
-            series_list.sort(key=lambda s: s["series_name"].lower())
+            series_list.sort(key=lambda s: s["name"].lower())
         elif sort == "recent":
             # Sort by most recent addition (first comic id descending)
             series_list.sort(key=lambda s: s["first_comic_id"], reverse=True)
@@ -2530,18 +2812,11 @@ async def get_series_detail(
             SeriesModel.name == decoded_series_name
         ).first()
 
-        # Try to find comics by normalized_series_name first (pre-computed during scan)
+        # Find comics by series field
         comics = session.query(Comic).filter(
             Comic.library_id == library_id,
-            Comic.normalized_series_name == decoded_series_name
+            Comic.series == decoded_series_name
         ).all()
-
-        # Fallback: Try to find by series field if normalized_series_name is not set
-        if not comics:
-            comics = session.query(Comic).filter(
-                Comic.library_id == library_id,
-                Comic.series == decoded_series_name
-            ).all()
 
         # Fallback 2: Try to find by folder name
         if not comics:
@@ -2614,8 +2889,8 @@ async def get_series_detail(
             }
 
             # Add optional metadata fields
-            if hasattr(comic, 'synopsis') and comic.synopsis:
-                volume["synopsis"] = comic.synopsis
+            if hasattr(comic, 'description') and comic.description:
+                volume["synopsis"] = comic.description
             if hasattr(comic, 'writer') and comic.writer:
                 volume["writer"] = comic.writer
             if hasattr(comic, 'publisher') and comic.publisher:
@@ -2672,8 +2947,16 @@ async def get_series_detail(
 
         # Aggregate series metadata from first comic
         first_comic = comics[0]
+        
+        # Generate a stable ID for the series (use SeriesModel ID if available, else hash)
+        series_id = series_record.id if series_record else abs(hash(decoded_series_name))
+        
         series_detail = {
-            "series_name": decoded_series_name,
+            "id": series_id,
+            "name": decoded_series_name,
+            "title": decoded_series_name, # Alias for name
+            "series": decoded_series_name, # Alias for name
+            "series_name": decoded_series_name, # Legacy
             "total_issues": len(volumes),
             "cover_hash": first_comic.hash,
             "volumes": volumes
@@ -2739,6 +3022,97 @@ async def recover_session(request: Request):
 
 
 @router.post("/sync")
-async def sync_session(request: Request):
-    """Sync session data (stub)"""
-    return JSONResponse({"synced": True})
+async def sync_session_v2(request: Request, yacread_session: Optional[str] = Cookie(None)):
+    """
+    Sync reading progress (v2 API)
+
+    Accepts JSON body with reading progress data and syncs it to the server.
+    Expected format:
+    {
+        "comics": [
+            {"comicId": 123, "libraryId": 1, "currentPage": 5, "totalPages": 20},
+            ...
+        ]
+    }
+
+    Returns JSON with sync results
+    """
+    main_db = request.app.state.db
+
+    try:
+        # Parse JSON body
+        # Handle "Extra data" error by using raw_decode to parse only the valid JSON part
+        try:
+            body_bytes = await request.body()
+            body_str = body_bytes.decode('utf-8')
+            body, _ = json.JSONDecoder().raw_decode(body_str)
+        except json.JSONDecodeError:
+             # Fallback to standard parsing if raw_decode fails (or if it was empty)
+            body = await request.json()
+            
+        comics = body.get("comics", [])
+
+        # Get user from session
+        user_id = get_current_user_id(request)
+        user = None
+        with main_db.get_session() as session:
+            if user_id:
+                user = get_user_by_id(session, user_id)
+            else:
+                user = get_user_by_username(session, 'admin')
+
+        if not user:
+            return JSONResponse({"success": False, "error": "User not found"}, status_code=401)
+
+        # Update reading progress for each comic
+        synced_count = 0
+        errors = []
+
+        for comic_data in comics:
+            comic_id = comic_data.get("comicId")
+            library_id = comic_data.get("libraryId")
+            current_page = comic_data.get("currentPage", 0)
+            total_pages = comic_data.get("totalPages")
+
+            if comic_id is None or library_id is None:
+                errors.append(f"Missing comicId or libraryId in comic data: {comic_data}")
+                continue
+
+            try:
+                # Get library from main DB
+                with main_db.get_session() as session:
+                    library = get_library_by_id(session, library_id)
+                    if not library:
+                        errors.append(f"Library {library_id} not found")
+                        continue
+                    library_name = library.name
+
+                # Update progress in library-specific DB
+                from ...database import get_library_database
+                library_db = get_library_database(library_name)
+
+                with library_db.get_session() as session:
+                    update_reading_progress(
+                        session,
+                        user_id=user.id,
+                        comic_id=comic_id,
+                        current_page=current_page,
+                        total_pages=total_pages
+                    )
+                    synced_count += 1
+
+            except Exception as e:
+                logger.error(f"Error syncing comic {comic_id}: {e}")
+                errors.append(f"Comic {comic_id}: {str(e)}")
+
+        logger.info(f"v2 Sync: Updated {synced_count} comics for user {user.username}")
+
+        return JSONResponse({
+            "success": True,
+            "synced": synced_count,
+            "errors": errors if errors else None
+        })
+
+    except Exception as e:
+        logger.error(f"v2 Sync error: {e}", exc_info=True)
+        return JSONResponse({"success": False, "error": str(e)}, status_code=500)

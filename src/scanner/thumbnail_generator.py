@@ -25,35 +25,34 @@ JPEG_QUALITY = 85
 WEBP_QUALITY = 90
 
 
-def calculate_file_hash(file_path: Path) -> str:
+def calculate_yacreader_hash(file_path: Path) -> str:
     """
-    Calculate xxHash of a file for duplicate detection.
+    Calculate hash exactly as YACReader expects.
 
-    xxHash is 10x faster than MD5 and perfect for non-cryptographic
-    duplicate detection. Uses 64-bit version for good collision resistance.
+    Format: SHA1(first 512KB) + file_size_as_string
+    Example: "a1b2c3d4e5f6...7890" + "123456789"
 
-    Args:
-        file_path: Path to the comic file
-
-    Returns:
-        xxHash64 hash as hex string
+    This MUST match YACReader's algorithm or clients will fail to load covers.
     """
+    import hashlib
+
     try:
-        import xxhash
-        # xxHash is much faster than MD5 for large files
-        h = xxhash.xxh64()
+        # Read first 512KB (or entire file if smaller)
         with open(file_path, 'rb') as f:
-            # Use larger chunks for better performance
-            for chunk in iter(lambda: f.read(65536), b''):  # 64KB chunks
-                h.update(chunk)
-        return h.hexdigest()
-    except ImportError:
-        # Fallback to MD5 if xxhash not installed
-        md5 = hashlib.md5()
-        with open(file_path, 'rb') as f:
-            for chunk in iter(lambda: f.read(65536), b''):
-                md5.update(chunk)
-        return md5.hexdigest()
+            first_chunk = f.read(512 * 1024)  # 512KB
+
+        # Calculate SHA1 of chunk
+        sha1_hash = hashlib.sha1(first_chunk).hexdigest()
+
+        # Get file size
+        file_size = file_path.stat().st_size
+
+        # Concatenate: hash + size
+        return f"{sha1_hash}{file_size}"
+    except Exception as e:
+        logger.error(f"Failed to calculate hash for {file_path}: {e}")
+        # Fallback or re-raise? For now, return empty string or raise
+        raise
 
 
 def resize_image_to_fit(

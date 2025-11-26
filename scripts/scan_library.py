@@ -21,6 +21,8 @@ from database import (
     Database,
     create_library,
     get_library_by_path,
+    get_library_database,
+    get_library_db_path,
 )
 from database.models import Comic, Library
 from scanner.threaded_scanner import scan_library_threaded
