@@ -34,7 +34,24 @@ try:
     from ..base_scanner import BaseScanner, ScanResult, ScanLevel, MatchConfidence, ScannerAPIError
 except ImportError:
     # Fallback for standalone execution
-    BaseScanner = ABC
+    class BaseScanner(ABC):
+        def __init__(self, config: Optional[Dict] = None):
+            self.config = config or {}
+
+        @property
+        @abstractmethod
+        def source_name(self) -> str:
+            pass
+
+        @property
+        @abstractmethod
+        def scan_level(self) -> 'ScanLevel':
+            pass
+
+        @abstractmethod
+        def scan(self, query: str, **kwargs) -> Tuple[Optional['ScanResult'], List['ScanResult']]:
+            pass
+
     ScanResult = None  # Will be defined below
     ScanLevel = None
     MatchConfidence = None
@@ -1003,30 +1020,29 @@ class BaseScanner(ABC):
     Base class for all metadata scanners
     """
     # Only define if not imported
-    if 'BaseScanner' not in globals() or globals()['BaseScanner'] is ABC:
-        def __init__(self, config: Optional[Dict] = None):
-            self.config = config or {}
-            self._validate_config()
+    def __init__(self, config: Optional[Dict] = None):
+        self.config = config or {}
+        self._validate_config()
 
-        @property
-        @abstractmethod
-        def source_name(self) -> str:
-            pass
+    @property
+    @abstractmethod
+    def source_name(self) -> str:
+        pass
 
-        @property
-        @abstractmethod
-        def scan_level(self) -> ScanLevel:
-            pass
+    @property
+    @abstractmethod
+    def scan_level(self) -> ScanLevel:
+        pass
 
-        @abstractmethod
-        def scan(self, query: str, **kwargs) -> Tuple[Optional[ScanResult], List[ScanResult]]:
-            pass
+    @abstractmethod
+    def scan(self, query: str, **kwargs) -> Tuple[Optional[ScanResult], List[ScanResult]]:
+        pass
 
-        def _validate_config(self):
-            pass
+    def _validate_config(self):
+        pass
 
-        def get_required_config_keys(self) -> List[str]:
-            return []
+    def get_required_config_keys(self) -> List[str]:
+        return []
 
 
 class ScannerError(Exception):

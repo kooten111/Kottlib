@@ -552,6 +552,9 @@ async def get_comic_fullinfo_v2(
     logger.debug(f"[FULLINFO] Client: {request.client.host if request.client else 'unknown'}")
     logger.debug(f"[FULLINFO] User-Agent: {request.headers.get('user-agent', 'unknown')}")
 
+    # Get main database
+    main_db = request.app.state.db
+
     # Use main database for everything
     with main_db.get_session() as session:
         logger.debug(f"[FULLINFO] Fetching library: library_id={library_id}")
@@ -698,7 +701,7 @@ async def get_comic_info_v2(
     library_db = get_library_database(library_name)
 
     with library_db.get_session() as session:
-        comic = get_comic_by_id_raw(session, comic_id)
+        comic = get_comic_by_id(session, comic_id)
         if not comic:
             raise HTTPException(status_code=404, detail="Comic not found")
 
@@ -733,7 +736,7 @@ async def open_comic_download_v2(
     library_db = get_library_database(library_name)
 
     with library_db.get_session() as session:
-        comic = get_comic_by_id_raw(session, comic_id)
+        comic = get_comic_by_id(session, comic_id)
         if not comic:
             raise HTTPException(status_code=404, detail="Comic not found")
 
@@ -783,7 +786,7 @@ async def open_comic_remote_v2(
     library_db = get_library_database(library_name)
 
     with library_db.get_session() as session:
-        comic = get_comic_by_id_raw(session, comic_id)
+        comic = get_comic_by_id(session, comic_id)
         if not comic:
             raise HTTPException(status_code=404, detail="Comic not found")
 
@@ -797,7 +800,7 @@ async def open_comic_remote_v2(
                 is_read = 1 if progress.is_completed else 0
 
         # Get previous/next comic for navigation
-        prev_comic_id, next_comic_id = get_sibling_comics_raw(session, comic_id)
+        prev_comic_id, next_comic_id = get_sibling_comics(session, comic_id)
 
         # Get hashes for previous/next comics (v2 requirement)
         prev_comic_hash = None
@@ -897,7 +900,7 @@ async def get_comic_page_v2_nonremote(
         if not library:
             raise HTTPException(status_code=404, detail="Library not found")
 
-        comic = get_comic_by_id_raw(session, comic_id)
+        comic = get_comic_by_id(session, comic_id)
         if not comic:
             raise HTTPException(status_code=404, detail="Comic not found")
 
@@ -967,7 +970,7 @@ async def get_comic_page_v2_remote(
             raise HTTPException(status_code=404, detail="Library not found")
 
         logger.debug(f"[PAGE] Fetching comic from main database: comic_id={comic_id}")
-        comic = get_comic_by_id_raw(session, comic_id)
+        comic = get_comic_by_id(session, comic_id)
         if not comic:
             logger.error(f"[PAGE] Comic not found: comic_id={comic_id}")
             raise HTTPException(status_code=404, detail="Comic not found")
@@ -1100,7 +1103,7 @@ async def update_comic_progress_v2(
             raise HTTPException(status_code=404, detail="User not found")
 
         # Get comic to verify it exists and get num_pages
-        comic = get_comic_by_id_raw(session, comic_id)
+        comic = get_comic_by_id(session, comic_id)
         if not comic:
             raise HTTPException(status_code=404, detail="Comic not found")
 
