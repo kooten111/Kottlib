@@ -643,11 +643,13 @@ if ScanResult is None:
             }
 
 
-class BaseScanner(ABC):
-    """Base class for all metadata scanners"""
-    
-    # Only define if not imported
-    if 'BaseScanner' not in globals() or globals()['BaseScanner'] is ABC:
+
+
+# Only define BaseScanner if it wasn't imported successfully
+if 'BaseScanner' not in globals() or globals()['BaseScanner'] is ABC:
+    class BaseScanner(ABC):
+        """Base class for all metadata scanners"""
+        
         def __init__(self, config: Optional[Dict] = None):
             self.config = config or {}
             self._validate_config()
