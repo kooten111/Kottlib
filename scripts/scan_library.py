@@ -8,6 +8,7 @@ Supports both single-threaded (verbose) and multi-threaded (fast) modes.
 
 import sys
 import argparse
+import logging
 from pathlib import Path
 
 # Add src and scanners to path
@@ -325,6 +326,26 @@ Examples:
     config = load_config()
     db_path = Path(config.database.path) if config.database.path else None
 
+    # Configure logging
+    # If verbose, log to console. If not, log to file to avoid breaking progress bar.
+    if verbose:
+        logging.basicConfig(
+            level=logging.INFO,
+            format='%(levelname)s: %(message)s',
+            force=True
+        )
+    else:
+        # Log to file in current directory
+        log_file = Path('scan_library.log')
+        logging.basicConfig(
+            filename=str(log_file),
+            level=logging.INFO,
+            format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
+            filemode='w',
+            force=True
+        )
+
+
     # Validation
     if not library_path.exists():
         print(f"Error: Directory not found: {library_path}")
@@ -347,6 +368,10 @@ Examples:
     print(f"Mode:     {mode}")
     if args.scan_metadata:
         print(f"Metadata: {args.scanner} (threshold: {args.confidence})")
+    if args.scan_metadata:
+        print(f"Metadata: {args.scanner} (threshold: {args.confidence})")
+    if not verbose:
+        print(f"Logging:  {Path('scan_library.log').resolve()}")
     print(f"=" * 60 + "\n")
 
     # Check for external tools

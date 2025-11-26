@@ -128,6 +128,86 @@ class ThreadedScanner:
         # Track active workers for progress display
         self._active_workers = {}  # worker_id -> (series_name, filename)
 
+        # Structure cache: folder_path -> mode
+        self._structure_cache = {}
+
+    def _classify_series_structure(self, series_path: Path) -> str:
+        """
+        Determines if a Series folder is Simple, Nested, or Unpacked
+        based on the Hybrid Hierarchy rules.
+        """
+        ARCHIVE_EXTS = {'.cbz', '.cbr', '.zip', '.rar', '.7z', '.epub', '.cb7'}
+        IMAGE_EXTS = {'.jpg', '.jpeg', '.png', '.webp', '.gif', '.bmp', '.tiff', '.tif'}
+
+        try:
+            # Get all items in the series folder
+            contents = list(series_path.iterdir())
+        except OSError:
+            return "Error: Access Denied"
+
+        if not contents:
+            return "Empty Folder"
+
+        # Get list of sub-directories to check for Modes 2 and 3
+        subdirs = [d for d in contents if d.is_dir()]
+        
+        if subdirs:
+            # We verify the structure by checking the content of the first sub-directory found.
+            # (Assumes consistent structure within a single series folder)
+            first_subdir = subdirs[0]
+            try:
+                subdir_contents = list(first_subdir.iterdir())
+                
+                # 2. Check for MODE 2: Franchise Collection
+                # Logic: Do the sub-directories contain archives?
+                if any(f.is_file() and f.suffix.lower() in ARCHIVE_EXTS for f in subdir_contents):
+                    return "nested"
+                
+                # 3. Check for MODE 3: Unpacked/Raw
+                # Logic: Do the sub-directories contain images?
+                if any(f.is_file() and f.suffix.lower() in IMAGE_EXTS for f in subdir_contents):
+                    return "unpacked"
+
+                # 4. Check for MODE 3: Unpacked/Raw (Nested in Chapter folder)
+                # If we found directories but no archives/images, look one level deeper
+                grandchild_subdirs = [d for d in subdir_contents if d.is_dir()]
+                if grandchild_subdirs:
+                    first_grandchild = grandchild_subdirs[0]
+                    try:
+                        grandchild_contents = list(first_grandchild.iterdir())
+                        if any(f.is_file() and f.suffix.lower() in IMAGE_EXTS for f in grandchild_contents):
+                            return "unpacked"
+                    except OSError:
+                        pass
+                    
+            except OSError:
+                return "Error: Subdir Access Denied"
+
+        # 1. Check for MODE 1: Simple Series
+        # Logic: Does it contain archive files directly?
+        # We check this LAST so that mixed folders (files + subfolders) are treated as nested/franchise
+        has_archives = any(f.is_file() and f.suffix.lower() in ARCHIVE_EXTS for f in contents)
+        if has_archives:
+            return "simple"
+
+        return "unknown"
+
+    def _scan_structure(self, library_path: Path):
+        """
+        Scan the library structure to determine the mode of each top-level folder.
+        Populates self._structure_cache.
+        """
+        logger.info("Scanning library structure...")
+        try:
+            for item in library_path.iterdir():
+                if item.is_dir() and not item.name.startswith('.'):
+                    mode = self._classify_series_structure(item)
+                    self._structure_cache[item.name] = mode
+                    logger.debug(f"Structure detected for {item.name}: {mode}")
+        except Exception as e:
+            logger.error(f"Error scanning structure: {e}")
+
+
     def scan_library(self, library_path: Path) -> ScanResult:
         """
         Scan entire library with multi-threading
@@ -138,11 +218,16 @@ class ThreadedScanner:
         Returns:
             ScanResult with statistics
         """
+        self.library_path = library_path  # Store for metadata extraction
         start_time = time.time()
         logger.info(f"Starting threaded scan of {library_path}")
 
         # Phase 1: Discover all files (fast, single-threaded)
         logger.info("Phase 1: Discovering files...")
+        
+        # Pre-scan structure
+        self._scan_structure(library_path)
+        
         comic_files, folders = self._discover_files(library_path)
 
         total_comics = len(comic_files)
@@ -520,8 +605,57 @@ class ThreadedScanner:
         # This will be overridden if ComicInfo.xml has a title
         if hasattr(comic, 'path'):
             from pathlib import Path
-            filename_no_ext = Path(comic.path).stem
+            comic_path = Path(comic.path)
+            filename_no_ext = comic_path.stem
             metadata['title'] = filename_no_ext
+
+            # --- Hybrid Hierarchy Logic ---
+            try:
+                if hasattr(self, 'library_path') and self.library_path:
+                    # Get path relative to library root
+                    rel_path = comic_path.relative_to(self.library_path)
+                    
+                    if len(rel_path.parts) > 0:
+                        top_folder = rel_path.parts[0]
+                        mode = self._structure_cache.get(top_folder, "unknown")
+                        
+                        # Apply logic based on mode
+                        if mode == "simple":
+                            # Mode 1: Root/Series/Vol.cbz
+                            metadata['series'] = top_folder
+                            metadata['series_group'] = None
+                            
+                        elif mode == "nested":
+                            # Mode 2: Root/Franchise/Arc/Vol.cbz
+                            # OR Root/Franchise/Oneshot.cbz
+                            
+                            if len(rel_path.parts) == 2:
+                                # Directly in franchise folder (Oneshot/Special)
+                                # e.g. Batman/Killing Joke.cbz
+                                metadata['series'] = top_folder
+                                metadata['series_group'] = top_folder # Group with the franchise
+                            elif len(rel_path.parts) > 2:
+                                # In subfolder (Arc/Series)
+                                # e.g. Batman/Night of Owls/Vol1.cbz
+                                # Series is the immediate parent folder
+                                metadata['series'] = rel_path.parts[1]
+                                metadata['series_group'] = top_folder
+                                
+                        elif mode == "unpacked":
+                            # Mode 3: Root/Series/Vol/Chap/Img.jpg
+                            # Series is the top folder
+                            metadata['series'] = top_folder
+                            metadata['series_group'] = None
+                            
+                        else:
+                            # Fallback for unknown structure
+                            # Use parent folder name as series
+                            if comic_path.parent != self.library_path:
+                                metadata['series'] = comic_path.parent.name
+                            
+            except Exception as e:
+                logger.warning(f"Error determining series from structure: {e}")
+
 
         if comic.comic_info:
             info = comic.comic_info
@@ -773,31 +907,17 @@ class ThreadedScanner:
                 if depth > max_depth or folder.name == "__ROOT__":
                     return None
 
-                # Get comics in this folder
+                # Recursively build children
+                children = []
+                cover_hash = None
+                
+                # Add comics directly in this folder
                 comics_in_folder = comics_by_folder.get(folder.id, [])
-
-                # Build comic nodes (no user-specific data like reading progress)
-                comic_nodes = []
-                for comic in sorted(comics_in_folder, key=lambda c: (c.volume or 0, c.issue_number or 0, c.title or c.filename)):
-                    # For single comics, strip file extension from filename
-                    display_name = comic.title
-                    if not display_name:
-                        # Strip common comic extensions (.cbz, .cbr, .cb7, .cbt)
-                        import re
-                        display_name = re.sub(r'\.(cbz|cbr|cb7|cbt)$', '', comic.filename, flags=re.IGNORECASE)
-                    
-                    comic_info = {
-                        "id": comic.id,
-                        "name": display_name,
-                        "type": "comic",
-                        "libraryId": self.library_id,
-                        "folderId": folder.id,
-                        "hash": comic.hash,
-                        "totalPages": comic.num_pages,
-                        "volume": comic.volume,
-                        "issueNumber": comic.issue_number
-                    }
-                    comic_nodes.append(comic_info)
+                # Sort comics to pick the first one (e.g. Vol 1 or Issue 1) as cover
+                sorted_comics = sorted(comics_in_folder, key=lambda c: (c.volume or 0, c.issue_number or 0, c.title or c.filename))
+                
+                if sorted_comics:
+                    cover_hash = sorted_comics[0].hash
 
                 # Get subfolders
                 subfolders = [f for f in all_folders if f.parent_id == folder.id]
@@ -808,9 +928,33 @@ class ThreadedScanner:
                     subfolder_node = build_folder_node(subfolder, depth + 1)
                     if subfolder_node:
                         subfolder_nodes.append(subfolder_node)
+                        # If we don't have a cover yet, use the first subfolder's cover
+                        if not cover_hash and subfolder_node.get("hash"):
+                            cover_hash = subfolder_node.get("hash")
 
-                # Combine subfolders and comics as children
-                children = subfolder_nodes + comic_nodes
+                # Add subfolders to children
+                children.extend(subfolder_nodes)
+                
+                # Add comics to children
+                for comic in sorted_comics:
+                     # For single comics, strip file extension from filename
+                    display_name = comic.title
+                    if not display_name:
+                        import re
+                        display_name = re.sub(r'\.(cbz|cbr|cb7|cbt)$', '', comic.filename, flags=re.IGNORECASE)
+                    
+                    comic_node = {
+                        "id": comic.id,
+                        "name": display_name,
+                        "type": "comic",
+                        "libraryId": self.library_id,
+                        "folderId": folder.id,
+                        "hash": comic.hash,
+                        "totalPages": comic.num_pages,
+                        "volume": comic.volume,
+                        "issueNumber": comic.issue_number
+                    }
+                    children.append(comic_node)
 
                 # Count total comics (including subfolders)
                 total_comic_count = len(comics_in_folder)

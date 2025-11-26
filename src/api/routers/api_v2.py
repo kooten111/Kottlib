@@ -15,6 +15,7 @@ from functools import lru_cache
 from fastapi import APIRouter, Request, Response, Cookie, HTTPException
 from fastapi.responses import JSONResponse, FileResponse
 from pydantic import BaseModel
+from sqlalchemy import func
 
 from ...database import (
     get_library_by_id,
@@ -2498,24 +2499,69 @@ async def get_library_folders(
         from sqlalchemy import text
         folders_list = []
 
+        # OPTIMIZATION: Pre-fetch all comics to avoid N+1 queries
+        # We only need id, folder_id, and hash
+        all_comics = session.execute(
+            text("SELECT id, folder_id, hash, filename, title, volume, issue_number FROM comics WHERE library_id = :library_id"),
+            {"library_id": library_id}
+        ).fetchall()
+
+        # Build maps for O(1) access
+        comics_by_folder = {}
+        for comic in all_comics:
+            fid = comic.folder_id
+            if fid not in comics_by_folder:
+                comics_by_folder[fid] = []
+            comics_by_folder[fid].append(comic)
+
+        # Build folder tree map (parent_id -> list of children)
+        folders_by_parent = {}
+        for f in all_folders:
+            pid = f.parent_id
+            if pid not in folders_by_parent:
+                folders_by_parent[pid] = []
+            folders_by_parent[pid].append(f)
+
+        # Helper to recursively calculate stats
+        # Returns (total_count, cover_hash)
+        def get_folder_stats(folder_id):
+            # Direct comics
+            direct_comics = comics_by_folder.get(folder_id, [])
+            count = len(direct_comics)
+            
+            # Find cover from direct comics
+            cover = None
+            if direct_comics:
+                # Sort to find best cover (same logic as scanner)
+                # Sort by volume, issue, then filename
+                # Note: tuple comparison works for None if we handle it, but here we just use filename/title as fallback
+                # Simple sort by filename for speed, or title
+                sorted_comics = sorted(direct_comics, key=lambda c: c.filename or "")
+                cover = sorted_comics[0].hash
+
+            # Recursively check children
+            children = folders_by_parent.get(folder_id, [])
+            for child in children:
+                child_count, child_cover = get_folder_stats(child.id)
+                count += child_count
+                
+                # If we don't have a cover yet, use child's cover
+                if not cover and child_cover:
+                    cover = child_cover
+            
+            return count, cover
+
         for folder in sorted(target_folders, key=lambda x: x.name):
-            # Count comics in this folder
-            comic_count = session.execute(
-                text("SELECT COUNT(*) FROM comics WHERE folder_id = :folder_id AND library_id = :library_id"),
-                {"folder_id": folder.id, "library_id": library_id}
-            ).scalar() or 0
+            # Calculate recursive stats
+            comic_count, cover_hash = get_folder_stats(folder.id)
 
-            # Get first comic for cover image
-            first_comic_row = session.execute(
-                text("SELECT id, hash FROM comics WHERE folder_id = :folder_id AND library_id = :library_id LIMIT 1"),
-                {"folder_id": folder.id, "library_id": library_id}
-            ).first()
-
-            # Check if folder has subfolders
-            has_children = any(f.parent_id == folder.id for f in all_folders)
+            # Check if folder has subfolders (direct children)
+            has_children = folder.id in folders_by_parent and len(folders_by_parent[folder.id]) > 0
 
             # Determine if this is a series (has comics but no subfolders)
             # This is a heuristic - folders with comics are usually series
+            # But for Series Groups, they have no direct comics but have children.
+            # So we check if it has ANY content.
             is_series = comic_count > 0
 
             folder_data = {
@@ -2531,9 +2577,10 @@ async def get_library_folders(
                 "is_series": is_series
             }
 
-            if first_comic_row:
-                folder_data["first_comic_id"] = first_comic_row.id
-                folder_data["cover_hash"] = first_comic_row.hash
+            if cover_hash:
+                folder_data["cover_hash"] = cover_hash
+                # We don't have first_comic_id easily available for groups, but frontend uses hash mostly
+                # If needed we could track it, but hash is primary.
 
             folders_list.append(folder_data)
 
@@ -2830,10 +2877,111 @@ async def get_series_detail(
             ).first()
             
             if folder:
+                # 1. Get comics directly in this folder
                 comics = session.query(Comic).filter(
                     Comic.library_id == library_id,
                     Comic.folder_id == folder.id
                 ).all()
+
+                # 2. Get immediate subfolders
+                subfolders = session.query(FolderModel).filter(
+                    FolderModel.parent_id == folder.id
+                ).all()
+                
+                # If we have either comics or subfolders (or both), build the response
+                if comics or subfolders:
+                    volumes = []
+                    
+                    # Add subfolders as items
+                    for subfolder in subfolders:
+                        # Get cover hash from first comic in subfolder (recursive check could be better but expensive)
+                        first_comic = session.query(Comic).filter(
+                            Comic.folder_id == subfolder.id
+                        ).order_by(Comic.filename).first()
+                        
+                        cover_hash = first_comic.hash if first_comic else None
+                        
+                        # Get comic count
+                        count = session.query(func.count(Comic.id)).filter(
+                            Comic.folder_id == subfolder.id
+                        ).scalar()
+                        
+                        volumes.append({
+                            "id": subfolder.id,
+                            "title": subfolder.name,
+                            "series": subfolder.name,
+                            "volume": None,
+                            "issue_number": None,
+                            "hash": cover_hash,
+                            "type": "folder",
+                            "item_count": count,
+                            "is_completed": False,
+                            "current_page": 0,
+                            "num_pages": 0
+                        })
+
+                    # Add comics as items
+                    for comic in comics:
+                        volumes.append({
+                            "id": comic.id,
+                            "title": comic.title or comic.filename,
+                            "series": comic.series,
+                            "volume": comic.volume,
+                            "issue_number": comic.issue_number,
+                            "hash": comic.hash,
+                            "type": "comic",
+                            "item_count": 1,
+                            "is_completed": False, # populated later
+                            "current_page": 0,     # populated later
+                            "num_pages": comic.num_pages,
+                            "file_size": comic.file_size
+                        })
+
+                    # Return the series object with mixed content
+                    # Note: We return early here, bypassing the default "comics only" logic below
+                    # We need to populate reading progress manually for these items since we are returning early
+                    
+                    # Get user for reading progress
+                    user_id = get_current_user_id(request)
+                    if user_id:
+                        user = get_user_by_id(session, user_id)
+                    else:
+                        user = get_user_by_username(session, 'admin')
+
+                    if user:
+                        # Fetch progress for all comics in this view
+                        comic_ids = [v["id"] for v in volumes if v["type"] == "comic"]
+                        if comic_ids:
+                            progress_records = session.query(ReadingProgress).filter(
+                                ReadingProgress.user_id == user.id,
+                                ReadingProgress.comic_id.in_(comic_ids)
+                            ).all()
+                            progress_map = {p.comic_id: p for p in progress_records}
+                            
+                            for v in volumes:
+                                if v["type"] == "comic" and v["id"] in progress_map:
+                                    p = progress_map[v["id"]]
+                                    v["current_page"] = p.current_page
+                                    v["is_completed"] = p.is_completed
+
+                    # Find a cover for the series group (use first volume with a hash)
+                    series_cover_hash = None
+                    for v in volumes:
+                        if v.get("hash"):
+                            series_cover_hash = v["hash"]
+                            break
+
+                    return {
+                        "series_name": decoded_series_name,
+                        "display_name": decoded_series_name,
+                        "total_issues": len(volumes),
+                        "completed_volumes": 0, # todo
+                        "overall_progress": 0, # todo
+                        "cover_hash": series_cover_hash,
+                        "volumes": volumes
+                    }
+
+
 
         if not comics:
             raise HTTPException(status_code=404, detail=f"Series not found: {decoded_series_name}")

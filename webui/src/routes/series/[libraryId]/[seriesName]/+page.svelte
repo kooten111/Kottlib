@@ -57,6 +57,11 @@
 		if (series && series.volumes) {
 			sortedVolumes = [...series.volumes].sort((a, b) => {
 				const getSortKey = (v) => {
+					// Folders always come first
+					if (v.type === "folder") {
+						return [-1, 0, 0];
+					}
+
 					const vol = parseInt(v.volume) || 0;
 					const issue = parseInt(v.issue_number) || 0;
 					const title = (v.title || "").toLowerCase();
@@ -499,6 +504,11 @@
 								{libraryId}
 								variant="grid"
 								showProgress={true}
+								isFolder={volume.type === "folder"}
+								itemCount={volume.item_count}
+								href={volume.type === "folder"
+									? `/series/${libraryId}/${encodeURIComponent(volume.title)}`
+									: null}
 							/>
 						{/each}
 					</div>
