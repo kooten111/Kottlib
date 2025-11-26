@@ -45,9 +45,9 @@ export async function load({ fetch: svelteKitFetch }) {
 		// Remaining libraries will be loaded in background on client
 		const firstLibrary = libraries[0];
 
-		const [continueReading, recentSeries] = await Promise.all([
+		const [continueReading, libraryFolders] = await Promise.all([
 			customFetch(`/library/${firstLibrary.id}/reading?limit=50`),
-			customFetch(`/library/${firstLibrary.id}/series?sort=recent&limit=100`)
+			customFetch(`/library/${firstLibrary.id}/folders`)
 		]);
 
 		return {
@@ -56,7 +56,7 @@ export async function load({ fetch: svelteKitFetch }) {
 			firstLibrary: {
 				id: firstLibrary.id,
 				continueReading: continueReading ? continueReading.map(comic => ({ ...comic, libraryId: firstLibrary.id })) : [],
-				recentSeries: recentSeries ? recentSeries.map(s => ({ ...s, libraryId: firstLibrary.id })) : []
+				folders: libraryFolders ? libraryFolders.map(f => ({ ...f, libraryId: firstLibrary.id })) : []
 			},
 			// Flag to indicate only first library loaded, rest need background loading
 			isPartialLoad: libraries.length > 1

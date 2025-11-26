@@ -38,6 +38,14 @@ export async function getFolderTree(libraryId, maxDepth = 10) {
 }
 
 /**
+ * Get folders in a library (flat list for card/grid display)
+ */
+export async function getLibraryFolders(libraryId, folderId = null) {
+	const params = folderId ? `?folder_id=${folderId}` : '';
+	return api.get(`/library/${libraryId}/folders${params}`);
+}
+
+/**
  * Get all series in a library
  */
 export async function getSeries(libraryId, sort = 'name') {

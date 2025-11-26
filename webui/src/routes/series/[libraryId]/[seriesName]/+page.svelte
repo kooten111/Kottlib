@@ -1,26 +1,37 @@
 <script>
-	import { onMount } from 'svelte';
-	import { page } from '$app/stores';
-	import Navbar from '$lib/components/layout/Navbar.svelte';
-	import BackButton from '$lib/components/common/BackButton.svelte';
-	import ComicCard from '$lib/components/comic/ComicCard.svelte';
-	import { getSeriesDetail, getLibrary } from '$lib/api/libraries';
-	import { getCoverUrl } from '$lib/api/comics';
-	import { BookOpen, Calendar, User, Tag, Search, Check, X } from 'lucide-svelte';
-	import { navigationContext } from '$lib/stores/library';
+	import { onMount } from "svelte";
+	import { page } from "$app/stores";
+	import Navbar from "$lib/components/layout/Navbar.svelte";
+	import BackButton from "$lib/components/common/BackButton.svelte";
+	import ComicCard from "$lib/components/comic/ComicCard.svelte";
+	import { getSeriesDetail, getLibrary } from "$lib/api/libraries";
+	import { getCoverUrl } from "$lib/api/comics";
+	import {
+		BookOpen,
+		Calendar,
+		User,
+		Tag,
+		Search,
+		Check,
+		X,
+	} from "lucide-svelte";
+	import { navigationContext } from "$lib/stores/library";
+
+	export let data;
 
 	$: libraryId = parseInt($page.params.libraryId);
 	$: seriesName = decodeURIComponent($page.params.seriesName);
 
-	let series = null;
-	let library = null;
+	// Initialize from SSR data
+	$: series = data.series;
+	$: error = data.error;
+
 	let scannerConfig = null;
-	let isLoading = true;
-	let error = null;
+	let isLoading = false; // Data is already loaded via SSR
 	let sortedVolumes = [];
 	let nextVolumeToRead = null;
 	let hasStartedReading = false;
-	
+
 	// Scanner state
 	let isScanning = false;
 	let scanResult = null;
@@ -28,23 +39,112 @@
 	let showMetadata = false;
 
 	onMount(async () => {
-		await loadSeriesData();
 		await loadScannerConfig();
+		// Process volumes immediately since data is available
+		if (series) {
+			processVolumes();
+		}
 	});
 
-	$: if (libraryId || seriesName) {
-		loadSeriesData();
-		loadScannerConfig();
+	$: if (series) {
+		processVolumes();
+	}
+
+	async function processVolumes() {
+		// Sort volumes by volume number first (volumes before chapters), then by issue number
+		// Volumes have a volume number (>0), chapters have issue_number but volume=0/null
+		// When metadata is missing, detect from filename patterns
+		if (series && series.volumes) {
+			sortedVolumes = [...series.volumes].sort((a, b) => {
+				const getSortKey = (v) => {
+					const vol = parseInt(v.volume) || 0;
+					const issue = parseInt(v.issue_number) || 0;
+					const title = (v.title || "").toLowerCase();
+
+					// If metadata exists, use it
+					if (vol > 0) {
+						// Has volume metadata - it's a volume
+						return [0, vol, issue];
+					} else if (issue > 0) {
+						// Has issue metadata but no volume - likely a chapter
+						// But check title for volume patterns first (in case metadata is incomplete)
+						const volMatch =
+							title.match(/\bv(?:ol)?\.?\s*(\d+)/i) ||
+							title.match(/\bvolume\s+(\d+)/i);
+						if (volMatch) {
+							const volNum = parseInt(volMatch[1]);
+							return [0, volNum, 0];
+						}
+						// It's a chapter
+						return [1, issue, 0];
+					} else {
+						// No metadata - rely on filename patterns
+						// Check for volume patterns: v01, vol01, volume 1, etc.
+						const volMatch =
+							title.match(/\bv(?:ol)?\.?\s*(\d+)/i) ||
+							title.match(/\bvolume\s+(\d+)/i);
+						if (volMatch) {
+							const volNum = parseInt(volMatch[1]);
+							return [0, volNum, 0];
+						}
+						// Check for chapter patterns: c001, ch01, chapter 1, etc.
+						const chMatch =
+							title.match(/\bc(?:h|hapter)?\.?\s*(\d+)/i) ||
+							title.match(/\bchapter\s+(\d+)/i);
+						if (chMatch) {
+							const chNum = parseInt(chMatch[1]);
+							return [1, chNum, 0];
+						}
+						// Fallback: sort by title
+						return [2, 0, 0];
+					}
+				};
+
+				const keyA = getSortKey(a);
+				const keyB = getSortKey(b);
+
+				// Compare arrays element by element
+				for (let i = 0; i < 3; i++) {
+					if (keyA[i] !== keyB[i]) {
+						return keyA[i] - keyB[i];
+					}
+				}
+				return 0;
+			});
+
+			// Determine which volume to read next
+			// Priority:
+			// 1. First volume with progress but not completed (continue reading)
+			// 2. First uncompleted volume (start reading next)
+			// 3. First volume (start from beginning)
+			const volumeWithProgress = sortedVolumes.find(
+				(v) => v.current_page > 0 && !v.is_completed,
+			);
+			const firstUnread = sortedVolumes.find((v) => !v.is_completed);
+			nextVolumeToRead =
+				volumeWithProgress || firstUnread || sortedVolumes[0];
+
+			// Check if user has started reading any volume
+			hasStartedReading = sortedVolumes.some((v) => v.current_page > 0);
+		}
+
+		// Update navigation context for continue reading filtering
+		navigationContext.set({
+			type: "series",
+			libraryId: libraryId,
+			seriesName: seriesName,
+			seriesNames: [seriesName],
+		});
 	}
 
 	async function loadScannerConfig() {
 		try {
-			const response = await fetch('/v2/scanners/libraries');
-			if (!response.ok) throw new Error('Failed to load scanner config');
+			const response = await fetch("/v2/scanners/libraries");
+			if (!response.ok) throw new Error("Failed to load scanner config");
 			const configs = await response.json();
-			scannerConfig = configs.find(c => c.library_id === libraryId);
+			scannerConfig = configs.find((c) => c.library_id === libraryId);
 		} catch (err) {
-			console.error('Failed to load scanner config:', err);
+			console.error("Failed to load scanner config:", err);
 		}
 	}
 
@@ -54,35 +154,39 @@
 			scanError = null;
 			scanResult = null;
 
-			const response = await fetch(`/v2/scanners/scan/series?library_id=${libraryId}&series_name=${encodeURIComponent(seriesName)}&overwrite=false`, {
-				method: 'POST',
-				headers: { 'Content-Type': 'application/json' }
-			});
+			const response = await fetch(
+				`/v2/scanners/scan/series?library_id=${libraryId}&series_name=${encodeURIComponent(seriesName)}&overwrite=false`,
+				{
+					method: "POST",
+					headers: { "Content-Type": "application/json" },
+				},
+			);
 
 			if (!response.ok) {
 				const errorData = await response.json();
-				throw new Error(errorData.detail || errorData.error || 'Scan failed');
+				throw new Error(
+					errorData.detail || errorData.error || "Scan failed",
+				);
 			}
 
 			const data = await response.json();
-			
+
 			if (!data.success) {
-				throw new Error(data.error || 'Scan failed');
+				throw new Error(data.error || "Scan failed");
 			}
 
 			scanResult = {
 				confidence: data.confidence,
 				metadata: data.metadata,
 				source_url: data.source_url,
-				fields_updated: data.fields_updated
+				fields_updated: data.fields_updated,
 			};
 			showMetadata = true;
 
 			// Reload series data to show updated metadata
 			await loadSeriesData();
-
 		} catch (err) {
-			console.error('Scan error:', err);
+			console.error("Scan error:", err);
 			scanError = err.message;
 		} finally {
 			isScanning = false;
@@ -108,7 +212,7 @@
 					const getSortKey = (v) => {
 						const vol = parseInt(v.volume) || 0;
 						const issue = parseInt(v.issue_number) || 0;
-						const title = (v.title || '').toLowerCase();
+						const title = (v.title || "").toLowerCase();
 
 						// If metadata exists, use it
 						if (vol > 0) {
@@ -117,7 +221,9 @@
 						} else if (issue > 0) {
 							// Has issue metadata but no volume - likely a chapter
 							// But check title for volume patterns first (in case metadata is incomplete)
-							const volMatch = title.match(/\bv(?:ol)?\.?\s*(\d+)/i) || title.match(/\bvolume\s+(\d+)/i);
+							const volMatch =
+								title.match(/\bv(?:ol)?\.?\s*(\d+)/i) ||
+								title.match(/\bvolume\s+(\d+)/i);
 							if (volMatch) {
 								const volNum = parseInt(volMatch[1]);
 								return [0, volNum, 0];
@@ -127,13 +233,17 @@
 						} else {
 							// No metadata - rely on filename patterns
 							// Check for volume patterns: v01, vol01, volume 1, etc.
-							const volMatch = title.match(/\bv(?:ol)?\.?\s*(\d+)/i) || title.match(/\bvolume\s+(\d+)/i);
+							const volMatch =
+								title.match(/\bv(?:ol)?\.?\s*(\d+)/i) ||
+								title.match(/\bvolume\s+(\d+)/i);
 							if (volMatch) {
 								const volNum = parseInt(volMatch[1]);
 								return [0, volNum, 0];
 							}
 							// Check for chapter patterns: c001, ch01, chapter 1, etc.
-							const chMatch = title.match(/\bc(?:h|hapter)?\.?\s*(\d+)/i) || title.match(/\bchapter\s+(\d+)/i);
+							const chMatch =
+								title.match(/\bc(?:h|hapter)?\.?\s*(\d+)/i) ||
+								title.match(/\bchapter\s+(\d+)/i);
 							if (chMatch) {
 								const chNum = parseInt(chMatch[1]);
 								return [1, chNum, 0];
@@ -160,25 +270,30 @@
 				// 1. First volume with progress but not completed (continue reading)
 				// 2. First uncompleted volume (start reading next)
 				// 3. First volume (start from beginning)
-				const volumeWithProgress = sortedVolumes.find(v => v.current_page > 0 && !v.is_completed);
-				const firstUnread = sortedVolumes.find(v => !v.is_completed);
-				nextVolumeToRead = volumeWithProgress || firstUnread || sortedVolumes[0];
+				const volumeWithProgress = sortedVolumes.find(
+					(v) => v.current_page > 0 && !v.is_completed,
+				);
+				const firstUnread = sortedVolumes.find((v) => !v.is_completed);
+				nextVolumeToRead =
+					volumeWithProgress || firstUnread || sortedVolumes[0];
 
 				// Check if user has started reading any volume
-				hasStartedReading = sortedVolumes.some(v => v.current_page > 0);
+				hasStartedReading = sortedVolumes.some(
+					(v) => v.current_page > 0,
+				);
 			}
 
 			// Update navigation context for continue reading filtering
 			navigationContext.set({
-				type: 'series',
+				type: "series",
 				libraryId: libraryId,
 				seriesName: seriesName,
-				seriesNames: [seriesName]
+				seriesNames: [seriesName],
 			});
 
 			isLoading = false;
 		} catch (err) {
-			console.error('Failed to load series:', err);
+			console.error("Failed to load series:", err);
 			error = err.message;
 			isLoading = false;
 		}
@@ -186,7 +301,7 @@
 </script>
 
 <svelte:head>
-	<title>{series ? series.series_name : 'Loading...'} - YACLib</title>
+	<title>{series ? series.series_name : "Loading..."} - YACLib</title>
 </svelte:head>
 
 <div class="flex flex-col min-h-screen">
@@ -220,10 +335,12 @@
 
 					<div class="series-info">
 						<div class="title-row">
-							<h1 class="series-title">{series.display_name || series.series_name}</h1>
+							<h1 class="series-title">
+								{series.display_name || series.series_name}
+							</h1>
 
 							<!-- Show scanner button if metadata is missing and scanner is configured -->
-							{#if scannerConfig?.primary_scanner && scannerConfig?.scan_level === 'series' && (!series.writer && !series.artist && !series.synopsis)}
+							{#if scannerConfig?.primary_scanner && scannerConfig?.scan_level === "series" && !series.writer && !series.artist && !series.synopsis}
 								<button
 									on:click={scanSeriesMetadata}
 									disabled={isScanning}
@@ -231,7 +348,9 @@
 									title="Scan for metadata"
 								>
 									<Search class="w-4 h-4" />
-									{isScanning ? 'Scanning...' : 'Get Metadata'}
+									{isScanning
+										? "Scanning..."
+										: "Get Metadata"}
 								</button>
 							{/if}
 						</div>
@@ -275,7 +394,12 @@
 							{/if}
 							<div class="meta-item">
 								<BookOpen class="w-4 h-4" />
-								<span>{series.total_issues} {series.total_issues === 1 ? 'issue' : 'issues'}</span>
+								<span
+									>{series.total_issues}
+									{series.total_issues === 1
+										? "issue"
+										: "issues"}</span
+								>
 							</div>
 						</div>
 
@@ -284,11 +408,16 @@
 								<p>{series.synopsis}</p>
 							</div>
 						{/if}
-						
+
 						{#if series.scanner_source_url}
 							<div class="series-source">
-								<a href={series.scanner_source_url} target="_blank" rel="noopener noreferrer" class="source-link">
-									View on {series.scanner_source || 'source'}
+								<a
+									href={series.scanner_source_url}
+									target="_blank"
+									rel="noopener noreferrer"
+									class="source-link"
+								>
+									View on {series.scanner_source || "source"}
 								</a>
 							</div>
 						{/if}
@@ -297,11 +426,16 @@
 						{#if nextVolumeToRead}
 							<div class="reading-actions">
 								<a
-									href="/comic/{libraryId}/{nextVolumeToRead.id}/read{nextVolumeToRead.current_page > 0 ? `?page=${nextVolumeToRead.current_page}` : ''}"
+									href="/comic/{libraryId}/{nextVolumeToRead.id}/read{nextVolumeToRead.current_page >
+									0
+										? `?page=${nextVolumeToRead.current_page}`
+										: ''}"
 									class="btn-reading"
 								>
 									<BookOpen class="w-5 h-5" />
-									{hasStartedReading ? 'Continue Reading' : 'Start Reading'}
+									{hasStartedReading
+										? "Continue Reading"
+										: "Start Reading"}
 								</a>
 							</div>
 						{/if}
@@ -309,10 +443,14 @@
 						<!-- Reading Progress -->
 						<div class="reading-progress">
 							<div class="progress-header">
-								<span class="progress-label">Reading Progress</span>
+								<span class="progress-label"
+									>Reading Progress</span
+								>
 								<span class="progress-stats">
-									{series.completed_volumes} / {series.total_issues} completed
-									({Math.round(series.overall_progress)}%)
+									{series.completed_volumes} / {series.total_issues}
+									completed ({Math.round(
+										series.overall_progress,
+									)}%)
 								</span>
 							</div>
 							<div class="progress-bar">
@@ -336,7 +474,11 @@
 				{#if scanResult && showMetadata}
 					<div class="scan-feedback success">
 						<Check class="w-4 h-4" />
-						<span>Metadata updated successfully! ({Math.round(scanResult.confidence * 100)}% match)</span>
+						<span
+							>Metadata updated successfully! ({Math.round(
+								scanResult.confidence * 100,
+							)}% match)</span
+						>
 					</div>
 				{/if}
 
@@ -352,7 +494,7 @@
 									hash: volume.hash,
 									num_pages: volume.num_pages,
 									current_page: volume.current_page,
-									read: volume.is_completed
+									read: volume.is_completed,
 								}}
 								{libraryId}
 								variant="grid"

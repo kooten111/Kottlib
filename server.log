@@ -1,0 +1,37 @@
+INFO:     Started server process [279464]
+INFO:     Waiting for application startup.
+2025-11-25 22:13:27,922 - src.api.main - INFO - Starting YACLib Enhanced Server...
+2025-11-25 22:13:27,922 - src.api.main - INFO - Configuration loaded: 2 libraries defined
+2025-11-25 22:13:27,922 - src.api.main - INFO - Database: data/main.db
+2025-11-25 22:13:27,929 - src.database.database - INFO - Database initialized: data/main.db
+2025-11-25 22:13:27,929 - src.api.main - INFO - YACLib Enhanced Server started successfully!
+2025-11-25 22:13:27,929 - src.api.main - INFO - Server running on 0.0.0.0:8081
+INFO:     Application startup complete.
+INFO:     Uvicorn running on http://0.0.0.0:8000 (Press CTRL+C to quit)
+2025-11-25 22:33:09,967 - src.api.middleware.session - INFO - Created new session c7783482... for 127.0.0.1
+INFO:     127.0.0.1:49748 - "GET /v2/libraries/1/series-tree HTTP/1.1" 404 Not Found
+2025-11-25 22:35:37,895 - src.api.middleware.session - INFO - Created new session c86c58a8... for 127.0.0.1
+INFO:     127.0.0.1:44902 - "GET /v2/libraries/series-tree HTTP/1.1" 200 OK
+2025-11-25 22:41:49,990 - src.api.middleware.session - INFO - Created new session 5cbcf5fb... for 127.0.0.1
+INFO:     127.0.0.1:33278 - "GET /v2/libraries/1/series-tree HTTP/1.1" 404 Not Found
+2025-11-25 22:42:07,712 - src.api.middleware.session - INFO - Created new session 44ab1aa3... for 127.0.0.1
+INFO:     127.0.0.1:46316 - "GET /v2/libraries/series-tree HTTP/1.1" 200 OK
+2025-11-25 22:42:15,853 - src.api.middleware.session - INFO - Created new session aff32474... for 127.0.0.1
+2025-11-25 22:42:15,855 - src.api.routers.api_v2 - INFO - v2 Sync: Updated 0 comics for user admin
+INFO:     127.0.0.1:55614 - "POST /v2/sync HTTP/1.1" 200 OK
+2025-11-25 23:09:03,232 - src.api.middleware.session - INFO - Created new session 195c8a6a... for 127.0.0.1
+INFO:     127.0.0.1:55062 - "GET /v2/libraries/series-tree HTTP/1.1" 200 OK
+2025-11-25 23:12:04,096 - src.api.middleware.session - INFO - Created new session 4c08ba79... for 127.0.0.1
+2025-11-25 23:12:04,099 - src.database.database - INFO - Found project root: /mnt/Black/Apps/KottLib/yaclib-enhanced
+2025-11-25 23:12:04,100 - src.database.database - INFO - Database initialized: /mnt/Black/Apps/KottLib/yaclib-enhanced/data/Manga/library.db
+INFO:     127.0.0.1:52606 - "GET /v2/library/1/series HTTP/1.1" 200 OK
+2025-11-25 23:14:28,338 - src.api.middleware.session - INFO - Created new session 55616c9c... for 127.0.0.1
+2025-11-25 23:14:28,340 - src.database.database - INFO - Found project root: /mnt/Black/Apps/KottLib/yaclib-enhanced
+2025-11-25 23:14:28,340 - src.database.database - INFO - Database initialized: /mnt/Black/Apps/KottLib/yaclib-enhanced/data/Manga/library.db
+INFO:     127.0.0.1:49972 - "GET /v2/library/1/series HTTP/1.1" 200 OK
+INFO:     Shutting down
+INFO:     Waiting for application shutdown.
+2025-11-25 23:15:18,276 - src.api.main - INFO - Shutting down YACLib Enhanced Server...
+2025-11-25 23:15:18,276 - src.api.main - INFO - Shutdown complete
+INFO:     Application shutdown complete.
+INFO:     Finished server process [279464]

@@ -119,7 +119,7 @@
 
 				// Use SSR data directly - all data pre-loaded on server
 				continueReading = data.firstLibrary.continueReading || [];
-				allSeries = data.firstLibrary.recentSeries || [];
+				allSeries = data.firstLibrary.folders || [];
 				// Only set displayedSeries if there's no filter to restore
 				// This prevents showing all series before filter restoration
 				if (!$currentFilterStore) {
@@ -128,8 +128,8 @@
 				}
 
 				console.log('[Home] SSR data loaded:', {
-					totalSeries: allSeries.length,
-					displayedSeries: displayedSeries.length,
+					totalFolders: allSeries.length,
+					displayedFolders: displayedSeries.length,
 					seriesPageSize,
 					hasMoreSeries,
 					hasFilter: !!$currentFilterStore
