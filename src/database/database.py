@@ -444,6 +444,7 @@ def create_comic(
         if result:
             immediate_folder_name = result[0]
 
+
     # Create comic with metadata
     comic = Comic(
         library_id=library_id,
