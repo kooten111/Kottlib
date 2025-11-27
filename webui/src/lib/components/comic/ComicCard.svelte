@@ -1,9 +1,9 @@
 <script>
-	import { getCoverUrl } from '$lib/api/comics';
+	import { getCoverUrl } from "$lib/api/comics";
 
 	export let comic;
 	export let libraryId;
-	export let variant = 'grid'; // 'grid' or 'list'
+	export let variant = "grid"; // 'grid' or 'list'
 	export let showProgress = true;
 	export let isFolder = false; // New prop to indicate if this is a folder/series
 	export let itemCount = 0; // Number of items in folder
@@ -13,18 +13,38 @@
 
 	$: hash = comic.hash || comic.coverHash || comic.first_comic_hash;
 	$: coverUrl = hash ? getCoverUrl(libraryId, hash) : null;
-	$: progress = comic.current_page && comic.num_pages ? (comic.current_page / comic.num_pages) * 100 : 0;
+	$: progress =
+		comic.current_page && comic.num_pages
+			? (comic.current_page / comic.num_pages) * 100
+			: 0;
 	$: hasProgress = comic.current_page > 0;
-	$: title = comic.title || comic.file_name?.replace(/\.(cbz|cbr|cb7|cbt)$/i, '') || 'Untitled';
+	$: title =
+		comic.title ||
+		comic.file_name?.replace(/\.(cbz|cbr|cb7|cbt)$/i, "") ||
+		"Untitled";
 	$: actualItemCount = itemCount || comic.itemCount || comic.item_count || 0;
 	// For standalone volumes (single-volume series), link directly to comic viewer instead of series page
-	$: cardHref = href || (isStandalone ? `/comic/${libraryId}/${comic.id}` : `/comic/${libraryId}/${comic.id}`);
+	$: cardHref =
+		href ||
+		(isStandalone
+			? `/comic/${libraryId}/${comic.id}`
+			: `/comic/${libraryId}/${comic.id}`);
 </script>
 
-<a href={cardHref} class="comic-card {variant}" class:folder-card={isFolder} style="--cover-size-multiplier: {coverSizeMultiplier};">
+<a
+	href={cardHref}
+	class="comic-card {variant}"
+	class:folder-card={isFolder}
+	style="--cover-size-multiplier: {coverSizeMultiplier};"
+>
 	<div class="cover-container" class:folder-cover={isFolder}>
 		{#if coverUrl}
-			<img src={coverUrl} alt={comic.title} class="cover-image" loading="lazy" />
+			<img
+				src={coverUrl}
+				alt={comic.title}
+				class="cover-image"
+				loading="lazy"
+			/>
 		{:else}
 			<div class="cover-placeholder">
 				<svg
@@ -39,37 +59,54 @@
 					stroke-linejoin="round"
 				>
 					<path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20" />
-					<path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z" />
+					<path
+						d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"
+					/>
 				</svg>
 			</div>
 		{/if}
 
-		{#if isFolder && actualItemCount > 0 && variant === 'grid'}
+		{#if isFolder && variant === "grid"}
 			<div class="folder-info-bar">
 				<div class="series-name">{title}</div>
 				<div class="item-count">
-					{actualItemCount} {actualItemCount === 1 ? 'comic' : 'comics'}
+					{actualItemCount}
+					{actualItemCount === 1 ? "comic" : "comics"}
 				</div>
 			</div>
-		{:else if showProgress && hasProgress && variant === 'grid'}
+		{:else if showProgress && hasProgress && variant === "grid"}
 			<div class="progress-overlay">
 				<div class="progress-bar" style="width: {progress}%" />
 			</div>
 		{/if}
 	</div>
 
-	{#if variant === 'list' && isFolder}
+	{#if variant === "list" && isFolder}
 		<div class="list-info">
 			<div class="list-header">
 				<h3 class="list-title">{title}</h3>
 				<div class="list-meta">
 					<span class="meta-badge">
-						{actualItemCount} {actualItemCount === 1 ? 'volume' : 'volumes'}
+						{actualItemCount}
+						{actualItemCount === 1 ? "volume" : "volumes"}
 					</span>
 					{#if comic.writer}
 						<span class="meta-item">
-							<svg class="meta-icon" xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-								<path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2"></path>
+							<svg
+								class="meta-icon"
+								xmlns="http://www.w3.org/2000/svg"
+								width="14"
+								height="14"
+								viewBox="0 0 24 24"
+								fill="none"
+								stroke="currentColor"
+								stroke-width="2"
+								stroke-linecap="round"
+								stroke-linejoin="round"
+							>
+								<path
+									d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2"
+								></path>
 								<circle cx="12" cy="7" r="4"></circle>
 							</svg>
 							{comic.writer}
@@ -77,8 +114,21 @@
 					{/if}
 					{#if comic.artist && comic.artist !== comic.writer}
 						<span class="meta-item">
-							<svg class="meta-icon" xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-								<path d="m15 5 4 4L7 21l-4.3-4.3a1 1 0 0 1 0-1.4l9.7-9.7a1 1 0 0 1 1.4 0Z"></path>
+							<svg
+								class="meta-icon"
+								xmlns="http://www.w3.org/2000/svg"
+								width="14"
+								height="14"
+								viewBox="0 0 24 24"
+								fill="none"
+								stroke="currentColor"
+								stroke-width="2"
+								stroke-linecap="round"
+								stroke-linejoin="round"
+							>
+								<path
+									d="m15 5 4 4L7 21l-4.3-4.3a1 1 0 0 1 0-1.4l9.7-9.7a1 1 0 0 1 1.4 0Z"
+								></path>
 								<path d="m9 11 4 4"></path>
 							</svg>
 							{comic.artist}
@@ -86,8 +136,26 @@
 					{/if}
 					{#if comic.year}
 						<span class="meta-item">
-							<svg class="meta-icon" xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-								<rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect>
+							<svg
+								class="meta-icon"
+								xmlns="http://www.w3.org/2000/svg"
+								width="14"
+								height="14"
+								viewBox="0 0 24 24"
+								fill="none"
+								stroke="currentColor"
+								stroke-width="2"
+								stroke-linecap="round"
+								stroke-linejoin="round"
+							>
+								<rect
+									x="3"
+									y="4"
+									width="18"
+									height="18"
+									rx="2"
+									ry="2"
+								></rect>
 								<line x1="16" y1="2" x2="16" y2="6"></line>
 								<line x1="8" y1="2" x2="8" y2="6"></line>
 								<line x1="3" y1="10" x2="21" y2="10"></line>
@@ -97,9 +165,22 @@
 					{/if}
 					{#if comic.publisher}
 						<span class="meta-item">
-							<svg class="meta-icon" xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+							<svg
+								class="meta-icon"
+								xmlns="http://www.w3.org/2000/svg"
+								width="14"
+								height="14"
+								viewBox="0 0 24 24"
+								fill="none"
+								stroke="currentColor"
+								stroke-width="2"
+								stroke-linecap="round"
+								stroke-linejoin="round"
+							>
 								<path d="m7.5 4.27 9 5.15"></path>
-								<path d="M21 8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16Z"></path>
+								<path
+									d="M21 8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16Z"
+								></path>
 								<path d="m3.3 7 8.7 5 8.7-5"></path>
 								<path d="M12 22V12"></path>
 							</svg>
@@ -108,7 +189,18 @@
 					{/if}
 					{#if comic.genre}
 						<span class="meta-item">
-							<svg class="meta-icon" xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+							<svg
+								class="meta-icon"
+								xmlns="http://www.w3.org/2000/svg"
+								width="14"
+								height="14"
+								viewBox="0 0 24 24"
+								fill="none"
+								stroke="currentColor"
+								stroke-width="2"
+								stroke-linecap="round"
+								stroke-linejoin="round"
+							>
 								<path d="m3 7 5 5-5 5V7"></path>
 								<path d="m21 7-5 5 5 5V7"></path>
 								<path d="M12 20v2"></path>
@@ -131,21 +223,47 @@
 	{:else if !isFolder}
 		<div class="comic-info">
 			<h3 class="comic-title">{title}</h3>
-			{#if variant === 'list'}
+			{#if variant === "list"}
 				<div class="list-meta">
 					{#if comic.series}
 						<span class="meta-item">
-							<svg class="meta-icon" xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+							<svg
+								class="meta-icon"
+								xmlns="http://www.w3.org/2000/svg"
+								width="14"
+								height="14"
+								viewBox="0 0 24 24"
+								fill="none"
+								stroke="currentColor"
+								stroke-width="2"
+								stroke-linecap="round"
+								stroke-linejoin="round"
+							>
 								<path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20" />
-								<path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z" />
+								<path
+									d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"
+								/>
 							</svg>
 							{comic.series}
 						</span>
 					{/if}
 					{#if comic.writer}
 						<span class="meta-item">
-							<svg class="meta-icon" xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-								<path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2"></path>
+							<svg
+								class="meta-icon"
+								xmlns="http://www.w3.org/2000/svg"
+								width="14"
+								height="14"
+								viewBox="0 0 24 24"
+								fill="none"
+								stroke="currentColor"
+								stroke-width="2"
+								stroke-linecap="round"
+								stroke-linejoin="round"
+							>
+								<path
+									d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2"
+								></path>
 								<circle cx="12" cy="7" r="4"></circle>
 							</svg>
 							{comic.writer}
@@ -153,8 +271,26 @@
 					{/if}
 					{#if comic.year}
 						<span class="meta-item">
-							<svg class="meta-icon" xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-								<rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect>
+							<svg
+								class="meta-icon"
+								xmlns="http://www.w3.org/2000/svg"
+								width="14"
+								height="14"
+								viewBox="0 0 24 24"
+								fill="none"
+								stroke="currentColor"
+								stroke-width="2"
+								stroke-linecap="round"
+								stroke-linejoin="round"
+							>
+								<rect
+									x="3"
+									y="4"
+									width="18"
+									height="18"
+									rx="2"
+									ry="2"
+								></rect>
 								<line x1="16" y1="2" x2="16" y2="6"></line>
 								<line x1="8" y1="2" x2="8" y2="6"></line>
 								<line x1="3" y1="10" x2="21" y2="10"></line>
@@ -164,8 +300,21 @@
 					{/if}
 					{#if comic.num_pages}
 						<span class="meta-item">
-							<svg class="meta-icon" xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-								<path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+							<svg
+								class="meta-icon"
+								xmlns="http://www.w3.org/2000/svg"
+								width="14"
+								height="14"
+								viewBox="0 0 24 24"
+								fill="none"
+								stroke="currentColor"
+								stroke-width="2"
+								stroke-linecap="round"
+								stroke-linejoin="round"
+							>
+								<path
+									d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"
+								></path>
 								<polyline points="14 2 14 8 20 8"></polyline>
 							</svg>
 							{comic.num_pages} pages
@@ -221,7 +370,7 @@
 	/* Folder stacked effect */
 	.folder-cover::before,
 	.folder-cover::after {
-		content: '';
+		content: "";
 		position: absolute;
 		top: 0;
 		left: 0;
