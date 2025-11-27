@@ -248,3 +248,149 @@ nextComicHash:{nextHash} (only if remote)
 ...
 ```
 This is similar to v1 but adds `previousComicHash` and `nextComicHash`.
+
+---
+
+## YACLib Enhanced Extensions
+
+> **Note**: The endpoints below are **YACLib Enhanced extensions** beyond the original YACReader API.
+> They provide additional functionality while maintaining 100% backward compatibility with YACReader mobile apps.
+
+### Additional v2 Endpoints
+
+#### Library Management
+
+| Method | Path | Description |
+| :--- | :--- | :--- |
+| GET | `/v2/library/{id}/info` | Get detailed library information (JSON) |
+
+#### Folder Navigation
+
+| Method | Path | Description |
+| :--- | :--- | :--- |
+| GET | `/v2/library/{id}/folder/{folderId}` | Browse folder contents (JSON) - Enhanced version |
+| GET | `/v2/library/{id}/folders` | Get flat list of folders for card/grid display (JSON) |
+
+#### Series Management
+
+| Method | Path | Description |
+| :--- | :--- | :--- |
+| GET | `/v2/library/{id}/tree` | Get hierarchical folder tree with comic counts (JSON) |
+| GET | `/v2/libraries/series-tree` | Get tree of all libraries with cached structure (JSON) |
+| GET | `/v2/library/{id}/series` | Get all series in library with metadata (JSON) |
+| GET | `/v2/library/{id}/series/{name}` | Get detailed series information with volumes (JSON) |
+
+#### Collection Management (Extensions)
+
+| Method | Path | Description |
+| :--- | :--- | :--- |
+| POST | `/v2/library/{id}/comic/{comicId}/fav` | Add comic to favorites |
+| DELETE | `/v2/library/{id}/comic/{comicId}/fav` | Remove comic from favorites |
+| POST | `/v2/library/{id}/tag` | Create a new tag/label |
+| DELETE | `/v2/library/{id}/tag/{tagId}` | Delete a tag/label |
+| POST | `/v2/library/{id}/comic/{comicId}/tag/{tagId}` | Add tag to comic |
+| DELETE | `/v2/library/{id}/comic/{comicId}/tag/{tagId}` | Remove tag from comic |
+| POST | `/v2/library/{id}/reading_list` | Create a new reading list |
+| DELETE | `/v2/library/{id}/reading_list/{listId}` | Delete a reading list |
+| POST | `/v2/library/{id}/reading_list/{listId}/comic/{comicId}` | Add comic to reading list |
+| DELETE | `/v2/library/{id}/reading_list/{listId}/comic/{comicId}` | Remove comic from reading list |
+
+#### Search
+
+| Method | Path | Description |
+| :--- | :--- | :--- |
+| POST | `/v2/library/{id}/search` | Search comics (POST method with JSON body) |
+
+#### Session Management
+
+| Method | Path | Description |
+| :--- | :--- | :--- |
+| GET | `/v2/recoverSession` | Recover session information (JSON) |
+
+### Enhanced Data Formats
+
+#### Series List (`/v2/library/{id}/series`)
+**Content-Type**: `application/json`
+
+Returns an array of series with aggregated metadata and reading progress:
+
+```json
+[
+  {
+    "id": 123,
+    "name": "Series Name",
+    "title": "Series Name",
+    "series": "Series Name",
+    "series_name": "Series Name",
+    "volumes": [
+      {
+        "id": 456,
+        "title": "Volume 1",
+        "volume": 1,
+        "issue_number": 1,
+        "filename": "series_v01.cbz",
+        "hash": "abc123...",
+        "num_pages": 200,
+        "current_page": 0,
+        "is_completed": false,
+        "progress_percent": 0
+      }
+    ],
+    "publisher": "Publisher Name",
+    "total_issues": 10,
+    "cover_hash": "abc123...",
+    "first_comic_id": 456,
+    "is_standalone": false,
+    "year": 2023,
+    "writer": "Writer Name",
+    "artist": "Artist Name",
+    "genre": "Action",
+    "synopsis": "Series description..."
+  }
+]
+```
+
+**Query Parameters:**
+- `sort`: Sort order - `name`, `recent`, `progress` (default: `name`)
+- `include_metadata`: Include series metadata (default: `true`)
+
+#### Series Tree (`/v2/libraries/series-tree`)
+**Content-Type**: `application/json`
+
+Returns hierarchical tree structure with caching for performance:
+
+```json
+[
+  {
+    "id": 1,
+    "name": "Library Name",
+    "type": "library",
+    "children": [
+      {
+        "id": 10,
+        "name": "Folder Name",
+        "type": "folder",
+        "libraryId": 1,
+        "comicCount": 50,
+        "children": [...]
+      }
+    ]
+  }
+]
+```
+
+### Key Features of Extensions
+
+1. **Series Detection**: Automatic series grouping and metadata aggregation
+2. **Advanced Search**: Full-text search with POST support for complex queries
+3. **Reading Progress Sync**: Enhanced progress tracking across all endpoints
+4. **Collection Management**: Full CRUD operations for favorites, tags, and reading lists
+5. **Performance Optimization**: Cached series trees and optimized SQL queries
+6. **Metadata Enrichment**: Scanner integration for automatic metadata enhancement
+
+### Compatibility Notes
+
+- All YACReader v1 and v2 endpoints remain **fully functional**
+- Mobile apps using standard YACReader API will work without modification
+- Enhanced endpoints are **optional** - apps can progressively adopt them
+- Response formats maintain YACReader conventions (string IDs, field names, etc.)

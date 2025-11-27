@@ -60,4 +60,5 @@ covers/
 yaclib.db.backup
 
 # Logs
+*.log
 webui.log
