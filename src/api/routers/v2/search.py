@@ -17,7 +17,7 @@ from ....database import (
     get_user_by_id,
     get_reading_progress,
 )
-from ...middleware import get_current_user_id
+from ...middleware import get_current_user_id, get_request_user
 
 logger = logging.getLogger(__name__)
 
@@ -86,11 +86,7 @@ async def search_comics_v2(
         logger.info(f"v2 API: Found {len(comics)} comics matching '{query}'")
 
         # Get user for reading progress
-        user_id = get_current_user_id(request)
-        if user_id:
-            user = get_user_by_id(session, user_id)
-        else:
-            user = get_user_by_username(session, 'admin')
+        user = get_request_user(request, session)
 
         # Format results
         results = []

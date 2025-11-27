@@ -20,7 +20,7 @@ from ....database import (
     get_user_by_id,
     update_reading_progress,
 )
-from ...middleware import get_current_user_id
+from ...middleware import get_current_user_id, get_request_user
 
 logger = logging.getLogger(__name__)
 
@@ -84,13 +84,8 @@ async def sync_session_v2(request: Request, yacread_session: Optional[str] = Coo
         comics = body.get("comics", [])
 
         # Get user from session
-        user_id = get_current_user_id(request)
-        user = None
         with main_db.get_session() as session:
-            if user_id:
-                user = get_user_by_id(session, user_id)
-            else:
-                user = get_user_by_username(session, 'admin')
+            user = get_request_user(request, session)
 
         if not user:
             return JSONResponse({"success": False, "error": "User not found"}, status_code=401)
@@ -118,11 +113,8 @@ async def sync_session_v2(request: Request, yacread_session: Optional[str] = Coo
                         continue
                     library_name = library.name
 
-                # Update progress in library-specific DB
-                from ....database import get_library_database
-                library_db = get_library_database(library_name)
-
-                with library_db.get_session() as session:
+                # Update progress in main DB
+                with main_db.get_session() as session:
                     update_reading_progress(
                         session,
                         user_id=user.id,

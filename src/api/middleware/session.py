@@ -17,7 +17,9 @@ from ...database import (
     cleanup_expired_sessions,
     create_session,
     get_user_by_username,
+    get_user_by_id,
 )
+from ...constants import DEFAULT_USER
 
 logger = logging.getLogger(__name__)
 
@@ -114,8 +116,8 @@ class SessionMiddleware(BaseHTTPMiddleware):
         try:
             db = request.app.state.db
             with db.get_session() as db_session:
-                # Get default user (admin)
-                user = get_user_by_username(db_session, 'admin')
+                # Get default user
+                user = get_user_by_username(db_session, DEFAULT_USER)
                 if not user:
                     logger.warning("Cannot create session: admin user not found")
                     return None
@@ -209,3 +211,28 @@ def require_user(request: Request) -> int:
     if not user_id:
         raise HTTPException(status_code=401, detail="Authentication required")
     return user_id
+
+
+def get_request_user(request: Request, session):
+    """
+    Get the current user from request or fallback to default admin user
+
+    This is a convenience function that consolidates the common pattern of:
+    1. Getting user_id from request
+    2. Looking up user by ID if available
+    3. Falling back to default admin user otherwise
+
+    Args:
+        request: FastAPI request object
+        session: SQLAlchemy session
+
+    Returns:
+        User object (either from session or default admin)
+
+    Usage in route handlers:
+        user = get_request_user(request, session)
+    """
+    user_id = get_current_user_id(request)
+    if user_id:
+        return get_user_by_id(session, user_id)
+    return get_user_by_username(session, DEFAULT_USER)

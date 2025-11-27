@@ -23,7 +23,7 @@ from ....database import (
     get_covers_dir,
     update_reading_progress,
 )
-from ...middleware import get_current_user_id
+from ...middleware import get_current_user_id, get_request_user
 from ._shared import get_comic_display_name
 
 logger = logging.getLogger(__name__)
@@ -65,12 +65,8 @@ async def get_comic_fullinfo_v2(
         logger.debug(f"[FULLINFO] Library found: name={library_name}, path={library_path}")
 
         # Get user for reading progress
-        user_id = get_current_user_id(request)
-        logger.debug(f"[FULLINFO] User ID from session: {user_id}")
-        if user_id:
-            user = get_user_by_id(session, user_id)
-        else:
-            user = get_user_by_username(session, 'admin')
+        user = get_request_user(request, session)
+        logger.debug(f"[FULLINFO] User: {user.username if user else None}")
 
         logger.debug(f"[FULLINFO] Fetching comic: comic_id={comic_id}")
         comic = get_comic_by_id(session, comic_id)
@@ -244,11 +240,7 @@ async def open_comic_remote_v2(
         library_path = library.path
 
         # Get user for reading progress (from main DB)
-        user_id = get_current_user_id(request)
-        if user_id:
-            user = get_user_by_id(session, user_id)
-        else:
-            user = get_user_by_username(session, 'admin')
+        user = get_request_user(request, session)
 
         comic = get_comic_by_id(session, comic_id)
         if not comic:
@@ -553,12 +545,7 @@ async def update_comic_progress_v2(
             raise HTTPException(status_code=404, detail="Library not found")
 
         # Get user from session
-        user_id = get_current_user_id(request)
-        if user_id:
-            user = get_user_by_id(session, user_id)
-        else:
-            user = get_user_by_username(session, 'admin')
-
+        user = get_request_user(request, session)
         if not user:
             raise HTTPException(status_code=404, detail="User not found")
 

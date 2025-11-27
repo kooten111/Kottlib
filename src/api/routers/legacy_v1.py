@@ -31,7 +31,7 @@ from ...database import (
     create_cover,
     get_best_cover,
 )
-from ..middleware import get_current_user_id
+from ..middleware import get_current_user_id, get_request_user
 
 logger = logging.getLogger(__name__)
 
@@ -277,11 +277,7 @@ async def get_folder_content(
             comics_list.sort(key=lambda c: c.created_at, reverse=True)
         elif sort == "recently_read":
             # Sort by last_read_at from reading_progress
-            user_id = get_current_user_id(request)
-            if user_id:
-                user = get_user_by_id(session, user_id)
-            else:
-                user = get_user_by_username(session, 'admin')
+            user = get_request_user(request, session)
             
             if user:
                 # Get reading progress for all comics in this folder
@@ -348,11 +344,7 @@ async def get_comic_full_info(
         # Get reading progress
         current_page = 0
         is_read = 0
-        user_id = get_current_user_id(request)
-        if user_id:
-            user = get_user_by_id(session, user_id)
-        else:
-            user = get_user_by_username(session, 'admin')
+        user = get_request_user(request, session)
         if user:
             progress = get_reading_progress(session, user.id, comic_id)
             if progress:
@@ -424,11 +416,7 @@ async def get_comic_remote(
         # Get reading progress
         current_page = 0
         is_read = 0
-        user_id = get_current_user_id(request)
-        if user_id:
-            user = get_user_by_id(session, user_id)
-        else:
-            user = get_user_by_username(session, 'admin')
+        user = get_request_user(request, session)
         if user:
             progress = get_reading_progress(session, user.id, comic_id)
             if progress:
@@ -508,11 +496,7 @@ async def get_comic_info(
         # Get reading progress
         current_page = 0
         is_read = 0
-        user_id = get_current_user_id(request)
-        if user_id:
-            user = get_user_by_id(session, user_id)
-        else:
-            user = get_user_by_username(session, 'admin')
+        user = get_request_user(request, session)
         if user:
             progress = get_reading_progress(session, user.id, comic_id)
             if progress:
@@ -799,11 +783,7 @@ async def set_current_page(
             raise HTTPException(status_code=404, detail="Comic not found")
 
         # Get user from session
-        user_id = get_current_user_id(request)
-        if user_id:
-            user = get_user_by_id(session, user_id)
-        else:
-            user = get_user_by_username(session, 'admin')
+        user = get_request_user(request, session)
         if not user:
             # If no admin user, just acknowledge without storing
             logger.warning("No admin user found, cannot store reading progress")
@@ -842,11 +822,7 @@ async def continue_reading_list(
 
     with db.get_session() as session:
         # Get user from session
-        user_id = get_current_user_id(request)
-        if user_id:
-            user = get_user_by_id(session, user_id)
-        else:
-            user = get_user_by_username(session, 'admin')
+        user = get_request_user(request, session)
         if not user:
             # Return empty list if no user
             return PlainTextResponse(format_v1_response("type:continue-reading\ncode:0\n\n"))
@@ -975,15 +951,8 @@ async def sync_reading_progress_v1(
         comics = body.get("comics", [])
 
         # Get user from session
-        user_id = get_current_user_id(request)
-        if user_id:
-            user = None
-            with db.get_session() as session:
-                user = get_user_by_id(session, user_id)
-        else:
-            user = None
-            with db.get_session() as session:
-                user = get_user_by_username(session, 'admin')
+        with db.get_session() as session:
+            user = get_request_user(request, session)
 
         if not user:
             return PlainTextResponse("ERROR: User not found", status_code=401)

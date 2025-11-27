@@ -129,15 +129,6 @@ def get_library_data_dir(library_name: str) -> Path:
     return library_dir
 
 
-def get_library_db_path(library_name: str) -> Path:
-    """
-    Get the database path for a specific library
-
-    DEPRECATED: Now returns the main database path as we use a single DB.
-    """
-    return get_default_db_path()
-
-
 def get_covers_dir(library_name: Optional[str] = None) -> Path:
     """
     Get the covers directory for a library
@@ -307,16 +298,6 @@ class Database:
     def close(self):
         """Close database connection"""
         self.engine.dispose()
-
-
-def get_library_database(library_name: str, echo: bool = False) -> Database:
-    """
-    Get a Database connection for a specific library
-
-    DEPRECATED: Now returns a connection to the main database.
-    Args are ignored but kept for compatibility.
-    """
-    return Database(db_path=get_default_db_path(), echo=echo)
 
 
 # ============================================================================
@@ -766,9 +747,6 @@ def get_folders_in_library(session: Session, library_id: int) -> List[Folder]:
     Get all folders in a library from the main database.
     """
     return session.query(Folder).filter_by(library_id=library_id).all()
-
-
-    return session.query(Folder).all()
 
 
 def get_or_create_root_folder(session: Session, library_id: int, library_path: str) -> Folder:
