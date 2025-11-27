@@ -325,22 +325,6 @@ async def get_available_scanners():
 
     scanners_info = []
     
-    # Scanner metadata mapping
-    scanner_metadata = {
-        "nhentai": {
-            "class": NhentaiScanner,
-            "scan_level": ScanLevelEnum.FILE,
-            "requires_config": False,
-            "config_keys": ["confidence_threshold", "use_fallback_searches", "sort_by"]
-        },
-        "AniList": {
-            "class": AniListScanner,
-            "scan_level": ScanLevelEnum.SERIES,
-            "requires_config": False,
-            "config_keys": ["confidence_threshold", "use_romaji_titles", "use_english_titles", "use_native_titles", "max_results"]
-        }
-    }
-    
     # Build info for each available scanner
     for scanner_name in available:
         # Get capabilities from metadata schema (try exact match first, then lowercase)
@@ -348,15 +332,45 @@ async def get_available_scanners():
         if not caps:
             caps = get_scanner_capabilities(scanner_name.lower())
         
-        # Get scanner metadata
-        meta = scanner_metadata.get(scanner_name, {})
+        # Get scanner class to check scan_level and config
+        scanner_class = manager._available_scanners.get(scanner_name)
+        scan_level = ScanLevelEnum.SERIES  # Default
+        requires_config = False
+        config_keys = []
+        
+        if scanner_class:
+            try:
+                # Instantiate to get properties
+                temp_scanner = scanner_class()
+                
+                # Map from ScanLevel enum to ScanLevelEnum
+                if temp_scanner.scan_level.value == 'file':
+                    scan_level = ScanLevelEnum.FILE
+                elif temp_scanner.scan_level.value == 'series':
+                    scan_level = ScanLevelEnum.SERIES
+                
+                # Get config requirements
+                config_keys = temp_scanner.get_required_config_keys()
+                if config_keys:
+                    requires_config = True
+                    
+                # Check for optional config keys if exposed as property (convention)
+                if hasattr(temp_scanner, 'config_keys'):
+                    extra_keys = getattr(temp_scanner, 'config_keys')
+                    if isinstance(extra_keys, list):
+                        for key in extra_keys:
+                            if key not in config_keys:
+                                config_keys.append(key)
+                                
+            except Exception as e:
+                logger.warning(f"Failed to inspect scanner {scanner_name}: {e}")
         
         scanners_info.append(ScannerInfo(
             name=scanner_name,
-            scan_level=meta.get("scan_level", ScanLevelEnum.SERIES),
+            scan_level=scan_level,
             description=caps.description if caps else f"Metadata scanner: {scanner_name}",
-            requires_config=meta.get("requires_config", False),
-            config_keys=meta.get("config_keys", []),
+            requires_config=requires_config,
+            config_keys=config_keys,
             provided_fields=[f.value for f in caps.provided_fields] if caps else [],
             primary_fields=[f.value for f in caps.primary_fields] if caps else []
         ))

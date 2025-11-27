@@ -27,11 +27,9 @@ from difflib import SequenceMatcher
 from urllib.parse import urljoin, quote
 from pathlib import Path
 from dataclasses import dataclass
-from abc import ABC, abstractmethod
-
 try:
     # Import from src.scanners package
-    from src.scanners.base_scanner import BaseScanner, ScanResult, ScanLevel, MatchConfidence, ScannerAPIError
+    from src.scanners.base_scanner import BaseScanner, ScanResult, ScanLevel, MatchConfidence, ScannerAPIError, ScannerError
 except ImportError:
     # Fallback for standalone execution
     class BaseScanner(ABC):
@@ -1015,39 +1013,13 @@ if ScanResult is None:
             }
 
 
-class BaseScanner(ABC):
-    """
-    Base class for all metadata scanners
-    """
-    # Only define if not imported
-    def __init__(self, config: Optional[Dict] = None):
-        self.config = config or {}
-        self._validate_config()
 
-    @property
-    @abstractmethod
-    def source_name(self) -> str:
+
+
+if 'ScannerError' not in globals():
+    class ScannerError(Exception):
+        """Base exception for scanner errors"""
         pass
-
-    @property
-    @abstractmethod
-    def scan_level(self) -> ScanLevel:
-        pass
-
-    @abstractmethod
-    def scan(self, query: str, **kwargs) -> Tuple[Optional[ScanResult], List[ScanResult]]:
-        pass
-
-    def _validate_config(self):
-        pass
-
-    def get_required_config_keys(self) -> List[str]:
-        return []
-
-
-class ScannerError(Exception):
-    """Base exception for scanner errors"""
-    pass
 
 
 if ScannerAPIError is Exception:
