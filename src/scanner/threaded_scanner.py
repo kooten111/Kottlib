@@ -271,14 +271,22 @@ class ThreadedScanner:
         try:
             self._rebuild_series_table()
         except Exception as e:
-            logger.error(f"Failed to rebuild series table: {e}")
+            logger.error(f"Failed to rebuild series table: {e}", exc_info=True)
+            logger.warning(
+                "Series table rebuild failed - series grouping may be incomplete. "
+                "This is not critical and the scan will continue."
+            )
             # Don't fail the scan if series rebuild fails
 
         # Build and cache the series tree for fast loading
         try:
             self._build_series_tree_cache()
         except Exception as e:
-            logger.error(f"Failed to build series tree cache: {e}")
+            logger.error(f"Failed to build series tree cache: {e}", exc_info=True)
+            logger.warning(
+                "Series tree cache build failed - tree navigation may be slower. "
+                "This is not critical and the scan will continue."
+            )
             # Don't fail the scan if cache building fails
 
         return result
