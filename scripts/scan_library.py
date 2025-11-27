@@ -28,9 +28,8 @@ from database import (
 from database.models import Comic, Library
 from scanner.threaded_scanner import scan_library_threaded
 from scanner.tool_check import check_tools_and_warn
-from scanners.scanner_manager import ScannerManager
-from scanners.nhentai.nhentai_scanner import NhentaiScanner
-from scanners.base_scanner import ScanResult
+from src.scanners.scanner_manager import ScannerManager
+from src.scanners.base_scanner import ScanResult
 
 
 def progress_callback_verbose(current, total, message, series_name=None, filename=None, running_comics=None):

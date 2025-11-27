@@ -10,12 +10,8 @@ from typing import List, Dict, Any, Optional, Tuple
 from sqlalchemy.orm import Session
 import logging
 
-# Add scanners to path
-SCANNERS_PATH = Path(__file__).parent.parent.parent / "scanners"
-sys.path.insert(0, str(SCANNERS_PATH))
-
-from scanners.base_scanner import ScanResult, MatchConfidence
-from scanners.metadata_schema import (
+from src.scanners.base_scanner import ScanResult, MatchConfidence
+from src.scanners.metadata_schema import (
     map_scanner_metadata_to_comic,
     get_scanner_capabilities,
     FIELD_DEFINITIONS,

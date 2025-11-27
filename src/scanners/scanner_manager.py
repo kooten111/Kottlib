@@ -8,6 +8,10 @@ Handles scanner selection, fallback logic, and result aggregation.
 from typing import Dict, List, Optional, Type, Tuple
 from dataclasses import dataclass
 from enum import Enum
+import os
+import sys
+import importlib.util
+from pathlib import Path
 
 from .base_scanner import BaseScanner, ScanResult, ScanLevel, MatchConfidence
 
@@ -224,40 +228,99 @@ def get_manager() -> ScannerManager:
     return _default_manager
 
 
+def discover_scanners(scanners_dir: str = None) -> List[Type[BaseScanner]]:
+    """
+    Automatically discover scanner plugins in the scanners directory
+
+    Args:
+        scanners_dir: Path to scanners directory. If None, uses project root/scanners
+
+    Returns:
+        List of discovered scanner classes
+    """
+    if scanners_dir is None:
+        # Get project root (2 levels up from src/scanners)
+        project_root = Path(__file__).parent.parent.parent
+        scanners_dir = project_root / "scanners"
+    else:
+        scanners_dir = Path(scanners_dir)
+
+    if not scanners_dir.exists():
+        print(f"Warning: Scanners directory not found: {scanners_dir}")
+        return []
+
+    discovered = []
+
+    # Scan for scanner subdirectories
+    for item in scanners_dir.iterdir():
+        if not item.is_dir() or item.name.startswith('_') or item.name.startswith('.'):
+            continue
+
+        # Look for scanner files (*_scanner.py or scanner.py)
+        scanner_files = list(item.glob('*_scanner.py')) + list(item.glob('scanner.py'))
+
+        for scanner_file in scanner_files:
+            try:
+                # Load the module dynamically
+                module_name = f"scanner_{item.name}_{scanner_file.stem}"
+                spec = importlib.util.spec_from_file_location(module_name, scanner_file)
+                if spec and spec.loader:
+                    module = importlib.util.module_from_spec(spec)
+                    sys.modules[module_name] = module
+                    spec.loader.exec_module(module)
+
+                    # Find BaseScanner subclasses in the module
+                    for attr_name in dir(module):
+                        attr = getattr(module, attr_name)
+                        if (isinstance(attr, type) and
+                            issubclass(attr, BaseScanner) and
+                            attr is not BaseScanner):
+                            discovered.append(attr)
+                            print(f"Discovered scanner: {attr_name} from {item.name}")
+
+            except Exception as e:
+                print(f"Warning: Failed to load scanner from {scanner_file}: {e}")
+                continue
+
+    return discovered
+
+
 def init_default_scanners():
     """
     Initialize default scanner configurations
 
-    Sets up:
-    - Doujinshi: nhentai (primary)
-    - Manga: AniList (primary)
-    - Comics: Comic Vine (primary) [placeholder]
+    Automatically discovers and registers all scanners in the scanners/ directory.
+    Sets up default library configurations based on scanner names.
     """
     manager = get_manager()
 
-    # Register available scanners
-    from .nhentai.nhentai_scanner import NhentaiScanner
-    from .AniList.anilist_scanner import AniListScanner
-    manager.register_scanner_class(NhentaiScanner)
-    manager.register_scanner_class(AniListScanner)
+    # Auto-discover and register all scanners
+    discovered_scanners = discover_scanners()
 
-    # TODO: Register other scanners as they're implemented
-    # from .Jikan.jikan_scanner import JikanScanner
-    # manager.register_scanner_class(JikanScanner)
+    for scanner_class in discovered_scanners:
+        try:
+            manager.register_scanner_class(scanner_class)
+        except Exception as e:
+            print(f"Warning: Failed to register scanner {scanner_class}: {e}")
 
-    # Configure libraries
-    manager.configure_library(
-        'doujinshi',
-        primary_scanner='nhentai',
-        fallback_scanners=None
-    )
+    # Get available scanners to set up default configurations
+    available = manager.get_available_scanners()
 
-    # Configure manga with AniList
-    manager.configure_library(
-        'manga',
-        primary_scanner='AniList',
-        fallback_scanners=None,
-        fallback_threshold=0.7
-    )
+    # Configure libraries based on discovered scanners
+    # Default mappings (can be overridden by config file)
+    if 'nhentai' in available:
+        manager.configure_library(
+            'doujinshi',
+            primary_scanner='nhentai',
+            fallback_scanners=None
+        )
+
+    if 'AniList' in available:
+        manager.configure_library(
+            'manga',
+            primary_scanner='AniList',
+            fallback_scanners=None,
+            fallback_threshold=0.7
+        )
 
     return manager
