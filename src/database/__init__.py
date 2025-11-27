@@ -28,8 +28,6 @@ from .database import (
     get_default_db_path,
     get_data_dir,
     get_library_data_dir,
-    get_library_db_path,
-    get_library_database,
     get_covers_dir,
     # Library operations
     create_library,
@@ -123,8 +121,6 @@ __all__ = [
     'get_default_db_path',
     'get_data_dir',
     'get_library_data_dir',
-    'get_library_db_path',
-    'get_library_database',
     'get_covers_dir',
     # Operations
     'create_library',
