@@ -73,6 +73,15 @@ No complex configuration. No dependencies to manually install. Just works.
 - **Dark Theme** - Beautiful dark-first design
 - **Responsive** - Works on desktop, tablet, and mobile
 
+### Scanner System - IMPLEMENTED
+
+- **Pluggable Architecture** - Easy to add new metadata sources
+- **nhentai Scanner** - Automatic metadata extraction for doujinshi
+- **AniList Scanner** - Manga metadata (in progress)
+- **Smart Matching** - Fuzzy matching with confidence scoring
+- **Per-Library Configuration** - Different scanners for different library types
+- **Fallback Support** - Automatic fallback to secondary sources
+
 ### Phase 5: Advanced Features - PLANNED
 
 - Series auto-detection
@@ -101,7 +110,9 @@ The launcher will:
 5. Scan comics (optional)
 6. Start the server
 
-See [DOCUMENTATION_INDEX.md](DOCUMENTATION_INDEX.md) for detailed documentation.
+For detailed API documentation, start the server and visit:
+- **Interactive API Docs**: <http://localhost:8081/docs> (Swagger UI - test endpoints)
+- **API Reference**: <http://localhost:8081/redoc> (ReDoc - beautiful docs)
 
 ### After First Run
 
@@ -138,9 +149,13 @@ Your configuration is saved in `config.yml`.
 
 ### Access API
 
-Visit <http://localhost:8081/docs> for interactive API documentation.
+Visit the auto-generated, interactive API documentation:
+- **<http://localhost:8081/docs>** - Test endpoints, view request/response schemas
+- **<http://localhost:8081/redoc>** - Clean, searchable API reference
 
-REST Endpoints:
+**Quick Reference:**
+
+REST Endpoints (Modern JSON API):
 
 - `GET /api/v1/libraries` - List all libraries
 - `GET /api/v1/libraries/{id}` - Get library details
@@ -155,10 +170,12 @@ Legacy Endpoints (mobile apps):
 
 ### Use Python Client
 
-```python
-from client.yaclib import YACLibClient
+A Python client library is available at `src/client/yaclib.py`:
 
-with YACLibClient("http://192.168.1.5:25565") as client:
+```python
+from src.client.yaclib import YACLibClient
+
+with YACLibClient("http://192.168.1.5:8081") as client:
     metadata = client.open_comic(library_id=2, comic_id=188)
     print(f"Pages: {metadata.num_pages}")
 
@@ -166,8 +183,6 @@ with YACLibClient("http://192.168.1.5:25565") as client:
     with open('page.jpg', 'wb') as f:
         f.write(page)
 ```
-
-See [examples/basic_usage.py](examples/basic_usage.py) for complete examples.
 
 ## Configuration
 
@@ -199,7 +214,7 @@ libraries:
       default_reading_direction: "rtl"
 ```
 
-See [DOCUMENTATION_INDEX.md](DOCUMENTATION_INDEX.md) for complete configuration guide.
+See `config.example.yml` for all available configuration options.
 
 ### CLI Tool
 
@@ -222,12 +237,16 @@ For advanced users:
 
 ## Documentation
 
-- [DOCUMENTATION_INDEX.md](DOCUMENTATION_INDEX.md) - Complete documentation index
-- [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) - System architecture
-- [docs/ARCHITECTURE_UPDATE_2025.md](docs/ARCHITECTURE_UPDATE_2025.md) - Latest architecture updates
-- [docs/YACLIB_API.md](docs/YACLIB_API.md) - API reference
-- [docs/YACREADER_API_COMPATIBILITY.md](docs/YACREADER_API_COMPATIBILITY.md) - YACReader compatibility status
-- [docs/DESIGN_DECISIONS.md](docs/DESIGN_DECISIONS.md) - Design decisions and rationale
+**Live API Documentation** (when server is running):
+- <http://localhost:8081/docs> - Interactive Swagger UI
+- <http://localhost:8081/redoc> - ReDoc API reference
+- <http://localhost:8081/openapi.json> - OpenAPI schema
+
+**Project Documentation:**
+- [docs/API_DOCUMENTATION.md](docs/API_DOCUMENTATION.md) - Complete API reference
+- [docs/SEARCH.md](docs/SEARCH.md) - Search functionality guide
+- [scanners/README.md](scanners/README.md) - Scanner system documentation
+- `config.example.yml` - Configuration options and examples
 
 ## Project Structure
 
@@ -240,35 +259,77 @@ yaclib-enhanced/
 ├── config.example.yml     # Example configuration
 ├── src/
 │   ├── api/               # FastAPI server
+│   │   ├── main.py        # Application entry point
+│   │   ├── middleware/    # Session & CORS middleware
 │   │   └── routers/       # API route handlers
+│   │       ├── legacy_v1.py      # YACReader v1 API (text format)
+│   │       ├── libraries.py      # Modern library management
+│   │       ├── scanners.py       # Metadata scanner API
+│   │       ├── user_interactions.py  # Favorites, progress
+│   │       └── v2/               # YACReader v2 API (JSON format)
+│   │           ├── comics.py
+│   │           ├── collections.py
+│   │           ├── folders.py
+│   │           ├── libraries.py
+│   │           ├── reading.py
+│   │           ├── search.py
+│   │           ├── series.py
+│   │           └── session.py
 │   ├── database/          # Database layer
-│   │   └── models.py      # SQLAlchemy models
+│   │   ├── models.py      # SQLAlchemy models (extended YACReader schema)
+│   │   └── database.py    # Database connection management
 │   ├── scanner/           # Comic loader & thumbnails
+│   │   ├── comic_loader.py        # CBZ/CBR/CB7 support
+│   │   ├── thumbnail_generator.py # JPEG + WebP thumbnails
+│   │   └── threaded_scanner.py    # Multi-threaded scanning
+│   ├── services/          # Business logic
+│   │   └── metadata_service.py    # Metadata processing
 │   ├── client/            # Python client library
-│   ├── web/               # Web server integration
+│   │   └── yaclib.py      # API client for programmatic access
+│   ├── utils/             # Utilities
+│   │   └── series_utils.py        # Series detection
 │   └── config.py          # Configuration management
+├── scanners/              # Pluggable metadata scanner system
+│   ├── README.md          # Scanner documentation
+│   ├── QUICKSTART.md      # Quick start guide
+│   ├── SCANNERS           # Detailed scanner info
+│   ├── base_scanner.py    # Base scanner interface
+│   ├── scanner_manager.py # Central registry & orchestrator
+│   ├── metadata_schema.py # Metadata schemas
+│   ├── nhentai/           # nhentai scanner (doujinshi)
+│   │   └── nhentai_scanner.py
+│   └── AniList/           # AniList scanner (manga)
+│       └── anilist_scanner.py
 ├── webui/                 # SvelteKit frontend
 │   ├── src/
 │   │   ├── routes/        # Page routes
-│   │   ├── lib/           # Reusable components
+│   │   │   ├── admin/             # Admin dashboard
+│   │   │   ├── comic/             # Comic reader
+│   │   │   ├── continue-reading/  # Continue reading list
+│   │   │   ├── favorites/         # Favorites
+│   │   │   ├── search/            # Search interface
+│   │   │   └── series/            # Series browser
+│   │   ├── lib/           # Reusable components & stores
 │   │   └── app.html       # HTML template
 │   ├── package.json       # Node dependencies
 │   └── vite.config.js     # Vite configuration
-├── scripts/               # Production utilities
-│   ├── scan_library.py    # Single-threaded scanner
-│   └── scan_library_fast.py  # Multi-threaded scanner
-├── tools/                 # Admin/utility tools
-│   ├── import_yacreader.py   # Import from YACReader
-│   ├── debug_folders.py      # Debug folder relationships
-│   ├── test_folder_api.py    # Test folder API
-│   └── migrations/           # Database migrations
-├── tests/                 # Test scripts
-├── examples/              # Usage examples
+├── scripts/               # Utility scripts
+│   ├── scan_library.py    # Library scanning
+│   ├── diagnose_missing_data.py   # Debug tools
+│   └── regenerate_covers.py       # Cover regeneration
+├── tests/                 # Test suite
+│   ├── conftest.py        # Test fixtures
+│   └── api/               # API tests
+│       ├── test_v1_api.py
+│       ├── test_v2_api.py
+│       └── test_integration.py
 └── docs/                  # Documentation
+    ├── API_DOCUMENTATION.md  # Complete API reference
+    └── SEARCH.md             # Search guide
 
 ~/.local/share/yaclib/     # Database & thumbnails (Linux)
-├── yaclib.db
-└── covers/
+├── yaclib.db              # SQLite database
+└── covers/                # Generated thumbnails (JPEG + WebP)
 ```
 
 ## Requirements
@@ -282,34 +343,38 @@ The launcher installs all Python dependencies automatically.
 
 ## Development Status
 
-Current Phase: Phase 4 - Web UI (Implemented)
+**Current Phase:** Phase 4 - Web UI & Scanners (Implemented)
 
-Completed:
+**Completed:**
 
-- Phase 1: Foundation - All core infrastructure
-- Phase 2: Mobile UX - Reading progress, folder navigation
-- Phase 3: YACReader Compatibility (90%)
-  - Database schema extended
-  - Session management
+- ✅ **Phase 1:** Foundation - All core infrastructure
+- ✅ **Phase 2:** Mobile UX - Reading progress, folder navigation
+- ✅ **Phase 3:** YACReader Compatibility (90%)
+  - Database schema extended with 43 new fields + 5 tables
+  - Session management & multi-user support
   - Root folder implementation
   - Multi-library support
-- Phase 4: Web UI - Modern SvelteKit interface with reader, search, and favorites
+- ✅ **Phase 4:** Web UI - Modern SvelteKit interface with reader, search, and favorites
+- ✅ **Scanner System:** Pluggable metadata scanners (nhentai, AniList in progress)
 
-Remaining:
+**In Progress:**
 
-- Phase 3 (10%): ComicInfo.xml extraction, advanced search, tags/lists endpoints
-- Phase 5: Series auto-detection, reading statistics, enhanced collections
+- Phase 3 (10%): ComicInfo.xml extraction, tags/lists endpoints
+- Phase 5: Series auto-detection improvements, reading statistics, enhanced collections
 
-See [docs/YACREADER_API_COMPATIBILITY.md](docs/YACREADER_API_COMPATIBILITY.md) for detailed compatibility status.
+**API Compatibility:**
+- 100% backward compatible with YACReader mobile apps (v1 & v2 APIs)
+- Enhanced v2 endpoints provide additional functionality
+- See [docs/API_DOCUMENTATION.md](docs/API_DOCUMENTATION.md) for complete API reference
 
 ## Contributing
 
 Contributions welcome! Please:
 
-1. Check [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) for system architecture
-2. Follow existing code style
-3. Add tests for new features
-4. Update documentation
+1. Review the project structure and existing code style
+2. Check [docs/API_DOCUMENTATION.md](docs/API_DOCUMENTATION.md) for API reference
+3. Add tests for new features (see `tests/` directory)
+4. Update documentation as needed
 
 ## License
 
