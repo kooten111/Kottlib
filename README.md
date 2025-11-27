@@ -116,28 +116,37 @@ For detailed API documentation, start the server and visit:
 
 ### After First Run
 
-Start both backend and frontend:
+Three simple launchers are provided:
+
+**Option 1: Start Everything (Recommended)**
 
 ```bash
-./run_server.sh
+./start.sh
 ```
 
-This will start:
+Starts both backend API and Web UI. Perfect for regular use.
 
+**Option 2: Start Components Separately**
+
+```bash
+# Backend only (for headless servers or development)
+./start_backend.sh
+
+# Web UI only (in another terminal, assumes backend is running)
+./start_webui.sh
+```
+
+This gives you:
 - Backend API on port 8081
-- Web UI on port 5173 (automatically)
-
-Or run them separately:
-
-```bash
-# Backend only
-./yaclib.py
-
-# Frontend only (in another terminal)
-cd webui && npm run dev
-```
+- Web UI on port 5173 (if using `start.sh` or `start_webui.sh`)
+- Automatic dependency installation and database setup
 
 Your configuration is saved in `config.yml`.
+
+**Alternative Launchers:**
+- `./yaclib.py` - Interactive Python launcher with setup wizard
+- `./yaclib-cli.py` - CLI management tool (see CLI Tool section below)
+- `./run_server.sh` - Legacy launcher (same as `start.sh`)
 
 ## Usage Examples
 
@@ -252,9 +261,12 @@ For advanced users:
 
 ```text
 yaclib-enhanced/
-├── yaclib.py              # Main launcher (run this!)
-├── yaclib-cli.py          # CLI tool
-├── run_server.sh          # Start backend + frontend
+├── start.sh               # Start everything (backend + web UI)
+├── start_backend.sh       # Start backend API only
+├── start_webui.sh         # Start web UI only
+├── yaclib.py              # Interactive Python launcher with setup wizard
+├── yaclib-cli.py          # CLI management tool
+├── run_server.sh          # Legacy launcher (same as start.sh)
 ├── config.yml             # Your config (created on first run)
 ├── config.example.yml     # Example configuration
 ├── src/
