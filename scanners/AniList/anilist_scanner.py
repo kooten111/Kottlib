@@ -32,8 +32,8 @@ from abc import ABC, abstractmethod
 from enum import Enum
 
 try:
-    # Try to import from parent package (when running as part of the app)
-    from ..base_scanner import BaseScanner, ScanResult, ScanLevel, MatchConfidence, ScannerAPIError
+    # Import from src.scanners package
+    from src.scanners.base_scanner import BaseScanner, ScanResult, ScanLevel, MatchConfidence, ScannerAPIError
 except ImportError:
     # Fallback for standalone execution
     BaseScanner = ABC

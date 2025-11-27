@@ -15,11 +15,7 @@ from pathlib import Path
 from sqlalchemy import or_
 from sqlalchemy.orm import Session
 
-# Add scanners to path
-SCANNERS_PATH = Path(__file__).parent.parent.parent.parent / "scanners"
-sys.path.insert(0, str(SCANNERS_PATH))
-
-from scanners import (
+from src.scanners import (
     init_default_scanners,
     get_manager,
     ScannerManager,
@@ -317,8 +313,7 @@ async def get_available_scanners():
 
     Returns information about all registered scanners including their capabilities.
     """
-    from scanners.metadata_schema import get_scanner_capabilities
-    from scanners import NhentaiScanner, AniListScanner
+    from src.scanners.metadata_schema import get_scanner_capabilities
     
     manager = get_scanner_manager()
     available = manager.get_available_scanners()

@@ -20,12 +20,9 @@ from .scanner_manager import (
     ScannerConfig,
     FallbackStrategy,
     get_manager,
-    init_default_scanners
+    init_default_scanners,
+    discover_scanners
 )
-
-# Import available scanners
-from .nhentai.nhentai_scanner import NhentaiScanner
-from .AniList.anilist_scanner import AniListScanner
 
 __all__ = [
     # Base classes
@@ -46,10 +43,7 @@ __all__ = [
     'FallbackStrategy',
     'get_manager',
     'init_default_scanners',
-
-    # Scanners
-    'NhentaiScanner',
-    'AniListScanner',
+    'discover_scanners',
 ]
 
 __version__ = '1.0.0'

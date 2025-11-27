@@ -8,11 +8,8 @@ Shows how to use the scanner framework for different library types.
 import sys
 from pathlib import Path
 
-# Add parent directory to path for package imports
-sys.path.insert(0, str(Path(__file__).parent.parent))
-
-from scanners.scanner_manager import init_default_scanners, get_manager
-from scanners.base_scanner import MatchConfidence
+from .scanner_manager import init_default_scanners, get_manager
+from .base_scanner import MatchConfidence
 
 
 def demo_nhentai_scanner():
