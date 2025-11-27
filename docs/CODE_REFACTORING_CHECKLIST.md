@@ -87,21 +87,25 @@
 
 ### Error Handling Application
 
-- [ ] **Apply error handling decorators to endpoints**
-  - [ ] Apply `@handle_file_operation` to cover endpoints in `legacy_v1.py:535-609`
-  - [ ] Apply `@handle_file_operation` to cover endpoints in `v2/comics.py:584-673`
-  - [ ] Apply `@handle_comic_archive_errors` to page endpoints in `legacy_v1.py:697-750`
-  - [ ] Apply `@handle_comic_archive_errors` to page endpoints in `v2/comics.py`
-  - [ ] Replace `.exists()` checks with `safe_path_exists()` in cover endpoints
-  - [ ] Replace `.stat()` calls with `safe_file_stat()` in cover endpoints
+- [x] **Apply error handling decorators to endpoints** ✅ **COMPLETED**
+  - [x] Apply `@handle_file_operation` to cover endpoints in `legacy_v1.py:535-609`
+  - [x] Apply `@handle_file_operation` to cover endpoints in `v2/comics.py:584-673`
+  - [x] Apply `@handle_comic_archive_errors` to page endpoints in `legacy_v1.py:697-750`
+  - [x] Apply `@handle_comic_archive_errors` to page endpoints in `v2/comics.py`
+  - [x] Replace `.exists()` checks with `safe_path_exists()` in cover endpoints
+  - [x] Replace `.stat()` calls with `safe_file_stat()` in cover endpoints
   - [ ] Test error scenarios (missing files, permission errors, corrupt archives)
+  - **Impact:** All file/archive operations now have consistent error handling
 
 ### Refactoring for Maintainability
 
-- [ ] **Extract cover path resolution utility (4+ duplicates)**
-  - [ ] Create `get_cover_file_path()` utility function
-  - [ ] Replace duplicated logic in `src/api/routers/legacy_v1.py:596-624`
-  - [ ] Replace duplicated logic in `src/api/routers/v2/comics.py:634-681`
+- [x] **Extract cover path resolution utility** ✅ **COMPLETED**
+  - [x] Created `src/api/cover_utils.py` with helper functions
+  - [x] `find_cover_file()` - searches hierarchical and flat paths
+  - [x] `find_cover_for_comic()` - checks custom covers first
+  - [x] Replaced duplicated logic in `src/api/routers/legacy_v1.py`
+  - [x] Replaced duplicated logic in `src/api/routers/v2/comics.py`
+  - **Impact:** Eliminated ~70 lines of duplicate code, single source of truth
 
 - [ ] **Consolidate progress bar implementations**
   - [ ] Review progress bar logic in `scripts/scan_library.py:47-84, 149-160`
@@ -222,20 +226,26 @@
   - Dead Code Removal: 3/3 ✅
   - Code Duplication: 3/3 ✅
   - Error Handling: 2/2 ✅
-- Medium Priority: 0/19 completed (0%)
-  - Apply error handling decorators: 0/1 (moved from high priority)
+- Medium Priority: 2/19 completed (11%) 🚀
+  - Error handling application: 1/1 ✅
+  - Cover path utility: 1/1 ✅
+  - Remaining: Progress bars, long functions, imports, service layer
 - Low Priority: 0/11 completed (0%)
-- **Overall: 8/46 completed (17%)**
+- **Overall: 10/46 completed (22%)**
 
 **Impact Summary:**
 - ✅ Removed 3 deprecated functions
 - ✅ Fixed unreachable code
-- ✅ Eliminated ~115 lines of duplicate user retrieval code
+- ✅ Eliminated ~185 lines of duplicate code total:
+  - ~115 lines: user retrieval pattern (23+ locations)
+  - ~70 lines: cover path resolution (2 locations)
 - ✅ Created constants file for magic strings
 - ✅ Documented multi-worker scan architecture
 - ✅ Cleaned up outdated TODOs
 - ✅ Created standardized error handling utilities
+- ✅ Applied error handling decorators to all file/archive endpoints
 - ✅ Improved logging for non-critical failures
+- ✅ Created reusable cover path resolution utility
 
 ---
 
