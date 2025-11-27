@@ -323,13 +323,13 @@ yaclib-enhanced/
 │       ├── test_v1_api.py
 │       ├── test_v2_api.py
 │       └── test_integration.py
-└── docs/                  # Documentation
-    ├── API_DOCUMENTATION.md  # Complete API reference
-    └── SEARCH.md             # Search guide
-
-~/.local/share/yaclib/     # Database & thumbnails (Linux)
-├── yaclib.db              # SQLite database
-└── covers/                # Generated thumbnails (JPEG + WebP)
+├── docs/                  # Documentation
+│   ├── API_DOCUMENTATION.md  # Complete API reference
+│   └── SEARCH.md             # Search guide
+└── data/                  # Runtime data (created on first run, gitignored)
+    ├── main.db            # SQLite database
+    └── covers/            # Generated thumbnails (JPEG + WebP)
+        └── <LibraryName>/ # Per-library cover storage
 ```
 
 ## Requirements

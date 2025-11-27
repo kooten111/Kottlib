@@ -50,6 +50,7 @@ thumbnails/
 temp/
 logs/
 covers/
+data/
 
 # Environment variables
 .env
