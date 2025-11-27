@@ -1155,27 +1155,14 @@ def _run_library_scan_task(
                 logger.info("Using SERIES-level scanning (by series name)")
 
                 # Get all unique series names from comics
-                # Use normalized_series_name if available, otherwise use series field
                 series_query = session.query(
-                    Comic.normalized_series_name
+                    Comic.series
                 ).filter(
                     Comic.library_id == library_id,
-                    Comic.normalized_series_name.isnot(None),
-                    Comic.normalized_series_name != ''
+                    Comic.series.isnot(None),
+                    Comic.series != ''
                 ).distinct()
-
                 unique_series = [s[0] for s in series_query.all()]
-
-                # If no normalized series names, fall back to series field
-                if not unique_series:
-                    series_query = session.query(
-                        Comic.series
-                    ).filter(
-                        Comic.library_id == library_id,
-                        Comic.series.isnot(None),
-                        Comic.series != ''
-                    ).distinct()
-                    unique_series = [s[0] for s in series_query.all()]
 
                 total_items = len(unique_series)
                 logger.info("Found %s unique series to scan", total_items)

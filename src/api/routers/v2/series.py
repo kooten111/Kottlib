@@ -30,7 +30,7 @@ from ....database import (
 )
 from ....database.models import Comic, ReadingProgress
 from ...middleware import get_current_user_id, get_request_user
-from ._shared import get_comic_display_name, series_tree_cache
+from ._shared import get_comic_display_name, series_tree_cache, get_comic_sort_key
 
 logger = logging.getLogger(__name__)
 
@@ -436,11 +436,19 @@ async def get_series_list(
 
                 volumes.append(volume_info)
 
+            # Sort volumes to find the first one (for cover selection)
+            volumes.sort(key=get_comic_sort_key)
+
             # Determine if this is a standalone volume (single comic, not part of a series)
             is_standalone = series_data.total_issues == 1
 
             # Generate a stable ID for the series (use SeriesModel ID if available, else hash)
             series_id = series_data.series_id or abs(hash(series_name))
+
+            # Use first volume's hash for cover if available, otherwise fallback to aggregated min hash
+            cover_hash = series_data.cover_hash
+            if volumes and volumes[0].get("hash"):
+                cover_hash = volumes[0]["hash"]
 
             series_info = {
                 "id": series_id,
@@ -451,7 +459,7 @@ async def get_series_list(
                 "volumes": volumes,
                 "publisher": series_data.publisher,
                 "total_issues": series_data.total_issues,
-                "cover_hash": series_data.cover_hash,
+                "cover_hash": cover_hash,
                 "first_comic_id": series_data.first_comic_id,
                 "is_standalone": is_standalone
             }
@@ -705,48 +713,7 @@ async def get_series_detail(
 
             volumes.append(volume)
 
-        # Sort volumes by volume number first (volumes before chapters), then by issue number
-        # Volumes have a volume number (>0), chapters have issue_number but volume=0/null
-        # We want volumes to appear before chapters
-        # When metadata is missing, detect from filename patterns
-        def sort_key(v):
-            vol = v.get("volume") or 0
-            issue = v.get("issue_number") or 0
-            title = v.get("title", "").lower()
-
-            # If metadata exists, use it
-            if vol > 0:
-                # Has volume metadata - it's a volume
-                return (0, vol, issue)
-            elif issue > 0:
-                # Has issue metadata but no volume - likely a chapter
-                # But check title for volume patterns first (in case metadata is incomplete)
-                if re.search(r'\bv(?:ol)?\.?\s*\d+', title) or re.search(r'\bvolume\s+\d+', title):
-                    # Title suggests it's a volume, extract number
-                    match = re.search(r'\bv(?:ol)?\.?\s*(\d+)', title) or re.search(r'\bvolume\s+(\d+)', title)
-                    if match:
-                        vol_num = int(match.group(1))
-                        return (0, vol_num, 0)
-                # It's a chapter
-                return (1, issue, 0)
-            else:
-                # No metadata - rely on filename patterns
-                # Check for volume patterns: v01, vol01, volume 1, etc.
-                if re.search(r'\bv(?:ol)?\.?\s*\d+', title) or re.search(r'\bvolume\s+\d+', title):
-                    match = re.search(r'\bv(?:ol)?\.?\s*(\d+)', title) or re.search(r'\bvolume\s+(\d+)', title)
-                    if match:
-                        vol_num = int(match.group(1))
-                        return (0, vol_num, 0)
-                # Check for chapter patterns: c001, ch01, chapter 1, etc.
-                elif re.search(r'\bc(?:h|hapter)?\.?\s*\d+', title) or re.search(r'\bchapter\s+\d+', title):
-                    match = re.search(r'\bc(?:h|hapter)?\.?\s*(\d+)', title) or re.search(r'\bchapter\s+(\d+)', title)
-                    if match:
-                        ch_num = int(match.group(1))
-                        return (1, ch_num, 0)
-                # Fallback: sort by title
-                return (2, 0, 0)
-
-        volumes.sort(key=sort_key)
+        volumes.sort(key=get_comic_sort_key)
 
         # Aggregate series metadata from first comic
         first_comic = comics[0]

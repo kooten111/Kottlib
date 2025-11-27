@@ -1,36 +1,52 @@
 <script>
-	import { createEventDispatcher, onMount } from 'svelte';
-	import { browser } from '$app/environment';
-	import { treeExpandedNodes } from '$lib/stores/library';
-	import SeriesTreeNode from './SeriesTreeNode.svelte';
+	import { createEventDispatcher, onMount } from "svelte";
+	import { browser } from "$app/environment";
+	import { treeExpandedNodes } from "$lib/stores/library";
+	import SeriesTreeNode from "./SeriesTreeNode.svelte";
 
 	const dispatch = createEventDispatcher();
 
 	export let tree = []; // Array of library nodes from API
+	export let currentFilter = null;
 
 	let activeNodeId = null;
 	let filteredTree = [];
+
+	// Update activeNodeId based on currentFilter
+	$: if (currentFilter) {
+		if (currentFilter.type === "all") {
+			activeNodeId = "libraries-root";
+		} else if (currentFilter.type === "library") {
+			activeNodeId = currentFilter.libraryId;
+		} else if (currentFilter.type === "folder") {
+			activeNodeId = currentFilter.folderId;
+		}
+	} else {
+		activeNodeId = null;
+	}
 
 	// Filter tree to remove individual comic files, keeping only libraries and folders
 	function filterTreeNodes(nodes) {
 		if (!nodes) return [];
 
-		return nodes.map(node => {
-			// If node has children, filter them recursively
-			if (node.children && node.children.length > 0) {
-				// Remove comic-type children, keep folders and libraries
-				const filteredChildren = node.children
-					.filter(child => child.type !== 'comic')
-					.map(child => filterTreeNodes([child])[0])
-					.filter(Boolean);
+		return nodes
+			.map((node) => {
+				// If node has children, filter them recursively
+				if (node.children && node.children.length > 0) {
+					// Remove comic-type children, keep folders and libraries
+					const filteredChildren = node.children
+						.filter((child) => child.type !== "comic")
+						.map((child) => filterTreeNodes([child])[0])
+						.filter(Boolean);
 
-				return {
-					...node,
-					children: filteredChildren
-				};
-			}
-			return node;
-		}).filter(Boolean);
+					return {
+						...node,
+						children: filteredChildren,
+					};
+				}
+				return node;
+			})
+			.filter(Boolean);
 	}
 
 	// Update filtered tree when tree changes
@@ -39,15 +55,17 @@
 	// Load expanded state from localStorage
 	onMount(() => {
 		if (browser) {
-			const saved = localStorage.getItem('series-tree-expanded');
+			const saved = localStorage.getItem("series-tree-expanded");
 			if (saved) {
 				try {
 					const savedSet = new Set(JSON.parse(saved));
 					// Always keep root expanded, merge with saved state
-					treeExpandedNodes.set(new Set(['libraries-root', ...savedSet]));
+					treeExpandedNodes.set(
+						new Set(["libraries-root", ...savedSet]),
+					);
 				} catch (e) {
-					console.error('Failed to load tree state:', e);
-					treeExpandedNodes.set(new Set(['libraries-root']));
+					console.error("Failed to load tree state:", e);
+					treeExpandedNodes.set(new Set(["libraries-root"]));
 				}
 			}
 		}
@@ -57,14 +75,14 @@
 	function saveExpandedState(nodes) {
 		if (browser) {
 			localStorage.setItem(
-				'series-tree-expanded',
-				JSON.stringify([...nodes])
+				"series-tree-expanded",
+				JSON.stringify([...nodes]),
 			);
 		}
 	}
 
 	function toggleNode(nodeId) {
-		treeExpandedNodes.update(nodes => {
+		treeExpandedNodes.update((nodes) => {
 			const newNodes = new Set(nodes);
 			if (newNodes.has(nodeId)) {
 				newNodes.delete(nodeId);
@@ -84,33 +102,33 @@
 
 		// Dispatch filter event based on node type
 		// Note: We don't toggle expansion here - only the chevron does that
-		if (node.type === 'root') {
+		if (node.type === "root") {
 			// Show all series from all libraries
-			dispatch('filter', {
-				type: 'all'
+			dispatch("filter", {
+				type: "all",
 			});
-		} else if (node.type === 'library') {
+		} else if (node.type === "library") {
 			// Show all series in this library
-			dispatch('filter', {
-				type: 'library',
+			dispatch("filter", {
+				type: "library",
 				libraryId: node.id,
-				libraryName: node.name
+				libraryName: node.name,
 			});
-		} else if (node.type === 'folder') {
+		} else if (node.type === "folder") {
 			// Show all comics in this folder and its subfolders
-			dispatch('filter', {
-				type: 'folder',
+			dispatch("filter", {
+				type: "folder",
 				libraryId: node.libraryId,
 				folderId: node.folderId,
-				folderName: node.name
+				folderName: node.name,
 			});
-		} else if (node.type === 'comic') {
+		} else if (node.type === "comic") {
 			// Navigate to comic reader
-			dispatch('filter', {
-				type: 'comic',
+			dispatch("filter", {
+				type: "comic",
 				libraryId: node.libraryId,
 				comicId: node.id,
-				comicName: node.name
+				comicName: node.name,
 			});
 		}
 	}
@@ -132,10 +150,10 @@
 		<!-- Root "Libraries" node -->
 		<SeriesTreeNode
 			node={{
-				id: 'libraries-root',
-				name: 'Libraries',
-				type: 'root',
-				children: filteredTree
+				id: "libraries-root",
+				name: "Libraries",
+				type: "root",
+				children: filteredTree,
 			}}
 			level={0}
 			{isExpanded}

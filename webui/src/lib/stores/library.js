@@ -44,7 +44,7 @@ function createPersistedStore(key, initialValue) {
 
 // Current filter state (persisted across navigation)
 // Structure: { type: 'all' | 'library' | 'folder', libraryId?: number, folderId?: number, folderName?: string, libraryName?: string }
-export const currentFilterStore = createPersistedStore('yaclib-current-filter', null);
+export const currentFilterStore = createPersistedStore('yaclib-current-filter', { type: 'all' });
 
 // Tree expansion state - controls which nodes are expanded in the sidebar tree
 // Set of node IDs that are currently expanded

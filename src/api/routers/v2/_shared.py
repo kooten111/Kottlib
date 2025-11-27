@@ -47,3 +47,54 @@ class VersionInfo(BaseModel):
     version: str
     name: str
     api_version: str
+
+
+def get_comic_sort_key(v: dict) -> tuple:
+    """
+    Get sort key for a comic volume/chapter.
+    Sorts by:
+    1. Volume number (volumes before chapters)
+    2. Issue/Chapter number
+    3. Filename (fallback)
+
+    Args:
+        v: Dictionary containing 'volume', 'issue_number', 'title' keys
+
+    Returns:
+        Tuple for sorting
+    """
+    vol = v.get("volume") or 0
+    issue = v.get("issue_number") or 0
+    title = v.get("title", "").lower()
+
+    # If metadata exists, use it
+    if vol > 0:
+        # Has volume metadata - it's a volume
+        return (0, vol, issue, title)
+    elif issue > 0:
+        # Has issue metadata but no volume - likely a chapter
+        # But check title for volume patterns first (in case metadata is incomplete)
+        if re.search(r'\bv(?:ol)?\.?\s*\d+', title) or re.search(r'\bvolume\s+\d+', title):
+            # Title suggests it's a volume, extract number
+            match = re.search(r'\bv(?:ol)?\.?\s*(\d+)', title) or re.search(r'\bvolume\s+(\d+)', title)
+            if match:
+                vol_num = int(match.group(1))
+                return (0, vol_num, 0, title)
+        # It's a chapter
+        return (1, issue, 0, title)
+    else:
+        # No metadata - rely on filename patterns
+        # Check for volume patterns: v01, vol01, volume 1, etc.
+        if re.search(r'\bv(?:ol)?\.?\s*\d+', title) or re.search(r'\bvolume\s+\d+', title):
+            match = re.search(r'\bv(?:ol)?\.?\s*(\d+)', title) or re.search(r'\bvolume\s+(\d+)', title)
+            if match:
+                vol_num = int(match.group(1))
+                return (0, vol_num, 0, title)
+        # Check for chapter patterns: c001, ch01, chapter 1, #001 etc.
+        elif re.search(r'\bc(?:h|hapter)?\.?\s*\d+', title) or re.search(r'\bchapter\s+\d+', title) or re.search(r'#\s*\d+', title):
+            match = re.search(r'\bc(?:h|hapter)?\.?\s*(\d+)', title) or re.search(r'\bchapter\s+(\d+)', title) or re.search(r'#\s*(\d+)', title)
+            if match:
+                ch_num = int(match.group(1))
+                return (1, ch_num, 0, title)
+        # Fallback: sort by title
+        return (2, 0, 0, title)

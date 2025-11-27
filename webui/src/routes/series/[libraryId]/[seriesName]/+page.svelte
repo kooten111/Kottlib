@@ -27,6 +27,7 @@
 	$: error = data.error;
 
 	let scannerConfig = null;
+	let library = null;
 	let isLoading = false; // Data is already loaded via SSR
 	let sortedVolumes = [];
 	let nextVolumeToRead = null;
