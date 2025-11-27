@@ -334,8 +334,10 @@ Examples:
             force=True
         )
     else:
-        # Log to file in current directory
-        log_file = Path('scan_library.log')
+        # Log to file in logs directory
+        log_dir = Path('logs')
+        log_dir.mkdir(exist_ok=True)
+        log_file = log_dir / 'scan_library.log'
         logging.basicConfig(
             filename=str(log_file),
             level=logging.INFO,
@@ -370,7 +372,7 @@ Examples:
     if args.scan_metadata:
         print(f"Metadata: {args.scanner} (threshold: {args.confidence})")
     if not verbose:
-        print(f"Logging:  {Path('scan_library.log').resolve()}")
+        print(f"Logging:  {(Path('logs') / 'scan_library.log').resolve()}")
     print(f"=" * 60 + "\n")
 
     # Check for external tools

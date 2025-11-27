@@ -123,9 +123,11 @@ echo ""
 echo "Press Ctrl+C to stop the server"
 echo ""
 
-# Start backend server
+# Start backend server (with logging to logs directory)
+mkdir -p logs
 python -m uvicorn src.api.main:app \
     --host 0.0.0.0 \
     --port 8081 \
     --log-level info \
-    --workers 4
+    --workers 4 \
+    2>&1 | tee logs/server.log

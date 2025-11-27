@@ -135,8 +135,9 @@ if command -v node &> /dev/null; then
 
     # Start Web UI in background
     echo "Starting Web UI frontend..."
+    mkdir -p logs
     cd webui
-    npm run dev > ../webui.log 2>&1 &
+    npm run dev > ../logs/webui.log 2>&1 &
     WEBUI_PID=$!
     cd ..
     echo -e "${GREEN}✓ Web UI started (PID: $WEBUI_PID)${NC}"
@@ -176,9 +177,11 @@ cleanup() {
 
 trap cleanup INT TERM
 
-# Start backend server
+# Start backend server (with logging to logs directory)
+mkdir -p logs
 python -m uvicorn src.api.main:app \
     --host 0.0.0.0 \
     --port 8081 \
     --log-level info \
-    --workers 4
+    --workers 4 \
+    2>&1 | tee logs/server.log
