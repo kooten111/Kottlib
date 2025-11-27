@@ -973,7 +973,7 @@
 												isStandalone={series.is_standalone}
 												href={series.is_standalone
 													? `/comic/${series.libraryId}/${series.first_comic_id}`
-													: `/series/${series.libraryId}/${encodeURIComponent(series.series_name)}`}
+													: `/series/${series.libraryId}/${encodeURIComponent(series.series_name || series.name)}`}
 												variant={$preferencesStore.viewMode}
 												coverSizeMultiplier={$preferencesStore.gridCoverSize}
 											/>
