@@ -952,7 +952,10 @@
 											<ComicCard
 												comic={{
 													id: series.first_comic_id,
-													title: series.series_name,
+													name: series.name,
+													series_name:
+														series.series_name,
+													title: series.title,
 													hash: series.cover_hash,
 													itemCount:
 														series.total_issues,
