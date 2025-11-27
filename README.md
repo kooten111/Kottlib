@@ -4,12 +4,12 @@
 
 - 100% compatible with YACReader mobile apps
 - Zero configuration required
-- Just run `./yaclib.py`
+- Just run `./scripts/yaclib.py`
 
 ```bash
 git clone https://github.com/yourusername/yaclib-enhanced.git
 cd yaclib-enhanced
-./yaclib.py
+./scripts/yaclib.py
 ```
 
 Done!
@@ -99,7 +99,7 @@ git clone https://github.com/yourusername/yaclib-enhanced.git
 cd yaclib-enhanced
 
 # 2. Run
-./yaclib.py
+./scripts/yaclib.py
 ```
 
 The launcher will:
@@ -144,15 +144,22 @@ This gives you:
 Your configuration is saved in `config.yml`.
 
 **Alternative Launchers:**
-- `./yaclib.py` - Interactive Python launcher with setup wizard
-- `./yaclib-cli.py` - CLI management tool (see CLI Tool section below)
+- `./scripts/yaclib.py` - Interactive Python launcher with setup wizard
+- `./scripts/yaclib-cli.py` - CLI management tool (see CLI Tool section below)
 - `./run_server.sh` - Legacy launcher (same as `start.sh`)
+
+**Quick Library Scanning:**
+```bash
+./scan.sh /path/to/library              # Quick scan with defaults
+./scan.sh /path/to/library --workers 8  # Fast scan with more workers
+./scan.sh --help                        # Show all scanning options
+```
 
 ## Usage Examples
 
 ### Connect YACReader Mobile App
 
-1. Start server: `./yaclib.py`
+1. Start server: `./scripts/yaclib.py`
 2. In YACReader mobile app, add server: `http://<your-ip>:8081`
 3. Browse your libraries!
 
@@ -197,7 +204,7 @@ with YACLibClient("http://192.168.1.5:8081") as client:
 
 ### Simple: Use the Launcher
 
-The interactive launcher (`./yaclib.py`) handles everything on first run.
+The interactive launcher (`./scripts/yaclib.py`) handles everything on first run.
 
 ### Advanced: Edit Config File
 
@@ -231,17 +238,17 @@ For advanced users:
 
 ```bash
 # Manage config
-./yaclib-cli.py config init
-./yaclib-cli.py config show
+./scripts/yaclib-cli.py config init
+./scripts/yaclib-cli.py config show
 
 # Manage libraries
-./yaclib-cli.py library add "Comics" /mnt/Comics
-./yaclib-cli.py library scan Comics
-./yaclib-cli.py library list
+./scripts/yaclib-cli.py library add "Comics" /mnt/Comics
+./scripts/yaclib-cli.py library scan Comics
+./scripts/yaclib-cli.py library list
 
 # Server control
-./yaclib-cli.py server start
-./yaclib-cli.py server info
+./scripts/yaclib-cli.py server start
+./scripts/yaclib-cli.py server info
 ```
 
 ## Documentation
@@ -264,8 +271,7 @@ yaclib-enhanced/
 ├── start.sh               # Start everything (backend + web UI)
 ├── start_backend.sh       # Start backend API only
 ├── start_webui.sh         # Start web UI only
-├── yaclib.py              # Interactive Python launcher with setup wizard
-├── yaclib-cli.py          # CLI management tool
+├── scan.sh                # Quick library scanner
 ├── run_server.sh          # Legacy launcher (same as start.sh)
 ├── config.yml             # Your config (created on first run)
 ├── config.example.yml     # Example configuration
@@ -326,6 +332,8 @@ yaclib-enhanced/
 │   ├── package.json       # Node dependencies
 │   └── vite.config.js     # Vite configuration
 ├── scripts/               # Utility scripts
+│   ├── yaclib.py          # Interactive Python launcher with setup wizard
+│   ├── yaclib-cli.py      # CLI management tool
 │   ├── scan_library.py    # Library scanning
 │   ├── diagnose_missing_data.py   # Debug tools
 │   └── regenerate_covers.py       # Cover regeneration
@@ -408,7 +416,7 @@ MIT License - See LICENSE file for details.
 Get started in seconds:
 
 ```bash
-./yaclib.py
+./scripts/yaclib.py
 ```
 
 That's it!
