@@ -1,8 +1,8 @@
 <script>
-	import '../app.css';
-	import { QueryClient, QueryClientProvider } from '@tanstack/svelte-query';
-	import { themeStore } from '$stores/theme';
-	import { onMount } from 'svelte';
+	import "../app.css";
+	import { QueryClient, QueryClientProvider } from "@tanstack/svelte-query";
+	import { themeStore } from "$stores/theme";
+	import { onMount } from "svelte";
 
 	// Initialize TanStack Query client with optimized cache settings
 	const queryClient = new QueryClient({
@@ -13,34 +13,29 @@
 				refetchOnWindowFocus: false,
 				refetchOnReconnect: false, // Don't refetch on reconnect for better UX
 				retry: 1, // Only retry failed requests once
-				retryDelay: 1000 // Wait 1 second before retrying
-			}
-		}
+				retryDelay: 1000, // Wait 1 second before retrying
+			},
+		},
 	});
 
-	// Apply theme class to html element and warm cache
+	// Apply theme and warm cache
 	onMount(async () => {
-		const unsubscribe = themeStore.subscribe((theme) => {
-			if (theme === 'dark') {
-				document.documentElement.classList.add('dark');
-			} else {
-				document.documentElement.classList.remove('dark');
-			}
-		});
+		// Initialize theme application
+		themeStore.init();
 
 		// Warm cache in the background after initial page load
 		// This pre-loads data for subsequent visits
-		if (typeof window !== 'undefined' && 'requestIdleCallback' in window) {
+		if (typeof window !== "undefined" && "requestIdleCallback" in window) {
 			requestIdleCallback(
 				async () => {
-					const { scheduleCacheWarming } = await import('$lib/utils/cacheWarmer');
+					const { scheduleCacheWarming } = await import(
+						"$lib/utils/cacheWarmer"
+					);
 					scheduleCacheWarming();
 				},
-				{ timeout: 5000 }
+				{ timeout: 5000 },
 			);
 		}
-
-		return unsubscribe;
 	});
 </script>
 

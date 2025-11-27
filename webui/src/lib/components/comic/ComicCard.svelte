@@ -363,7 +363,7 @@
 
 	.cover-container {
 		position: relative;
-		background: #1a1a1a;
+		background: var(--color-bg);
 		overflow: hidden;
 	}
 
@@ -376,8 +376,8 @@
 		left: 0;
 		width: 100%;
 		height: 100%;
-		background: #1a1a1a;
-		border: 1px solid rgba(255, 255, 255, 0.1);
+		background: var(--color-bg);
+		border: 1px solid var(--color-border);
 		border-radius: 8px;
 		z-index: -1;
 	}
@@ -451,7 +451,7 @@
 		bottom: 0;
 		left: 0;
 		right: 0;
-		background: rgba(0, 0, 0, 0.9);
+		background: var(--color-overlay);
 		backdrop-filter: blur(8px);
 		padding: 0.5rem 0.75rem;
 		z-index: 2;
@@ -542,7 +542,7 @@
 
 	.meta-badge {
 		padding: 0.375rem 0.875rem;
-		background: rgba(255, 103, 64, 0.15);
+		background: color-mix(in srgb, var(--color-accent) 15%, transparent);
 		color: var(--color-accent);
 		border-radius: 16px;
 		font-size: 0.813rem;
@@ -601,13 +601,15 @@
 	.action-btn.primary {
 		background: var(--color-accent);
 		color: white;
-		box-shadow: 0 2px 4px rgba(255, 103, 64, 0.2);
+		box-shadow: 0 2px 4px
+			color-mix(in srgb, var(--color-accent) 20%, transparent);
 	}
 
 	.action-btn.primary:hover {
-		background: #ff7d5a;
+		background: var(--color-accent-hover);
 		transform: translateY(-1px);
-		box-shadow: 0 4px 8px rgba(255, 103, 64, 0.3);
+		box-shadow: 0 4px 8px
+			color-mix(in srgb, var(--color-accent) 30%, transparent);
 	}
 
 	/* Update list view cover size - scales with multiplier but with limits */

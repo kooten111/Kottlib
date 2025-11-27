@@ -3,36 +3,13 @@
 @tailwind utilities;
 
 @layer base {
+
 	/* CSS Variables for consistent theming */
+	/* Note: These variables are set dynamically by the theme system */
+	/* Default values are applied on initial load by the theme store */
 	:root {
-		/* Background colors */
-		--color-bg: #1a1a1a;
-		--color-secondary-bg: #2a2a2a;
-		--color-tertiary-bg: #353535;
-
-		/* Text colors */
-		--color-text: #e0e0e0;
-		--color-text-secondary: #a0a0a0;
-		--color-text-muted: #6b7280;
-
-		/* Accent colors */
-		--color-accent: #ff6740;
-		--color-accent-hover: #ff8566;
-		--color-accent-blue: #4a90e2;
-
-		/* Border colors */
-		--color-border: rgba(255, 255, 255, 0.1);
-		--color-border-strong: rgba(255, 255, 255, 0.2);
-		--color-border-hover: rgba(255, 255, 255, 0.3);
-
-		/* Status colors */
-		--color-success: #10b981;
-		--color-warning: #f59e0b;
-		--color-error: #ef4444;
-
-		/* Overlay colors */
-		--color-overlay: rgba(0, 0, 0, 0.8);
-		--color-overlay-light: rgba(0, 0, 0, 0.5);
+		/* Theme variables are populated dynamically */
+		/* See: src/lib/themes/index.js for theme definitions */
 	}
 
 	* {
@@ -63,6 +40,7 @@
 }
 
 @layer components {
+
 	/* Focus ring utilities */
 	.focus-ring {
 		@apply focus:outline-none focus:ring-2 focus:ring-accent-orange focus:ring-offset-2 focus:ring-offset-dark-bg;

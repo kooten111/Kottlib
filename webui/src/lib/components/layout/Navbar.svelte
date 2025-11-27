@@ -1,28 +1,37 @@
 <script>
-	import { page } from '$app/stores';
-	import { themeStore } from '$stores/theme';
-	import { searchStore } from '$stores/search';
-	import { currentFilterStore, treeExpandedNodes } from '$stores/library';
-	import { Moon, Sun, Home, BookOpen, Heart, List, Search as SearchIcon, X } from 'lucide-svelte';
+	import { page } from "$app/stores";
+	import { themeStore } from "$stores/theme";
+	import { searchStore } from "$stores/search";
+	import { currentFilterStore, treeExpandedNodes } from "$stores/library";
+	import {
+		Moon,
+		Sun,
+		Home,
+		BookOpen,
+		Heart,
+		List,
+		Search as SearchIcon,
+		X,
+	} from "lucide-svelte";
 
 	let searchInput;
 
 	// Debug: Track search store changes
-	$: console.log('[Navbar] Search store query changed:', $searchStore.query);
+	$: console.log("[Navbar] Search store query changed:", $searchStore.query);
 
 	function clearSearch() {
-		console.log('[Navbar] Clearing search');
+		console.log("[Navbar] Clearing search");
 		searchStore.set({
-			query: '',
-			isSearching: false
+			query: "",
+			isSearching: false,
 		});
 		if (searchInput) {
-			searchInput.value = '';
+			searchInput.value = "";
 		}
 	}
 
 	function clearFilters() {
-		console.log('[Navbar] Clearing filters');
+		console.log("[Navbar] Clearing filters");
 		currentFilterStore.set(null);
 		clearSearch();
 	}
@@ -30,17 +39,20 @@
 	function handleHomeClick() {
 		clearFilters();
 		// Collapse all tree nodes except the root
-		const collapsedState = new Set(['libraries-root']);
+		const collapsedState = new Set(["libraries-root"]);
 		treeExpandedNodes.set(collapsedState);
 
 		// Persist the collapsed state to localStorage immediately
-		if (typeof window !== 'undefined') {
-			localStorage.setItem('series-tree-expanded', JSON.stringify([...collapsedState]));
+		if (typeof window !== "undefined") {
+			localStorage.setItem(
+				"series-tree-expanded",
+				JSON.stringify([...collapsedState]),
+			);
 		}
 	}
 
 	function handleSearchKeydown(e) {
-		if (e.key === 'Escape') {
+		if (e.key === "Escape") {
 			clearSearch();
 			searchInput?.blur();
 		}
@@ -52,7 +64,11 @@
 		<div class="flex items-center justify-between h-16">
 			<!-- Logo and Brand -->
 			<div class="flex items-center space-x-8">
-				<a href="/" class="flex items-center space-x-2 hover:opacity-80 transition-opacity" on:click={handleHomeClick}>
+				<a
+					href="/"
+					class="flex items-center space-x-2 hover:opacity-80 transition-opacity"
+					on:click={handleHomeClick}
+				>
 					<BookOpen class="w-8 h-8 text-accent-orange" />
 					<span class="text-xl font-bold text-dark-text">YACLib</span>
 				</a>
@@ -62,7 +78,7 @@
 					<a
 						href="/"
 						class="flex items-center space-x-2 text-dark-text-secondary hover:text-dark-text transition-colors"
-						class:text-accent-orange={$page.url.pathname === '/'}
+						class:text-accent-orange={$page.url.pathname === "/"}
 						on:click={handleHomeClick}
 					>
 						<Home class="w-4 h-4" />
@@ -72,7 +88,8 @@
 					<a
 						href="/continue-reading"
 						class="flex items-center space-x-2 text-dark-text-secondary hover:text-dark-text transition-colors"
-						class:text-accent-orange={$page.url.pathname === '/continue-reading'}
+						class:text-accent-orange={$page.url.pathname ===
+							"/continue-reading"}
 					>
 						<List class="w-4 h-4" />
 						<span>Continue</span>
@@ -81,7 +98,8 @@
 					<a
 						href="/favorites"
 						class="flex items-center space-x-2 text-dark-text-secondary hover:text-dark-text transition-colors"
-						class:text-accent-orange={$page.url.pathname === '/favorites'}
+						class:text-accent-orange={$page.url.pathname ===
+							"/favorites"}
 					>
 						<Heart class="w-4 h-4" />
 						<span>Favorites</span>
@@ -101,7 +119,11 @@
 						on:keydown={handleSearchKeydown}
 					/>
 					{#if $searchStore.query}
-						<button class="search-clear" on:click={clearSearch} aria-label="Clear search">
+						<button
+							class="search-clear"
+							on:click={clearSearch}
+							aria-label="Clear search"
+						>
 							<X class="w-4 h-4" />
 						</button>
 					{:else}
@@ -118,7 +140,7 @@
 					class="p-2 rounded-button hover:bg-dark-bg-tertiary transition-colors focus-ring"
 					aria-label="Toggle theme"
 				>
-					{#if $themeStore === 'dark'}
+					{#if $themeStore.mode === "dark"}
 						<Sun class="w-5 h-5 text-dark-text-secondary" />
 					{:else}
 						<Moon class="w-5 h-5 text-dark-text-secondary" />

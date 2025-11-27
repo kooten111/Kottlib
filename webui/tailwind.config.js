@@ -5,26 +5,26 @@ export default {
 	theme: {
 		extend: {
 			colors: {
-				// Dark mode palette with improved contrast
+				// Use CSS variables for dynamic theming
 				dark: {
-					bg: '#1a1a1a',
-					'bg-secondary': '#2a2a2a',
-					'bg-tertiary': '#353535',
-					text: '#e0e0e0',
-					'text-secondary': '#a0a0a0',
-					'text-muted': '#6b7280'
+					bg: 'var(--color-bg)',
+					'bg-secondary': 'var(--color-secondary-bg)',
+					'bg-tertiary': 'var(--color-tertiary-bg)',
+					text: 'var(--color-text)',
+					'text-secondary': 'var(--color-text-secondary)',
+					'text-muted': 'var(--color-text-muted)'
 				},
 				// Accent colors
 				accent: {
-					orange: '#ff6740',
-					'orange-hover': '#ff8566',
-					blue: '#4a90e2'
+					orange: 'var(--color-accent)',
+					'orange-hover': 'var(--color-accent-hover)',
+					blue: 'var(--color-accent-blue)'
 				},
 				// Status colors
 				status: {
-					success: '#10b981',
-					warning: '#f59e0b',
-					error: '#ef4444'
+					success: 'var(--color-success)',
+					warning: 'var(--color-warning)',
+					error: 'var(--color-error)'
 				}
 			},
 			spacing: {
