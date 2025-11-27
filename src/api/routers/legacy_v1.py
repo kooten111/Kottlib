@@ -33,6 +33,7 @@ from ...database import (
 )
 from ..middleware import get_current_user_id, get_request_user
 from ..error_handling import handle_file_operation, handle_comic_archive_errors, safe_path_exists
+from ..cover_utils import find_cover_for_comic
 
 logger = logging.getLogger(__name__)
 
@@ -567,45 +568,17 @@ async def get_comic_cover(
 
         # Try to get best cover (custom or auto)
         cover = get_best_cover(session, comic_id)
+        custom_cover_path = cover.jpeg_path if cover else None
 
-    if cover and safe_path_exists(Path(cover.jpeg_path), "cover from database"):
-        # Use cover from database
-        return FileResponse(
-            cover.jpeg_path,
-            media_type="image/jpeg",
-            headers={"Cache-Control": "public, max-age=31536000"}  # Cache for 1 year
-        )
+    # Find cover file (checks custom cover first, then hash-based paths)
+    result = find_cover_for_comic(comic_hash, library_name, custom_cover_path)
 
-    # Fall back to hash-based path (for backward compatibility)
-    covers_dir = get_covers_dir(library_name)
-
-    # Try hierarchical path first (covers/ab/abc123.jpg)
-    if len(comic_hash) >= 2:
-        subdir = comic_hash[:2]
-        # Try WebP first
-        webp_path = covers_dir / subdir / f"{comic_hash}.webp"
-        if safe_path_exists(webp_path, "hierarchical WebP cover"):
-            return FileResponse(
-                webp_path,
-                media_type="image/webp",
-                headers={"Cache-Control": "public, max-age=31536000"}
-            )
-        # Try JPEG
-        jpeg_path = covers_dir / subdir / f"{comic_hash}.jpg"
-        if safe_path_exists(jpeg_path, "hierarchical JPEG cover"):
-            return FileResponse(
-                jpeg_path,
-                media_type="image/jpeg",
-                headers={"Cache-Control": "public, max-age=31536000"}
-            )
-
-    # Try flat path as fallback
-    cover_path = covers_dir / f"{comic_hash}.jpg"
-    if safe_path_exists(cover_path, "flat path cover"):
+    if result:
+        cover_path, media_type = result
         return FileResponse(
             cover_path,
-            media_type="image/jpeg",
-            headers={"Cache-Control": "public, max-age=31536000"}
+            media_type=media_type,
+            headers={"Cache-Control": "public, max-age=31536000"}  # Cache for 1 year
         )
 
     raise HTTPException(status_code=404, detail="Cover not found")

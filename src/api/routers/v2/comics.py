@@ -25,6 +25,7 @@ from ....database import (
 )
 from ...middleware import get_current_user_id, get_request_user
 from ...error_handling import handle_file_operation, handle_comic_archive_errors, safe_path_exists
+from ...cover_utils import find_cover_file
 from ._shared import get_comic_display_name
 
 logger = logging.getLogger(__name__)
@@ -616,74 +617,21 @@ async def get_cover_v2(
     hash_value = cover_path.replace('.jpg', '').replace('.jpeg', '').replace('.png', '').replace('.webp', '')
     logger.debug(f"[COVER] Extracted hash: {hash_value}")
 
-    # Get covers directory - uses hierarchical storage (first 2 chars as subdirectory)
-    covers_dir = get_covers_dir(library_name)
-    logger.debug(f"[COVER] Covers directory: {covers_dir}")
-    logger.debug(f"[COVER] Covers directory exists: {safe_path_exists(covers_dir, 'covers directory')}")
+    # Find cover file using utility (tries hierarchical and flat paths, WebP and JPEG)
+    result = find_cover_file(hash_value, library_name, try_webp=True)
 
-    # Try WebP first (better quality and smaller size)
-    if len(hash_value) >= 2:
-        subdir = hash_value[:2]
-        logger.debug(f"[COVER] Using hierarchical storage: subdir={subdir}")
-
-        # Try hierarchical WebP path (covers/ab/abc123.webp)
-        webp_file = covers_dir / subdir / f"{hash_value}.webp"
-        logger.debug(f"[COVER] Checking WebP (hierarchical): {webp_file}")
-        if safe_path_exists(webp_file, "hierarchical WebP cover"):
-            from ...error_handling import safe_file_stat
-            file_stat = safe_file_stat(webp_file, "hierarchical WebP cover")
-            size_info = f", size={file_stat.st_size} bytes" if file_stat else ""
-            logger.info(f"[COVER] Serving WebP cover (hierarchical): {webp_file}{size_info}")
-            return FileResponse(
-                webp_file,
-                media_type="image/webp",
-                headers={"Cache-Control": "public, max-age=86400"}
-            )
-
-        # Try hierarchical JPEG path (covers/ab/abc123.jpg)
-        cover_file = covers_dir / subdir / cover_path
-        logger.debug(f"[COVER] Checking JPEG (hierarchical): {cover_file}")
-        if safe_path_exists(cover_file, "hierarchical JPEG cover"):
-            from ...error_handling import safe_file_stat
-            file_stat = safe_file_stat(cover_file, "hierarchical JPEG cover")
-            size_info = f", size={file_stat.st_size} bytes" if file_stat else ""
-            logger.info(f"[COVER] Serving JPEG cover (hierarchical): {cover_file}{size_info}")
-            return FileResponse(
-                cover_file,
-                media_type="image/jpeg",
-                headers={"Cache-Control": "public, max-age=86400"}
-            )
-
-    # Try flat path as fallback
-    # Try WebP first
-    webp_file = covers_dir / f"{hash_value}.webp"
-    logger.debug(f"[COVER] Checking WebP (flat): {webp_file}")
-    if safe_path_exists(webp_file, "flat WebP cover"):
+    if result:
+        cover_file, media_type = result
         from ...error_handling import safe_file_stat
-        file_stat = safe_file_stat(webp_file, "flat WebP cover")
+        file_stat = safe_file_stat(cover_file, "cover file")
         size_info = f", size={file_stat.st_size} bytes" if file_stat else ""
-        logger.info(f"[COVER] Serving WebP cover (flat): {webp_file}{size_info}")
-        return FileResponse(
-            webp_file,
-            media_type="image/webp",
-            headers={"Cache-Control": "public, max-age=86400"}
-        )
-
-    # Try JPEG
-    cover_file = covers_dir / cover_path
-    logger.debug(f"[COVER] Checking JPEG (flat): {cover_file}")
-    if safe_path_exists(cover_file, "flat JPEG cover"):
-        from ...error_handling import safe_file_stat
-        file_stat = safe_file_stat(cover_file, "flat JPEG cover")
-        size_info = f", size={file_stat.st_size} bytes" if file_stat else ""
-        logger.info(f"[COVER] Serving JPEG cover (flat): {cover_file}{size_info}")
+        logger.info(f"[COVER] Serving cover: {cover_file}{size_info}, type={media_type}")
         return FileResponse(
             cover_file,
-            media_type="image/jpeg",
+            media_type=media_type,
             headers={"Cache-Control": "public, max-age=86400"}
         )
 
     # Cover not found
     logger.error(f"[COVER] Cover not found: library_id={library_id}, cover_path={cover_path}, hash={hash_value}")
-    logger.error(f"[COVER] Searched locations: {covers_dir}")
     raise HTTPException(status_code=404, detail="Cover not found")
