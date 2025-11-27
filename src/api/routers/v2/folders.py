@@ -21,7 +21,7 @@ from ....database import (
     get_reading_progress,
 )
 from ....database.models import Comic, Folder
-from ...middleware import get_current_user_id
+from ...middleware import get_current_user_id, get_request_user
 
 logger = logging.getLogger(__name__)
 
@@ -169,12 +169,7 @@ async def get_folder_v2(
         comics = comics_result
 
         # Get user for reading progress (already have session)
-        user_id = get_current_user_id(request)
-        user = None
-        if user_id:
-            user = get_user_by_id(session, user_id)
-        else:
-            user = get_user_by_username(session, 'admin')
+        user = get_request_user(request, session)
         # Get the user ID for use in reading progress queries
         user_id_for_progress = user.id if user else None
 
@@ -297,11 +292,7 @@ async def get_folder_info_v2(
         library_name = library.name
 
         # Get user for reading progress
-        user_id = get_current_user_id(request)
-        if user_id:
-            user = get_user_by_id(session, user_id)
-        else:
-            user = get_user_by_username(session, 'admin')
+        user = get_request_user(request, session)
         user_id_for_progress = user.id if user else None
 
         # Get all folders

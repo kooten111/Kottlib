@@ -171,10 +171,8 @@ app.include_router(scanners.router, prefix="/v2", tags=["Scanners"])
 # User Interactions API (New features)
 app.include_router(user_interactions.router, prefix="/api/v2", tags=["User Interactions"])
 
-# TODO: Add more routers
-# from .routers import comics, reading
-# app.include_router(comics.router, prefix="/api/v1/comics", tags=["Comics"])
-# app.include_router(reading.router, prefix="/api/v1/reading", tags=["Reading"])
+# Note: Comics and reading endpoints are already included in the v2 router above
+# (see src/api/routers/v2/__init__.py which aggregates comics.router and reading.router)
 
 
 # ============================================================================

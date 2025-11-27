@@ -29,7 +29,7 @@ from ....database import (
     get_reading_progress,
 )
 from ....database.models import Comic, ReadingProgress
-from ...middleware import get_current_user_id
+from ...middleware import get_current_user_id, get_request_user
 from ._shared import get_comic_display_name, series_tree_cache
 
 logger = logging.getLogger(__name__)
@@ -186,11 +186,7 @@ async def get_libraries_series_tree(request: Request, max_depth: int = 10):
         libraries = get_all_libraries(session)
 
         # Get user for reading progress
-        user_id = get_current_user_id(request)
-        if user_id:
-            user = get_user_by_id(session, user_id)
-        else:
-            user = get_user_by_username(session, 'admin')
+        user = get_request_user(request, session)
 
         # OPTIMIZATION: Fetch ALL reading progress for this user in ONE query
         # This eliminates N+1 queries when adding progress to tree nodes
@@ -326,11 +322,7 @@ async def get_series_list(
             raise HTTPException(status_code=404, detail="Library not found")
 
         # Get user for reading progress
-        user_id = get_current_user_id(request)
-        if user_id:
-            user = get_user_by_id(session, user_id)
-        else:
-            user = get_user_by_username(session, 'admin')
+        user = get_request_user(request, session)
         user_id_for_progress = user.id if user else None
 
         from sqlalchemy.orm import selectinload
@@ -610,11 +602,7 @@ async def get_series_detail(
                     # We need to populate reading progress manually for these items since we are returning early
 
                     # Get user for reading progress
-                    user_id = get_current_user_id(request)
-                    if user_id:
-                        user = get_user_by_id(session, user_id)
-                    else:
-                        user = get_user_by_username(session, 'admin')
+                    user = get_request_user(request, session)
 
                     if user:
                         # Fetch progress for all comics in this view
@@ -655,11 +643,7 @@ async def get_series_detail(
             raise HTTPException(status_code=404, detail=f"Series not found: {decoded_series_name}")
 
         # Get user for reading progress
-        user_id = get_current_user_id(request)
-        if user_id:
-            user = get_user_by_id(session, user_id)
-        else:
-            user = get_user_by_username(session, 'admin')
+        user = get_request_user(request, session)
 
         # Build volumes list with full details
         volumes = []

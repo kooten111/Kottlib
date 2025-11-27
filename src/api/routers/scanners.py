@@ -35,7 +35,12 @@ logger = logging.getLogger(__name__)
 # Progress Tracking
 # ============================================================================
 
-# In-memory progress tracking for library scans
+# In-memory progress tracking cache for library scans
+# Note: This is a performance optimization cache. The source of truth is stored
+# in the database (library.settings['scanner_progress']) to support multi-worker
+# deployments. The API endpoint merges both memory and database state, keeping
+# the most advanced progress values. See _persist_progress_to_db() and
+# get_library_scan_progress() for the multi-worker architecture.
 _scan_progress: Dict[int, Dict[str, Any]] = {}
 
 

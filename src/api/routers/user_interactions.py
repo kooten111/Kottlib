@@ -12,7 +12,7 @@ from fastapi import APIRouter, Request, HTTPException, Depends
 from pydantic import BaseModel
 
 from ...database.models import Favorite, Label, ComicLabel, ReadingList, ReadingListItem, Comic
-from ..middleware import get_current_user_id
+from ..middleware import get_current_user_id, get_request_user
 from ...database import get_user_by_id, get_user_by_username
 
 router = APIRouter(tags=["user-interactions"])
@@ -45,16 +45,14 @@ class ReadingListModel(BaseModel):
 async def get_favorites(request: Request):
     """Get user's favorite comics"""
     db = request.app.state.db
-    user_id = get_current_user_id(request)
-    
+
     with db.get_session() as session:
-        if not user_id:
-            # Fallback to admin for single-user mode
-            user = get_user_by_username(session, 'admin')
-            if not user:
-                return []
-            user_id = user.id
-            
+        # Fallback to admin for single-user mode
+        user = get_request_user(request, session)
+        if not user:
+            return []
+        user_id = user.id
+
         favorites = session.query(Favorite).filter(Favorite.user_id == user_id).all()
         return [
             FavoriteModel(
@@ -69,15 +67,13 @@ async def add_favorite(comic_id: int, request: Request):
     """Add a comic to favorites"""
     import time
     db = request.app.state.db
-    user_id = get_current_user_id(request)
-    
+
     with db.get_session() as session:
-        if not user_id:
-            user = get_user_by_username(session, 'admin')
-            if not user:
-                raise HTTPException(status_code=401, detail="Authentication required")
-            user_id = user.id
-            
+        user = get_request_user(request, session)
+        if not user:
+            raise HTTPException(status_code=401, detail="Authentication required")
+        user_id = user.id
+
         # Check if comic exists
         comic = session.query(Comic).filter(Comic.id == comic_id).first()
         if not comic:
@@ -107,15 +103,13 @@ async def add_favorite(comic_id: int, request: Request):
 async def remove_favorite(comic_id: int, request: Request):
     """Remove a comic from favorites"""
     db = request.app.state.db
-    user_id = get_current_user_id(request)
-    
+
     with db.get_session() as session:
-        if not user_id:
-            user = get_user_by_username(session, 'admin')
-            if not user:
-                raise HTTPException(status_code=401, detail="Authentication required")
-            user_id = user.id
-            
+        user = get_request_user(request, session)
+        if not user:
+            raise HTTPException(status_code=401, detail="Authentication required")
+        user_id = user.id
+
         session.query(Favorite).filter(
             Favorite.user_id == user_id,
             Favorite.comic_id == comic_id

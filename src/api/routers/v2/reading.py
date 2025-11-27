@@ -17,7 +17,7 @@ from ....database import (
     get_user_by_id,
     get_continue_reading,
 )
-from ...middleware import get_current_user_id
+from ...middleware import get_current_user_id, get_request_user
 from ._shared import get_comic_display_name
 
 logger = logging.getLogger(__name__)
@@ -50,11 +50,7 @@ async def get_reading_list(
             raise HTTPException(status_code=404, detail="Library not found")
 
         # Get user from session
-        user_id = get_current_user_id(request)
-        if user_id:
-            user = get_user_by_id(session, user_id)
-        else:
-            user = get_user_by_username(session, 'admin')
+        user = get_request_user(request, session)
         if not user:
             return JSONResponse([])
 

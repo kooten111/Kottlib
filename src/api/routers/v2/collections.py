@@ -40,7 +40,7 @@ from ....database import (
     get_reading_list_comics,
 )
 from ....database.models import Comic, Label, ReadingListItem
-from ...middleware import get_current_user_id
+from ...middleware import get_current_user_id, get_request_user
 from ._shared import get_comic_display_name
 
 logger = logging.getLogger(__name__)
@@ -63,11 +63,7 @@ async def get_favorites(request: Request):
 
     with db.get_session() as session:
         # Get current user or fallback to admin
-        user_id = get_current_user_id(request)
-        if user_id:
-            user = get_user_by_id(session, user_id)
-        else:
-            user = get_user_by_username(session, 'admin')
+        user = get_request_user(request, session)
 
         if not user:
             raise HTTPException(status_code=401, detail="User not found")
@@ -102,11 +98,7 @@ async def add_to_favorites(comic_id: int, request: Request):
 
     with db.get_session() as session:
         # Get current user or fallback to admin
-        user_id = get_current_user_id(request)
-        if user_id:
-            user = get_user_by_id(session, user_id)
-        else:
-            user = get_user_by_username(session, 'admin')
+        user = get_request_user(request, session)
 
         if not user:
             raise HTTPException(status_code=401, detail="User not found")
@@ -143,11 +135,7 @@ async def remove_from_favorites(comic_id: int, request: Request):
 
     with db.get_session() as session:
         # Get current user or fallback to admin
-        user_id = get_current_user_id(request)
-        if user_id:
-            user = get_user_by_id(session, user_id)
-        else:
-            user = get_user_by_username(session, 'admin')
+        user = get_request_user(request, session)
 
         if not user:
             raise HTTPException(status_code=401, detail="User not found")
