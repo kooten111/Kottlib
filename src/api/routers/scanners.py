@@ -26,6 +26,7 @@ from src.scanners import (
 
 # Import database dependencies
 from ...database.models import Library
+from ...database import update_library, get_library_by_id
 
 router = APIRouter(prefix="/scanners", tags=["scanners"])
 logger = logging.getLogger(__name__)
@@ -236,6 +237,7 @@ class LibraryScannerConfig(BaseModel):
     fallback_scanners: List[str] = Field(default_factory=list)
     fallback_threshold: float = Field(0.7, ge=0.0, le=1.0)
     confidence_threshold: float = Field(0.4, ge=0.0, le=1.0)
+    scanner_configs: Dict[str, Dict[str, Any]] = Field(default_factory=dict)
 
 
 class UpdateLibraryScannerConfig(BaseModel):
@@ -244,6 +246,7 @@ class UpdateLibraryScannerConfig(BaseModel):
     fallback_scanners: List[str] = Field(default_factory=list, description="Fallback scanners (optional)")
     confidence_threshold: float = Field(0.4, ge=0.0, le=1.0, description="Minimum confidence threshold")
     fallback_threshold: float = Field(0.7, ge=0.0, le=1.0, description="Threshold to trigger fallback")
+    scanner_configs: Dict[str, Dict[str, Any]] = Field(default_factory=dict, description="Configuration for specific scanners (e.g. API keys)")
 
     class Config:
         json_schema_extra = {
@@ -423,10 +426,85 @@ async def get_library_scanner_configs(request: Request):
                 scan_level=scan_level,
                 fallback_scanners=scanner_config.get('fallback_scanners', []),
                 fallback_threshold=scanner_config.get('fallback_threshold', 0.7),
-                confidence_threshold=scanner_config.get('confidence_threshold', 0.4)
+                confidence_threshold=scanner_config.get('confidence_threshold', 0.4),
+                scanner_configs=scanner_config.get('scanner_configs', {})
             ))
 
         return configs
+
+
+@router.put("/libraries/{library_id}/configure", response_model=LibraryScannerConfig)
+async def configure_library_scanner(
+    library_id: int,
+    config: UpdateLibraryScannerConfig,
+    request: Request
+):
+    """
+    Update scanner configuration for a library
+    """
+    db = request.app.state.db
+    manager = get_scanner_manager()
+
+    # Validate scanner existence
+    if config.primary_scanner not in manager.get_available_scanners():
+        raise HTTPException(
+            status_code=400,
+            detail=f"Scanner '{config.primary_scanner}' is not available"
+        )
+
+    for scanner in config.fallback_scanners:
+        if scanner not in manager.get_available_scanners():
+            raise HTTPException(
+                status_code=400,
+                detail=f"Fallback scanner '{scanner}' is not available"
+            )
+
+    with db.get_session() as session:
+        library = get_library_by_id(session, library_id)
+        if not library:
+            raise HTTPException(status_code=404, detail="Library not found")
+
+        # Get existing settings
+        settings = dict(library.settings or {})
+        scanner_settings = settings.get('scanner', {})
+
+        # Update scanner settings
+        scanner_settings.update({
+            'primary_scanner': config.primary_scanner,
+            'fallback_scanners': config.fallback_scanners,
+            'confidence_threshold': config.confidence_threshold,
+            'fallback_threshold': config.fallback_threshold,
+            'scanner_configs': config.scanner_configs
+        })
+        
+        settings['scanner'] = scanner_settings
+
+        # Save to DB
+        update_library(session, library_id, settings=settings)
+
+        # Determine scan level
+        scan_level = None
+        try:
+            scanner_class = manager._available_scanners.get(config.primary_scanner)
+            if scanner_class:
+                temp_scanner = scanner_class()
+                if temp_scanner.scan_level.value == 'file':
+                    scan_level = ScanLevelEnum.FILE
+                elif temp_scanner.scan_level.value == 'series':
+                    scan_level = ScanLevelEnum.SERIES
+        except Exception:
+            pass
+
+        return LibraryScannerConfig(
+            library_id=library.id,
+            library_name=library.name,
+            library_path=library.path,
+            primary_scanner=config.primary_scanner,
+            scan_level=scan_level,
+            fallback_scanners=config.fallback_scanners,
+            fallback_threshold=config.fallback_threshold,
+            confidence_threshold=config.confidence_threshold
+        )
 
 
 @router.post("/scan", response_model=ScanResultModel)
@@ -683,7 +761,12 @@ async def scan_and_save_series(
             )
         
         # Determine library type for scanner
-        library_type = 'manga' if primary_scanner == 'AniList' else 'doujinshi'
+        if primary_scanner == 'AniList':
+            library_type = 'manga'
+        elif primary_scanner == 'Comic Vine':
+            library_type = 'comics'
+        else:
+            library_type = 'doujinshi'
         
         kwargs = {}
         if confidence_threshold is not None:

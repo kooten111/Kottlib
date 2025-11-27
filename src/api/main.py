@@ -55,6 +55,12 @@ async def lifespan(app: FastAPI):
     app.state.db = db
     app.state.config = config
 
+    # Initialize scheduler
+    from ..services.scheduler import get_scheduler
+    scheduler = get_scheduler(db)
+    scheduler.load_schedules_from_db()
+    app.state.scheduler = scheduler
+
     logger.info("YACLib Enhanced Server started successfully!")
     logger.info(f"Server running on {config.server.host}:{config.server.port}")
 
@@ -62,6 +68,7 @@ async def lifespan(app: FastAPI):
 
     # Shutdown
     logger.info("Shutting down YACLib Enhanced Server...")
+    scheduler.shutdown()
     db.close()
     logger.info("Shutdown complete")
 

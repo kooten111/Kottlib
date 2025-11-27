@@ -5,7 +5,7 @@ Modern JSON API for library management
 """
 
 import logging
-from typing import List
+from typing import List, Optional, Dict, Any
 from pydantic import BaseModel
 
 from fastapi import APIRouter, Request, HTTPException
@@ -15,6 +15,8 @@ from ...database import (
     get_library_by_id,
     create_library,
     get_library_stats,
+    update_library,
+    delete_library,
 )
 
 logger = logging.getLogger(__name__)
@@ -44,6 +46,14 @@ class CreateLibraryRequest(BaseModel):
     """Create library request"""
     name: str
     path: str
+    settings: Optional[Dict[str, Any]] = None
+
+
+class UpdateLibraryRequest(BaseModel):
+    """Update library request"""
+    name: Optional[str] = None
+    path: Optional[str] = None
+    settings: Optional[Dict[str, Any]] = None
 
 
 # ============================================================================
@@ -113,8 +123,41 @@ async def add_library(request: Request, data: CreateLibraryRequest):
         library = create_library(
             session,
             name=data.name,
-            path=data.path
+            path=data.path,
+            settings=data.settings
         )
+
+        stats = get_library_stats(session, library.id)
+
+        return LibraryInfo(
+            id=library.id,
+            uuid=library.uuid,
+            name=library.name,
+            path=library.path,
+            created_at=library.created_at,
+            updated_at=library.updated_at,
+            last_scan_at=library.last_scan_at,
+            scan_status=library.scan_status,
+            folder_count=stats.get('folder_count', 0),
+        )
+
+
+@router.put("/{library_id}", response_model=LibraryInfo)
+async def update_library_details(library_id: int, request: Request, data: UpdateLibraryRequest):
+    """Update library details"""
+    db = request.app.state.db
+
+    with db.get_session() as session:
+        library = update_library(
+            session,
+            library_id,
+            name=data.name,
+            path=data.path,
+            settings=data.settings
+        )
+        
+        if not library:
+            raise HTTPException(status_code=404, detail="Library not found")
 
         stats = get_library_stats(session, library.id)
 
@@ -130,3 +173,17 @@ async def add_library(request: Request, data: CreateLibraryRequest):
             comic_count=stats.get('comic_count', 0),
             folder_count=stats.get('folder_count', 0),
         )
+
+
+@router.delete("/{library_id}")
+async def remove_library(library_id: int, request: Request):
+    """Delete a library"""
+    db = request.app.state.db
+
+    with db.get_session() as session:
+        success = delete_library(session, library_id)
+        
+        if not success:
+            raise HTTPException(status_code=404, detail="Library not found")
+            
+        return {"success": True, "message": "Library deleted"}

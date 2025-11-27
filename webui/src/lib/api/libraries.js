@@ -8,6 +8,34 @@ export async function getLibraries() {
 }
 
 /**
+ * Create a new library
+ */
+export async function createLibrary(data) {
+	return api.post('/libraries', data);
+}
+
+/**
+ * Update a library
+ */
+export async function updateLibrary(libraryId, data) {
+	return api.put(`/libraries/${libraryId}`, data);
+}
+
+/**
+ * Delete a library
+ */
+export async function deleteLibrary(libraryId) {
+	return api.delete(`/libraries/${libraryId}`);
+}
+
+/**
+ * Trigger a manual scan for a library
+ */
+export async function scanLibrary(libraryId) {
+	return api.post(`/libraries/${libraryId}/scan`);
+}
+
+/**
  * Get library info by ID
  */
 export async function getLibrary(libraryId) {

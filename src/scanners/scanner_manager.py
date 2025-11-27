@@ -323,4 +323,12 @@ def init_default_scanners():
             fallback_threshold=0.7
         )
 
+    if 'Comic Vine' in available:
+        manager.configure_library(
+            'comics',
+            primary_scanner='Comic Vine',
+            fallback_scanners=None,
+            fallback_threshold=0.7
+        )
+
     return manager

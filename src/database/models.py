@@ -39,6 +39,7 @@ class Library(Base):
     last_scan_completed: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)
     scanner_type: Mapped[str] = mapped_column(String, default='comic')
     settings: Mapped[Optional[dict]] = mapped_column(JSON, nullable=True)
+    scan_interval: Mapped[int] = mapped_column(Integer, default=0)  # Scan interval in minutes (0 = disabled)
 
     # Performance cache - stores pre-built series tree as JSON
     cached_series_tree: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
