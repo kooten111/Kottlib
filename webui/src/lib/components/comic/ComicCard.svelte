@@ -19,6 +19,8 @@
 			: 0;
 	$: hasProgress = comic.current_page > 0;
 	$: title =
+		comic.name ||
+		comic.series_name ||
 		comic.title ||
 		comic.file_name?.replace(/\.(cbz|cbr|cb7|cbt)$/i, "") ||
 		"Untitled";
