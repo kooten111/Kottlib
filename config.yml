@@ -21,6 +21,7 @@ features:
   series_detection: true
   collections: true
   auto_thumbnails: true
+  ignore_series_metadata: true
 libraries:
 - name: Manga
   path: /path/to/manga

@@ -70,6 +70,7 @@ class FeaturesConfig:
     series_detection: bool = True
     collections: bool = True
     auto_thumbnails: bool = True
+    ignore_series_metadata: bool = False
 
 
 @dataclass

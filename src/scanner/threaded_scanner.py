@@ -39,6 +39,7 @@ try:
         generate_dual_thumbnails,
         thumbnail_exists,
     )
+    from ..config import get_config
 except ImportError:
     # Fallback for standalone scripts
     from database import (
@@ -60,6 +61,7 @@ except ImportError:
         generate_dual_thumbnails,
         thumbnail_exists,
     )
+    from config import get_config
 
 logger = logging.getLogger(__name__)
 
@@ -671,7 +673,15 @@ class ThreadedScanner:
             # Basic metadata
             if info.title:
                 metadata['title'] = info.title
-            if info.series:
+            
+            # Check if we should ignore series metadata
+            ignore_series_metadata = False
+            try:
+                ignore_series_metadata = get_config().features.ignore_series_metadata
+            except Exception:
+                pass
+
+            if info.series and not ignore_series_metadata:
                 metadata['series'] = info.series
             if info.number:
                 try:
