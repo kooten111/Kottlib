@@ -32,6 +32,7 @@ from ...database import (
     get_best_cover,
 )
 from ..middleware import get_current_user_id, get_request_user
+from ..error_handling import handle_file_operation, handle_comic_archive_errors, safe_path_exists
 
 logger = logging.getLogger(__name__)
 
@@ -533,6 +534,7 @@ async def get_comic_info(
 # ============================================================================
 
 @router.get("/{library_id}/comic/{comic_id}/cover")
+@handle_file_operation("Failed to retrieve cover image")
 async def get_comic_cover(
     library_id: int,
     comic_id: int,
@@ -566,7 +568,7 @@ async def get_comic_cover(
         # Try to get best cover (custom or auto)
         cover = get_best_cover(session, comic_id)
 
-    if cover and Path(cover.jpeg_path).exists():
+    if cover and safe_path_exists(Path(cover.jpeg_path), "cover from database"):
         # Use cover from database
         return FileResponse(
             cover.jpeg_path,
@@ -582,7 +584,7 @@ async def get_comic_cover(
         subdir = comic_hash[:2]
         # Try WebP first
         webp_path = covers_dir / subdir / f"{comic_hash}.webp"
-        if webp_path.exists():
+        if safe_path_exists(webp_path, "hierarchical WebP cover"):
             return FileResponse(
                 webp_path,
                 media_type="image/webp",
@@ -590,7 +592,7 @@ async def get_comic_cover(
             )
         # Try JPEG
         jpeg_path = covers_dir / subdir / f"{comic_hash}.jpg"
-        if jpeg_path.exists():
+        if safe_path_exists(jpeg_path, "hierarchical JPEG cover"):
             return FileResponse(
                 jpeg_path,
                 media_type="image/jpeg",
@@ -599,7 +601,7 @@ async def get_comic_cover(
 
     # Try flat path as fallback
     cover_path = covers_dir / f"{comic_hash}.jpg"
-    if cover_path.exists():
+    if safe_path_exists(cover_path, "flat path cover"):
         return FileResponse(
             cover_path,
             media_type="image/jpeg",
@@ -695,6 +697,7 @@ async def set_custom_cover(
 # ============================================================================
 
 @router.get("/{library_id}/comic/{comic_id}/page/{page_num}")
+@handle_comic_archive_errors("Failed to extract comic page")
 async def get_comic_page(
     library_id: int,
     comic_id: int,

@@ -24,6 +24,7 @@ from ....database import (
     update_reading_progress,
 )
 from ...middleware import get_current_user_id, get_request_user
+from ...error_handling import handle_file_operation, handle_comic_archive_errors, safe_path_exists
 from ._shared import get_comic_display_name
 
 logger = logging.getLogger(__name__)
@@ -331,6 +332,7 @@ async def open_comic_remote_v2(
 # ============================================================================
 
 @router.get("/library/{library_id}/comic/{comic_id}/page/{page_num}")
+@handle_comic_archive_errors("Failed to extract comic page")
 async def get_comic_page_v2_nonremote(
     library_id: int,
     comic_id: int,
@@ -398,6 +400,7 @@ async def get_comic_page_v2_nonremote(
 
 
 @router.get("/library/{library_id}/comic/{comic_id}/page/{page_num}/remote")
+@handle_comic_archive_errors("Failed to extract comic page")
 async def get_comic_page_v2_remote(
     library_id: int,
     comic_id: int,
@@ -582,6 +585,7 @@ async def update_comic_progress_v2(
 # ============================================================================
 
 @router.get("/library/{library_id}/cover/{cover_path:path}")
+@handle_file_operation("Failed to retrieve cover image")
 async def get_cover_v2(
     library_id: int,
     cover_path: str,
@@ -615,7 +619,7 @@ async def get_cover_v2(
     # Get covers directory - uses hierarchical storage (first 2 chars as subdirectory)
     covers_dir = get_covers_dir(library_name)
     logger.debug(f"[COVER] Covers directory: {covers_dir}")
-    logger.debug(f"[COVER] Covers directory exists: {covers_dir.exists()}")
+    logger.debug(f"[COVER] Covers directory exists: {safe_path_exists(covers_dir, 'covers directory')}")
 
     # Try WebP first (better quality and smaller size)
     if len(hash_value) >= 2:
@@ -625,8 +629,11 @@ async def get_cover_v2(
         # Try hierarchical WebP path (covers/ab/abc123.webp)
         webp_file = covers_dir / subdir / f"{hash_value}.webp"
         logger.debug(f"[COVER] Checking WebP (hierarchical): {webp_file}")
-        if webp_file.exists():
-            logger.info(f"[COVER] Serving WebP cover (hierarchical): {webp_file}, size={webp_file.stat().st_size} bytes")
+        if safe_path_exists(webp_file, "hierarchical WebP cover"):
+            from ...error_handling import safe_file_stat
+            file_stat = safe_file_stat(webp_file, "hierarchical WebP cover")
+            size_info = f", size={file_stat.st_size} bytes" if file_stat else ""
+            logger.info(f"[COVER] Serving WebP cover (hierarchical): {webp_file}{size_info}")
             return FileResponse(
                 webp_file,
                 media_type="image/webp",
@@ -636,8 +643,11 @@ async def get_cover_v2(
         # Try hierarchical JPEG path (covers/ab/abc123.jpg)
         cover_file = covers_dir / subdir / cover_path
         logger.debug(f"[COVER] Checking JPEG (hierarchical): {cover_file}")
-        if cover_file.exists():
-            logger.info(f"[COVER] Serving JPEG cover (hierarchical): {cover_file}, size={cover_file.stat().st_size} bytes")
+        if safe_path_exists(cover_file, "hierarchical JPEG cover"):
+            from ...error_handling import safe_file_stat
+            file_stat = safe_file_stat(cover_file, "hierarchical JPEG cover")
+            size_info = f", size={file_stat.st_size} bytes" if file_stat else ""
+            logger.info(f"[COVER] Serving JPEG cover (hierarchical): {cover_file}{size_info}")
             return FileResponse(
                 cover_file,
                 media_type="image/jpeg",
@@ -648,8 +658,11 @@ async def get_cover_v2(
     # Try WebP first
     webp_file = covers_dir / f"{hash_value}.webp"
     logger.debug(f"[COVER] Checking WebP (flat): {webp_file}")
-    if webp_file.exists():
-        logger.info(f"[COVER] Serving WebP cover (flat): {webp_file}, size={webp_file.stat().st_size} bytes")
+    if safe_path_exists(webp_file, "flat WebP cover"):
+        from ...error_handling import safe_file_stat
+        file_stat = safe_file_stat(webp_file, "flat WebP cover")
+        size_info = f", size={file_stat.st_size} bytes" if file_stat else ""
+        logger.info(f"[COVER] Serving WebP cover (flat): {webp_file}{size_info}")
         return FileResponse(
             webp_file,
             media_type="image/webp",
@@ -659,8 +672,11 @@ async def get_cover_v2(
     # Try JPEG
     cover_file = covers_dir / cover_path
     logger.debug(f"[COVER] Checking JPEG (flat): {cover_file}")
-    if cover_file.exists():
-        logger.info(f"[COVER] Serving JPEG cover (flat): {cover_file}, size={cover_file.stat().st_size} bytes")
+    if safe_path_exists(cover_file, "flat JPEG cover"):
+        from ...error_handling import safe_file_stat
+        file_stat = safe_file_stat(cover_file, "flat JPEG cover")
+        size_info = f", size={file_stat.st_size} bytes" if file_stat else ""
+        logger.info(f"[COVER] Serving JPEG cover (flat): {cover_file}{size_info}")
         return FileResponse(
             cover_file,
             media_type="image/jpeg",
