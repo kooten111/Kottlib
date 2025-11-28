@@ -226,6 +226,26 @@ class Comic(Base):
         Index('idx_comics_library_folder', 'library_id', 'folder_id'),
         Index('idx_comics_file_modified', 'file_modified_at'),
         Index('idx_comics_library_count', 'library_id'),
+        # Search optimization indexes (for metadata search)
+        Index('idx_comics_writer', 'writer'),
+        Index('idx_comics_artist', 'artist'),
+        Index('idx_comics_penciller', 'penciller'),
+        Index('idx_comics_inker', 'inker'),
+        Index('idx_comics_colorist', 'colorist'),
+        Index('idx_comics_letterer', 'letterer'),
+        Index('idx_comics_cover_artist', 'cover_artist'),
+        Index('idx_comics_editor', 'editor'),
+        Index('idx_comics_genre', 'genre'),
+        Index('idx_comics_scanner_source', 'scanner_source'),
+        Index('idx_comics_story_arc', 'story_arc'),
+        Index('idx_comics_language', 'language_iso'),
+        Index('idx_comics_age_rating', 'age_rating'),
+        # Composite indexes for common search patterns
+        Index('idx_comics_library_writer', 'library_id', 'writer'),
+        Index('idx_comics_library_artist', 'library_id', 'artist'),
+        Index('idx_comics_library_genre', 'library_id', 'genre'),
+        Index('idx_comics_library_publisher', 'library_id', 'publisher'),
+        Index('idx_comics_library_year', 'library_id', 'year'),
     )
 
 
@@ -343,6 +363,18 @@ class Series(Base):
         # Performance indexes
         Index('idx_series_library_name', 'library_id', 'name'),
         Index('idx_series_year_start', 'year_start'),
+        # Search optimization indexes
+        Index('idx_series_writer', 'writer'),
+        Index('idx_series_artist', 'artist'),
+        Index('idx_series_genre', 'genre'),
+        Index('idx_series_publisher', 'publisher'),
+        Index('idx_series_status', 'status'),
+        Index('idx_series_scanner_source', 'scanner_source'),
+        # Composite indexes for common search patterns
+        Index('idx_series_library_writer', 'library_id', 'writer'),
+        Index('idx_series_library_artist', 'library_id', 'artist'),
+        Index('idx_series_library_genre', 'library_id', 'genre'),
+        Index('idx_series_library_publisher', 'library_id', 'publisher'),
     )
 
 
