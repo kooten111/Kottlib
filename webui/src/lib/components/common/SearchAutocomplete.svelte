@@ -1,9 +1,11 @@
 <script>
 	import { onMount, onDestroy } from 'svelte';
-	import { Search } from 'lucide-svelte';
+	import { Search, SlidersHorizontal } from 'lucide-svelte';
 	import { getLibraries } from '$lib/api/libraries';
 	import { searchComics } from '$lib/api/search';
 	import { getCoverUrl } from '$lib/api/comics';
+	import { showAdvancedSearch } from '$lib/stores/advancedSearch';
+	import AdvancedSearchModal from '$lib/components/search/AdvancedSearchModal.svelte';
 
 	export let placeholder = 'Search comics... (Ctrl+K)';
 	export let onSelect = null;
@@ -139,6 +141,17 @@
 		selectedIndex = -1;
 	}
 
+	function openAdvancedSearch() {
+		isOpen = false;
+		selectedIndex = -1;
+		showAdvancedSearch.set(true);
+	}
+
+	function handleAdvancedSearch(event) {
+		const { query } = event.detail;
+		window.location.href = `/search?q=${encodeURIComponent(query)}`;
+	}
+
 	function handleClickOutside(e) {
 		if (inputElement && !inputElement.contains(e.target) &&
 		    dropdownElement && !dropdownElement.contains(e.target)) {
@@ -255,9 +268,23 @@
 					See all results →
 				</button>
 			{/if}
+
+			<button class="search-advanced" on:click={openAdvancedSearch} type="button">
+				<SlidersHorizontal class="w-4 h-4" />
+				Advanced Search
+			</button>
 		</div>
 	{/if}
 </div>
+
+{#if $showAdvancedSearch}
+	<AdvancedSearchModal
+		libraryId={null}
+		initialQuery={searchQuery}
+		onClose={() => showAdvancedSearch.set(false)}
+		on:search={handleAdvancedSearch}
+	/>
+{/if}
 
 <style>
 	.search-container {
@@ -432,6 +459,27 @@
 	}
 
 	.search-see-all:hover {
+		background: rgba(255, 103, 64, 0.1);
+	}
+
+	.search-advanced {
+		width: 100%;
+		padding: 0.75rem;
+		background: transparent;
+		border: none;
+		border-top: 1px solid rgba(255, 255, 255, 0.1);
+		color: var(--color-accent);
+		font-size: 0.875rem;
+		font-weight: 500;
+		cursor: pointer;
+		transition: background 0.15s;
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		gap: 0.5rem;
+	}
+
+	.search-advanced:hover {
 		background: rgba(255, 103, 64, 0.1);
 	}
 
