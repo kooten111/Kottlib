@@ -324,9 +324,19 @@ def init_default_scanners():
         )
 
     if 'Comic Vine' in available:
+        # Use Metron as fallback for comics if available
+        fallback_scanners = ['Metron'] if 'Metron' in available else None
         manager.configure_library(
             'comics',
             primary_scanner='Comic Vine',
+            fallback_scanners=fallback_scanners,
+            fallback_threshold=0.7
+        )
+    elif 'Metron' in available:
+        # If Comic Vine is not available but Metron is, use Metron as primary
+        manager.configure_library(
+            'comics',
+            primary_scanner='Metron',
             fallback_scanners=None,
             fallback_threshold=0.7
         )
