@@ -14,7 +14,8 @@
 		RotateCw,
 		AlertCircle,
 		CheckCircle,
-		Globe
+		Globe,
+		Wrench
 	} from 'lucide-svelte';
 
 	let activeTab = 'appearance';
@@ -26,11 +27,18 @@
 	let successMessage = null;
 	let hasChanges = false;
 
+	// Maintenance tab state
+	let isReindexing = false;
+	let reindexMessage = null;
+	let reindexError = null;
+	let searchIndexStatus = null;
+
 	const tabs = [
 		{ id: 'appearance', label: 'Appearance', icon: Palette },
 		{ id: 'server', label: 'Server', icon: Server },
 		{ id: 'storage', label: 'Storage', icon: HardDrive },
-		{ id: 'features', label: 'Features', icon: ToggleLeft }
+		{ id: 'features', label: 'Features', icon: ToggleLeft },
+		{ id: 'maintenance', label: 'Maintenance', icon: Wrench }
 	];
 
 	const logLevels = ['debug', 'info', 'warning', 'error'];
@@ -110,6 +118,75 @@
 	function updateCorsOrigin(index, value) {
 		config.server.cors_origins[index] = value;
 		checkForChanges();
+	}
+
+	// Maintenance functions
+	async function loadSearchIndexStatus() {
+		try {
+			const response = await fetch('/api/v2/admin/search-index/status');
+			if (!response.ok) throw new Error('Failed to load search index status');
+			searchIndexStatus = await response.json();
+		} catch (err) {
+			console.error('Failed to load search index status:', err);
+			searchIndexStatus = { error: err.message };
+		}
+	}
+
+	async function runMigration() {
+		try {
+			isReindexing = true;
+			reindexError = null;
+			reindexMessage = null;
+
+			const response = await fetch('/api/v2/admin/migrate/search-indexes', {
+				method: 'POST'
+			});
+
+			if (!response.ok) throw new Error('Failed to run migration');
+
+			const result = await response.json();
+			reindexMessage = result.message;
+
+			// Reload status
+			await loadSearchIndexStatus();
+
+			isReindexing = false;
+		} catch (err) {
+			console.error('Migration failed:', err);
+			reindexError = err.message;
+			isReindexing = false;
+		}
+	}
+
+	async function reindexSearch() {
+		try {
+			isReindexing = true;
+			reindexError = null;
+			reindexMessage = null;
+
+			const response = await fetch('/api/v2/admin/reindex-search', {
+				method: 'POST'
+			});
+
+			if (!response.ok) throw new Error('Failed to start reindex');
+
+			const result = await response.json();
+			reindexMessage = result.message;
+
+			// Reload status after a delay
+			setTimeout(() => loadSearchIndexStatus(), 2000);
+
+			isReindexing = false;
+		} catch (err) {
+			console.error('Reindex failed:', err);
+			reindexError = err.message;
+			isReindexing = false;
+		}
+	}
+
+	// Load search index status when maintenance tab is opened
+	$: if (activeTab === 'maintenance' && searchIndexStatus === null) {
+		loadSearchIndexStatus();
 	}
 </script>
 
@@ -496,6 +573,125 @@
 										<span class="toggle-slider"></span>
 									</label>
 								</div>
+							</div>
+						</div>
+					</div>
+				{/if}
+
+				<!-- Maintenance Tab -->
+				{#if activeTab === 'maintenance'}
+					<div class="settings-section">
+						<div class="section-header-simple">
+							<h2 class="section-title">Search Index</h2>
+							<p class="section-description">
+								Manage the full-text search index for advanced metadata search
+							</p>
+						</div>
+						<div class="section-body">
+							{#if searchIndexStatus}
+								<div class="status-card">
+									{#if searchIndexStatus.error}
+										<div class="status-item error">
+											<AlertCircle class="w-5 h-5" />
+											<span>Error: {searchIndexStatus.error}</span>
+										</div>
+									{:else if searchIndexStatus.fts_enabled}
+										<div class="status-item {searchIndexStatus.index_complete ? 'success' : 'warning'}">
+											{#if searchIndexStatus.index_complete}
+												<CheckCircle class="w-5 h-5" />
+											{:else}
+												<AlertCircle class="w-5 h-5" />
+											{/if}
+											<div class="status-text">
+												<strong>{searchIndexStatus.message}</strong>
+												<p class="text-sm text-gray-400 mt-1">
+													{searchIndexStatus.comics_indexed} of {searchIndexStatus.total_comics} comics indexed
+												</p>
+											</div>
+										</div>
+									{:else}
+										<div class="status-item warning">
+											<AlertCircle class="w-5 h-5" />
+											<div class="status-text">
+												<strong>{searchIndexStatus.message}</strong>
+												<p class="text-sm text-gray-400 mt-1">
+													Run the migration to enable advanced search features
+												</p>
+											</div>
+										</div>
+									{/if}
+								</div>
+							{/if}
+
+							{#if reindexMessage}
+								<div class="alert alert-success">
+									<CheckCircle class="w-5 h-5" />
+									<span>{reindexMessage}</span>
+								</div>
+							{/if}
+
+							{#if reindexError}
+								<div class="alert alert-error">
+									<AlertCircle class="w-5 h-5" />
+									<span>{reindexError}</span>
+								</div>
+							{/if}
+
+							<div class="maintenance-actions">
+								{#if !searchIndexStatus?.fts_enabled}
+									<button
+										class="btn btn-primary"
+										on:click={runMigration}
+										disabled={isReindexing}
+									>
+										<Database class="w-4 h-4" />
+										{isReindexing ? 'Running...' : 'Initialize Search Index'}
+									</button>
+									<p class="form-hint">
+										This will create the full-text search index and populate it with your comics.
+										This is a one-time operation required for advanced search features.
+									</p>
+								{:else}
+									<button
+										class="btn btn-secondary"
+										on:click={reindexSearch}
+										disabled={isReindexing}
+									>
+										<RotateCw class="w-4 h-4 {isReindexing ? 'animate-spin' : ''}" />
+										{isReindexing ? 'Reindexing...' : 'Rebuild Search Index'}
+									</button>
+									<p class="form-hint">
+										Rebuild the search index from scratch. This may take several minutes for large libraries.
+										Use this if search results seem incomplete or incorrect.
+									</p>
+
+									<button
+										class="btn btn-secondary"
+										on:click={loadSearchIndexStatus}
+									>
+										<RotateCw class="w-4 h-4" />
+										Refresh Status
+									</button>
+								{/if}
+							</div>
+						</div>
+					</div>
+
+					<div class="settings-section">
+						<div class="section-header-simple">
+							<h2 class="section-title">About Search Index</h2>
+							<p class="section-description">How the advanced search works</p>
+						</div>
+						<div class="section-body">
+							<div class="info-box">
+								<h3 class="text-lg font-semibold text-white mb-2">What does this do?</h3>
+								<ul class="space-y-2 text-gray-300">
+									<li>• Creates a full-text search index for fast metadata queries</li>
+									<li>• Indexes all comic metadata fields (title, writer, artist, genre, etc.)</li>
+									<li>• Indexes dynamic scanner-specific metadata (parodies, circles, etc.)</li>
+									<li>• Enables field-specific searches like "writer:Stan Lee"</li>
+									<li>• Automatically stays in sync as you add or update comics</li>
+								</ul>
 							</div>
 						</div>
 					</div>
@@ -942,6 +1138,79 @@
 		to {
 			transform: rotate(360deg);
 		}
+	}
+
+	/* Maintenance tab styles */
+	.status-card {
+		background: rgba(255, 255, 255, 0.05);
+		border: 1px solid rgba(255, 255, 255, 0.1);
+		border-radius: 8px;
+		padding: 1rem;
+		margin-bottom: 1.5rem;
+	}
+
+	.status-item {
+		display: flex;
+		align-items: flex-start;
+		gap: 0.75rem;
+		padding: 0.5rem;
+		border-radius: 6px;
+	}
+
+	.status-item.success {
+		background: rgba(34, 197, 94, 0.1);
+		border: 1px solid rgba(34, 197, 94, 0.3);
+		color: #86efac;
+	}
+
+	.status-item.warning {
+		background: rgba(251, 146, 60, 0.1);
+		border: 1px solid rgba(251, 146, 60, 0.3);
+		color: #fdba74;
+	}
+
+	.status-item.error {
+		background: rgba(239, 68, 68, 0.1);
+		border: 1px solid rgba(239, 68, 68, 0.3);
+		color: #fca5a5;
+	}
+
+	.status-text {
+		flex: 1;
+	}
+
+	.maintenance-actions {
+		display: flex;
+		flex-direction: column;
+		gap: 1rem;
+	}
+
+	.alert {
+		display: flex;
+		align-items: center;
+		gap: 0.75rem;
+		padding: 1rem;
+		border-radius: 6px;
+		margin-bottom: 1rem;
+	}
+
+	.alert-success {
+		background: rgba(34, 197, 94, 0.1);
+		border: 1px solid rgba(34, 197, 94, 0.3);
+		color: #86efac;
+	}
+
+	.alert-error {
+		background: rgba(239, 68, 68, 0.1);
+		border: 1px solid rgba(239, 68, 68, 0.3);
+		color: #fca5a5;
+	}
+
+	.info-box {
+		background: rgba(59, 130, 246, 0.1);
+		border: 1px solid rgba(59, 130, 246, 0.3);
+		border-radius: 8px;
+		padding: 1.5rem;
 	}
 
 	@media (max-width: 768px) {
