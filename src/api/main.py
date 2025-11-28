@@ -160,7 +160,7 @@ async def server_info():
 # API Routers
 # ============================================================================
 
-from .routers import legacy_v1, scanners, libraries, user_interactions
+from .routers import legacy_v1, scanners, libraries, user_interactions, config as config_router
 from .routers import v2 as api_v2
 
 # Legacy API v1 (YACReader compatible - plain text format)
@@ -175,8 +175,9 @@ app.include_router(libraries.router, prefix="/api/v1/libraries", tags=["Librarie
 # Scanner API (Metadata scanning) - Part of v2 enhanced API
 app.include_router(scanners.router, prefix="/v2", tags=["Scanners"])
 
-# User Interactions API (New features)
+# Modern API v2 (New features)
 app.include_router(user_interactions.router, prefix="/api/v2", tags=["User Interactions"])
+app.include_router(config_router.router, prefix="/api/v2", tags=["Configuration"])
 
 # Note: Comics and reading endpoints are already included in the v2 router above
 # (see src/api/routers/v2/__init__.py which aggregates comics.router and reading.router)

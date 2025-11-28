@@ -8,9 +8,7 @@
 	let libraries = [];
 	let stats = {
 		totalComics: 0,
-		totalLibraries: 0,
-		storageUsed: 0,
-		recentActivity: []
+		totalLibraries: 0
 	};
 	let isLoading = true;
 	let error = null;
@@ -28,15 +26,8 @@
 			libraries = await getLibraries();
 			stats.totalLibraries = libraries.length;
 
-			// Calculate total comics (would need API endpoint)
+			// Calculate total comics
 			stats.totalComics = libraries.reduce((sum, lib) => sum + (lib.comicsCount || 0), 0);
-
-			// TODO: Load actual storage and activity data from API
-			stats.storageUsed = 0;
-			stats.recentActivity = [
-				{ type: 'scan', message: 'Library scan completed', time: new Date() },
-				{ type: 'read', message: 'User started reading comic #42', time: new Date(Date.now() - 3600000) }
-			];
 
 			isLoading = false;
 		} catch (err) {
@@ -46,24 +37,6 @@
 		}
 	}
 
-	function formatBytes(bytes) {
-		if (bytes === 0) return '0 Bytes';
-		const k = 1024;
-		const sizes = ['Bytes', 'KB', 'MB', 'GB', 'TB'];
-		const i = Math.floor(Math.log(bytes) / Math.log(k));
-		return Math.round(bytes / Math.pow(k, i) * 100) / 100 + ' ' + sizes[i];
-	}
-
-	function formatRelativeTime(date) {
-		const seconds = Math.floor((new Date() - date) / 1000);
-		if (seconds < 60) return 'just now';
-		const minutes = Math.floor(seconds / 60);
-		if (minutes < 60) return `${minutes}m ago`;
-		const hours = Math.floor(minutes / 60);
-		if (hours < 24) return `${hours}h ago`;
-		const days = Math.floor(hours / 24);
-		return `${days}d ago`;
-	}
 </script>
 
 <svelte:head>
@@ -121,83 +94,33 @@
 						<p class="stat-value">{stats.totalLibraries}</p>
 					</div>
 				</div>
-
-				<!-- Storage Used -->
-				<div class="stat-card">
-					<div class="stat-icon">
-						<HardDrive class="w-6 h-6 text-green-400" />
-					</div>
-					<div class="stat-content">
-						<p class="stat-label">Storage Used</p>
-						<p class="stat-value">{formatBytes(stats.storageUsed)}</p>
-					</div>
-				</div>
-
-				<!-- Active Users -->
-				<div class="stat-card">
-					<div class="stat-icon">
-						<Users class="w-6 h-6 text-purple-400" />
-					</div>
-					<div class="stat-content">
-						<p class="stat-label">Active Users</p>
-						<p class="stat-value">1</p>
-					</div>
-				</div>
 			</div>
 
-			<!-- Main Content Grid -->
-			<div class="content-grid">
-				<!-- Libraries Section -->
-				<div class="section-card">
-					<div class="section-header">
-						<h2 class="section-title">
-							<Database class="w-5 h-5" />
-							Libraries
-						</h2>
-						<a href="/admin/libraries" class="see-all">Manage →</a>
-					</div>
-					<div class="libraries-list">
-						{#if libraries.length > 0}
-							{#each libraries as library}
-								<div class="library-item">
-									<div class="library-info">
-										<p class="library-name">{library.name}</p>
-										<p class="library-path">{library.path || 'No path'}</p>
-									</div>
-									<div class="library-stats">
-										<span class="stat-badge">{library.comicsCount || 0} comics</span>
-									</div>
-								</div>
-							{/each}
-						{:else}
-							<p class="text-gray-400 text-sm">No libraries configured</p>
-						{/if}
-					</div>
+			<!-- Libraries Section -->
+			<div class="section-card mb-6">
+				<div class="section-header">
+					<h2 class="section-title">
+						<Database class="w-5 h-5" />
+						Libraries
+					</h2>
+					<a href="/admin/libraries" class="see-all">Manage →</a>
 				</div>
-
-				<!-- Recent Activity -->
-				<div class="section-card">
-					<div class="section-header">
-						<h2 class="section-title">
-							<Activity class="w-5 h-5" />
-							Recent Activity
-						</h2>
-					</div>
-					<div class="activity-list">
-						{#if stats.recentActivity.length > 0}
-							{#each stats.recentActivity as activity}
-								<div class="activity-item">
-									<div class="activity-dot" />
-									<div class="activity-content">
-										<p class="activity-message">{activity.message}</p>
-										<p class="activity-time">{formatRelativeTime(activity.time)}</p>
-									</div>
+				<div class="libraries-list">
+					{#if libraries.length > 0}
+						{#each libraries as library}
+							<div class="library-item">
+								<div class="library-info">
+									<p class="library-name">{library.name}</p>
+									<p class="library-path">{library.path || 'No path'}</p>
 								</div>
-							{/each}
-						{:else}
-							<p class="text-gray-400 text-sm">No recent activity</p>
-						{/if}
-					</div>
+								<div class="library-stats">
+									<span class="stat-badge">{library.comicsCount || 0} comics</span>
+								</div>
+							</div>
+						{/each}
+					{:else}
+						<p class="text-gray-400 text-sm">No libraries configured</p>
+					{/if}
 				</div>
 			</div>
 
@@ -217,14 +140,6 @@
 						<Settings class="w-8 h-8 text-green-400" />
 						<span>Server Settings</span>
 					</a>
-					<button class="action-card" on:click={() => alert('Feature coming soon')}>
-						<Activity class="w-8 h-8 text-purple-400" />
-						<span>View Logs</span>
-					</button>
-					<button class="action-card" on:click={() => alert('Feature coming soon')}>
-						<Users class="w-8 h-8 text-pink-400" />
-						<span>Manage Users</span>
-					</button>
 				</div>
 			</div>
 		{/if}
