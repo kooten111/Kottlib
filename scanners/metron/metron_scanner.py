@@ -53,6 +53,20 @@ logger = logging.getLogger(__name__)
 
 
 # ============================================================================
+# Constants
+# ============================================================================
+
+# Confidence scoring constants
+YEAR_MATCH_CONFIDENCE_BOOST = 0.1
+SUBSTRING_MATCH_CONFIDENCE = 0.9
+EXACT_MATCH_CONFIDENCE = 1.0
+MAX_CONFIDENCE = 1.0
+
+# User-Agent for API requests
+USER_AGENT = 'YACLib-Enhanced (Compatible; MetronScanner)'
+
+
+# ============================================================================
 # Metron API Client
 # ============================================================================
 
@@ -88,7 +102,7 @@ class MetronAPI:
         self.last_request_time = 0
         self.session = requests.Session()
         self.session.headers.update({
-            'User-Agent': 'YACLib-Enhanced/1.0 (Compatible; MetronScanner)',
+            'User-Agent': USER_AGENT,
             'Accept': 'application/json',
         })
         # Set basic auth
@@ -255,11 +269,11 @@ def calculate_title_similarity(query: str, candidate: str) -> float:
 
     # Exact match
     if query_norm == candidate_norm:
-        return 1.0
+        return EXACT_MATCH_CONFIDENCE
 
     # Check if one contains the other
     if query_norm in candidate_norm or candidate_norm in query_norm:
-        return 0.9
+        return SUBSTRING_MATCH_CONFIDENCE
 
     return SequenceMatcher(None, query_norm, candidate_norm).ratio()
 
@@ -462,8 +476,8 @@ class MetronScanner(BaseScanner):
                 year_match = re.search(r'\b(19|20)\d{2}\b', query)
                 if year_match and series.get('year_began'):
                     if year_match.group(0) == str(series.get('year_began')):
-                        confidence += 0.1
-                        confidence = min(1.0, confidence)
+                        confidence += YEAR_MATCH_CONFIDENCE_BOOST
+                        confidence = min(MAX_CONFIDENCE, confidence)
 
                 if confidence >= confidence_threshold:
                     scan_result = self._build_result(series, confidence)
