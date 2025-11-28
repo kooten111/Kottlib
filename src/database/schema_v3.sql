@@ -142,7 +142,7 @@ CREATE TABLE comics (
     -- ========================================================================
     -- This stores scanner-specific fields that don't map to standard columns
     -- Examples:
-    --   Manga: {"circle": "X", "parody": "Y", "doujinshi": true}
+    --   Manga: {"circle": "X", "parody": "Y"}
     --   Papers: {"doi": "10.xxx", "abstract": "...", "citations": 42}
     --   Comics: {"variant_cover": "A", "printing": "2nd", "condition": "NM"}
     metadata_json TEXT,

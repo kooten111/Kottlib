@@ -8,7 +8,7 @@ A pluggable metadata scanner framework for different library types.
 scanners/
 ├── base_scanner.py          # Base classes and interfaces
 ├── scanner_manager.py       # Central registry and orchestrator
-├── nhentai/                 # nhentai scanner (doujinshi)
+├── nhentai/                 # nhentai scanner
 │   ├── nhentai_scanner.py
 │   └── __init__.py
 ├── AniList/                 # AniList scanner (manga) [TODO]
@@ -35,7 +35,7 @@ from scanners import init_default_scanners
 manager = init_default_scanners()
 
 # Scan a file
-result, candidates = manager.scan('doujinshi', 'comic_filename.cbz')
+result, candidates = manager.scan('file_type', 'comic_filename.cbz')
 
 if result:
     print(f"Title: {result.metadata['title']}")
@@ -64,9 +64,9 @@ from scanners import ScannerManager, NhentaiScanner
 manager = ScannerManager()
 manager.register_scanner_class(NhentaiScanner)
 
-# Configure for doujinshi library
+# Configure for file_type library
 manager.configure_library(
-    'doujinshi',
+    'file_type',
     primary_scanner='nhentai',
     fallback_scanners=None,
     scanner_configs={
@@ -78,13 +78,13 @@ manager.configure_library(
 )
 
 # Scan
-result, _ = manager.scan('doujinshi', 'file.cbz')
+result, _ = manager.scan('individual releases', 'file.cbz')
 ```
 
 ## Scanner Types
 
 ### File-Level Scanners
-Operate on individual files (doujinshi):
+Operate on individual files (individual releases):
 - **nhentai**: Extracts metadata per file using filename matching
 
 ### Series-Level Scanners
@@ -200,7 +200,7 @@ Future enhancement: Load scanner configuration from YAML/JSON:
 
 ```yaml
 libraries:
-  doujinshi:
+  individual releases:
     primary: nhentai
     fallback: []
     config:

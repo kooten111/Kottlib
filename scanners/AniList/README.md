@@ -64,7 +64,7 @@ python scanners/AniList/anilist_scanner.py "Vagabond" --json
 
 | Scanner | Scan Level | UI Behavior | Best For |
 |---------|-----------|-------------|----------|
-| **nhentai** | FILE | Scan individual files/volumes | Doujinshi, single releases |
+| **nhentai** | FILE | Scan individual files/volumes | Single releases |
 | **AniList** | SERIES | Scan entire series | Manga, light novels |
 
 When browsing a library:

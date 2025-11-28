@@ -37,6 +37,10 @@ export default defineConfig({
 		host: '0.0.0.0', // Listen on all network interfaces
 		port: 5173,
 		proxy: {
+			'/api': {
+				target: 'http://localhost:8081',
+				changeOrigin: true
+			},
 			'/v2': {
 				target: 'http://localhost:8081',
 				changeOrigin: true

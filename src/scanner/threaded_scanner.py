@@ -675,7 +675,7 @@ class ThreadedScanner:
                 metadata['title'] = info.title
             
             # Check if we should ignore series metadata
-            ignore_series_metadata = False
+            ignore_series_metadata = True
             try:
                 ignore_series_metadata = get_config().features.ignore_series_metadata
             except Exception:
@@ -726,7 +726,22 @@ class ThreadedScanner:
             if info.publisher:
                 metadata['publisher'] = info.publisher
             if info.genre:
-                metadata['genre'] = info.genre
+                # Validate genre before setting - filter out nonsensical values
+                genre_lower = info.genre.lower()
+                # Blacklist of invalid genre terms (building names, library types, random text)
+                invalid_genres = [
+                    'mitsuwa building',  # Building names
+                    'building',
+                    'comic',  # Too generic
+                    'manga',  # Library type
+                ]
+                
+                # Only set genre if it's not in the blacklist
+                is_valid = not any(invalid in genre_lower for invalid in invalid_genres)
+                if is_valid and len(info.genre.strip()) > 0:
+                    metadata['genre'] = info.genre
+                elif not is_valid:
+                    logger.debug(f"Filtered out invalid genre: {info.genre}")
             if info.language_iso:
                 metadata['language_iso'] = info.language_iso
             if info.age_rating:

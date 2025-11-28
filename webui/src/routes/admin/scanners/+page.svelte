@@ -1328,39 +1328,70 @@
 
 							<!-- Basic Options (non-advanced) -->
 							<div class="space-y-4 mb-4">
-								{#each scanner.config_schema.filter(opt => !opt.advanced) as option}
+								{#each scanner.config_schema.filter((opt) => !opt.advanced) as option}
 									<ConfigInput
 										{option}
-										value={configForm.scanner_configs?.[configForm.primary_scanner]?.[option.key]}
+										value={configForm.scanner_configs?.[
+											configForm.primary_scanner
+										]?.[option.key]}
 										onChange={(newValue) => {
 											if (!configForm.scanner_configs)
 												configForm.scanner_configs = {};
-											if (!configForm.scanner_configs[configForm.primary_scanner])
-												configForm.scanner_configs[configForm.primary_scanner] = {};
-											configForm.scanner_configs[configForm.primary_scanner][option.key] = newValue;
+											if (
+												!configForm.scanner_configs[
+													configForm.primary_scanner
+												]
+											)
+												configForm.scanner_configs[
+													configForm.primary_scanner
+												] = {};
+											configForm.scanner_configs[
+												configForm.primary_scanner
+											][option.key] = newValue;
 										}}
 									/>
 								{/each}
 							</div>
 
 							<!-- Advanced Options (collapsible) -->
-							{@const advancedOptions = scanner.config_schema.filter(opt => opt.advanced)}
-							{#if advancedOptions.length > 0}
+							{#if scanner.config_schema.filter((opt) => opt.advanced).length > 0}
+								{@const advancedOptions =
+									scanner.config_schema.filter(
+										(opt) => opt.advanced,
+									)}
 								<details class="border-t border-gray-700 pt-4">
-									<summary class="cursor-pointer text-sm font-medium text-dark-text-secondary mb-3 hover:text-dark-text transition-colors">
+									<summary
+										class="cursor-pointer text-sm font-medium text-dark-text-secondary mb-3 hover:text-dark-text transition-colors"
+									>
 										Advanced Options ({advancedOptions.length})
 									</summary>
 									<div class="space-y-4 mt-4">
 										{#each advancedOptions as option}
 											<ConfigInput
 												{option}
-												value={configForm.scanner_configs?.[configForm.primary_scanner]?.[option.key]}
+												value={configForm
+													.scanner_configs?.[
+													configForm.primary_scanner
+												]?.[option.key]}
 												onChange={(newValue) => {
-													if (!configForm.scanner_configs)
-														configForm.scanner_configs = {};
-													if (!configForm.scanner_configs[configForm.primary_scanner])
-														configForm.scanner_configs[configForm.primary_scanner] = {};
-													configForm.scanner_configs[configForm.primary_scanner][option.key] = newValue;
+													if (
+														!configForm.scanner_configs
+													)
+														configForm.scanner_configs =
+															{};
+													if (
+														!configForm
+															.scanner_configs[
+															configForm
+																.primary_scanner
+														]
+													)
+														configForm.scanner_configs[
+															configForm.primary_scanner
+														] = {};
+													configForm.scanner_configs[
+														configForm.primary_scanner
+													][option.key] = newValue;
 												}}
 											/>
 										{/each}

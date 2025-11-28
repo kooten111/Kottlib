@@ -13,7 +13,7 @@ from .base_scanner import MatchConfidence
 
 
 def demo_nhentai_scanner():
-    """Demo the nhentai scanner for doujinshi"""
+    """Demo the nhentai scanner"""
     print("="*80)
     print("DEMO: nhentai Scanner (File-level)")
     print("="*80)
@@ -34,7 +34,7 @@ def demo_nhentai_scanner():
         print("-" * 80)
 
         # Scan using manager
-        result, candidates = manager.scan('doujinshi', filename)
+        result, candidates = manager.scan('nhentai', filename)
 
         if result:
             confidence_emoji = {

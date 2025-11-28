@@ -88,10 +88,10 @@ class SearchIndexManager:
         Extract and flatten metadata_json into searchable text
 
         Converts JSON like:
-        {"parodies": ["touhou"], "artists": ["zun"], "tags": ["doujinshi"]}
+        {"parodies": ["touhou"], "artists": ["zun"], "tags": ["fantasy"]}
 
         Into searchable text:
-        "parodies:touhou artists:zun tags:doujinshi"
+        "parodies:touhou artists:zun tags:fantasy"
 
         This allows searching for "parodies:touhou" or just "touhou"
         """

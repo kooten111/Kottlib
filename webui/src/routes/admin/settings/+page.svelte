@@ -1,8 +1,8 @@
 <script>
-	import { onMount } from 'svelte';
-	import Navbar from '$lib/components/layout/Navbar.svelte';
-	import ThemeSelector from '$lib/components/settings/ThemeSelector.svelte';
-	import { getConfig, updateConfig } from '$lib/api/config';
+	import { onMount } from "svelte";
+	import Navbar from "$lib/components/layout/Navbar.svelte";
+	import ThemeSelector from "$lib/components/settings/ThemeSelector.svelte";
+	import { getConfig, updateConfig } from "$lib/api/config";
 	import {
 		Settings,
 		Palette,
@@ -15,10 +15,10 @@
 		AlertCircle,
 		CheckCircle,
 		Globe,
-		Wrench
-	} from 'lucide-svelte';
+		Wrench,
+	} from "lucide-svelte";
 
-	let activeTab = 'appearance';
+	let activeTab = "appearance";
 	let config = null;
 	let originalConfig = null;
 	let isLoading = true;
@@ -34,14 +34,14 @@
 	let searchIndexStatus = null;
 
 	const tabs = [
-		{ id: 'appearance', label: 'Appearance', icon: Palette },
-		{ id: 'server', label: 'Server', icon: Server },
-		{ id: 'storage', label: 'Storage', icon: HardDrive },
-		{ id: 'features', label: 'Features', icon: ToggleLeft },
-		{ id: 'maintenance', label: 'Maintenance', icon: Wrench }
+		{ id: "appearance", label: "Appearance", icon: Palette },
+		{ id: "server", label: "Server", icon: Server },
+		{ id: "storage", label: "Storage", icon: HardDrive },
+		{ id: "features", label: "Features", icon: ToggleLeft },
+		{ id: "maintenance", label: "Maintenance", icon: Wrench },
 	];
 
-	const logLevels = ['debug', 'info', 'warning', 'error'];
+	const logLevels = ["debug", "info", "warning", "error"];
 
 	onMount(async () => {
 		await loadConfig();
@@ -57,7 +57,7 @@
 			hasChanges = false;
 			isLoading = false;
 		} catch (err) {
-			console.error('Failed to load config:', err);
+			console.error("Failed to load config:", err);
 			error = err.message;
 			isLoading = false;
 		}
@@ -77,14 +77,15 @@
 				server: config.server,
 				database: config.database,
 				storage: config.storage,
-				features: config.features
+				features: config.features,
 			};
 
 			const result = await updateConfig(updatePayload);
 			successMessage = result.message;
 
 			if (result.restart_required) {
-				successMessage += ' Note: Server restart required for some changes to take effect.';
+				successMessage +=
+					" Note: Server restart required for some changes to take effect.";
 			}
 
 			// Reload to get the saved state
@@ -92,7 +93,7 @@
 
 			isSaving = false;
 		} catch (err) {
-			console.error('Failed to save config:', err);
+			console.error("Failed to save config:", err);
 			error = err.message;
 			isSaving = false;
 		}
@@ -106,12 +107,14 @@
 	}
 
 	function addCorsOrigin() {
-		config.server.cors_origins = [...config.server.cors_origins, ''];
+		config.server.cors_origins = [...config.server.cors_origins, ""];
 		checkForChanges();
 	}
 
 	function removeCorsOrigin(index) {
-		config.server.cors_origins = config.server.cors_origins.filter((_, i) => i !== index);
+		config.server.cors_origins = config.server.cors_origins.filter(
+			(_, i) => i !== index,
+		);
 		checkForChanges();
 	}
 
@@ -123,11 +126,12 @@
 	// Maintenance functions
 	async function loadSearchIndexStatus() {
 		try {
-			const response = await fetch('/api/v2/admin/search-index/status');
-			if (!response.ok) throw new Error('Failed to load search index status');
+			const response = await fetch("/v2/admin/search-index/status");
+			if (!response.ok)
+				throw new Error("Failed to load search index status");
 			searchIndexStatus = await response.json();
 		} catch (err) {
-			console.error('Failed to load search index status:', err);
+			console.error("Failed to load search index status:", err);
 			searchIndexStatus = { error: err.message };
 		}
 	}
@@ -138,11 +142,11 @@
 			reindexError = null;
 			reindexMessage = null;
 
-			const response = await fetch('/api/v2/admin/migrate/search-indexes', {
-				method: 'POST'
+			const response = await fetch("/v2/admin/migrate/search-indexes", {
+				method: "POST",
 			});
 
-			if (!response.ok) throw new Error('Failed to run migration');
+			if (!response.ok) throw new Error("Failed to run migration");
 
 			const result = await response.json();
 			reindexMessage = result.message;
@@ -152,7 +156,7 @@
 
 			isReindexing = false;
 		} catch (err) {
-			console.error('Migration failed:', err);
+			console.error("Migration failed:", err);
 			reindexError = err.message;
 			isReindexing = false;
 		}
@@ -164,11 +168,11 @@
 			reindexError = null;
 			reindexMessage = null;
 
-			const response = await fetch('/api/v2/admin/reindex-search', {
-				method: 'POST'
+			const response = await fetch("/v2/admin/reindex-search", {
+				method: "POST",
 			});
 
-			if (!response.ok) throw new Error('Failed to start reindex');
+			if (!response.ok) throw new Error("Failed to start reindex");
 
 			const result = await response.json();
 			reindexMessage = result.message;
@@ -178,14 +182,14 @@
 
 			isReindexing = false;
 		} catch (err) {
-			console.error('Reindex failed:', err);
+			console.error("Reindex failed:", err);
 			reindexError = err.message;
 			isReindexing = false;
 		}
 	}
 
 	// Load search index status when maintenance tab is opened
-	$: if (activeTab === 'maintenance' && searchIndexStatus === null) {
+	$: if (activeTab === "maintenance" && searchIndexStatus === null) {
 		loadSearchIndexStatus();
 	}
 </script>
@@ -206,17 +210,27 @@
 				</div>
 				<div>
 					<h1 class="page-title">Server Settings</h1>
-					<p class="page-subtitle">Configure your YACLib server and preferences</p>
+					<p class="page-subtitle">
+						Configure your YACLib server and preferences
+					</p>
 				</div>
 			</div>
 
 			{#if hasChanges}
 				<div class="action-buttons">
-					<button class="btn-secondary" on:click={resetChanges} disabled={isSaving}>
+					<button
+						class="btn-secondary"
+						on:click={resetChanges}
+						disabled={isSaving}
+					>
 						<RotateCw class="w-4 h-4" />
 						Reset
 					</button>
-					<button class="btn-primary" on:click={saveConfig} disabled={isSaving}>
+					<button
+						class="btn-primary"
+						on:click={saveConfig}
+						disabled={isSaving}
+					>
 						{#if isSaving}
 							<div class="spinner-small" />
 							Saving...
@@ -266,11 +280,13 @@
 			<!-- Tab Content -->
 			<div class="tab-content">
 				<!-- Appearance Tab -->
-				{#if activeTab === 'appearance'}
+				{#if activeTab === "appearance"}
 					<div class="settings-section">
 						<div class="section-header-simple">
 							<h2 class="section-title">Theme</h2>
-							<p class="section-description">Choose your preferred color theme</p>
+							<p class="section-description">
+								Choose your preferred color theme
+							</p>
 						</div>
 						<div class="section-body">
 							<ThemeSelector />
@@ -279,13 +295,14 @@
 				{/if}
 
 				<!-- Server Tab -->
-				{#if activeTab === 'server'}
+				{#if activeTab === "server"}
 					<div class="settings-section">
 						<div class="section-header-simple">
 							<h2 class="section-title">Server Configuration</h2>
 							<p class="section-description">
-								Configure server host, port, and logging settings. Changes to host/port require a
-								server restart.
+								Configure server host, port, and logging
+								settings. Changes to host/port require a server
+								restart.
 							</p>
 						</div>
 						<div class="section-body">
@@ -300,7 +317,8 @@
 										placeholder="0.0.0.0"
 									/>
 									<p class="form-hint">
-										Server host address (0.0.0.0 = all interfaces, 127.0.0.1 = local only)
+										Server host address (0.0.0.0 = all
+										interfaces, 127.0.0.1 = local only)
 									</p>
 								</div>
 
@@ -315,45 +333,74 @@
 										on:input={checkForChanges}
 										placeholder="8081"
 									/>
-									<p class="form-hint">Server port number (1-65535)</p>
+									<p class="form-hint">
+										Server port number (1-65535)
+									</p>
 								</div>
 
 								<div class="form-group">
 									<label for="log_level">Log Level</label>
-									<select id="log_level" bind:value={config.server.log_level} on:change={checkForChanges}>
+									<select
+										id="log_level"
+										bind:value={config.server.log_level}
+										on:change={checkForChanges}
+									>
 										{#each logLevels as level}
-											<option value={level}>{level.charAt(0).toUpperCase() + level.slice(1)}</option>
+											<option value={level}
+												>{level
+													.charAt(0)
+													.toUpperCase() +
+													level.slice(1)}</option
+											>
 										{/each}
 									</select>
-									<p class="form-hint">Logging verbosity (debug = most verbose, error = least)</p>
+									<p class="form-hint">
+										Logging verbosity (debug = most verbose,
+										error = least)
+									</p>
 								</div>
 
 								<div class="form-group full-width">
 									<div class="form-group-header">
 										<label>CORS Origins</label>
-										<button class="btn-sm" on:click={addCorsOrigin}>
+										<button
+											class="btn-sm"
+											on:click={addCorsOrigin}
+										>
 											<span class="text-lg">+</span> Add Origin
 										</button>
 									</div>
 									<div class="cors-list">
 										{#each config.server.cors_origins as origin, index}
 											<div class="cors-item">
-												<Globe class="w-4 h-4 text-gray-400" />
+												<Globe
+													class="w-4 h-4 text-gray-400"
+												/>
 												<input
 													type="text"
 													value={origin}
-													on:input={(e) => updateCorsOrigin(index, e.target.value)}
+													on:input={(e) =>
+														updateCorsOrigin(
+															index,
+															e.target.value,
+														)}
 													placeholder="https://example.com or *"
 												/>
-												<button class="btn-icon-danger" on:click={() => removeCorsOrigin(index)}>
+												<button
+													class="btn-icon-danger"
+													on:click={() =>
+														removeCorsOrigin(index)}
+												>
 													×
 												</button>
 											</div>
 										{/each}
 									</div>
 									<p class="form-hint">
-										Allowed origins for Cross-Origin Resource Sharing. Use * to allow all origins
-										(not recommended for production).
+										Allowed origins for Cross-Origin
+										Resource Sharing. Use * to allow all
+										origins (not recommended for
+										production).
 									</p>
 								</div>
 
@@ -364,9 +411,15 @@
 											bind:checked={config.server.reload}
 											on:change={checkForChanges}
 										/>
-										<span>Enable auto-reload (development only)</span>
+										<span
+											>Enable auto-reload (development
+											only)</span
+										>
 									</label>
-									<p class="form-hint">Automatically reload server on code changes (development mode)</p>
+									<p class="form-hint">
+										Automatically reload server on code
+										changes (development mode)
+									</p>
 								</div>
 							</div>
 						</div>
@@ -374,18 +427,21 @@
 				{/if}
 
 				<!-- Storage Tab -->
-				{#if activeTab === 'storage'}
+				{#if activeTab === "storage"}
 					<div class="settings-section">
 						<div class="section-header-simple">
 							<h2 class="section-title">Storage Paths</h2>
 							<p class="section-description">
-								Configure storage directories for covers and cache. Leave empty for auto-detection.
+								Configure storage directories for covers and
+								cache. Leave empty for auto-detection.
 							</p>
 						</div>
 						<div class="section-body">
 							<div class="form-grid">
 								<div class="form-group full-width">
-									<label for="covers_dir">Covers Directory</label>
+									<label for="covers_dir"
+										>Covers Directory</label
+									>
 									<input
 										id="covers_dir"
 										type="text"
@@ -394,13 +450,16 @@
 										placeholder="Auto-detect (same as database)"
 									/>
 									<p class="form-hint">
-										Directory for cover images. Each library has its own subdirectory. Leave empty
+										Directory for cover images. Each library
+										has its own subdirectory. Leave empty
 										for auto-detection.
 									</p>
 								</div>
 
 								<div class="form-group full-width">
-									<label for="cache_dir">Cache Directory</label>
+									<label for="cache_dir"
+										>Cache Directory</label
+									>
 									<input
 										id="cache_dir"
 										type="text"
@@ -409,7 +468,8 @@
 										placeholder="Not configured"
 									/>
 									<p class="form-hint">
-										Optional directory for temporary page cache. Leave empty to disable caching.
+										Optional directory for temporary page
+										cache. Leave empty to disable caching.
 									</p>
 								</div>
 							</div>
@@ -420,7 +480,8 @@
 						<div class="section-header-simple">
 							<h2 class="section-title">Database</h2>
 							<p class="section-description">
-								Database configuration. Changes require server restart.
+								Database configuration. Changes require server
+								restart.
 							</p>
 						</div>
 						<div class="section-body">
@@ -435,7 +496,8 @@
 										placeholder="Auto-detect platform default"
 									/>
 									<p class="form-hint">
-										Path to SQLite database file. Leave empty for platform-specific default
+										Path to SQLite database file. Leave
+										empty for platform-specific default
 										location.
 									</p>
 								</div>
@@ -449,7 +511,10 @@
 										/>
 										<span>Enable SQL query logging</span>
 									</label>
-									<p class="form-hint">Log all SQL queries (for debugging, may impact performance)</p>
+									<p class="form-hint">
+										Log all SQL queries (for debugging, may
+										impact performance)
+									</p>
 								</div>
 							</div>
 						</div>
@@ -457,25 +522,32 @@
 				{/if}
 
 				<!-- Features Tab -->
-				{#if activeTab === 'features'}
+				{#if activeTab === "features"}
 					<div class="settings-section">
 						<div class="section-header-simple">
 							<h2 class="section-title">Feature Flags</h2>
-							<p class="section-description">Enable or disable server features</p>
+							<p class="section-description">
+								Enable or disable server features
+							</p>
 						</div>
 						<div class="section-body">
 							<div class="features-grid">
 								<div class="feature-item">
 									<div class="feature-info">
-										<h3 class="feature-title">Legacy API</h3>
+										<h3 class="feature-title">
+											Legacy API
+										</h3>
 										<p class="feature-description">
-											YACReader-compatible legacy API (plain text format)
+											YACReader-compatible legacy API
+											(plain text format)
 										</p>
 									</div>
 									<label class="toggle">
 										<input
 											type="checkbox"
-											bind:checked={config.features.legacy_api}
+											bind:checked={
+												config.features.legacy_api
+											}
 											on:change={checkForChanges}
 										/>
 										<span class="toggle-slider"></span>
@@ -484,90 +556,131 @@
 
 								<div class="feature-item">
 									<div class="feature-info">
-										<h3 class="feature-title">Modern API</h3>
-										<p class="feature-description">Modern JSON REST API for web UI and apps</p>
-									</div>
-									<label class="toggle">
-										<input
-											type="checkbox"
-											bind:checked={config.features.modern_api}
-											on:change={checkForChanges}
-										/>
-										<span class="toggle-slider"></span>
-									</label>
-								</div>
-
-								<div class="feature-item">
-									<div class="feature-info">
-										<h3 class="feature-title">Reading Progress</h3>
-										<p class="feature-description">Track user reading progress and bookmarks</p>
-									</div>
-									<label class="toggle">
-										<input
-											type="checkbox"
-											bind:checked={config.features.reading_progress}
-											on:change={checkForChanges}
-										/>
-										<span class="toggle-slider"></span>
-									</label>
-								</div>
-
-								<div class="feature-item">
-									<div class="feature-info">
-										<h3 class="feature-title">Series Detection</h3>
-										<p class="feature-description">Automatically detect and group comic series</p>
-									</div>
-									<label class="toggle">
-										<input
-											type="checkbox"
-											bind:checked={config.features.series_detection}
-											on:change={checkForChanges}
-										/>
-										<span class="toggle-slider"></span>
-									</label>
-								</div>
-
-								<div class="feature-item">
-									<div class="feature-info">
-										<h3 class="feature-title">Collections</h3>
-										<p class="feature-description">Enable user collections and reading lists</p>
-									</div>
-									<label class="toggle">
-										<input
-											type="checkbox"
-											bind:checked={config.features.collections}
-											on:change={checkForChanges}
-										/>
-										<span class="toggle-slider"></span>
-									</label>
-								</div>
-
-								<div class="feature-item">
-									<div class="feature-info">
-										<h3 class="feature-title">Auto Thumbnails</h3>
-										<p class="feature-description">Automatically generate thumbnails during scan</p>
-									</div>
-									<label class="toggle">
-										<input
-											type="checkbox"
-											bind:checked={config.features.auto_thumbnails}
-											on:change={checkForChanges}
-										/>
-										<span class="toggle-slider"></span>
-									</label>
-								</div>
-
-								<div class="feature-item">
-									<div class="feature-info">
-										<h3 class="feature-title">Ignore Series Metadata</h3>
+										<h3 class="feature-title">
+											Modern API
+										</h3>
 										<p class="feature-description">
-											Ignore series metadata from comic files (use folder structure only)
+											Modern JSON REST API for web UI and
+											apps
 										</p>
 									</div>
 									<label class="toggle">
 										<input
 											type="checkbox"
-											bind:checked={config.features.ignore_series_metadata}
+											bind:checked={
+												config.features.modern_api
+											}
+											on:change={checkForChanges}
+										/>
+										<span class="toggle-slider"></span>
+									</label>
+								</div>
+
+								<div class="feature-item">
+									<div class="feature-info">
+										<h3 class="feature-title">
+											Reading Progress
+										</h3>
+										<p class="feature-description">
+											Track user reading progress and
+											bookmarks
+										</p>
+									</div>
+									<label class="toggle">
+										<input
+											type="checkbox"
+											bind:checked={
+												config.features.reading_progress
+											}
+											on:change={checkForChanges}
+										/>
+										<span class="toggle-slider"></span>
+									</label>
+								</div>
+
+								<div class="feature-item">
+									<div class="feature-info">
+										<h3 class="feature-title">
+											Series Detection
+										</h3>
+										<p class="feature-description">
+											Automatically detect and group comic
+											series
+										</p>
+									</div>
+									<label class="toggle">
+										<input
+											type="checkbox"
+											bind:checked={
+												config.features.series_detection
+											}
+											on:change={checkForChanges}
+										/>
+										<span class="toggle-slider"></span>
+									</label>
+								</div>
+
+								<div class="feature-item">
+									<div class="feature-info">
+										<h3 class="feature-title">
+											Collections
+										</h3>
+										<p class="feature-description">
+											Enable user collections and reading
+											lists
+										</p>
+									</div>
+									<label class="toggle">
+										<input
+											type="checkbox"
+											bind:checked={
+												config.features.collections
+											}
+											on:change={checkForChanges}
+										/>
+										<span class="toggle-slider"></span>
+									</label>
+								</div>
+
+								<div class="feature-item">
+									<div class="feature-info">
+										<h3 class="feature-title">
+											Auto Thumbnails
+										</h3>
+										<p class="feature-description">
+											Automatically generate thumbnails
+											during scan
+										</p>
+									</div>
+									<label class="toggle">
+										<input
+											type="checkbox"
+											bind:checked={
+												config.features.auto_thumbnails
+											}
+											on:change={checkForChanges}
+										/>
+										<span class="toggle-slider"></span>
+									</label>
+								</div>
+
+								<div class="feature-item">
+									<div class="feature-info">
+										<h3 class="feature-title">
+											Ignore Series Metadata
+										</h3>
+										<p class="feature-description">
+											Ignore series metadata from comic
+											files (use folder structure only)
+										</p>
+									</div>
+									<label class="toggle">
+										<input
+											type="checkbox"
+											bind:checked={
+												config.features
+													.ignore_series_metadata
+											}
 											on:change={checkForChanges}
 										/>
 										<span class="toggle-slider"></span>
@@ -579,12 +692,13 @@
 				{/if}
 
 				<!-- Maintenance Tab -->
-				{#if activeTab === 'maintenance'}
+				{#if activeTab === "maintenance"}
 					<div class="settings-section">
 						<div class="section-header-simple">
 							<h2 class="section-title">Search Index</h2>
 							<p class="section-description">
-								Manage the full-text search index for advanced metadata search
+								Manage the full-text search index for advanced
+								metadata search
 							</p>
 						</div>
 						<div class="section-body">
@@ -593,19 +707,31 @@
 									{#if searchIndexStatus.error}
 										<div class="status-item error">
 											<AlertCircle class="w-5 h-5" />
-											<span>Error: {searchIndexStatus.error}</span>
+											<span
+												>Error: {searchIndexStatus.error}</span
+											>
 										</div>
 									{:else if searchIndexStatus.fts_enabled}
-										<div class="status-item {searchIndexStatus.index_complete ? 'success' : 'warning'}">
+										<div
+											class="status-item {searchIndexStatus.index_complete
+												? 'success'
+												: 'warning'}"
+										>
 											{#if searchIndexStatus.index_complete}
 												<CheckCircle class="w-5 h-5" />
 											{:else}
 												<AlertCircle class="w-5 h-5" />
 											{/if}
 											<div class="status-text">
-												<strong>{searchIndexStatus.message}</strong>
-												<p class="text-sm text-gray-400 mt-1">
-													{searchIndexStatus.comics_indexed} of {searchIndexStatus.total_comics} comics indexed
+												<strong
+													>{searchIndexStatus.message}</strong
+												>
+												<p
+													class="text-sm text-gray-400 mt-1"
+												>
+													{searchIndexStatus.comics_indexed}
+													of {searchIndexStatus.total_comics}
+													comics indexed
 												</p>
 											</div>
 										</div>
@@ -613,9 +739,14 @@
 										<div class="status-item warning">
 											<AlertCircle class="w-5 h-5" />
 											<div class="status-text">
-												<strong>{searchIndexStatus.message}</strong>
-												<p class="text-sm text-gray-400 mt-1">
-													Run the migration to enable advanced search features
+												<strong
+													>{searchIndexStatus.message}</strong
+												>
+												<p
+													class="text-sm text-gray-400 mt-1"
+												>
+													Run the migration to enable
+													advanced search features
 												</p>
 											</div>
 										</div>
@@ -645,11 +776,15 @@
 										disabled={isReindexing}
 									>
 										<Database class="w-4 h-4" />
-										{isReindexing ? 'Running...' : 'Initialize Search Index'}
+										{isReindexing
+											? "Running..."
+											: "Initialize Search Index"}
 									</button>
 									<p class="form-hint">
-										This will create the full-text search index and populate it with your comics.
-										This is a one-time operation required for advanced search features.
+										This will create the full-text search
+										index and populate it with your comics.
+										This is a one-time operation required
+										for advanced search features.
 									</p>
 								{:else}
 									<button
@@ -657,12 +792,20 @@
 										on:click={reindexSearch}
 										disabled={isReindexing}
 									>
-										<RotateCw class="w-4 h-4 {isReindexing ? 'animate-spin' : ''}" />
-										{isReindexing ? 'Reindexing...' : 'Rebuild Search Index'}
+										<RotateCw
+											class="w-4 h-4 {isReindexing
+												? 'animate-spin'
+												: ''}"
+										/>
+										{isReindexing
+											? "Reindexing..."
+											: "Rebuild Search Index"}
 									</button>
 									<p class="form-hint">
-										Rebuild the search index from scratch. This may take several minutes for large libraries.
-										Use this if search results seem incomplete or incorrect.
+										Rebuild the search index from scratch.
+										This may take several minutes for large
+										libraries. Use this if search results
+										seem incomplete or incorrect.
 									</p>
 
 									<button
@@ -680,17 +823,38 @@
 					<div class="settings-section">
 						<div class="section-header-simple">
 							<h2 class="section-title">About Search Index</h2>
-							<p class="section-description">How the advanced search works</p>
+							<p class="section-description">
+								How the advanced search works
+							</p>
 						</div>
 						<div class="section-body">
 							<div class="info-box">
-								<h3 class="text-lg font-semibold text-white mb-2">What does this do?</h3>
+								<h3
+									class="text-lg font-semibold text-white mb-2"
+								>
+									What does this do?
+								</h3>
 								<ul class="space-y-2 text-gray-300">
-									<li>• Creates a full-text search index for fast metadata queries</li>
-									<li>• Indexes all comic metadata fields (title, writer, artist, genre, etc.)</li>
-									<li>• Indexes dynamic scanner-specific metadata (parodies, circles, etc.)</li>
-									<li>• Enables field-specific searches like "writer:Stan Lee"</li>
-									<li>• Automatically stays in sync as you add or update comics</li>
+									<li>
+										• Creates a full-text search index for
+										fast metadata queries
+									</li>
+									<li>
+										• Indexes all comic metadata fields
+										(title, writer, artist, genre, etc.)
+									</li>
+									<li>
+										• Indexes dynamic scanner-specific
+										metadata (parodies, circles, etc.)
+									</li>
+									<li>
+										• Enables field-specific searches like
+										"writer:Stan Lee"
+									</li>
+									<li>
+										• Automatically stays in sync as you add
+										or update comics
+									</li>
 								</ul>
 							</div>
 						</div>
@@ -701,7 +865,9 @@
 			<!-- Config File Info -->
 			<div class="config-info">
 				<p class="text-sm text-gray-400">
-					Configuration file: <code class="code-inline">{config.config_path}</code>
+					Configuration file: <code class="code-inline"
+						>{config.config_path}</code
+					>
 				</p>
 			</div>
 		{/if}
@@ -937,8 +1103,8 @@
 		color: var(--color-text);
 	}
 
-	.form-group input[type='text'],
-	.form-group input[type='number'],
+	.form-group input[type="text"],
+	.form-group input[type="number"],
 	.form-group select {
 		padding: 0.625rem 0.875rem;
 		background: var(--color-bg);
@@ -949,8 +1115,8 @@
 		transition: border-color 0.2s;
 	}
 
-	.form-group input[type='text']:focus,
-	.form-group input[type='number']:focus,
+	.form-group input[type="text"]:focus,
+	.form-group input[type="number"]:focus,
 	.form-group select:focus {
 		outline: none;
 		border-color: var(--color-accent);
@@ -972,7 +1138,7 @@
 		color: var(--color-text);
 	}
 
-	.checkbox-label input[type='checkbox'] {
+	.checkbox-label input[type="checkbox"] {
 		width: 18px;
 		height: 18px;
 		cursor: pointer;
@@ -1073,7 +1239,7 @@
 
 	.toggle-slider:before {
 		position: absolute;
-		content: '';
+		content: "";
 		height: 18px;
 		width: 18px;
 		left: 3px;
@@ -1103,7 +1269,7 @@
 		padding: 0.125rem 0.375rem;
 		background: var(--color-bg);
 		border-radius: 4px;
-		font-family: 'Courier New', monospace;
+		font-family: "Courier New", monospace;
 		font-size: 0.8125rem;
 		color: var(--color-accent);
 	}

@@ -772,13 +772,8 @@ async def scan_and_save_series(
                 detail=f"Scanner '{primary_scanner}' is not available"
             )
         
-        # Determine library type for scanner
-        if primary_scanner == 'AniList':
-            library_type = 'manga'
-        elif primary_scanner == 'Comic Vine':
-            library_type = 'comics'
-        else:
-            library_type = 'doujinshi'
+        # Get scanner instance directly
+        scanner = manager.get_scanner(primary_scanner)
         
         kwargs = {}
         if confidence_threshold is not None:
@@ -789,10 +784,10 @@ async def scan_and_save_series(
         # Debug logging
         import logging
         logger = logging.getLogger(__name__)
-        logger.info(f"[SERIES SCAN] series_name='{series_name}', library_type='{library_type}', scanner='{primary_scanner}', kwargs={kwargs}")
+        logger.info(f"[SERIES SCAN] series_name='{series_name}', scanner='{primary_scanner}', kwargs={kwargs}")
         
         try:
-            result, candidates = manager.scan(library_type, series_name, **kwargs)
+            result, candidates = scanner.scan(series_name, **kwargs)
             
             logger.info(f"[SERIES SCAN] result={result is not None}, candidates={len(candidates) if candidates else 0}")
             if result:
@@ -1102,11 +1097,9 @@ async def scan_comic(
             threshold = scanner_config.get('confidence_threshold', 0.4)
 
         try:
-            # Scan using filename
-            # TODO: Use direct scanner invocation instead of library_type
-            library_type = 'doujinshi'  # Default for nhentai
-            result, _ = manager.scan(
-                library_type,
+            # Scan using filename with direct scanner invocation
+            scanner = manager.get_scanner(primary_scanner)
+            result, _ = scanner.scan(
                 comic.filename,
                 confidence_threshold=threshold
             )
@@ -1187,8 +1180,8 @@ def _run_library_scan_task(
                 rescan_existing
             )
 
-            # Determine library type for scanner
-            library_type = 'manga' if scanner_name == 'AniList' else 'doujinshi'
+            # Get scanner instance directly (removed library_type abstraction)
+            scanner = manager.get_scanner(scanner_name)
 
             # Branch based on scan level (use string comparison to avoid enum import issues)
             if scan_level.value == 'file':
@@ -1213,9 +1206,8 @@ def _run_library_scan_task(
                     processed = index + 1
 
                     try:
-                        # Scan using filename
-                        result, _ = manager.scan(
-                            library_type,
+                        # Scan using filename with direct scanner invocation
+                        result, _ = scanner.scan(
                             comic.filename,
                             confidence_threshold=confidence_threshold
                         )
@@ -1278,8 +1270,7 @@ def _run_library_scan_task(
 
                         for attempt in range(max_retries):
                             try:
-                                result, _ = manager.scan(
-                                    library_type,
+                                result, _ = scanner.scan(
                                     series_name,
                                     confidence_threshold=confidence_threshold
                                 )

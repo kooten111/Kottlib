@@ -70,7 +70,7 @@ class FeaturesConfig:
     series_detection: bool = True
     collections: bool = True
     auto_thumbnails: bool = True
-    ignore_series_metadata: bool = False
+    ignore_series_metadata: bool = True
 
 
 @dataclass
@@ -191,7 +191,14 @@ def load_config(config_path: Optional[Path] = None) -> Config:
             logger.warning("Using default configuration")
 
     else:
-        logger.info(f"No config file found at {config_path}, using defaults")
+        logger.info(f"No config file found at {config_path}, creating default config")
+        # Create default config file
+        try:
+            save_config(config, config_path)
+            logger.info(f"Created default config at: {config_path}")
+        except Exception as e:
+            logger.warning(f"Failed to create default config: {e}")
+            logger.info("Continuing with in-memory defaults")
 
     # Apply environment variable overrides
     config = apply_env_overrides(config)

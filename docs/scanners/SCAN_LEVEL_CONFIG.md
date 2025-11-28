@@ -10,7 +10,7 @@ Each scanner now explicitly defines its **scan level** in its configuration file
 - **Operates on**: Individual files/volumes
 - **Example Scanner**: nhentai
 - **UI Behavior**: Shows "Scan Files" button, scans each comic file individually
-- **Use Case**: Doujinshi, one-shots, individual releases
+- **Use Case**: One-shots, individual releases
 
 ### SERIES Level
 - **Operates on**: Entire manga/comic series

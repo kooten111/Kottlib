@@ -1,6 +1,6 @@
 {
   "scanner_name": "nhentai",
-  "description": "File-level scanner for doujinshi metadata from nhentai.net",
+  "description": "File-level scanner for metadata from nhentai.net",
   "scan_level": "FILE",
   "scanning_mode": "individual_files",
   "confidence_threshold": 0.4,

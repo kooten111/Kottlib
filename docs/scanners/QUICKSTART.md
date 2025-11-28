@@ -40,7 +40,7 @@ files = [
 ]
 
 for filename in files:
-    result, _ = manager.scan('doujinshi', filename)
+    result, _ = manager.scan('library_type', filename)
 
     if result:
         print(f"✅ {filename}: {result.confidence:.0%} - {result.source_id}")
@@ -134,7 +134,7 @@ Check `result.raw_response['score_bonuses']` to see why a match got its score:
 ```python
 results = []
 for filename in files:
-    result, _ = manager.scan('doujinshi', filename)
+    result, _ = manager.scan('library_type', filename)
     if result and result.confidence >= 0.8:  # Only high confidence
         results.append((filename, result))
 ```
@@ -147,7 +147,7 @@ needs_review = []
 no_match = []
 
 for filename in files:
-    result, _ = manager.scan('doujinshi', filename)
+    result, _ = manager.scan('library_type', filename)
 
     if result:
         if result.confidence >= 0.8:

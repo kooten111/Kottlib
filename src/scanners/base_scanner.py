@@ -14,7 +14,7 @@ from .config_schema import ConfigOption
 
 class ScanLevel(Enum):
     """What level the scanner operates at"""
-    FILE = "file"  # Per-file metadata (e.g., nhentai for doujinshi)
+    FILE = "file"  # Per-file metadata (e.g., nhentai)
     SERIES = "series"  # Per-series metadata (e.g., Comic Vine, AniList)
     LIBRARY = "library"  # Library-wide metadata
 
@@ -117,7 +117,7 @@ class BaseScanner(ABC):
         What level this scanner operates at
 
         Returns:
-            ScanLevel.FILE for per-file scanning (doujinshi)
+            ScanLevel.FILE for per-file scanning
             ScanLevel.SERIES for series-based scanning (comics, manga)
         """
         pass

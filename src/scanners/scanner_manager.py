@@ -49,19 +49,19 @@ class ScannerConfig:
 
 class ScannerManager:
     """
-    Manages scanners for different library types
+    Manages metadata scanners
+
+    Discovers and registers scanner plugins. Libraries use scanners directly
+    via their settings configuration.
 
     Example usage:
         >>> manager = ScannerManager()
-        >>> manager.register_scanner('doujinshi', NhentaiScanner)
-        >>> manager.register_fallback('manga', AniListScanner, JikanScanner)
-        >>> result = manager.scan('doujinshi', 'comic_file.cbz')
+        >>> manager.register_scanner_class(NhentaiScanner)
+        >>> scanner = manager.get_scanner('nhentai', config={'api_key': 'xxx'})
+        >>> result, candidates = scanner.scan('filename.cbz')
     """
 
     def __init__(self):
-        # Library type -> list of ScannerConfig
-        self._library_scanners: Dict[str, List[ScannerConfig]] = {}
-
         # Registered scanner classes (name -> class)
         self._available_scanners: Dict[str, Type[BaseScanner]] = {}
 
@@ -76,144 +76,33 @@ class ScannerManager:
         temp = scanner_class()
         self._available_scanners[temp.source_name] = scanner_class
 
-    def configure_library(
-        self,
-        library_type: str,
-        primary_scanner: str,
-        fallback_scanners: Optional[List[str]] = None,
-        fallback_strategy: FallbackStrategy = FallbackStrategy.ON_LOW_CONFIDENCE,
-        fallback_threshold: float = 0.7,
-        scanner_configs: Optional[Dict[str, Dict]] = None
-    ):
+    def get_scanner(self, scanner_name: str, config: Optional[Dict] = None) -> BaseScanner:
         """
-        Configure scanners for a library type
+        Get a scanner instance by name
 
         Args:
-            library_type: Type of library (e.g., "doujinshi", "manga", "comics")
-            primary_scanner: Name of primary scanner (e.g., "nhentai")
-            fallback_scanners: Optional list of fallback scanner names
-            fallback_strategy: When to use fallback scanners
-            fallback_threshold: Confidence threshold for fallback
-            scanner_configs: Optional dict of scanner-specific configs
-
-        Example:
-            >>> manager.configure_library(
-            ...     'manga',
-            ...     primary_scanner='AniList',
-            ...     fallback_scanners=['Jikan'],
-            ...     fallback_threshold=0.7
-            ... )
-        """
-        if scanner_configs is None:
-            scanner_configs = {}
-
-        # Get scanner classes
-        if primary_scanner not in self._available_scanners:
-            raise ValueError(f"Unknown scanner: {primary_scanner}")
-
-        scanners = []
-
-        # Add primary scanner
-        scanners.append(ScannerConfig(
-            scanner_class=self._available_scanners[primary_scanner],
-            is_primary=True,
-            is_fallback=False,
-            config=scanner_configs.get(primary_scanner, {})
-        ))
-
-        # Add fallback scanners
-        if fallback_scanners:
-            for scanner_name in fallback_scanners:
-                if scanner_name not in self._available_scanners:
-                    raise ValueError(f"Unknown fallback scanner: {scanner_name}")
-
-                scanners.append(ScannerConfig(
-                    scanner_class=self._available_scanners[scanner_name],
-                    is_primary=False,
-                    is_fallback=True,
-                    fallback_threshold=fallback_threshold,
-                    config=scanner_configs.get(scanner_name, {})
-                ))
-
-        self._library_scanners[library_type] = scanners
-        self._fallback_strategy = fallback_strategy
-
-    def scan(
-        self,
-        library_type: str,
-        query: str,
-        **kwargs
-    ) -> Tuple[Optional[ScanResult], List[ScanResult]]:
-        """
-        Scan for metadata using configured scanners
-
-        Args:
-            library_type: Type of library
-            query: Search query (filename or series name)
-            **kwargs: Additional scanner-specific parameters
+            scanner_name: Name of the scanner (e.g., "nhentai", "AniList")
+            config: Optional scanner-specific configuration
 
         Returns:
-            (best_result, all_candidates)
+            Scanner instance
 
         Raises:
-            ValueError: If library type not configured
+            ValueError: If scanner not found
         """
-        if library_type not in self._library_scanners:
-            raise ValueError(f"Library type '{library_type}' not configured")
+        if scanner_name not in self._available_scanners:
+            raise ValueError(f"Unknown scanner: {scanner_name}")
 
-        scanners = self._library_scanners[library_type]
+        scanner_class = self._available_scanners[scanner_name]
+        return scanner_class(config or {})
 
-        # Try primary scanner first
-        primary_config = scanners[0]
-        primary_scanner = primary_config.scanner_class(primary_config.config)
 
-        best_result, candidates = primary_scanner.scan(query, **kwargs)
-
-        # Check if we should use fallback
-        should_fallback = False
-
-        if self._fallback_strategy == FallbackStrategy.ALWAYS:
-            should_fallback = True
-        elif self._fallback_strategy == FallbackStrategy.ON_FAILURE:
-            should_fallback = (best_result is None)
-        elif self._fallback_strategy == FallbackStrategy.ON_LOW_CONFIDENCE:
-            if best_result is None:
-                should_fallback = True
-            elif best_result.confidence < primary_config.fallback_threshold:
-                should_fallback = True
-
-        # Try fallback scanners if needed
-        if should_fallback and len(scanners) > 1:
-            for fallback_config in scanners[1:]:
-                fallback_scanner = fallback_config.scanner_class(fallback_config.config)
-
-                try:
-                    fallback_result, fallback_candidates = fallback_scanner.scan(query, **kwargs)
-
-                    if fallback_result:
-                        # If better than current best, use it
-                        if best_result is None or fallback_result.confidence > best_result.confidence:
-                            best_result = fallback_result
-                            candidates.extend(fallback_candidates)
-
-                except Exception as e:
-                    # Log error but continue
-                    print(f"Fallback scanner {fallback_scanner.source_name} failed: {e}")
-                    continue
-
-        return best_result, candidates
-
-    def get_configured_libraries(self) -> List[str]:
-        """Get list of configured library types"""
-        return list(self._library_scanners.keys())
 
     def get_available_scanners(self) -> List[str]:
         """Get list of available scanner names"""
         return list(self._available_scanners.keys())
 
-    def get_library_config(self, library_type: str) -> Optional[List[ScannerConfig]]:
-        """Get scanner configuration for a library type"""
-        return self._library_scanners.get(library_type)
+
 
 
 # Global singleton instance
@@ -290,7 +179,6 @@ def init_default_scanners():
     Initialize default scanner configurations
 
     Automatically discovers and registers all scanners in the scanners/ directory.
-    Sets up default library configurations based on scanner names.
     """
     manager = get_manager()
 
@@ -302,43 +190,5 @@ def init_default_scanners():
             manager.register_scanner_class(scanner_class)
         except Exception as e:
             print(f"Warning: Failed to register scanner {scanner_class}: {e}")
-
-    # Get available scanners to set up default configurations
-    available = manager.get_available_scanners()
-
-    # Configure libraries based on discovered scanners
-    # Default mappings (can be overridden by config file)
-    if 'nhentai' in available:
-        manager.configure_library(
-            'doujinshi',
-            primary_scanner='nhentai',
-            fallback_scanners=None
-        )
-
-    if 'AniList' in available:
-        manager.configure_library(
-            'manga',
-            primary_scanner='AniList',
-            fallback_scanners=None,
-            fallback_threshold=0.7
-        )
-
-    if 'Comic Vine' in available:
-        # Use Metron as fallback for comics if available
-        fallback_scanners = ['Metron'] if 'Metron' in available else None
-        manager.configure_library(
-            'comics',
-            primary_scanner='Comic Vine',
-            fallback_scanners=fallback_scanners,
-            fallback_threshold=0.7
-        )
-    elif 'Metron' in available:
-        # If Comic Vine is not available but Metron is, use Metron as primary
-        manager.configure_library(
-            'comics',
-            primary_scanner='Metron',
-            fallback_scanners=None,
-            fallback_threshold=0.7
-        )
 
     return manager

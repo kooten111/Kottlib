@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-nhentai Scanner - Standalone Metadata Scanner for Doujinshi
+nhentai Scanner - Standalone Metadata Scanner
 
 A complete, self-contained scanner for extracting metadata from nhentai.net and nhentai.xxx.
 This single script includes:
@@ -946,7 +946,7 @@ def format_tags_summary(tags: List[Doujin.Tag]) -> dict:
 if ScanLevel is None:
     class ScanLevel(Enum):
         """What level the scanner operates at"""
-        FILE = "file"  # Per-file metadata (e.g., nhentai for doujinshi)
+        FILE = "file"  # Per-file metadata (e.g., nhentai)
         SERIES = "series"  # Per-series metadata (e.g., Comic Vine, AniList)
         LIBRARY = "library"  # Library-wide metadata
 
@@ -1035,9 +1035,9 @@ if ScannerAPIError is Exception:
 
 class NhentaiScanner(BaseScanner):
     """
-    nhentai metadata scanner for doujinshi
+    nhentai metadata scanner
 
-    Operates at FILE level - scans individual doujinshi files
+    Operates at FILE level - scans individual files
     Uses enhanced matching with metadata extraction
     """
 
@@ -1271,7 +1271,7 @@ def scan_file(filename: str, confidence_threshold: float = 0.4, config_path: Opt
 def main():
     """Command-line interface for the scanner"""
     parser = argparse.ArgumentParser(
-        description='nhentai Scanner - Extract metadata from doujinshi filenames',
+        description='nhentai Scanner - Extract metadata from filenames',
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""
 Examples:

@@ -76,7 +76,7 @@ No complex configuration. No dependencies to manually install. Just works.
 ### Scanner System - IMPLEMENTED
 
 - **Pluggable Architecture** - Easy to add new metadata sources
-- **nhentai Scanner** - Automatic metadata extraction for doujinshi
+- **nhentai Scanner** - Automatic metadata extraction for individual releases
 - **AniList Scanner** - Manga metadata (in progress)
 - **Smart Matching** - Fuzzy matching with confidence scoring
 - **Per-Library Configuration** - Different scanners for different library types
@@ -314,7 +314,7 @@ yaclib-enhanced/
 │   ├── base_scanner.py    # Base scanner interface
 │   ├── scanner_manager.py # Central registry & orchestrator
 │   ├── metadata_schema.py # Metadata schemas
-│   ├── nhentai/           # nhentai scanner (doujinshi)
+│   ├── nhentai/           # nhentai scanner 
 │   │   └── nhentai_scanner.py
 │   └── AniList/           # AniList scanner (manga)
 │       └── anilist_scanner.py

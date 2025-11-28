@@ -1,10 +1,10 @@
 # Flexible Metadata Search System
 
-Complete implementation of advanced metadata search for YACLib Enhanced, supporting dynamic metadata across all library types (comics, manga, doujinshi, etc.).
+Complete implementation of advanced metadata search for YACLib Enhanced, supporting dynamic metadata across all library types (comics, manga, etc.).
 
 ## 🎯 Overview
 
-This system provides powerful, flexible search capabilities that adapt to whatever metadata exists in your libraries. Whether you're searching western comics, Japanese manga, or doujinshi with scanner-specific metadata, the search engine handles it all.
+This system provides powerful, flexible search capabilities that adapt to whatever metadata exists in your libraries. Whether you're searching western comics, Japanese manga, or individual releases with scanner-specific metadata, the search engine handles it all.
 
 ## ✨ Features Implemented
 
@@ -76,7 +76,7 @@ Exclusions:
 
 Scanner-Specific:
   "parodies:touhou"          (nhentai metadata)
-  "artist:CIRCLES"           (doujinshi metadata)
+  "artist:CIRCLES"           (individual releases metadata)
   "teams:Avengers"           (Comic Vine metadata)
 
 Complex Queries:
@@ -566,7 +566,7 @@ genre:action read:false
 writer:Stan Lee publisher:Marvel year:>=2000 year:<=2009
 ```
 
-**3. Touhou Doujinshi (nhentai)**
+**3. Touhou (nhentai)**
 ```
 parodies:touhou -tag:yaoi
 ```
