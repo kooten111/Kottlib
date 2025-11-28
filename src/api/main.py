@@ -160,7 +160,7 @@ async def server_info():
 # API Routers
 # ============================================================================
 
-from .routers import legacy_v1, scanners, libraries, user_interactions
+from .routers import legacy_v1, scanners, libraries, user_interactions, config as config_router
 from .routers import v2 as api_v2
 
 # Legacy API v1 (YACReader compatible - plain text format)
@@ -171,6 +171,9 @@ app.include_router(api_v2.router, tags=["API v2"])
 
 # Modern JSON API (Internal use)
 app.include_router(libraries.router, prefix="/api/v1/libraries", tags=["Libraries"])
+
+# Configuration API (Server settings)
+app.include_router(config_router.router, prefix="/api/v1", tags=["Configuration"])
 
 # Scanner API (Metadata scanning) - Part of v2 enhanced API
 app.include_router(scanners.router, prefix="/v2", tags=["Scanners"])
