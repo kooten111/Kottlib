@@ -715,8 +715,14 @@ async def get_series_detail(
 
         volumes.sort(key=get_comic_sort_key)
 
-        # Aggregate series metadata from first comic
+        # Aggregate series metadata from first comic (using the sorted first volume)
         first_comic = comics[0]
+        if volumes:
+            # Try to find the comic object for the first volume to ensure consistent metadata/cover
+            first_vol_id = volumes[0]['id']
+            found = next((c for c in comics if str(c.id) == first_vol_id), None)
+            if found:
+                first_comic = found
 
         # Generate a stable ID for the series (use SeriesModel ID if available, else hash)
         series_id = series_record.id if series_record else abs(hash(decoded_series_name))

@@ -389,6 +389,9 @@ def update_library(
         current_settings = dict(library.settings or {})
         current_settings.update(settings)
         library.settings = current_settings
+        # Explicitly flag as modified for JSON fields to ensure persistence
+        from sqlalchemy.orm.attributes import flag_modified
+        flag_modified(library, "settings")
     
     if scan_interval is not None:
         library.scan_interval = scan_interval
