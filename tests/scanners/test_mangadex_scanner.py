@@ -271,7 +271,9 @@ class TestMetadataExtraction:
         links = extract_external_links(sample_manga_response)
         assert 'anilist' in links
         assert 'myanimelist' in links
-        assert 'myanimelist.net' in links['myanimelist']
+        # Verify the MAL link is properly formatted as a URL
+        mal_url = links['myanimelist']
+        assert mal_url.startswith('https://myanimelist.net/manga/')
 
     def test_extract_cover_url(self, sample_manga_response):
         """Test cover URL extraction"""
