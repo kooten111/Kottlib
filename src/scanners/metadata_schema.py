@@ -386,6 +386,43 @@ SCANNER_CAPABILITIES: Dict[str, ScannerCapabilities] = {
         },
         description="Manga metadata from MangaDex.org"
     ),
+
+    "Metron": ScannerCapabilities(
+        scanner_name="Metron",
+        provided_fields={
+            MetadataField.TITLE,
+            MetadataField.SERIES,
+            MetadataField.VOLUME,
+            MetadataField.ISSUE_NUMBER,
+            MetadataField.YEAR,
+            MetadataField.DESCRIPTION,
+            MetadataField.WRITER,
+            MetadataField.ARTIST,
+            MetadataField.PENCILLER,
+            MetadataField.INKER,
+            MetadataField.COLORIST,
+            MetadataField.LETTERER,
+            MetadataField.COVER_ARTIST,
+            MetadataField.EDITOR,
+            MetadataField.PUBLISHER,
+            MetadataField.CHARACTERS,
+            MetadataField.TEAMS,
+            MetadataField.LOCATIONS,
+            MetadataField.STORY_ARC,
+            MetadataField.GENRE,
+            MetadataField.WEB_LINK,
+            MetadataField.PAGE_COUNT,
+        },
+        primary_fields={
+            MetadataField.TITLE,
+            MetadataField.SERIES,
+            MetadataField.ISSUE_NUMBER,
+            MetadataField.WRITER,
+            MetadataField.ARTIST,
+            MetadataField.PUBLISHER,
+        },
+        description="Comprehensive comic book metadata from Metron.cloud"
+    ),
 }
 
 

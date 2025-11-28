@@ -532,13 +532,59 @@ class MetronScanner(BaseScanner):
         if series_type_name:
             tags.append(f"type:{series_type_name}")
 
+        # Build extra metadata for flexible display
+        extra_metadata = {
+            "items": []
+        }
+
+        # Helper to add items
+        def add_extra(label, value, display="row", color=None, placement="details"):
+            if value:
+                item = {
+                    "label": label, 
+                    "value": value, 
+                    "display": display,
+                    "placement": placement
+                }
+                if color:
+                    item["color"] = color
+                extra_metadata["items"].append(item)
+
+        # Publisher
+        if publisher_name:
+            add_extra("Publisher", publisher_name, "tag", "blue")
+
+        # Series Type
+        if series_type_name:
+            add_extra("Series Type", series_type_name, "tag", "gray")
+
+        # Volume
+        volume_num = series.get('volume')
+        if volume_num:
+            add_extra("Volume", volume_num)
+
+        # Issue Count
+        count = series.get('issue_count')
+        if count:
+            add_extra("Issue Count", count)
+
+        # Years
+        year_began = series.get('year_began')
+        year_ended = series.get('year_ended')
+        if year_began:
+            year_str = str(year_began)
+            if year_ended:
+                year_str += f" - {year_ended}"
+            add_extra("Years", year_str)
+
         return ScanResult(
             confidence=confidence,
             source_id=str(series.get('id')),
             source_url=source_url,
             metadata=metadata,
             tags=tags,
-            raw_response=series
+            raw_response=series,
+            extra_metadata=extra_metadata
         )
 
     def get_config_schema(self) -> List['ConfigOption']:
