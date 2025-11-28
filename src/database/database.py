@@ -270,6 +270,22 @@ class Database:
                     conn.commit()
                     logger.info("Migration complete: downloaded_comics column added")
 
+                # Migration 2: Add cover source columns
+                result = conn.execute(text("PRAGMA table_info(covers)")).fetchall()
+                cover_columns = [row[1] for row in result]
+
+                if 'source' not in cover_columns:
+                    logger.info("Running migration: Adding source to covers table")
+                    conn.execute(text("ALTER TABLE covers ADD COLUMN source TEXT NOT NULL DEFAULT 'archive'"))
+                    conn.commit()
+                    logger.info("Migration complete: source column added")
+
+                if 'source_url' not in cover_columns:
+                    logger.info("Running migration: Adding source_url to covers table")
+                    conn.execute(text("ALTER TABLE covers ADD COLUMN source_url TEXT NULL"))
+                    conn.commit()
+                    logger.info("Migration complete: source_url column added")
+
         except Exception as e:
             logger.error(f"Error running migrations: {e}")
             # Don't fail startup if migrations fail - the app might still work
@@ -1136,7 +1152,9 @@ def create_cover(
     cover_type: str,
     page_number: int,
     jpeg_path: str,
-    webp_path: Optional[str] = None
+    webp_path: Optional[str] = None,
+    source: str = 'archive',
+    source_url: Optional[str] = None
 ) -> Cover:
     """
     Create a new cover entry
@@ -1148,6 +1166,8 @@ def create_cover(
         page_number: Page number used for cover (0-indexed)
         jpeg_path: Path to JPEG thumbnail
         webp_path: Path to WebP thumbnail (optional)
+        source: Source of the cover ('archive', 'mangadex', 'upload')
+        source_url: Original URL for external covers (optional)
 
     Returns:
         Cover object
@@ -1166,6 +1186,8 @@ def create_cover(
         existing_cover.jpeg_path = jpeg_path
         existing_cover.webp_path = webp_path
         existing_cover.generated_at = now
+        existing_cover.source = source
+        existing_cover.source_url = source_url
         session.flush()  # Flush changes without committing
         return existing_cover
 
@@ -1176,7 +1198,9 @@ def create_cover(
         page_number=page_number,
         jpeg_path=jpeg_path,
         webp_path=webp_path,
-        generated_at=now
+        generated_at=now,
+        source=source,
+        source_url=source_url
     )
 
     session.add(cover)
