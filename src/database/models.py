@@ -264,6 +264,11 @@ class Cover(Base):
     webp_path: Mapped[Optional[str]] = mapped_column(String, nullable=True)
     generated_at: Mapped[int] = mapped_column(Integer, nullable=False)
 
+    # External cover source fields
+    source: Mapped[Optional[str]] = mapped_column(String, nullable=True, default='archive')  # 'archive' | 'mangadex' | 'anilist' | etc.
+    source_url: Mapped[Optional[str]] = mapped_column(String, nullable=True)  # Original URL for external covers
+    source_id: Mapped[Optional[str]] = mapped_column(String, nullable=True)  # Provider's ID for the cover
+
     # Relationships
     comic: Mapped["Comic"] = relationship(back_populates="covers")
 

@@ -1136,7 +1136,10 @@ def create_cover(
     cover_type: str,
     page_number: int,
     jpeg_path: str,
-    webp_path: Optional[str] = None
+    webp_path: Optional[str] = None,
+    source: Optional[str] = None,
+    source_url: Optional[str] = None,
+    source_id: Optional[str] = None
 ) -> Cover:
     """
     Create a new cover entry
@@ -1148,11 +1151,18 @@ def create_cover(
         page_number: Page number used for cover (0-indexed)
         jpeg_path: Path to JPEG thumbnail
         webp_path: Path to WebP thumbnail (optional)
+        source: Cover source ('archive', 'mangadex', 'anilist', etc.)
+        source_url: Original URL for external covers (optional)
+        source_id: Provider's ID for the cover (optional)
 
     Returns:
         Cover object
     """
     now = int(time.time())
+
+    # Default source to 'archive' for local covers
+    if source is None:
+        source = 'archive'
 
     # Check if cover of this type already exists
     existing_cover = session.query(Cover).filter_by(
@@ -1166,6 +1176,9 @@ def create_cover(
         existing_cover.jpeg_path = jpeg_path
         existing_cover.webp_path = webp_path
         existing_cover.generated_at = now
+        existing_cover.source = source
+        existing_cover.source_url = source_url
+        existing_cover.source_id = source_id
         session.flush()  # Flush changes without committing
         return existing_cover
 
@@ -1176,7 +1189,10 @@ def create_cover(
         page_number=page_number,
         jpeg_path=jpeg_path,
         webp_path=webp_path,
-        generated_at=now
+        generated_at=now,
+        source=source,
+        source_url=source_url,
+        source_id=source_id
     )
 
     session.add(cover)
