@@ -2,6 +2,7 @@
 	import { onMount } from "svelte";
 	import Navbar from "$lib/components/layout/Navbar.svelte";
 	import Card from "$lib/components/common/Card.svelte";
+	import ConfigInput from "$lib/components/common/ConfigInput.svelte";
 	import {
 		Scan,
 		Settings,
@@ -1316,7 +1317,7 @@
 					{@const scanner = availableScanners.find(
 						(s) => s.name === configForm.primary_scanner,
 					)}
-					{#if scanner && scanner.config_keys && scanner.config_keys.length > 0}
+					{#if scanner && scanner.config_schema && scanner.config_schema.length > 0}
 						<div class="border-t border-gray-700 pt-4">
 							<h4
 								class="text-sm font-medium text-dark-text mb-3 flex items-center gap-2"
@@ -1324,42 +1325,48 @@
 								<Settings class="w-4 h-4" />
 								{scanner.name} Configuration
 							</h4>
-							<div class="space-y-3">
-								{#each scanner.config_keys as key}
-									<div>
-										<label
-											class="block text-xs font-medium text-dark-text-secondary mb-1 uppercase tracking-wider"
-										>
-											{key.replace(/_/g, " ")}
-										</label>
-										<input
-											type="text"
-											value={configForm.scanner_configs?.[
-												configForm.primary_scanner
-											]?.[key] || ""}
-											on:input={(e) => {
-												if (!configForm.scanner_configs)
-													configForm.scanner_configs =
-														{};
-												if (
-													!configForm.scanner_configs[
-														configForm
-															.primary_scanner
-													]
-												)
-													configForm.scanner_configs[
-														configForm.primary_scanner
-													] = {};
-												configForm.scanner_configs[
-													configForm.primary_scanner
-												][key] = e.target.value;
-											}}
-											placeholder={`Enter ${key.replace(/_/g, " ")}`}
-											class="w-full bg-dark-bg-tertiary border border-gray-700 rounded-lg px-3 py-2 text-dark-text focus:ring-2 focus:ring-accent-orange focus:border-transparent outline-none transition-all text-sm"
-										/>
-									</div>
+
+							<!-- Basic Options (non-advanced) -->
+							<div class="space-y-4 mb-4">
+								{#each scanner.config_schema.filter(opt => !opt.advanced) as option}
+									<ConfigInput
+										{option}
+										value={configForm.scanner_configs?.[configForm.primary_scanner]?.[option.key]}
+										onChange={(newValue) => {
+											if (!configForm.scanner_configs)
+												configForm.scanner_configs = {};
+											if (!configForm.scanner_configs[configForm.primary_scanner])
+												configForm.scanner_configs[configForm.primary_scanner] = {};
+											configForm.scanner_configs[configForm.primary_scanner][option.key] = newValue;
+										}}
+									/>
 								{/each}
 							</div>
+
+							<!-- Advanced Options (collapsible) -->
+							{@const advancedOptions = scanner.config_schema.filter(opt => opt.advanced)}
+							{#if advancedOptions.length > 0}
+								<details class="border-t border-gray-700 pt-4">
+									<summary class="cursor-pointer text-sm font-medium text-dark-text-secondary mb-3 hover:text-dark-text transition-colors">
+										Advanced Options ({advancedOptions.length})
+									</summary>
+									<div class="space-y-4 mt-4">
+										{#each advancedOptions as option}
+											<ConfigInput
+												{option}
+												value={configForm.scanner_configs?.[configForm.primary_scanner]?.[option.key]}
+												onChange={(newValue) => {
+													if (!configForm.scanner_configs)
+														configForm.scanner_configs = {};
+													if (!configForm.scanner_configs[configForm.primary_scanner])
+														configForm.scanner_configs[configForm.primary_scanner] = {};
+													configForm.scanner_configs[configForm.primary_scanner][option.key] = newValue;
+												}}
+											/>
+										{/each}
+									</div>
+								</details>
+							{/if}
 						</div>
 					{/if}
 				{/if}

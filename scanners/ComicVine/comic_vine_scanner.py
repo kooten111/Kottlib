@@ -33,6 +33,7 @@ from enum import Enum
 try:
     # Import from src.scanners package
     from src.scanners.base_scanner import BaseScanner, ScanResult, ScanLevel, MatchConfidence, ScannerAPIError, ScannerConfigError
+    from src.scanners.config_schema import ConfigOption, ConfigType
 except ImportError:
     # Fallback for standalone execution
     BaseScanner = ABC
@@ -387,6 +388,41 @@ class ComicVineScanner(BaseScanner):
         # Remove HTML tags
         text = re.sub(r'<[^>]+>', '', description)
         return text.strip()
+
+    def get_config_schema(self) -> List[ConfigOption]:
+        """Get declarative configuration schema for Comic Vine scanner"""
+        return [
+            ConfigOption(
+                key="api_key",
+                type=ConfigType.SECRET,
+                label="API Key",
+                description="Your Comic Vine API key from https://comicvine.gamespot.com/api/",
+                required=True,
+                placeholder="Enter your Comic Vine API key"
+            ),
+            ConfigOption(
+                key="confidence_threshold",
+                type=ConfigType.FLOAT,
+                label="Confidence Threshold",
+                description="Minimum confidence score (0.0-1.0) to accept a match",
+                default=0.6,
+                min_value=0.0,
+                max_value=1.0,
+                step=0.05,
+                required=False
+            ),
+            ConfigOption(
+                key="max_results",
+                type=ConfigType.INTEGER,
+                label="Max Search Results",
+                description="Maximum number of search results to fetch",
+                default=10,
+                min_value=1,
+                max_value=50,
+                required=False,
+                advanced=True
+            ),
+        ]
 
 if __name__ == '__main__':
     import argparse
