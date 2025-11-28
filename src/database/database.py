@@ -1188,6 +1188,7 @@ def create_cover(
         existing_cover.generated_at = now
         existing_cover.source = source
         existing_cover.source_url = source_url
+
         session.flush()  # Flush changes without committing
         return existing_cover
 

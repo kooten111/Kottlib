@@ -51,7 +51,7 @@ metadata/
 thumbnails/
 temp/
 logs/
-covers/
+/covers/
 data/
 
 # Environment variables

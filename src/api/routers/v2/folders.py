@@ -105,9 +105,42 @@ async def get_folder_v2(
 
             first_comic_hash = first_comic.hash if first_comic else ""
 
-            # If no comics, check subfolders recursively (simplified for performance)
-            if not first_comic_hash and folder.first_child_hash:
-                 first_comic_hash = folder.first_child_hash
+            # If no direct comics, recursively search subfolders for a cover
+            if not first_comic_hash:
+                # First, try the cached first_child_hash if available
+                if folder.first_child_hash:
+                    first_comic_hash = folder.first_child_hash
+                else:
+                    # Recursively search subfolders for the first comic
+                    def find_first_comic_in_subfolders(parent_folder_id, depth=0, max_depth=3):
+                        """Recursively find first comic in subfolders (limited depth for performance)"""
+                        if depth > max_depth:
+                            return None
+                        
+                        # Get immediate subfolders
+                        subfolders = [f for f in folders if f.parent_id == parent_folder_id and f.name != "__ROOT__"]
+                        
+                        for subfolder in sorted(subfolders, key=lambda f: f.name):
+                            # Check for comics in this subfolder
+                            comic = session.query(Comic).filter(
+                                Comic.folder_id == subfolder.id,
+                                Comic.library_id == library_id
+                            ).order_by(Comic.filename).first()
+                            
+                            if comic:
+                                return comic.hash
+                            
+                            # Recursively check deeper subfolders
+                            hash_from_child = find_first_comic_in_subfolders(subfolder.id, depth + 1, max_depth)
+                            if hash_from_child:
+                                return hash_from_child
+                        
+                        return None
+                    
+                    # Search for cover in subfolders
+                    found_hash = find_first_comic_in_subfolders(folder.id)
+                    if found_hash:
+                        first_comic_hash = found_hash
 
             # Count children
             num_child_folders = session.query(Folder).filter(Folder.parent_id == folder.id).count()
