@@ -34,6 +34,7 @@ try:
     # Import from src.scanners package
     from src.scanners.base_scanner import BaseScanner, ScanResult, ScanLevel, MatchConfidence, ScannerAPIError, ScannerConfigError
     from src.scanners.config_schema import ConfigOption, ConfigType
+    from src.scanners.utils import clean_query
 except ImportError:
     # Fallback for standalone execution
     BaseScanner = ABC
@@ -295,6 +296,7 @@ class ComicVineScanner(BaseScanner):
         self.api_key = self.config.get('api_key')
         self.confidence_threshold = self.config.get('confidence_threshold', 0.6)
         self.max_results = self.config.get('max_results', 10)
+        self.use_normalized_search = self.config.get('use_normalized_search', True)
         
         if self.api_key:
             self.api = ComicVineAPI(self.api_key)
@@ -320,10 +322,21 @@ class ComicVineScanner(BaseScanner):
 
         confidence_threshold = kwargs.get('confidence_threshold', self.confidence_threshold)
         max_results = kwargs.get('max_results', self.max_results)
+        use_normalized_search = kwargs.get('use_normalized_search', self.use_normalized_search)
+
+        # Extract year from raw query for boosting logic later
+        year_match = re.search(r'\b(19|20)\d{2}\b', query)
+        
+        # Clean query if enabled
+        search_query = query
+        if use_normalized_search:
+            search_query = clean_query(query)
+            if not search_query:
+                search_query = query
         
         try:
             # Search for volumes
-            results = self.api.search_volumes(query, limit=max_results)
+            results = self.api.search_volumes(search_query, limit=max_results)
             
             if not results:
                 return None, []
@@ -334,7 +347,6 @@ class ComicVineScanner(BaseScanner):
                 
                 # Boost confidence if start year matches (if provided in query, e.g. "Batman 2016")
                 # Simple heuristic: check if a year (19xx or 20xx) in query matches start_year
-                year_match = re.search(r'\b(19|20)\d{2}\b', query)
                 if year_match and volume.get('start_year'):
                     if year_match.group(0) == str(volume.get('start_year')):
                         confidence += 0.1
@@ -373,13 +385,47 @@ class ComicVineScanner(BaseScanner):
         # Clean up None values
         metadata = {k: v for k, v in metadata.items() if v is not None}
         
+        # Build extra metadata for flexible display
+        extra_metadata = {
+            "items": []
+        }
+
+        # Helper to add items
+        def add_extra(label, value, display="row", color=None, placement="details"):
+            if value:
+                item = {
+                    "label": label, 
+                    "value": value, 
+                    "display": display,
+                    "placement": placement
+                }
+                if color:
+                    item["color"] = color
+                extra_metadata["items"].append(item)
+
+        # Publisher
+        publisher = volume.get('publisher', {}).get('name') if volume.get('publisher') else None
+        if publisher:
+            add_extra("Publisher", publisher, "tag", "blue")
+
+        # Issue Count
+        count = volume.get('count_of_issues')
+        if count:
+            add_extra("Issue Count", count)
+
+        # Start Year
+        start_year = volume.get('start_year')
+        if start_year:
+            add_extra("Start Year", start_year)
+            
         return ScanResult(
             confidence=confidence,
             source_id=str(volume.get('id')),
             source_url=volume.get('site_detail_url'),
             metadata=metadata,
             tags=[], # Tags/Genres not always available in search list
-            raw_response=volume
+            raw_response=volume,
+            extra_metadata=extra_metadata
         )
 
     def _clean_description(self, description: Optional[str]) -> Optional[str]:
@@ -421,6 +467,14 @@ class ComicVineScanner(BaseScanner):
                 max_value=50,
                 required=False,
                 advanced=True
+            ),
+            ConfigOption(
+                key="use_normalized_search",
+                type=ConfigType.BOOLEAN,
+                label="Use Normalized Search",
+                description="Clean search query by removing brackets, tags, etc.",
+                default=True,
+                required=False
             ),
         ]
 

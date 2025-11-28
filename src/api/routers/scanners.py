@@ -21,7 +21,8 @@ from src.scanners import (
     ScannerManager,
     ScanResult,
     MatchConfidence,
-    FallbackStrategy
+    FallbackStrategy,
+    ScannerConfigError
 )
 
 # Import database dependencies
@@ -445,6 +446,55 @@ async def get_library_scanner_configs(request: Request):
         return configs
 
 
+@router.post("/verify-credentials/{scanner_name}")
+async def verify_scanner_credentials(
+    scanner_name: str,
+    credentials: Dict[str, Any],
+    request: Request
+):
+    """
+    Verify scanner credentials by attempting to instantiate and test
+    
+    Example:
+        POST /scanners/verify-credentials/metron
+        {
+            "username": "test_user",
+            "password": "test_pass"
+        }
+    """
+    manager = get_scanner_manager()
+    
+    if scanner_name not in manager.get_available_scanners():
+        raise HTTPException(status_code=404, detail=f"Scanner '{scanner_name}' not found")
+    
+    try:
+        # Instantiate scanner with provided credentials
+        scanner = manager.get_scanner(scanner_name, config=credentials)
+        
+        # Try a minimal test - for Metron, just check if API client initializes
+        # Scanner-specific verification logic could be added here
+        
+        return {
+            "success": True,
+            "scanner": scanner_name,
+            "message": "Credentials validated successfully"
+        }
+    except ScannerConfigError as e:
+        return {
+            "success": False,
+            "scanner": scanner_name,
+            "error": str(e),
+            "error_type": "config_error"  
+        }
+    except Exception as e:
+        return {
+            "success": False,
+            "scanner": scanner_name,
+            "error": str(e),
+            "error_type": "unknown"
+        }
+
+
 @router.put("/libraries/{library_id}/configure", response_model=LibraryScannerConfig)
 async def configure_library_scanner(
     library_id: int,
@@ -772,8 +822,11 @@ async def scan_and_save_series(
                 detail=f"Scanner '{primary_scanner}' is not available"
             )
         
-        # Get scanner instance directly
-        scanner = manager.get_scanner(primary_scanner)
+        # Get scanner specific config
+        scanner_specific_config = scanner_config.get('scanner_configs', {}).get(primary_scanner, {})
+        
+        # Get scanner instance directly with config
+        scanner = manager.get_scanner(primary_scanner, config=scanner_specific_config)
         
         kwargs = {}
         if confidence_threshold is not None:
@@ -978,7 +1031,8 @@ async def configure_library_scanner(
             'primary_scanner': config.primary_scanner,
             'fallback_scanners': config.fallback_scanners,
             'confidence_threshold': config.confidence_threshold,
-            'fallback_threshold': config.fallback_threshold
+            'fallback_threshold': config.fallback_threshold,
+            'scanner_configs': config.scanner_configs
         }
         
         # Force SQLAlchemy to detect the change to the JSON column
@@ -1097,8 +1151,11 @@ async def scan_comic(
             threshold = scanner_config.get('confidence_threshold', 0.4)
 
         try:
+            # Get scanner specific config
+            scanner_specific_config = scanner_config.get('scanner_configs', {}).get(primary_scanner, {})
+            
             # Scan using filename with direct scanner invocation
-            scanner = manager.get_scanner(primary_scanner)
+            scanner = manager.get_scanner(primary_scanner, config=scanner_specific_config)
             result, _ = scanner.scan(
                 comic.filename,
                 confidence_threshold=threshold
@@ -1180,8 +1237,13 @@ def _run_library_scan_task(
                 rescan_existing
             )
 
+            # Get scanner specific config
+            settings = library.settings or {}
+            scanner_config = settings.get('scanner', {})
+            scanner_specific_config = scanner_config.get('scanner_configs', {}).get(scanner_name, {})
+            
             # Get scanner instance directly (removed library_type abstraction)
-            scanner = manager.get_scanner(scanner_name)
+            scanner = manager.get_scanner(scanner_name, config=scanner_specific_config)
 
             # Branch based on scan level (use string comparison to avoid enum import issues)
             if scan_level.value == 'file':

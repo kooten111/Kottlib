@@ -360,6 +360,32 @@ SCANNER_CAPABILITIES: Dict[str, ScannerCapabilities] = {
         },
         description="Comprehensive comic book metadata from Comic Vine"
     ),
+
+    "MangaDex": ScannerCapabilities(
+        scanner_name="MangaDex",
+        provided_fields={
+            MetadataField.TITLE,
+            MetadataField.SERIES,
+            MetadataField.DESCRIPTION,
+            MetadataField.WRITER,
+            MetadataField.ARTIST,
+            MetadataField.GENRE,
+            MetadataField.TAGS,
+            MetadataField.YEAR,
+            MetadataField.AGE_RATING,
+            MetadataField.LANGUAGE_ISO,
+            MetadataField.WEB_LINK,
+        },
+        primary_fields={
+            MetadataField.TITLE,
+            MetadataField.SERIES,
+            MetadataField.DESCRIPTION,
+            MetadataField.WRITER,
+            MetadataField.ARTIST,
+            MetadataField.TAGS,
+        },
+        description="Manga metadata from MangaDex.org"
+    ),
 }
 
 

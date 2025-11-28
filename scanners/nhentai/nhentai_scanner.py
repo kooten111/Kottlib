@@ -31,6 +31,7 @@ try:
     # Import from src.scanners package
     from src.scanners.base_scanner import BaseScanner, ScanResult, ScanLevel, MatchConfidence, ScannerAPIError, ScannerError
     from src.scanners.config_schema import ConfigOption, ConfigType
+    from src.scanners.utils import clean_query
 except ImportError:
     # Fallback for standalone execution
     class BaseScanner(ABC):
@@ -540,54 +541,6 @@ def extract_metadata_from_filename(filename: str) -> dict:
     return metadata
 
 
-def clean_filename(filename: str) -> str:
-    """
-    Clean a filename by removing common metadata markers.
-
-    Removes:
-    - Content in brackets: [English], [Aishi21], etc.
-    - Content in parentheses: (C101), (Fate Grand Order), etc.
-    - Content in curly braces: {tags}, etc.
-    - File extensions
-
-    Args:
-        filename: Raw filename to clean
-
-    Returns:
-        Cleaned filename with only the core title
-
-    Examples:
-        >>> clean_filename("[Poni] Title | English Title [English] [Translator].cbz")
-        'Title | English Title'
-
-        >>> clean_filename("(C101) [Artist] Title (Original)")
-        'Title'
-    """
-    # Remove file extension
-    cleaned = re.sub(r'\.(cbz|cbr|zip|rar|7z|pdf)$', '', filename, flags=re.IGNORECASE)
-
-    # Remove content in brackets, parentheses, and curly braces
-    # Use a loop to handle nested brackets
-    max_iterations = 10
-    for _ in range(max_iterations):
-        before = cleaned
-        # Remove [...], (...), {...}
-        cleaned = re.sub(r'\[[^\]]*\]', '', cleaned)
-        cleaned = re.sub(r'\([^\)]*\)', '', cleaned)
-        cleaned = re.sub(r'\{[^\}]*\}', '', cleaned)
-
-        # If nothing changed, we're done
-        if cleaned == before:
-            break
-
-    # Clean up extra whitespace
-    cleaned = re.sub(r'\s+', ' ', cleaned)
-    cleaned = cleaned.strip()
-
-    # Remove common separators at start/end
-    cleaned = cleaned.strip(' -|_')
-
-    return cleaned
 
 
 def similarity_score(str1: str, str2: str) -> float:
@@ -642,7 +595,7 @@ def find_best_match(
         filename_metadata = {}
 
     # Clean the query
-    cleaned_query = clean_filename(query)
+    cleaned_query = clean_query(query)
 
     # Count how many results have each metadata field (for uniqueness check)
     metadata_counts = {
@@ -682,7 +635,7 @@ def find_best_match(
                 continue
 
             # Clean the doujin title
-            cleaned_title = clean_filename(title)
+            cleaned_title = clean_query(title)
 
             # Calculate base similarity score
             score = similarity_score(cleaned_query, cleaned_title)
@@ -796,7 +749,8 @@ def get_tags_from_filename_enhanced(
     confidence_threshold: float = 0.4,
     sort_by: str = "date",
     use_fallback_searches: bool = True,
-    sources: List[str] = None
+    sources: List[str] = None,
+    use_normalized_search: bool = True
 ) -> Tuple[List[Doujin.Tag], float, dict]:
     """
     Get tags for a filename using enhanced matching with metadata validation.
@@ -827,8 +781,12 @@ def get_tags_from_filename_enhanced(
     # Extract metadata from filename BEFORE cleaning
     extracted_metadata = extract_metadata_from_filename(filename)
 
-    # Clean the filename
-    cleaned = clean_filename(filename)
+    # Clean the filename if normalized search is enabled
+    if use_normalized_search:
+        cleaned = clean_query(filename)
+    else:
+        # Just remove extension if not normalizing fully
+        cleaned = re.sub(r'\.(cbz|cbr|zip|rar|7z|pdf|epub)$', '', filename, flags=re.IGNORECASE)
 
     # If cleaning removed everything, use original
     if not cleaned or len(cleaned) < 3:
@@ -1058,12 +1016,14 @@ class NhentaiScanner(BaseScanner):
             - use_fallback_searches: Try alternative searches (default: True)
             - sort_by: Sort search results by "date" or "popular" (default: "date")
             - sources: List of sources to try (default: ["https://nhentai.net", "https://nhentai.xxx"])
+            - use_normalized_search: Whether to clean the query (default: True)
         """
         super().__init__(config)
         self.confidence_threshold = self.config.get('confidence_threshold', 0.4)
         self.use_fallback_searches = self.config.get('use_fallback_searches', True)
         self.sort_by = self.config.get('sort_by', 'date')
         self.sources = self.config.get('sources', ["https://nhentai.net", "https://nhentai.xxx"])
+        self.use_normalized_search = self.config.get('use_normalized_search', True)
 
     def scan(self, query: str, **kwargs) -> Tuple[Optional[ScanResult], List[ScanResult]]:
         """
@@ -1081,6 +1041,7 @@ class NhentaiScanner(BaseScanner):
         # Override config with kwargs
         confidence_threshold = kwargs.get('confidence_threshold', self.confidence_threshold)
         use_fallback = kwargs.get('use_fallback_searches', self.use_fallback_searches)
+        use_normalized_search = kwargs.get('use_normalized_search', self.use_normalized_search)
 
         # Extract just the filename if a path was provided
         if '/' in query or '\\' in query:
@@ -1093,7 +1054,8 @@ class NhentaiScanner(BaseScanner):
                 confidence_threshold=confidence_threshold,
                 sort_by=self.sort_by,
                 use_fallback_searches=use_fallback,
-                sources=self.sources
+                sources=self.sources,
+                use_normalized_search=use_normalized_search
             )
 
             # Check if we got a match
@@ -1173,13 +1135,70 @@ class NhentaiScanner(BaseScanner):
             for tag_name in tag_list:
                 all_tags_list.append(f"{tag_type}:{tag_name}")
 
+        # Build extra metadata for flexible display
+        extra_metadata = {
+            "items": []
+        }
+
+        # Helper to add items
+        def add_extra(label, value, display="row", color=None, placement="details"):
+            if value:
+                item = {
+                    "label": label, 
+                    "value": value, 
+                    "display": display,
+                    "placement": placement
+                }
+                if color:
+                    item["color"] = color
+                extra_metadata["items"].append(item)
+
+        # Parodies
+        parodies = categorized.get('parody', [])
+        if parodies:
+            add_extra("Parodies", parodies, "list")
+
+        # Groups
+        groups = categorized.get('group', [])
+        if groups:
+            add_extra("Groups", groups, "list")
+
+        # Characters
+        characters = categorized.get('character', [])
+        if characters:
+            add_extra("Characters", characters, "list")
+
+        # Language
+        if language_str:
+            add_extra("Language", language_str.title(), "tag", "blue")
+
+        # Category
+        if category_str:
+            add_extra("Category", category_str.title(), "tag", "green")
+
+        # Favorites
+        favorites = metadata.get('num_favorites')
+        if favorites:
+            add_extra("Favorites", f"{favorites:,}")
+
+        # Pages
+        pages = metadata.get('num_pages')
+        if pages:
+            add_extra("Pages", pages)
+
+        # Doujin ID
+        doujin_id = metadata.get('doujin_id')
+        if doujin_id:
+            add_extra("Doujin ID", doujin_id)
+
         return ScanResult(
             confidence=confidence,
             source_id=str(metadata.get('doujin_id', '')),
             source_url=metadata.get('doujin_url', ''),
             metadata=scan_metadata,
             tags=all_tags_list,  # Use the list version for ScanResult.tags
-            raw_response=metadata
+            raw_response=metadata,
+            extra_metadata=extra_metadata
         )
 
     def get_required_config_keys(self) -> List[str]:

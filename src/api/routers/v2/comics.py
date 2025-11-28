@@ -128,6 +128,7 @@ async def get_comic_fullinfo_v2(
         }
 
         # Add optional metadata fields if available
+        # Add optional metadata fields if available
         if comic.title:
             response["title"] = comic.title
         if comic.series:
@@ -136,12 +137,85 @@ async def get_comic_fullinfo_v2(
             response["volume"] = str(comic.volume)
         if comic.issue_number:
             response["universal_number"] = str(comic.issue_number)
-        if hasattr(comic, 'synopsis') and comic.synopsis:
+        
+        # Description/Synopsis
+        if hasattr(comic, 'description') and comic.description:
+            response["synopsis"] = comic.description
+        elif hasattr(comic, 'synopsis') and comic.synopsis:
             response["synopsis"] = comic.synopsis
+
+        # People
         if hasattr(comic, 'writer') and comic.writer:
             response["writer"] = comic.writer
+        if hasattr(comic, 'artist') and comic.artist:
+            response["artist"] = comic.artist
+        if hasattr(comic, 'penciller') and comic.penciller:
+            response["penciller"] = comic.penciller
+        if hasattr(comic, 'inker') and comic.inker:
+            response["inker"] = comic.inker
+        if hasattr(comic, 'colorist') and comic.colorist:
+            response["colorist"] = comic.colorist
+        if hasattr(comic, 'letterer') and comic.letterer:
+            response["letterer"] = comic.letterer
+        if hasattr(comic, 'cover_artist') and comic.cover_artist:
+            response["cover_artist"] = comic.cover_artist
+        if hasattr(comic, 'editor') and comic.editor:
+            response["editor"] = comic.editor
         if hasattr(comic, 'publisher') and comic.publisher:
             response["publisher"] = comic.publisher
+
+        # Classification
+        if hasattr(comic, 'genre') and comic.genre:
+            response["genre"] = comic.genre
+        if hasattr(comic, 'year') and comic.year:
+            response["year"] = comic.year
+        if hasattr(comic, 'language_iso') and comic.language_iso:
+            response["language_iso"] = comic.language_iso
+        if hasattr(comic, 'age_rating') and comic.age_rating:
+            response["age_rating"] = comic.age_rating
+        if hasattr(comic, 'format_type') and comic.format_type:
+            response["format"] = comic.format_type
+        if hasattr(comic, 'is_color') and comic.is_color is not None:
+            response["is_color"] = comic.is_color
+
+        # Lists
+        if hasattr(comic, 'characters') and comic.characters:
+            response["characters"] = comic.characters
+        if hasattr(comic, 'teams') and comic.teams:
+            response["teams"] = comic.teams
+        if hasattr(comic, 'locations') and comic.locations:
+            response["locations"] = comic.locations
+
+        # Series/Arc
+        if hasattr(comic, 'story_arc') and comic.story_arc:
+            response["story_arc"] = comic.story_arc
+        if hasattr(comic, 'arc_number') and comic.arc_number:
+            response["arc_number"] = comic.arc_number
+        if hasattr(comic, 'arc_count') and comic.arc_count:
+            response["arc_count"] = comic.arc_count
+        if hasattr(comic, 'alternate_series') and comic.alternate_series:
+            response["alternate_series"] = comic.alternate_series
+        if hasattr(comic, 'alternate_number') and comic.alternate_number:
+            response["alternate_number"] = comic.alternate_number
+        if hasattr(comic, 'alternate_count') and comic.alternate_count:
+            response["alternate_count"] = comic.alternate_count
+        if hasattr(comic, 'count') and comic.count:
+            response["count"] = comic.count
+
+        # Additional
+        if hasattr(comic, 'web') and comic.web:
+            response["web"] = comic.web
+        if hasattr(comic, 'notes') and comic.notes:
+            response["notes"] = comic.notes
+        if hasattr(comic, 'review') and comic.review:
+            response["review"] = comic.review
+
+        # Flexible Metadata (JSON)
+        if hasattr(comic, 'metadata_json') and comic.metadata_json:
+            try:
+                response["metadata"] = json.loads(comic.metadata_json)
+            except Exception as e:
+                logger.warning(f"[FULLINFO] Failed to parse metadata_json for comic {comic.id}: {e}")
 
         # Add scanner metadata fields
         if hasattr(comic, 'scanner_source') and comic.scanner_source:

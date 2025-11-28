@@ -47,12 +47,15 @@ class ScanResult:
     metadata: Dict = None
     tags: List[str] = None
     raw_response: Optional[Dict] = None
+    extra_metadata: Optional[Dict] = None  # For flexible metadata (e.g. display hints)
 
     def __post_init__(self):
         if self.metadata is None:
             self.metadata = {}
         if self.tags is None:
             self.tags = []
+        if self.extra_metadata is None:
+            self.extra_metadata = {}
 
     @property
     def confidence_level(self) -> MatchConfidence:
@@ -76,7 +79,8 @@ class ScanResult:
             'source_id': self.source_id,
             'source_url': self.source_url,
             'metadata': self.metadata,
-            'tags': self.tags
+            'tags': self.tags,
+            'extra_metadata': self.extra_metadata
         }
 
 

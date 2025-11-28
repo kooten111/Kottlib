@@ -35,9 +35,10 @@ try:
     # Import from src.scanners package
     from src.scanners.base_scanner import (
         BaseScanner, ScanResult, ScanLevel, MatchConfidence,
-        ScannerAPIError, ScannerRateLimitError
+        ScannerAPIError, ScannerRateLimitError, ScannerConfigError
     )
     from src.scanners.config_schema import ConfigOption, ConfigType
+    from src.scanners.utils import clean_query
 except ImportError:
     # Fallback for standalone execution
     BaseScanner = ABC
@@ -46,6 +47,7 @@ except ImportError:
     MatchConfidence = None
     ScannerAPIError = Exception
     ScannerRateLimitError = Exception
+    ScannerConfigError = Exception
 
 import requests
 
@@ -158,7 +160,8 @@ class MangaDexAPI:
         self,
         title: str,
         limit: int = 10,
-        languages: Optional[List[str]] = None
+        languages: Optional[List[str]] = None,
+        content_ratings: Optional[List[str]] = None
     ) -> List[Dict]:
         """
         Search for manga by title
@@ -167,9 +170,7 @@ class MangaDexAPI:
             title: Manga title to search
             limit: Maximum results to return (max 100)
             languages: Optional list of ISO language codes to filter by
-
-        Returns:
-            List of manga dictionaries
+            content_ratings: Optional list of content ratings to include
         """
         params = {
             'title': title,
@@ -182,6 +183,10 @@ class MangaDexAPI:
         if languages:
             # MangaDex uses translatedLanguage[] for filtering
             params['availableTranslatedLanguage[]'] = languages
+
+        # Add content rating filter
+        if content_ratings:
+            params['contentRating[]'] = content_ratings
 
         data = self._request('manga', params)
         return data.get('data', [])
@@ -421,7 +426,6 @@ def get_localized_description(manga: Dict, preferred_languages: List[str]) -> st
     for desc in descriptions.values():
         if desc:
             return desc
-
     return ""
 
 
@@ -582,8 +586,10 @@ class MangaDexScanner(BaseScanner):
         """
         super().__init__(config)
         self.confidence_threshold = self.config.get('confidence_threshold', 0.6)
+        self.languages = self.config.get('languages', ['en'])
         self.max_results = self.config.get('max_results', 10)
         self.timeout = self.config.get('timeout', 30)
+        self.use_normalized_search = self.config.get('use_normalized_search', True)
         self.rate_limit_delay = self.config.get('rate_limit_delay', RATE_LIMIT_DELAY)
         self.languages = self.config.get('languages', ['en'])
 
@@ -607,15 +613,27 @@ class MangaDexScanner(BaseScanner):
             (best_match, all_candidates)
         """
         confidence_threshold = kwargs.get('confidence_threshold', self.confidence_threshold)
-        max_results = kwargs.get('max_results', self.max_results)
         languages = kwargs.get('languages', self.languages)
+        max_results = kwargs.get('max_results', self.max_results)
+        use_normalized_search = kwargs.get('use_normalized_search', self.use_normalized_search)
+
+        # Clean query if enabled
+        if use_normalized_search:
+            cleaned_query = clean_query(query)
+            if not cleaned_query:
+                cleaned_query = query
+        else:
+            cleaned_query = query
+
+        logger.info(f"Scanning MangaDex for: '{cleaned_query}' (Original: '{query}')")
 
         try:
-            # Search for manga
+            # Search for manga with all content ratings
             results = self.api.search_manga(
-                title=query,
+                title=cleaned_query,
                 limit=max_results,
-                languages=languages if languages else None
+                languages=languages if languages else None,
+                content_ratings=['safe', 'suggestive', 'erotica', 'pornographic']
             )
 
             if not results:
@@ -623,8 +641,9 @@ class MangaDexScanner(BaseScanner):
 
             scored_results = []
             for manga in results:
-                # Calculate confidence based on title matching
-                confidence, matched_title = get_best_title_match(query, manga, languages)
+                # Calculate confidence based on title matching against the CLEANED query
+                # This ensures we are matching against what we actually searched for
+                confidence, matched_title = get_best_title_match(cleaned_query, manga, languages)
 
                 if confidence >= confidence_threshold:
                     scan_result = self._build_result(manga, confidence, languages)
@@ -643,6 +662,28 @@ class MangaDexScanner(BaseScanner):
             logger.error(f"MangaDex scan failed: {e}")
             raise ScannerAPIError(f"MangaDex scan failed: {e}") from e
 
+    def _clean_description(self, description: str) -> str:
+        """
+        Clean description by removing raw tags and metadata dumps
+        
+        Example input:
+        "... story description ... **TAGS** **MALE** schoolboy uniform **FEMALE** blowjob ..."
+        
+        Example output:
+        "... story description ..."
+        """
+        if not description:
+            return ""
+            
+        # Remove **TAGS** and everything after it
+        # This pattern matches **TAGS** and everything following it until the end of the string
+        cleaned = re.sub(r'\s*\*\*TAGS\*\*.*$', '', description, flags=re.DOTALL | re.IGNORECASE)
+        
+        # Also remove **OTHER** if it appears independently
+        cleaned = re.sub(r'\s*\*\*OTHER\*\*.*$', '', cleaned, flags=re.DOTALL | re.IGNORECASE)
+        
+        return cleaned.strip()
+
     def _build_result(self, manga: Dict, confidence: float, languages: List[str]) -> ScanResult:
         """Convert MangaDex manga to ScanResult"""
 
@@ -657,7 +698,8 @@ class MangaDexScanner(BaseScanner):
 
         # Get localized content
         title = get_primary_title(manga, languages)
-        description = get_localized_description(manga, languages)
+        raw_description = get_localized_description(manga, languages)
+        description = self._clean_description(raw_description)
         alt_titles = get_alternative_titles(manga)
 
         # Get cover URL
@@ -677,7 +719,7 @@ class MangaDexScanner(BaseScanner):
             # Core fields
             'title': title,
             'series': title,
-            'alternative_titles': alt_titles,
+            # 'alternative_titles': alt_titles,  # Moved to extra_metadata
             'description': description,
             'synopsis': description,  # Alias for compatibility
 
@@ -694,12 +736,12 @@ class MangaDexScanner(BaseScanner):
             'year': attributes.get('year'),
 
             # Content info
-            'content_rating': attributes.get('contentRating', ''),
-            'original_language': attributes.get('originalLanguage', ''),
+            'age_rating': attributes.get('contentRating', ''),  # Mapped from contentRating
+            'language_iso': attributes.get('originalLanguage', ''),  # Mapped from originalLanguage
             'latest_chapter': attributes.get('lastChapter', ''),
 
             # External links
-            'external_links': external_links,
+            # 'external_links': external_links, # Moved to extra_metadata
 
             # MangaDex specific - for cover provider
             'mangadex_id': manga_id,
@@ -718,13 +760,77 @@ class MangaDexScanner(BaseScanner):
         # Combine genres and tags for the tags list
         all_tags = list(genres) + list(tags)
 
+        # Build extra metadata for flexible display
+        extra_metadata = {
+            "items": []
+        }
+
+        # Helper to add items
+        def add_extra(label, value, display="row", color=None, placement="details"):
+            if value:
+                item = {
+                    "label": label, 
+                    "value": value, 
+                    "display": display,
+                    "placement": placement
+                }
+                if color:
+                    item["color"] = color
+                extra_metadata["items"].append(item)
+
+        # Content Rating
+        content_rating = attributes.get('contentRating', '')
+        if content_rating:
+            color = "gray"
+            if content_rating == "safe": color = "green"
+            elif content_rating == "suggestive": color = "yellow"
+            elif content_rating == "erotica": color = "orange"
+            elif content_rating == "pornographic": color = "red"
+            add_extra("Content Rating", content_rating.title(), "tag", color)
+
+        # Publication Demographic
+        demographic = attributes.get('publicationDemographic', '')
+        if demographic:
+            add_extra("Demographic", demographic.title(), "tag", "blue")
+
+        # Status
+        if status:
+            color = "gray"
+            if status == "Ongoing": color = "green"
+            elif status == "Completed": color = "blue"
+            elif status == "Hiatus": color = "orange"
+            elif status == "Cancelled": color = "red"
+            add_extra("Status", status, "tag", color)
+
+        # Original Language
+        orig_lang = attributes.get('originalLanguage', '')
+        if orig_lang:
+            add_extra("Original Language", orig_lang.upper(), "row")
+
+        # Latest Chapter
+        last_chapter = attributes.get('lastChapter', '')
+        if last_chapter:
+            add_extra("Latest Chapter", last_chapter, "row")
+            
+        # Alternative Titles
+        if alt_titles:
+            # Filter out the main title if present
+            filtered_alts = [t for t in alt_titles if t.lower() != title.lower()]
+            if filtered_alts:
+                add_extra("Alternative Titles", filtered_alts, "list")
+                
+        # External Links
+        if external_links:
+            add_extra("External Links", external_links, "links")
+
         return ScanResult(
             confidence=confidence,
             source_id=manga_id,
             source_url=source_url,
             metadata=metadata,
             tags=all_tags,
-            raw_response=manga
+            raw_response=manga,
+            extra_metadata=extra_metadata
         )
 
     def get_config_schema(self) -> List['ConfigOption']:
@@ -788,6 +894,14 @@ class MangaDexScanner(BaseScanner):
                 step=0.1,
                 required=False,
                 advanced=True
+            ),
+            ConfigOption(
+                key="use_normalized_search",
+                type=ConfigType.BOOLEAN,
+                label="Use Normalized Search",
+                description="Clean search query by removing brackets, tags, etc.",
+                default=True,
+                required=False
             ),
         ]
 

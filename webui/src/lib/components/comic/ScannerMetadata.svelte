@@ -1,6 +1,6 @@
 <script>
-	import { Scan, ExternalLink, Tag, Trash2, RefreshCw } from 'lucide-svelte';
-	import { scanComic, clearMetadata } from '$lib/api/scanners';
+	import { Scan, ExternalLink, Tag, Trash2, RefreshCw } from "lucide-svelte";
+	import { scanComic, clearMetadata } from "$lib/api/scanners";
 
 	export let comic;
 	export let libraryId;
@@ -17,13 +17,13 @@
 			scanResult = null;
 
 			const result = await scanComic(comic.id, overwrite);
-			
+
 			if (result.success) {
 				scanResult = result;
 				// Refresh the page to show updated metadata
 				window.location.reload();
 			} else {
-				error = result.error || 'Scan failed';
+				error = result.error || "Scan failed";
 			}
 		} catch (err) {
 			error = err.message;
@@ -33,7 +33,7 @@
 	}
 
 	async function handleClear() {
-		if (!confirm('Clear scanner metadata for this comic?')) {
+		if (!confirm("Clear scanner metadata for this comic?")) {
 			return;
 		}
 
@@ -45,7 +45,7 @@
 				comicIds: [comic.id],
 				clearScannerInfo: true,
 				clearTags: true,
-				clearMetadata: false
+				clearMetadata: false,
 			});
 
 			// Refresh the page
@@ -69,7 +69,10 @@
 			{#if comic.scanner_source_id}
 				<div class="metadata-row">
 					<span class="label">Source ID:</span>
-					<a href="/?q={comic.scanner_source_id}" class="value value-link">
+					<a
+						href="/?q={comic.scanner_source_id}"
+						class="value value-link"
+					>
 						{comic.scanner_source_id}
 					</a>
 				</div>
@@ -93,7 +96,10 @@
 			{#if comic.scan_confidence !== null && comic.scan_confidence !== undefined}
 				<div class="metadata-row">
 					<span class="label">Confidence:</span>
-					<span class="value confidence" class:high={comic.scan_confidence >= 0.7}>
+					<span
+						class="value confidence"
+						class:high={comic.scan_confidence >= 0.7}
+					>
 						{Math.round(comic.scan_confidence * 100)}%
 					</span>
 				</div>
@@ -109,12 +115,17 @@
 			{/if}
 
 			{#if comic.tags}
-				{@const tagsByType = comic.tags.split('\n').filter(t => t.trim()).reduce((acc, tagString) => {
-					const [tagType, tagName] = tagString.includes(':') ? tagString.split(':', 2) : ['tag', tagString];
-					if (!acc[tagType]) acc[tagType] = [];
-					acc[tagType].push(tagName);
-					return acc;
-				}, {})}
+				{@const tagsByType = comic.tags
+					.split("\n")
+					.filter((t) => t.trim())
+					.reduce((acc, tagString) => {
+						const [tagType, tagName] = tagString.includes(":")
+							? tagString.split(":", 2)
+							: ["tag", tagString];
+						if (!acc[tagType]) acc[tagType] = [];
+						acc[tagType].push(tagName);
+						return acc;
+					}, {})}
 
 				<!-- Parodies/Series -->
 				{#if tagsByType.parody && tagsByType.parody.length > 0}
@@ -122,7 +133,9 @@
 						<span class="label">Parodies:</span>
 						<div class="tags-list">
 							{#each tagsByType.parody as tagName}
-								<span class="tag-badge tag-parody">{tagName}</span>
+								<span class="tag-badge tag-parody"
+									>{tagName}</span
+								>
 							{/each}
 						</div>
 					</div>
@@ -134,7 +147,9 @@
 						<span class="label">Characters:</span>
 						<div class="tags-list">
 							{#each tagsByType.character as tagName}
-								<span class="tag-badge tag-character">{tagName}</span>
+								<span class="tag-badge tag-character"
+									>{tagName}</span
+								>
 							{/each}
 						</div>
 					</div>
@@ -146,7 +161,9 @@
 						<span class="label">Artists:</span>
 						<div class="tags-list">
 							{#each tagsByType.artist as tagName}
-								<span class="tag-badge tag-artist">{tagName}</span>
+								<span class="tag-badge tag-artist"
+									>{tagName}</span
+								>
 							{/each}
 						</div>
 					</div>
@@ -158,7 +175,9 @@
 						<span class="label">Groups:</span>
 						<div class="tags-list">
 							{#each tagsByType.group as tagName}
-								<span class="tag-badge tag-group">{tagName}</span>
+								<span class="tag-badge tag-group"
+									>{tagName}</span
+								>
 							{/each}
 						</div>
 					</div>
@@ -170,7 +189,9 @@
 						<span class="label">Languages:</span>
 						<div class="tags-list">
 							{#each tagsByType.language as tagName}
-								<span class="tag-badge tag-language">{tagName}</span>
+								<span class="tag-badge tag-language"
+									>{tagName}</span
+								>
 							{/each}
 						</div>
 					</div>
@@ -182,7 +203,9 @@
 						<span class="label">Categories:</span>
 						<div class="tags-list">
 							{#each tagsByType.category as tagName}
-								<span class="tag-badge tag-category">{tagName}</span>
+								<span class="tag-badge tag-category"
+									>{tagName}</span
+								>
 							{/each}
 						</div>
 					</div>
@@ -200,6 +223,85 @@
 					</div>
 				{/if}
 			{/if}
+
+			<!-- Dynamic Metadata from Scanner -->
+			{#if comic.metadata && comic.metadata.items}
+				<div class="dynamic-metadata-section">
+					{#each comic.metadata.items as item}
+						{#if item.display === "row"}
+							<div class="metadata-row">
+								<span class="label">{item.label}:</span>
+								<span class="value">{item.value}</span>
+							</div>
+						{:else if item.display === "tag"}
+							<div class="metadata-row tags-section">
+								<span class="label">{item.label}:</span>
+								<div class="tags-list">
+									<span
+										class="tag-badge"
+										style="
+										background: {item.color === 'green'
+											? 'rgba(34, 197, 94, 0.2)'
+											: item.color === 'blue'
+												? 'rgba(59, 130, 246, 0.2)'
+												: item.color === 'red'
+													? 'rgba(239, 68, 68, 0.2)'
+													: item.color === 'yellow'
+														? 'rgba(234, 179, 8, 0.2)'
+														: item.color ===
+															  'orange'
+															? 'rgba(249, 115, 22, 0.2)'
+															: 'rgba(156, 163, 175, 0.2)'};
+										color: {item.color === 'green'
+											? '#22c55e'
+											: item.color === 'blue'
+												? '#3b82f6'
+												: item.color === 'red'
+													? '#ef4444'
+													: item.color === 'yellow'
+														? '#eab308'
+														: item.color ===
+															  'orange'
+															? '#f97316'
+															: '#9ca3af'};
+									"
+									>
+										{item.value}
+									</span>
+								</div>
+							</div>
+						{:else if item.display === "list"}
+							<div class="metadata-row list-section">
+								<span class="label">{item.label}:</span>
+								<div class="value-list">
+									{#each item.value as val}
+										<div class="list-item">{val}</div>
+									{/each}
+								</div>
+							</div>
+						{:else if item.display === "links"}
+							<div class="metadata-row links-section">
+								<span class="label">{item.label}:</span>
+								<div class="links-list">
+									{#each Object.entries(item.value) as [name, url]}
+										<a
+											href={url}
+											target="_blank"
+											rel="noopener noreferrer"
+											class="external-link-badge"
+										>
+											{name}
+											<ExternalLink
+												class="w-3 h-3 ml-1"
+											/>
+										</a>
+									{/each}
+								</div>
+							</div>
+						{/if}
+					{/each}
+				</div>
+			{/if}
 		</div>
 
 		<div class="metadata-actions">
@@ -209,7 +311,7 @@
 				class="btn-rescan"
 			>
 				<RefreshCw class="w-4 h-4" />
-				{isScanning ? 'Rescanning...' : 'Rescan'}
+				{isScanning ? "Rescanning..." : "Rescan"}
 			</button>
 			<button
 				on:click={handleClear}
@@ -217,19 +319,21 @@
 				class="btn-clear"
 			>
 				<Trash2 class="w-4 h-4" />
-				{isClearing ? 'Clearing...' : 'Clear'}
+				{isClearing ? "Clearing..." : "Clear"}
 			</button>
 		</div>
 	{:else}
 		<div class="no-metadata">
-			<p class="text-gray-400 text-sm mb-2">No scanner metadata available</p>
+			<p class="text-gray-400 text-sm mb-2">
+				No scanner metadata available
+			</p>
 			<button
 				on:click={() => handleScan(false)}
 				disabled={isScanning}
 				class="btn-scan"
 			>
 				<Scan class="w-4 h-4" />
-				{isScanning ? 'Scanning...' : 'Scan for Metadata'}
+				{isScanning ? "Scanning..." : "Scan for Metadata"}
 			</button>
 		</div>
 	{/if}
@@ -459,5 +563,47 @@
 		color: #22c55e;
 		border-radius: 6px;
 		font-size: 0.875rem;
+	}
+
+	.list-section {
+		align-items: flex-start;
+	}
+
+	.value-list {
+		display: flex;
+		flex-direction: column;
+		gap: 0.25rem;
+	}
+
+	.list-item {
+		color: #d1d5db;
+		font-size: 0.875rem;
+	}
+
+	.links-section {
+		align-items: flex-start;
+	}
+
+	.links-list {
+		display: flex;
+		flex-wrap: wrap;
+		gap: 0.5rem;
+	}
+
+	.external-link-badge {
+		display: inline-flex;
+		align-items: center;
+		padding: 0.25rem 0.5rem;
+		background: rgba(75, 85, 99, 0.3);
+		color: #9ca3af;
+		border-radius: 4px;
+		font-size: 0.75rem;
+		text-decoration: none;
+		transition: all 0.2s;
+	}
+
+	.external-link-badge:hover {
+		background: rgba(75, 85, 99, 0.5);
+		color: #e5e7eb;
 	}
 </style>

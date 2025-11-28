@@ -35,6 +35,7 @@ try:
     # Import from src.scanners package
     from src.scanners.base_scanner import BaseScanner, ScanResult, ScanLevel, MatchConfidence, ScannerAPIError
     from src.scanners.config_schema import ConfigOption, ConfigType
+    from src.scanners.utils import clean_query
 except ImportError:
     # Fallback for standalone execution
     BaseScanner = ABC
@@ -735,6 +736,7 @@ class AniListScanner(BaseScanner):
         self.max_results = self.config.get('max_results', 10)
         self.max_characters = self.config.get('max_characters', 10)
         self.include_spoiler_tags = self.config.get('include_spoiler_tags', False)
+        self.use_normalized_search = self.config.get('use_normalized_search', True)
 
         # Initialize API client
         timeout = self.config.get('timeout', 10)
@@ -757,10 +759,18 @@ class AniListScanner(BaseScanner):
         # Override config with kwargs
         confidence_threshold = kwargs.get('confidence_threshold', self.confidence_threshold)
         max_results = kwargs.get('max_results', self.max_results)
+        use_normalized_search = kwargs.get('use_normalized_search', self.use_normalized_search)
+        
+        # Clean query if enabled
+        search_query = query
+        if use_normalized_search:
+            search_query = clean_query(query)
+            if not search_query:
+                search_query = query
         
         try:
             # Search for manga
-            results = self.api.search_manga(query, per_page=max_results)
+            results = self.api.search_manga(search_query, per_page=max_results)
             
             if not results:
                 return None, []
@@ -901,13 +911,85 @@ class AniListScanner(BaseScanner):
         all_tags.extend(genres)
         all_tags.extend(tags)
         
+        # Build extra metadata for flexible display
+        extra_metadata = {
+            "items": []
+        }
+
+        # Helper to add items
+        def add_extra(label, value, display="row", color=None, placement="details"):
+            if value:
+                item = {
+                    "label": label, 
+                    "value": value, 
+                    "display": display,
+                    "placement": placement
+                }
+                if color:
+                    item["color"] = color
+                extra_metadata["items"].append(item)
+
+        # Status
+        status = manga.get('status')
+        if status:
+            color = "gray"
+            if status == "FINISHED": color = "green"
+            elif status == "RELEASING": color = "blue"
+            elif status == "CANCELLED": color = "red"
+            elif status == "HIATUS": color = "yellow"
+            add_extra("Status", status.title(), "tag", color)
+
+        # Format
+        if comic_format:
+            add_extra("Format", comic_format, "tag", "blue")
+
+        # Scores
+        avg_score = manga.get('averageScore')
+        if avg_score:
+            add_extra("Average Score", f"{avg_score}%")
+            
+        popularity = manga.get('popularity')
+        if popularity:
+            add_extra("Popularity", f"{popularity:,}")
+
+        # Characters
+        if characters:
+            add_extra("Characters", characters, "list")
+
+        # Alternative Titles
+        alt_titles = []
+        if title_romaji and title_romaji != primary_title:
+            alt_titles.append(f"{title_romaji} (Romaji)")
+        if title_english and title_english != primary_title:
+            alt_titles.append(f"{title_english} (English)")
+        if title_native and title_native != primary_title:
+            alt_titles.append(f"{title_native} (Native)")
+            
+        synonyms = titles.get('synonyms', [])
+        if synonyms:
+            alt_titles.extend(synonyms)
+            
+        if alt_titles:
+            add_extra("Alternative Titles", alt_titles, "list")
+
+        # External Links
+        external_links = {}
+        if manga.get('siteUrl'):
+            external_links["AniList"] = manga.get('siteUrl')
+        if manga.get('idMal'):
+            external_links["MyAnimeList"] = f"https://myanimelist.net/manga/{manga.get('idMal')}"
+            
+        if external_links:
+            add_extra("External Links", external_links, "links")
+
         return ScanResult(
             confidence=confidence,
             source_id=str(manga.get('id')),
             source_url=manga.get('siteUrl'),
             metadata=scan_metadata,
             tags=all_tags,
-            raw_response=manga
+            raw_response=manga,
+            extra_metadata=extra_metadata
         )
 
     def get_config_schema(self) -> List[ConfigOption]:

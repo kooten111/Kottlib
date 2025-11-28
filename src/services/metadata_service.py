@@ -115,11 +115,21 @@ class MetadataService:
 
             # Store scanner metadata
             import time
+            import json
             comic.scanner_source = scanner_name
             comic.scanner_source_id = scan_result.source_id
             comic.scanner_source_url = scan_result.source_url
             comic.scanned_at = int(time.time())
             comic.scan_confidence = scan_result.confidence
+            
+            # Store flexible metadata if present
+            if scan_result.extra_metadata:
+                try:
+                    comic.metadata_json = json.dumps(scan_result.extra_metadata)
+                    fields_updated.append('metadata_json')
+                except Exception as e:
+                    logger.warning(f"Failed to serialize extra_metadata for comic {comic.id}: {e}")
+            
             fields_updated.append('scanner_metadata')
 
             # Commit changes

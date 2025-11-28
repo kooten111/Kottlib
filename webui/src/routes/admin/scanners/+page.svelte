@@ -62,6 +62,43 @@
 	let isSavingConfig = false;
 	let configError = null;
 
+	// Verification state
+	let isVerifying = false;
+	let verificationResult = null;
+	let verificationError = null;
+
+	async function verifyCredentials() {
+		if (!configForm.primary_scanner) return;
+
+		try {
+			isVerifying = true;
+			verificationResult = null;
+			verificationError = null;
+
+			const scannerName = configForm.primary_scanner;
+			const credentials = configForm.scanner_configs?.[scannerName] || {};
+
+			const response = await fetch(`/v2/scanners/verify-credentials/${scannerName}`, {
+				method: "POST",
+				headers: { "Content-Type": "application/json" },
+				body: JSON.stringify(credentials),
+			});
+
+			const result = await response.json();
+
+			if (result.success) {
+				verificationResult = result.message;
+			} else {
+				verificationError = result.error || "Verification failed";
+			}
+		} catch (err) {
+			console.error("Verification failed:", err);
+			verificationError = err.message;
+		} finally {
+			isVerifying = false;
+		}
+	}
+
 	onMount(async () => {
 		await loadScannerData();
 	});
@@ -357,7 +394,10 @@
 			scanner_configs: library.scanner_configs || {},
 		};
 		console.log("[openConfigModal] Initial configForm:", configForm);
+		console.log("[openConfigModal] Initial configForm:", configForm);
 		configError = null;
+		verificationResult = null;
+		verificationError = null;
 		showConfigModal = true;
 	}
 
@@ -1398,6 +1438,39 @@
 									</div>
 								</details>
 							{/if}
+						</div>
+						
+						<!-- Verification Section -->
+						<div class="border-t border-gray-700 pt-4 mt-4">
+							<div class="flex items-center justify-between">
+								<button
+									on:click={verifyCredentials}
+									disabled={isVerifying}
+									class="px-3 py-1.5 text-sm bg-dark-bg-tertiary border border-gray-600 text-dark-text rounded hover:bg-gray-700 transition-colors flex items-center gap-2"
+								>
+									{#if isVerifying}
+										<div class="animate-spin rounded-full h-3 w-3 border-b-2 border-white"></div>
+										Verifying...
+									{:else}
+										<CheckCircle class="w-3 h-3" />
+										Verify Credentials
+									{/if}
+								</button>
+								
+								{#if verificationResult}
+									<span class="text-sm text-status-success flex items-center gap-1">
+										<CheckCircle class="w-4 h-4" />
+										{verificationResult}
+									</span>
+								{/if}
+								
+								{#if verificationError}
+									<span class="text-sm text-status-error flex items-center gap-1">
+										<XCircle class="w-4 h-4" />
+										{verificationError}
+									</span>
+								{/if}
+							</div>
 						</div>
 					{/if}
 				{/if}
