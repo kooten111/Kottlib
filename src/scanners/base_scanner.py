@@ -9,6 +9,8 @@ from typing import List, Dict, Optional, Tuple
 from dataclasses import dataclass
 from enum import Enum
 
+from .config_schema import ConfigOption
+
 
 class ScanLevel(Enum):
     """What level the scanner operates at"""
@@ -149,10 +151,47 @@ class BaseScanner(ABC):
 
     def get_required_config_keys(self) -> List[str]:
         """
-        Get list of required configuration keys
+        Get list of required configuration keys (DEPRECATED)
+
+        DEPRECATED: Use get_config_schema() instead for declarative configuration.
+        This method is kept for backwards compatibility.
 
         Returns:
             List of required config keys (e.g., ["api_key"])
+        """
+        return []
+
+    def get_config_schema(self) -> List[ConfigOption]:
+        """
+        Get declarative configuration schema for this scanner
+
+        Returns a list of ConfigOption objects that define what configuration
+        this scanner needs. The WebUI will automatically render appropriate
+        input controls based on the option types.
+
+        Example:
+            return [
+                ConfigOption(
+                    key="api_key",
+                    type=ConfigType.SECRET,
+                    label="API Key",
+                    description="Your API key from the service",
+                    required=True
+                ),
+                ConfigOption(
+                    key="confidence_threshold",
+                    type=ConfigType.FLOAT,
+                    label="Confidence Threshold",
+                    description="Minimum confidence score for matches",
+                    default=0.6,
+                    min_value=0.0,
+                    max_value=1.0,
+                    step=0.05
+                )
+            ]
+
+        Returns:
+            List of ConfigOption objects defining this scanner's configuration
         """
         return []
 

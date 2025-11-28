@@ -34,6 +34,7 @@ from enum import Enum
 try:
     # Import from src.scanners package
     from src.scanners.base_scanner import BaseScanner, ScanResult, ScanLevel, MatchConfidence, ScannerAPIError
+    from src.scanners.config_schema import ConfigOption, ConfigType
 except ImportError:
     # Fallback for standalone execution
     BaseScanner = ABC
@@ -908,6 +909,101 @@ class AniListScanner(BaseScanner):
             tags=all_tags,
             raw_response=manga
         )
+
+    def get_config_schema(self) -> List[ConfigOption]:
+        """Get declarative configuration schema for AniList scanner"""
+        return [
+            ConfigOption(
+                key="confidence_threshold",
+                type=ConfigType.FLOAT,
+                label="Confidence Threshold",
+                description="Minimum confidence score (0.0-1.0) to accept a match",
+                default=0.6,
+                min_value=0.0,
+                max_value=1.0,
+                step=0.05,
+                required=False
+            ),
+            ConfigOption(
+                key="use_romaji_titles",
+                type=ConfigType.BOOLEAN,
+                label="Match Romaji Titles",
+                description="Include Romaji titles when matching",
+                default=True,
+                required=False
+            ),
+            ConfigOption(
+                key="use_english_titles",
+                type=ConfigType.BOOLEAN,
+                label="Match English Titles",
+                description="Include English titles when matching",
+                default=True,
+                required=False
+            ),
+            ConfigOption(
+                key="use_native_titles",
+                type=ConfigType.BOOLEAN,
+                label="Match Native Titles",
+                description="Include native (Japanese/Korean/Chinese) titles when matching",
+                default=False,
+                required=False,
+                advanced=True
+            ),
+            ConfigOption(
+                key="max_results",
+                type=ConfigType.INTEGER,
+                label="Max Search Results",
+                description="Maximum number of search results to fetch",
+                default=10,
+                min_value=1,
+                max_value=50,
+                required=False,
+                advanced=True
+            ),
+            ConfigOption(
+                key="max_characters",
+                type=ConfigType.INTEGER,
+                label="Max Characters",
+                description="Maximum number of characters to extract from metadata",
+                default=10,
+                min_value=0,
+                max_value=50,
+                required=False,
+                advanced=True
+            ),
+            ConfigOption(
+                key="include_spoiler_tags",
+                type=ConfigType.BOOLEAN,
+                label="Include Spoiler Tags",
+                description="Include tags marked as spoilers",
+                default=False,
+                required=False,
+                advanced=True
+            ),
+            ConfigOption(
+                key="timeout",
+                type=ConfigType.INTEGER,
+                label="API Timeout",
+                description="Request timeout in seconds",
+                default=10,
+                min_value=5,
+                max_value=60,
+                required=False,
+                advanced=True
+            ),
+            ConfigOption(
+                key="rate_limit_delay",
+                type=ConfigType.FLOAT,
+                label="Rate Limit Delay",
+                description="Delay between requests in seconds (2.5s = ~30 req/min)",
+                default=2.5,
+                min_value=0.5,
+                max_value=10.0,
+                step=0.5,
+                required=False,
+                advanced=True
+            ),
+        ]
 
 
 # ============================================================================

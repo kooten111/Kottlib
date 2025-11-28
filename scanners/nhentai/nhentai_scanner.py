@@ -30,6 +30,7 @@ from dataclasses import dataclass
 try:
     # Import from src.scanners package
     from src.scanners.base_scanner import BaseScanner, ScanResult, ScanLevel, MatchConfidence, ScannerAPIError, ScannerError
+    from src.scanners.config_schema import ConfigOption, ConfigType
 except ImportError:
     # Fallback for standalone execution
     class BaseScanner(ABC):
@@ -1184,6 +1185,49 @@ class NhentaiScanner(BaseScanner):
     def get_required_config_keys(self) -> List[str]:
         """nhentai scanner doesn't require any API keys"""
         return []
+
+    def get_config_schema(self) -> List[ConfigOption]:
+        """Get declarative configuration schema for nhentai scanner"""
+        return [
+            ConfigOption(
+                key="confidence_threshold",
+                type=ConfigType.FLOAT,
+                label="Confidence Threshold",
+                description="Minimum confidence score (0.0-1.0) to accept a match",
+                default=0.4,
+                min_value=0.0,
+                max_value=1.0,
+                step=0.05,
+                required=False
+            ),
+            ConfigOption(
+                key="use_fallback_searches",
+                type=ConfigType.BOOLEAN,
+                label="Use Fallback Searches",
+                description="Try alternative search strategies if primary search fails",
+                default=True,
+                required=False
+            ),
+            ConfigOption(
+                key="sort_by",
+                type=ConfigType.SELECT,
+                label="Sort Results By",
+                description="How to sort search results",
+                default="date",
+                options=["date", "popular"],
+                required=False
+            ),
+            ConfigOption(
+                key="sources",
+                type=ConfigType.MULTI_SELECT,
+                label="Sources",
+                description="nhentai sources to try (in order)",
+                default=["https://nhentai.net", "https://nhentai.xxx"],
+                options=["https://nhentai.net", "https://nhentai.xxx"],
+                required=False,
+                advanced=True
+            ),
+        ]
 
 
 # ============================================================================

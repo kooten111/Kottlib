@@ -222,7 +222,8 @@ class ScannerInfo(BaseModel):
     scan_level: ScanLevelEnum
     description: Optional[str] = None
     requires_config: bool = False
-    config_keys: List[str] = Field(default_factory=list)
+    config_keys: List[str] = Field(default_factory=list)  # DEPRECATED: use config_schema instead
+    config_schema: List[Dict[str, Any]] = Field(default_factory=list)  # Declarative config schema
     provided_fields: List[str] = Field(default_factory=list)
     primary_fields: List[str] = Field(default_factory=list)
 
@@ -341,22 +342,32 @@ async def get_available_scanners():
         requires_config = False
         config_keys = []
         
+        # Get declarative config schema
+        config_schema = []
+
         if scanner_class:
             try:
                 # Instantiate to get properties
                 temp_scanner = scanner_class()
-                
+
                 # Map from ScanLevel enum to ScanLevelEnum
                 if temp_scanner.scan_level.value == 'file':
                     scan_level = ScanLevelEnum.FILE
                 elif temp_scanner.scan_level.value == 'series':
                     scan_level = ScanLevelEnum.SERIES
-                
-                # Get config requirements
+
+                # Get declarative config schema (new method)
+                schema_options = temp_scanner.get_config_schema()
+                if schema_options:
+                    config_schema = [opt.to_dict() for opt in schema_options]
+                    # Mark as requiring config if any options are required
+                    requires_config = any(opt.required for opt in schema_options)
+
+                # Get config requirements (deprecated method, for backward compatibility)
                 config_keys = temp_scanner.get_required_config_keys()
-                if config_keys:
+                if config_keys and not requires_config:
                     requires_config = True
-                    
+
                 # Check for optional config keys if exposed as property (convention)
                 if hasattr(temp_scanner, 'config_keys'):
                     extra_keys = getattr(temp_scanner, 'config_keys')
@@ -364,7 +375,7 @@ async def get_available_scanners():
                         for key in extra_keys:
                             if key not in config_keys:
                                 config_keys.append(key)
-                                
+
             except Exception as e:
                 logger.warning(f"Failed to inspect scanner {scanner_name}: {e}")
         
@@ -374,6 +385,7 @@ async def get_available_scanners():
             description=caps.description if caps else f"Metadata scanner: {scanner_name}",
             requires_config=requires_config,
             config_keys=config_keys,
+            config_schema=config_schema,
             provided_fields=[f.value for f in caps.provided_fields] if caps else [],
             primary_fields=[f.value for f in caps.primary_fields] if caps else []
         ))
