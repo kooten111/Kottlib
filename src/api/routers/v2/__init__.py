@@ -17,7 +17,7 @@ from . import collections
 from . import series
 from . import session
 from . import admin
-from .. import covers
+from . import covers
 
 # Create main v2 router with prefix
 router = APIRouter(prefix="/v2")
