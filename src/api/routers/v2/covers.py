@@ -19,6 +19,7 @@ from ....database import (
     get_covers_dir,
     create_cover,
 )
+from ....scanner.thumbnail_generator import generate_dual_thumbnails
 from ....services.mangadex_client import get_mangadex_client, MangaDexCover
 
 logger = logging.getLogger(__name__)
@@ -214,8 +215,6 @@ async def fetch_mangadex_cover(
             )
 
         # Generate thumbnails
-        from ....scanner.thumbnail_generator import generate_dual_thumbnails
-
         covers_dir = get_covers_dir(library_name)
         custom_hash = f"{comic.hash}_mangadex"
 
