@@ -808,7 +808,7 @@
 	<title>Home - YACLib</title>
 </svelte:head>
 
-<div class="flex flex-col min-h-screen">
+<div class="flex flex-col h-screen overflow-hidden">
 	<Navbar />
 
 	<div class="flex flex-1 overflow-hidden">
