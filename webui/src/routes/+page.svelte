@@ -12,6 +12,8 @@
 		getContinueReading,
 		getLibrariesSeriesTree,
 	} from "$lib/api/libraries";
+	import HomeSidebar from "$lib/components/layout/HomeSidebar.svelte";
+	import { getFavorites } from "$lib/api/favorites";
 	import { searchComics } from "$lib/api/search";
 	import {
 		BookOpen,
@@ -38,6 +40,9 @@
 	let error = null;
 	let seriesTree = [];
 	let currentFilter = $currentFilterStore;
+	let currentView = "home"; // 'home', 'favorites', 'continue'
+	let favorites = [];
+	let isLoadingFavorites = false;
 	let searchQuery = "";
 	let searchResults = [];
 	let hasMoreSeries = true;
@@ -343,7 +348,7 @@
 		);
 	}
 
-	function handleTreeFilter(event) {
+	async function handleTreeFilter(event) {
 		const { type, libraryId, folderId, folderName, comicId, libraryName } =
 			event.detail;
 
@@ -374,9 +379,61 @@
 			// Navigate to series view page
 			// The folder name corresponds to the series name
 			window.location.href = `/series/${libraryId}/${encodeURIComponent(folderName)}`;
+			return;
 		} else if (type === "comic") {
 			// Navigate to comic reader
 			window.location.href = `/comic/${libraryId}/${comicId}/read`;
+			return;
+		}
+
+		// Reload favorites if in favorites view
+		if (currentView === "favorites") {
+			await loadFavorites();
+		}
+	}
+
+	async function handleViewChange(event) {
+		const view = event.detail;
+		currentView = view;
+
+		if (view === "favorites") {
+			await loadFavorites();
+		}
+	}
+
+	async function loadFavorites() {
+		isLoadingFavorites = true;
+		try {
+			if (currentFilter?.type === "library") {
+				const favs = await getFavorites(currentFilter.libraryId);
+				favorites = favs.map((f) => ({
+					...f,
+					libraryId: currentFilter.libraryId,
+				}));
+			} else {
+				// Load from all libraries
+				const favResults = await Promise.all(
+					libraries.map((lib) =>
+						getFavorites(lib.id)
+							.then((comics) =>
+								comics.map((c) => ({
+									...c,
+									libraryId: lib.id,
+								})),
+							)
+							.catch(() => []),
+					),
+				);
+				favorites = favResults.flat();
+			}
+			// Sort favorites by date added by default
+			favorites.sort(
+				(a, b) => (b.favoriteDate || 0) - (a.favoriteDate || 0),
+			);
+		} catch (err) {
+			console.error("Failed to load favorites:", err);
+		} finally {
+			isLoadingFavorites = false;
 		}
 	}
 
@@ -756,60 +813,84 @@
 
 	<div class="flex flex-1 overflow-hidden">
 		<!-- Left Sidebar -->
-		<aside class="sidebar">
-			{#if seriesTree.length > 0}
-				<div class="tree-container">
-					<SeriesTree
-						tree={filteredSeriesTree}
-						{currentFilter}
-						on:filter={handleTreeFilter}
-					/>
-				</div>
-			{:else}
-				<p class="sidebar-empty">No libraries</p>
-			{/if}
-		</aside>
+		<HomeSidebar
+			{libraries}
+			{seriesTree}
+			{currentFilter}
+			{currentView}
+			on:filter={handleTreeFilter}
+			on:viewChange={handleViewChange}
+		/>
 
 		<!-- Main Content -->
 		<main class="flex-1 overflow-y-auto">
 			<div class="container mx-auto px-4 py-8 max-w-content">
-				{#if isLoading}
-					<!-- Skeleton loading state for better UX -->
-					<section class="section">
-						<div class="section-header">
-							<h2 class="section-title">
-								<BookOpen class="w-6 h-6" />
-								Continue Reading
-							</h2>
-						</div>
-						<div class="flex gap-6 overflow-hidden">
-							{#each Array(5) as _, i}
-								<SkeletonCard width={180} height={270} />
-							{/each}
-						</div>
-					</section>
-
-					<section class="section mt-12">
-						<div class="section-header">
-							<h2 class="section-title">
-								<TrendingUp class="w-6 h-6" />
-								Recent Series
-							</h2>
-						</div>
-						<div
-							class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-6"
+				{#if currentView === "favorites"}
+					<div class="mb-8">
+						<h2
+							class="text-2xl font-bold mb-6 flex items-center gap-2"
 						>
-							{#each Array(12) as _, i}
-								<SkeletonCard width={180} height={270} />
-							{/each}
-						</div>
-					</section>
-				{:else if error}
-					<div class="error-container">
-						<p class="text-red-400">Failed to load: {error}</p>
+							<Heart class="w-6 h-6 text-accent-orange" />
+							Favorites
+						</h2>
+						{#if isLoadingFavorites}
+							<div class="flex justify-center py-12">
+								<div
+									class="animate-spin rounded-full h-8 w-8 border-b-2 border-accent-orange"
+								></div>
+							</div>
+						{:else if favorites.length > 0}
+							<div
+								class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-6"
+							>
+								{#each favorites as comic}
+									<ComicCard
+										{comic}
+										libraryId={comic.libraryId}
+									/>
+								{/each}
+							</div>
+						{:else}
+							<div class="text-center py-12 text-gray-500">
+								<Heart
+									class="w-12 h-12 mx-auto mb-4 opacity-50"
+								/>
+								<p>No favorites found</p>
+							</div>
+						{/if}
+					</div>
+				{:else if currentView === "continue"}
+					<div class="mb-8">
+						<h2
+							class="text-2xl font-bold mb-6 flex items-center gap-2"
+						>
+							<BookOpen class="w-6 h-6 text-accent-orange" />
+							Continue Reading
+						</h2>
+						{#if filteredContinueReading.length > 0}
+							<div
+								class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-6"
+							>
+								{#each filteredContinueReading as comic}
+									<ComicCard
+										{comic}
+										libraryId={comic.libraryId}
+									/>
+								{/each}
+							</div>
+						{:else}
+							<div class="text-center py-12 text-gray-500">
+								<BookOpen
+									class="w-12 h-12 mx-auto mb-4 opacity-50"
+								/>
+								<p>No continue reading items found</p>
+							</div>
+						{/if}
 					</div>
 				{:else}
-					{#if filteredContinueReading.length > 0}
+					<!-- HOME VIEW -->
+					{#if isLoading}
+						<!-- Skeleton loading state for better UX -->
 						<section class="section">
 							<div class="section-header">
 								<h2 class="section-title">
@@ -817,173 +898,215 @@
 									Continue Reading
 								</h2>
 							</div>
-							<HorizontalCarousel itemWidth={180} gap={24}>
-								{#each filteredContinueReading as comic}
-									<div class="carousel-item">
-										<ComicCard
-											{comic}
-											libraryId={comic.libraryId}
-										/>
-									</div>
+							<div class="flex gap-6 overflow-hidden">
+								{#each Array(5) as _, i}
+									<SkeletonCard width={180} height={270} />
 								{/each}
-							</HorizontalCarousel>
+							</div>
 						</section>
-					{/if}
 
-					{#if displayedSeries.length > 0}
-						<section class="section">
+						<section class="section mt-12">
 							<div class="section-header">
 								<h2 class="section-title">
 									<TrendingUp class="w-6 h-6" />
-									{#if searchQuery}
-										Search Results
-									{:else if currentFilter?.type === "all"}
-										All Series
-									{:else if currentFilter?.type === "library"}
-										{currentFilter.libraryName}
-									{:else if currentFilter?.type === "folder"}
-										{currentFilter.folderName}
-									{:else}
-										All Series
-									{/if}
+									Recent Series
 								</h2>
-								<div class="view-controls">
-									<button
-										class="control-btn"
-										class:active={showSizeSlider}
-										on:click={() =>
-											(showSizeSlider = !showSizeSlider)}
-										title="Adjust cover size"
-									>
-										<SlidersHorizontal class="w-5 h-5" />
-									</button>
-									<button
-										class="control-btn"
-										class:active={$preferencesStore.viewMode ===
-											"grid"}
-										on:click={() =>
-											preferencesStore.setViewMode(
-												"grid",
-											)}
-										title="Grid view"
-									>
-										<Grid class="w-5 h-5" />
-									</button>
-									<button
-										class="control-btn"
-										class:active={$preferencesStore.viewMode ===
-											"list"}
-										on:click={() =>
-											preferencesStore.setViewMode(
-												"list",
-											)}
-										title="List view"
-									>
-										<List class="w-5 h-5" />
-									</button>
-								</div>
 							</div>
-							{#if showSizeSlider}
-								<div class="size-slider-container">
-									<label
-										for="cover-size-slider"
-										class="slider-label"
-									>
-										<span>Cover Size</span>
-										<span class="slider-value"
-											>{Math.round(
-												$preferencesStore.gridCoverSize *
-													100,
-											)}%</span
-										>
-									</label>
-									<input
-										id="cover-size-slider"
-										type="range"
-										min="0.5"
-										max="2"
-										step="0.1"
-										value={$preferencesStore.gridCoverSize}
-										on:input={(e) =>
-											preferencesStore.setGridCoverSize(
-												parseFloat(e.target.value),
-											)}
-										class="size-slider"
-									/>
-								</div>
-							{/if}
-							<InfiniteScroll
-								hasMore={hasMoreSeries}
-								isLoading={isLoadingMore}
-								on:loadMore={loadMoreSeries}
+							<div
+								class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-6"
 							>
-								<div
-									class="comics-grid"
-									class:list-view={$preferencesStore.viewMode ===
-										"list"}
-									style="--cover-size-multiplier: {$preferencesStore.gridCoverSize};"
-								>
-									{#if currentFilter?.type === "folder"}
-										<!-- Show individual comics when folder is selected -->
-										{#each displayedSeries[0]?.volumes || [] as comic}
-											<a
-												href="/comic/{currentFilter.libraryId}/{comic.id}/read"
+								{#each Array(12) as _, i}
+									<SkeletonCard width={180} height={270} />
+								{/each}
+							</div>
+						</section>
+					{:else if error}
+						<div class="error-container">
+							<p class="text-red-400">Failed to load: {error}</p>
+						</div>
+					{:else}
+						{#if filteredContinueReading.length > 0}
+							<section class="section">
+								<div class="section-header">
+									<h2 class="section-title">
+										<BookOpen class="w-6 h-6" />
+										Continue Reading
+									</h2>
+								</div>
+								<HorizontalCarousel itemWidth={180} gap={24}>
+									{#each filteredContinueReading as comic}
+										<div class="carousel-item">
+											<ComicCard
+												{comic}
+												libraryId={comic.libraryId}
+											/>
+										</div>
+									{/each}
+								</HorizontalCarousel>
+							</section>
+						{/if}
+
+						{#if displayedSeries.length > 0}
+							<section class="section">
+								<div class="section-header">
+									<h2 class="section-title">
+										<TrendingUp class="w-6 h-6" />
+										{#if searchQuery}
+											Search Results
+										{:else if currentFilter?.type === "all"}
+											All Series
+										{:else if currentFilter?.type === "library"}
+											{currentFilter.libraryName}
+										{:else if currentFilter?.type === "folder"}
+											{currentFilter.folderName}
+										{:else}
+											All Series
+										{/if}
+									</h2>
+									<div class="view-controls">
+										<button
+											class="control-btn"
+											class:active={showSizeSlider}
+											on:click={() =>
+												(showSizeSlider =
+													!showSizeSlider)}
+											title="Adjust cover size"
+										>
+											<SlidersHorizontal
+												class="w-5 h-5"
+											/>
+										</button>
+										<button
+											class="control-btn"
+											class:active={$preferencesStore.viewMode ===
+												"grid"}
+											on:click={() =>
+												preferencesStore.setViewMode(
+													"grid",
+												)}
+											title="Grid view"
+										>
+											<Grid class="w-5 h-5" />
+										</button>
+										<button
+											class="control-btn"
+											class:active={$preferencesStore.viewMode ===
+												"list"}
+											on:click={() =>
+												preferencesStore.setViewMode(
+													"list",
+												)}
+											title="List view"
+										>
+											<List class="w-5 h-5" />
+										</button>
+									</div>
+								</div>
+								{#if showSizeSlider}
+									<div class="size-slider-container">
+										<label
+											for="cover-size-slider"
+											class="slider-label"
+										>
+											<span>Cover Size</span>
+											<span class="slider-value"
+												>{Math.round(
+													$preferencesStore.gridCoverSize *
+														100,
+												)}%</span
 											>
+										</label>
+										<input
+											id="cover-size-slider"
+											type="range"
+											min="0.5"
+											max="2"
+											step="0.1"
+											value={$preferencesStore.gridCoverSize}
+											on:input={(e) =>
+												preferencesStore.setGridCoverSize(
+													parseFloat(e.target.value),
+												)}
+											class="size-slider"
+										/>
+									</div>
+								{/if}
+								<InfiniteScroll
+									hasMore={hasMoreSeries}
+									isLoading={isLoadingMore}
+									on:loadMore={loadMoreSeries}
+								>
+									<div
+										class="comics-grid"
+										class:list-view={$preferencesStore.viewMode ===
+											"list"}
+										style="--cover-size-multiplier: {$preferencesStore.gridCoverSize};"
+									>
+										{#if currentFilter?.type === "folder"}
+											<!-- Show individual comics when folder is selected -->
+											{#each displayedSeries[0]?.volumes || [] as comic}
+												<a
+													href="/comic/{currentFilter.libraryId}/{comic.id}/read"
+												>
+													<ComicCard
+														comic={{
+															id: comic.id,
+															title: comic.name,
+															hash: comic.hash,
+															currentPage:
+																comic.currentPage,
+															totalPages:
+																comic.totalPages,
+														}}
+														libraryId={currentFilter.libraryId}
+														showProgress={true}
+														variant={$preferencesStore.viewMode}
+														coverSizeMultiplier={$preferencesStore.gridCoverSize}
+													/>
+												</a>
+											{/each}
+										{:else}
+											<!-- Show series cards -->
+											{#each displayedSeries as series}
 												<ComicCard
 													comic={{
-														id: comic.id,
-														title: comic.name,
-														hash: comic.hash,
-														currentPage:
-															comic.currentPage,
-														totalPages:
-															comic.totalPages,
+														id: series.first_comic_id,
+														name: series.name,
+														series_name:
+															series.series_name,
+														title: series.title,
+														hash: series.cover_hash,
+														itemCount:
+															series.total_issues,
+														writer: series.writer,
+														artist: series.artist,
+														publisher:
+															series.publisher,
+														year: series.year,
+														genre: series.genre,
+														synopsis:
+															series.synopsis,
 													}}
-													libraryId={currentFilter.libraryId}
-													showProgress={true}
+													libraryId={series.libraryId}
+													showProgress={false}
+													isFolder={true}
+													itemCount={series.total_issues}
+													isStandalone={series.is_standalone}
+													href={series.is_standalone
+														? `/comic/${series.libraryId}/${series.first_comic_id}`
+														: `/series/${series.libraryId}/${encodeURIComponent(series.series_name || series.name)}`}
 													variant={$preferencesStore.viewMode}
 													coverSizeMultiplier={$preferencesStore.gridCoverSize}
 												/>
-											</a>
-										{/each}
-									{:else}
-										<!-- Show series cards -->
-										{#each displayedSeries as series}
-											<ComicCard
-												comic={{
-													id: series.first_comic_id,
-													name: series.name,
-													series_name:
-														series.series_name,
-													title: series.title,
-													hash: series.cover_hash,
-													itemCount:
-														series.total_issues,
-													writer: series.writer,
-													artist: series.artist,
-													publisher: series.publisher,
-													year: series.year,
-													genre: series.genre,
-													synopsis: series.synopsis,
-												}}
-												libraryId={series.libraryId}
-												showProgress={false}
-												isFolder={true}
-												itemCount={series.total_issues}
-												isStandalone={series.is_standalone}
-												href={series.is_standalone
-													? `/comic/${series.libraryId}/${series.first_comic_id}`
-													: `/series/${series.libraryId}/${encodeURIComponent(series.series_name || series.name)}`}
-												variant={$preferencesStore.viewMode}
-												coverSizeMultiplier={$preferencesStore.gridCoverSize}
-											/>
-										{/each}
-									{/if}
-								</div>
-							</InfiniteScroll>
-						</section>
+											{/each}
+										{/if}
+									</div>
+								</InfiniteScroll>
+							</section>
+						{/if}
 					{/if}
 				{/if}
+				<!-- End of currentView check -->
 			</div>
 		</main>
 	</div>

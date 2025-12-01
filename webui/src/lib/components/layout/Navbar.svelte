@@ -6,10 +6,7 @@
 	import {
 		Moon,
 		Sun,
-		Home,
 		BookOpen,
-		Heart,
-		List,
 		Search as SearchIcon,
 		X,
 	} from "lucide-svelte";
@@ -73,38 +70,7 @@
 					<span class="text-xl font-bold text-dark-text">YACLib</span>
 				</a>
 
-				<!-- Main Navigation -->
-				<div class="hidden md:flex items-center space-x-6">
-					<a
-						href="/"
-						class="flex items-center space-x-2 text-dark-text-secondary hover:text-dark-text transition-colors"
-						class:text-accent-orange={$page.url.pathname === "/"}
-						on:click={handleHomeClick}
-					>
-						<Home class="w-4 h-4" />
-						<span>Home</span>
-					</a>
-
-					<a
-						href="/continue-reading"
-						class="flex items-center space-x-2 text-dark-text-secondary hover:text-dark-text transition-colors"
-						class:text-accent-orange={$page.url.pathname ===
-							"/continue-reading"}
-					>
-						<List class="w-4 h-4" />
-						<span>Continue</span>
-					</a>
-
-					<a
-						href="/favorites"
-						class="flex items-center space-x-2 text-dark-text-secondary hover:text-dark-text transition-colors"
-						class:text-accent-orange={$page.url.pathname ===
-							"/favorites"}
-					>
-						<Heart class="w-4 h-4" />
-						<span>Favorites</span>
-					</a>
-				</div>
+				<!-- Main Navigation removed as it's now in the sidebar -->
 			</div>
 
 			<!-- Search Bar -->
