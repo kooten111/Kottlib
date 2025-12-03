@@ -36,7 +36,7 @@ export default defineConfig({
 	server: {
 		host: '0.0.0.0', // Listen on all network interfaces
 		port: 5173,
-		allowedHosts: 'all', // Allow all hosts
+		allowedHosts: true, // Allow all hosts
 		proxy: {
 			'/api': {
 				target: 'http://localhost:8081',

@@ -138,23 +138,53 @@ class APIClient {
 	}
 
 	async post(endpoint, data, options = {}) {
-		return this.request(endpoint, {
+		const result = await this.request(endpoint, {
 			...options,
 			method: 'POST',
 			body: JSON.stringify(data)
 		});
+
+		// Invalidate cache for library endpoints after POST
+		await this._invalidateRelatedCache(endpoint);
+		return result;
 	}
 
 	async put(endpoint, data, options = {}) {
-		return this.request(endpoint, {
+		const result = await this.request(endpoint, {
 			...options,
 			method: 'PUT',
 			body: JSON.stringify(data)
 		});
+
+		// Invalidate cache for library endpoints after PUT
+		await this._invalidateRelatedCache(endpoint);
+		return result;
 	}
 
 	async delete(endpoint, options = {}) {
-		return this.request(endpoint, { ...options, method: 'DELETE' });
+		const result = await this.request(endpoint, { ...options, method: 'DELETE' });
+
+		// Invalidate cache for library endpoints after DELETE
+		await this._invalidateRelatedCache(endpoint);
+		return result;
+	}
+
+	/**
+	 * Invalidate cache for related endpoints after mutations
+	 */
+	async _invalidateRelatedCache(endpoint) {
+		const { clearCachePattern } = await import('$lib/utils/persistentCache');
+
+		// If library was modified, clear library-related caches
+		if (endpoint.includes('/libraries')) {
+			await clearCachePattern('v2/libraries');
+		}
+
+		// If series was modified, clear series-related caches
+		if (endpoint.includes('/series')) {
+			await clearCachePattern('v2/series');
+			await clearCachePattern('v2/libraries/series-tree');
+		}
 	}
 
 	async getBlob(endpoint) {

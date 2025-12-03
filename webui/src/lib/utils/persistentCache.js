@@ -138,6 +138,45 @@ export async function clearCache() {
 }
 
 /**
+ * Clear cached data matching a pattern
+ * @param {string} pattern - Pattern to match cache keys (e.g., 'v2/libraries')
+ */
+export async function clearCachePattern(pattern) {
+	try {
+		const db = await openDB();
+		const transaction = db.transaction(STORE_NAME, 'readwrite');
+		const store = transaction.objectStore(STORE_NAME);
+
+		return new Promise((resolve) => {
+			const request = store.openCursor();
+			let deletedCount = 0;
+
+			request.onsuccess = (event) => {
+				const cursor = event.target.result;
+
+				if (cursor) {
+					if (cursor.value.key.includes(pattern)) {
+						cursor.delete();
+						deletedCount++;
+					}
+					cursor.continue();
+				} else {
+					console.log(`[Cache] Cleared ${deletedCount} entries matching pattern: ${pattern}`);
+					resolve();
+				}
+			};
+
+			request.onerror = () => {
+				console.error('[Cache] Clear pattern error:', request.error);
+				resolve();
+			};
+		});
+	} catch (error) {
+		console.error('[Cache] Error:', error);
+	}
+}
+
+/**
  * Clear expired cache entries
  */
 export async function clearExpired() {

@@ -36,10 +36,13 @@
     };
     let isSaving = false;
     let saveError = null;
-    let scanningLibraryId = null;
+    let scanningLibraries = new Set(); // Set of library IDs currently scanning
+    let scanProgress = {}; // library_id -> {current, total, message}
+    let scanProgressIntervals = {}; // library_id -> interval handle
 
     onMount(async () => {
         await loadLibraries();
+        await checkForActiveScans();
     });
 
     async function loadLibraries() {
@@ -55,14 +58,31 @@
         }
     }
 
+    async function checkForActiveScans() {
+        // Check all libraries for active scans when page loads
+        for (const library of libraries) {
+            try {
+                const progress = await pollScanProgress(library.id);
+                if (progress && progress.in_progress) {
+                    // Found an active scan - start monitoring it
+                    console.log(`Resuming progress monitoring for library ${library.id}`, progress);
+                    scanProgress[library.id] = progress; // Set initial progress
+                    scanningLibraries.add(library.id);
+                    scanningLibraries = scanningLibraries; // Trigger reactivity
+                    startProgressMonitoring(library.id);
+                } else {
+                    console.log(`No active scan for library ${library.id}`);
+                }
+            } catch (err) {
+                console.error(`Failed to check scan progress for library ${library.id}:`, err);
+            }
+        }
+    }
+
     function openCreateModal() {
         modalMode = "create";
         editingLibrary = null;
-        modalMode = "create";
-        editingLibrary = null;
         formData = { name: "", path: "", scan_interval: 0 };
-        saveError = null;
-        showModal = true;
         saveError = null;
         showModal = true;
     }
@@ -70,15 +90,11 @@
     function openEditModal(library) {
         modalMode = "edit";
         editingLibrary = library;
-        modalMode = "edit";
-        editingLibrary = library;
         formData = {
             name: library.name,
             path: library.path,
             scan_interval: library.scan_interval || 0,
         };
-        saveError = null;
-        showModal = true;
         saveError = null;
         showModal = true;
     }
@@ -100,7 +116,12 @@
             saveError = null;
 
             if (modalMode === "create") {
-                await createLibrary(formData);
+                const newLibrary = await createLibrary(formData);
+
+                // Auto-start progress monitoring for new library
+                scanningLibraries.add(newLibrary.id);
+                scanningLibraries = scanningLibraries; // Trigger reactivity
+                startProgressMonitoring(newLibrary.id);
             } else {
                 await updateLibrary(editingLibrary.id, formData);
             }
@@ -133,20 +154,86 @@
         }
     }
 
+    async function pollScanProgress(libraryId) {
+        try {
+            const response = await fetch(`/v2/libraries/${libraryId}/scan/progress`);
+            if (response.ok) {
+                return await response.json();
+            }
+        } catch (err) {
+            console.error("Failed to poll scan progress:", err);
+        }
+        return null;
+    }
+
+    function startProgressMonitoring(libraryId) {
+        // Clear any existing interval for this library
+        if (scanProgressIntervals[libraryId]) {
+            clearInterval(scanProgressIntervals[libraryId]);
+        }
+
+        // Initialize progress - use existing if available
+        if (!scanProgress[libraryId]) {
+            scanProgress[libraryId] = { current: 0, total: 0, message: "Starting scan...", in_progress: true };
+        }
+
+        // Poll for progress
+        scanProgressIntervals[libraryId] = setInterval(async () => {
+            const progress = await pollScanProgress(libraryId);
+
+            if (progress && progress.in_progress) {
+                // Enforce monotonic progress - never allow backwards movement
+                const existingProgress = scanProgress[libraryId];
+                if (existingProgress && progress.in_progress) {
+                    // Only update if progress is moving forward or total changed
+                    if (progress.current < existingProgress.current && progress.total === existingProgress.total) {
+                        console.log(`[Progress] Ignoring backwards progress: ${progress.current} < ${existingProgress.current}`);
+                        return; // Skip this update
+                    }
+                }
+
+                scanProgress = { ...scanProgress, [libraryId]: progress };
+            } else if (progress && !progress.in_progress) {
+                // Scan completed - stop polling for this library
+                clearInterval(scanProgressIntervals[libraryId]);
+                delete scanProgressIntervals[libraryId];
+                scanningLibraries.delete(libraryId);
+                scanningLibraries = scanningLibraries; // Trigger reactivity
+
+                scanProgress = { ...scanProgress, [libraryId]: progress };
+
+                // Refresh library list immediately to show updated counts
+                await loadLibraries();
+
+                // Keep the completion message visible for 5 seconds
+                setTimeout(() => {
+                    delete scanProgress[libraryId];
+                    scanProgress = scanProgress; // Trigger reactivity
+                }, 5000);
+            } else {
+                // No scan in progress - stop polling
+                console.log(`No active scan for library ${libraryId}, stopping monitoring`);
+                clearInterval(scanProgressIntervals[libraryId]);
+                delete scanProgressIntervals[libraryId];
+                scanningLibraries.delete(libraryId);
+                scanningLibraries = scanningLibraries; // Trigger reactivity
+            }
+        }, 500);
+    }
+
     async function handleScan(library) {
         try {
-            scanningLibraryId = library.id;
+            scanningLibraries.add(library.id);
+            scanningLibraries = scanningLibraries; // Trigger reactivity
             await scanLibrary(library.id);
-            // Optional: Show success toast
+
+            // Start progress monitoring
+            startProgressMonitoring(library.id);
         } catch (err) {
             console.error("Failed to start scan:", err);
             alert("Failed to start scan: " + err.message);
-        } finally {
-            // Keep spinning for a bit to show feedback
-            setTimeout(() => {
-                scanningLibraryId = null;
-                loadLibraries(); // Refresh status
-            }, 2000);
+            scanningLibraries.delete(library.id);
+            scanningLibraries = scanningLibraries; // Trigger reactivity
         }
     }
 </script>
@@ -219,13 +306,13 @@
                 {#each libraries as library}
                     <Card class="hover:border-gray-600 transition-colors">
                         <div class="flex items-start justify-between">
-                            <div class="flex items-start gap-4">
+                            <div class="flex items-start gap-4 flex-1">
                                 <div
                                     class="p-3 bg-dark-bg-secondary rounded-lg"
                                 >
                                     <Folder class="w-6 h-6 text-accent-blue" />
                                 </div>
-                                <div>
+                                <div class="flex-1">
                                     <h3
                                         class="text-xl font-semibold text-dark-text"
                                     >
@@ -253,18 +340,41 @@
                                             >
                                         {/if}
                                     </div>
+
+                                    <!-- Progress Bar -->
+                                    {#if scanProgress[library.id]}
+                                        <div class="mt-4 space-y-2">
+                                            <div class="flex justify-between text-sm {scanProgress[library.id].in_progress ? 'text-dark-text-secondary' : 'text-accent-green font-medium'}">
+                                                <span>{scanProgress[library.id].message}</span>
+                                                {#if scanProgress[library.id].total > 0}
+                                                    <span>{scanProgress[library.id].current} / {scanProgress[library.id].total}</span>
+                                                {/if}
+                                            </div>
+                                            {#if scanProgress[library.id].total > 0}
+                                                <div class="w-full bg-dark-bg-tertiary rounded-full h-2 overflow-hidden">
+                                                    <div
+                                                        class="bg-accent-green h-full transition-all duration-300"
+                                                        style="width: {Math.min(100, (scanProgress[library.id].current / scanProgress[library.id].total) * 100)}%"
+                                                    ></div>
+                                                </div>
+                                            {:else if scanProgress[library.id].in_progress}
+                                                <div class="w-full bg-dark-bg-tertiary rounded-full h-2 overflow-hidden">
+                                                    <div class="bg-accent-green h-full w-1/4 animate-pulse"></div>
+                                                </div>
+                                            {/if}
+                                        </div>
+                                    {/if}
                                 </div>
                             </div>
                             <div class="flex items-center gap-2">
                                 <button
                                     on:click={() => handleScan(library)}
-                                    disabled={scanningLibraryId === library.id}
+                                    disabled={scanningLibraries.has(library.id)}
                                     class="p-2 text-dark-text-secondary hover:text-accent-green hover:bg-dark-bg-secondary rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                                     title="Scan Files"
                                 >
                                     <RefreshCw
-                                        class="w-5 h-5 {scanningLibraryId ===
-                                        library.id
+                                        class="w-5 h-5 {scanningLibraries.has(library.id)
                                             ? 'animate-spin'
                                             : ''}"
                                     />

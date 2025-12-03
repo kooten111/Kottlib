@@ -9,7 +9,6 @@ import logging
 from typing import Optional
 from apscheduler.schedulers.background import BackgroundScheduler
 from apscheduler.triggers.interval import IntervalTrigger
-from apscheduler.jobstores.sqlalchemy import SQLAlchemyJobStore
 
 from ..database import Database, get_all_libraries, get_library_by_id
 from ..scanner.threaded_scanner import ThreadedScanner
@@ -31,13 +30,10 @@ class SchedulerService:
             return
 
         self.db = db
-        
-        # Configure job store to use the main database
-        jobstores = {
-            'default': SQLAlchemyJobStore(engine=db.engine)
-        }
-        
-        self.scheduler = BackgroundScheduler(jobstores=jobstores)
+
+        # Use memory-based job store (avoids Python 3.13 pickle issues with SQLAlchemy)
+        # Jobs will be reloaded from DB on each server restart
+        self.scheduler = BackgroundScheduler()
         self.scheduler.start()
         logger.info("Scheduler service started")
 
