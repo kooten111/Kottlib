@@ -5,15 +5,29 @@ A pluggable metadata scanner framework for different library types.
 ## Architecture
 
 ```
-scanners/
-├── base_scanner.py          # Base classes and interfaces
-├── scanner_manager.py       # Central registry and orchestrator
-├── nhentai/                 # nhentai scanner
-│   ├── nhentai_scanner.py
+/scanners/                    # Pluggable scanner plugins (root directory)
+├── AniList/                  # AniList scanner (manga)
+│   ├── anilist_scanner.py
 │   └── __init__.py
-├── AniList/                 # AniList scanner (manga) [TODO]
-├── Jikan/                   # Jikan scanner (manga fallback) [TODO]
-└── Comic Vine/              # Comic Vine scanner (comics) [TODO]
+├── ComicVine/                # Comic Vine scanner (western comics)
+│   ├── comic_vine_scanner.py
+│   └── __init__.py
+├── mangadex/                 # MangaDex scanner (manga)
+│   ├── mangadex_scanner.py
+│   └── __init__.py
+├── metron/                   # Metron scanner (comics database)
+│   ├── metron_scanner.py
+│   └── __init__.py
+└── nhentai/                  # nhentai scanner (doujinshi)
+    ├── nhentai_scanner.py
+    └── __init__.py
+
+/src/scanners/                # Core scanner framework
+├── base_scanner.py           # Base classes and interfaces
+├── scanner_manager.py        # Central registry and orchestrator
+├── config_schema.py          # Configuration schema definitions
+├── metadata_schema.py        # Metadata schema definitions
+└── utils.py                  # Utility functions
 ```
 
 ## Features
@@ -89,9 +103,10 @@ Operate on individual files (individual releases):
 
 ### Series-Level Scanners
 Operate on series/collections (manga, comics):
-- **AniList**: [TODO] Manga/anime metadata
-- **Jikan**: [TODO] MyAnimeList via Jikan API
-- **Comic Vine**: [TODO] Western comics metadata
+- **AniList**: Manga/anime metadata via AniList GraphQL API
+- **ComicVine**: Western comics metadata via Comic Vine API
+- **MangaDex**: Manga metadata via MangaDex REST API
+- **Metron**: Comics database metadata via Metron REST API
 
 ## Confidence Levels
 
@@ -232,10 +247,7 @@ python3 scanners/demo_scanners.py
 
 ## Future Enhancements
 
-- [ ] AniList scanner for manga
-- [ ] Jikan scanner as fallback
-- [ ] Comic Vine scanner for western comics
-- [ ] MangaDex scanner
+- [ ] Jikan scanner as fallback for AniList
 - [ ] Result caching
 - [ ] Batch processing API
 - [ ] Web UI for manual review
