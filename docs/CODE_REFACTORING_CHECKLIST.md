@@ -1,111 +1,28 @@
 # Code Refactoring Checklist
 
-**Status**: In Progress - High Priority Items Complete
-**Last Updated**: 2025-11-27
-**Priority**: High items should be addressed first
+**Status**: In Progress - Focusing on Medium and Low Priority Items
+**Last Updated**: 2025-12-05
+**Priority**: Medium items should be addressed next
+
+> **✅ HIGH-PRIORITY REFACTORING COMPLETE**: All high-priority refactoring tasks have been completed. This document now tracks only the remaining medium and low priority tasks.
 
 > **Note**: API response formats (v1 text format, v2 mixed formats) are intentional for YACReader mobile app compatibility and should NOT be changed.
 
 ---
 
-## 🔴 High Priority
-
-### Dead Code Removal
-
-- [x] **Remove deprecated database functions** ✅ **COMPLETED**
-  - [x] Remove `get_library_database()` at `src/database/database.py:312-319`
-  - [x] Remove `get_library_db_path()` at `src/database/database.py:132-138`
-  - [x] Update any callers to use current functions (v2/session.py updated)
-  - [x] No breaking changes - functions were already deprecated
-
-- [x] **Fix unreachable code in database.py** ✅ **COMPLETED**
-  - [x] Fix `get_folders_in_library()` at line 770 - removed unreachable return statement
-  - [x] Logic flow verified
-
-- [x] **Clean up TODO comments** ✅ **COMPLETED**
-  - [x] Review TODOs in `src/api/main.py:174-185`
-  - [x] Removed - comics/reading routers already exist in v2
-  - [x] Added clarifying comment about router aggregation
-
-### Code Duplication (Critical)
-
-- [x] **Consolidate user retrieval pattern (23+ duplicates)** ✅ **COMPLETED**
-  - [x] Create helper function `get_request_user(request, session)` in middleware/session.py
-  - [x] Replace pattern in `src/api/routers/legacy_v1.py` (6 locations)
-  - [x] Replace pattern in `src/api/routers/v2/comics.py` (3 locations)
-  - [x] Replace pattern in `src/api/routers/v2/session.py` (1 location)
-  - [x] Replace pattern in `src/api/routers/v2/search.py` (1 location)
-  - [x] Replace pattern in `src/api/routers/v2/series.py` (4 locations)
-  - [x] Replace pattern in `src/api/routers/v2/folders.py` (2 locations)
-  - [x] Replace pattern in `src/api/routers/v2/reading.py` (1 location)
-  - [x] Replace pattern in `src/api/routers/v2/collections.py` (3 locations)
-  - [x] Replace pattern in `src/api/routers/user_interactions.py` (3 locations)
-  - [ ] Add tests for new helper function (future work)
-  - **Impact:** Eliminated ~115 lines of duplicate code, reduced to ~23 lines
-
-- [x] **Create magic string constants** ✅ **COMPLETED**
-  - [x] Created `src/constants.py` with all constants
-  - [x] Define: `DEFAULT_USER = "admin"` (used 10+ times)
-  - [x] Define: `ROOT_FOLDER_MARKER = "__ROOT__"`
-  - [x] Define: `DEFAULT_CONFIDENCE_THRESHOLD = 0.4`
-  - [x] Define: `FALLBACK_CONFIDENCE_THRESHOLD = 0.7`
-  - [x] Define: `CACHE_DURATION_SECONDS = 86400`
-  - [x] Define: `DEFAULT_WORKER_COUNT = 4`
-  - [x] Replaced hardcoded "admin" in middleware/session.py
-  - [ ] Replace remaining hardcoded instances throughout codebase (medium priority)
-
-- [x] **Fix global state in scan progress tracking** ✅ **COMPLETED**
-  - [x] Reviewed `_scan_progress` dict in `src/api/routers/scanners.py:39`
-  - [x] Verified database-backed solution already exists (library.settings['scanner_progress'])
-  - [x] Added comprehensive documentation explaining multi-worker architecture
-  - **Finding:** System already properly designed for multi-worker deployments!
-
-### Error Handling Standardization
-
-- [x] **Standardize file operation error handling** ✅ **COMPLETED**
-  - [x] Reviewed cover file access in API routers (legacy_v1.py, v2/comics.py)
-  - [x] Reviewed comic archive opening error patterns
-  - [x] Created error handling decorators in `src/api/error_handling.py`:
-    - `handle_file_operation()` - for file access errors (404/403/500)
-    - `handle_comic_archive_errors()` - for archive operations
-    - `safe_path_exists()`, `safe_file_stat()` - safe file check helpers
-  - [ ] Apply decorators to existing endpoints (medium priority refactoring)
-  - **Findings:**
-    - Cover endpoints lack try/catch for `.exists()` and `.stat()` operations
-    - Comic page extraction lacks exception handling for archive operations
-    - Standardized decorators now available for future use
-
-- [x] **Review silent failures** ✅ **COMPLETED**
-  - [x] Reviewed `_rebuild_series_table()` error handling in `src/scanner/threaded_scanner.py:270-279`
-  - [x] Determined silent continuation is appropriate (supplementary operations)
-  - [x] Added better logging with `exc_info=True` and warning messages
-  - **Finding:** Silent failures are intentional and appropriate - series rebuild and cache building are non-critical optimizations that shouldn't fail the entire scan
-
----
-
 ## 🟡 Medium Priority
 
-### Error Handling Application
+### Remaining Tasks
 
-- [x] **Apply error handling decorators to endpoints** ✅ **COMPLETED**
-  - [x] Apply `@handle_file_operation` to cover endpoints in `legacy_v1.py:535-609`
-  - [x] Apply `@handle_file_operation` to cover endpoints in `v2/comics.py:584-673`
-  - [x] Apply `@handle_comic_archive_errors` to page endpoints in `legacy_v1.py:697-750`
-  - [x] Apply `@handle_comic_archive_errors` to page endpoints in `v2/comics.py`
-  - [x] Replace `.exists()` checks with `safe_path_exists()` in cover endpoints
-  - [x] Replace `.stat()` calls with `safe_file_stat()` in cover endpoints
+- [ ] **Add tests for user retrieval helper function**
+  - [ ] Add tests for `get_request_user(request, session)` in middleware/session.py
+
+- [ ] **Replace remaining hardcoded constants**
+  - [ ] Replace remaining hardcoded "admin" instances throughout codebase
+  - [ ] Replace other magic strings with constants from `src/constants.py`
+
+- [ ] **Test error handling scenarios**
   - [ ] Test error scenarios (missing files, permission errors, corrupt archives)
-  - **Impact:** All file/archive operations now have consistent error handling
-
-### Refactoring for Maintainability
-
-- [x] **Extract cover path resolution utility** ✅ **COMPLETED**
-  - [x] Created `src/api/cover_utils.py` with helper functions
-  - [x] `find_cover_file()` - searches hierarchical and flat paths
-  - [x] `find_cover_for_comic()` - checks custom covers first
-  - [x] Replaced duplicated logic in `src/api/routers/legacy_v1.py`
-  - [x] Replaced duplicated logic in `src/api/routers/v2/comics.py`
-  - **Impact:** Eliminated ~70 lines of duplicate code, single source of truth
 
 - [ ] **Consolidate progress bar implementations**
   - [ ] Review progress bar logic in `scripts/scan_library.py:47-84, 149-160`
@@ -218,22 +135,14 @@
 - Total Python Files: 47
 - Lines of Code: ~19,000
 - Functions >100 lines: 8+
-- Dead code instances: 5+
-- Major duplication patterns: 3
 
-**Progress:**
-- High Priority: 8/8 completed (100%) ✅✅✅
-  - Dead Code Removal: 3/3 ✅
-  - Code Duplication: 3/3 ✅
-  - Error Handling: 2/2 ✅
-- Medium Priority: 2/19 completed (11%) 🚀
-  - Error handling application: 1/1 ✅
-  - Cover path utility: 1/1 ✅
-  - Remaining: Progress bars, long functions, imports, service layer
-- Low Priority: 0/11 completed (0%)
-- **Overall: 10/46 completed (22%)**
+**Remaining Work:**
+- Medium Priority: 11 tasks remaining
+  - Helper tests, constants replacement, error tests, progress bars, long functions, imports, service layer, metadata extraction, session patterns, conditionals, search scoring
+- Low Priority: 11 tasks remaining
+  - String formatting, logging practices, boolean comparisons, type hints, exception handling, hardcoded paths, algorithm documentation, module documentation
 
-**Impact Summary:**
+**Completed Accomplishments (High Priority - 100% Complete):**
 - ✅ Removed 3 deprecated functions
 - ✅ Fixed unreachable code
 - ✅ Eliminated ~185 lines of duplicate code total:
