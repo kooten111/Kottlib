@@ -137,8 +137,8 @@
 - Functions >100 lines: 8+
 
 **Remaining Work:**
-- Medium Priority: 10 tasks remaining
-  - Remaining: Helper tests, constants replacement, error tests, progress bars, long functions, imports, service layer, metadata extraction, session patterns, conditionals, search scoring
+- Medium Priority: 11 tasks remaining
+  - Helper tests, constants replacement, error tests, progress bars, long functions, imports, service layer, metadata extraction, session patterns, conditionals, search scoring
 - Low Priority: 11 tasks remaining
   - String formatting, logging practices, boolean comparisons, type hints, exception handling, hardcoded paths, algorithm documentation, module documentation
 

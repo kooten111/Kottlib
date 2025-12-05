@@ -1,3 +1,4 @@
+# Metadata Scanners: Architectural Analysis
 
 Definitive Architectural Analysis: ComicInfo.xml Metadata Sourcing
 
