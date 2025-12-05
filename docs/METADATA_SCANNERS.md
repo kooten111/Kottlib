@@ -546,7 +546,7 @@ mkdir scanners/my_scanner
 from typing import Tuple, Optional, List
 from src.scanners.base_scanner import (
     BaseScanner, ScanResult, ScanLevel, MatchConfidence,
-    ScannerError, ScannerAPIError
+    ScannerError, ScannerConfigError, ScannerAPIError
 )
 from src.scanners.config_schema import ConfigOption, ConfigType
 
