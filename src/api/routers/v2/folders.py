@@ -251,7 +251,7 @@ async def get_folder_v2(
                 "read": is_read,
                 "manga": (comic.reading_direction == 'rtl') if comic.reading_direction else False,
                 "file_type": 0,  # 0 for comics in official YACReader
-                "cover_size_ratio": 1.5,  # Default aspect ratio
+                "cover_size_ratio": comic.cover_size_ratio if comic.cover_size_ratio > 0 else 0.67,  # Use stored ratio or default comic aspect ratio (2:3)
                 "number": comic.issue_number if comic.issue_number else 0,
                 "cover_page": comic.cover_page if comic.cover_page else 1,
                 "has_been_opened": has_been_opened,

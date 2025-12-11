@@ -88,7 +88,7 @@ async def get_reading_list(
                 "read": progress.is_completed,
                 "manga": comic.reading_direction == 'rtl' if hasattr(comic, 'reading_direction') else False,
                 "file_type": 1,
-                "cover_size_ratio": 0.0,
+                "cover_size_ratio": comic.cover_size_ratio if comic.cover_size_ratio > 0 else 0.67,  # Use stored ratio or default comic aspect ratio (2:3)
                 "number": 0,
                 "count": 0,
                 "date": "",
