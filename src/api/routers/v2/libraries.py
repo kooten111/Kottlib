@@ -189,8 +189,15 @@ def scan_library_background(library_id: int, request: Request):
 # Pydantic Models
 # ============================================================================
 
+class LibrarySimple(BaseModel):
+    """Library simple response for YACReader compatibility"""
+    id: int
+    name: str
+    uuid: str
+
+
 class LibraryInfo(BaseModel):
-    """Library information response"""
+    """Library information response (extended)"""
     id: int
     uuid: str
     name: str
@@ -231,17 +238,24 @@ async def get_version():
 
     This is one of the first endpoints the mobile app calls
     Returns plain text version number like YACReader does
+
+    IMPORTANT: YACReader 2.1 returns "2.1" for compatibility with mobile apps
     """
-    return PlainTextResponse("9.14.2")
+    return PlainTextResponse("2.1")
 
 
 # ============================================================================
 # Endpoints
 # ============================================================================
 
-@router.get("/libraries", response_model=List[LibraryInfo])
+@router.get("/libraries", response_model=List[LibrarySimple])
 async def list_libraries(request: Request):
-    """Get all libraries"""
+    """
+    Get all libraries (YACReader-compatible format)
+
+    Returns minimal library info for mobile app compatibility.
+    For extended info, use /library/{id}/info endpoint.
+    """
     db = request.app.state.db
 
     with db.get_session() as session:
@@ -249,20 +263,13 @@ async def list_libraries(request: Request):
 
         result = []
         for lib in libraries:
-            stats = get_library_stats(session, lib.id)
+            # Format UUID with curly braces for YACReader compatibility
+            uuid_formatted = f"{{{lib.uuid}}}" if not lib.uuid.startswith('{') else lib.uuid
 
-            result.append(LibraryInfo(
+            result.append(LibrarySimple(
                 id=lib.id,
-                uuid=lib.uuid,
                 name=lib.name,
-                path=lib.path,
-                created_at=lib.created_at,
-                updated_at=lib.updated_at,
-                last_scan_at=lib.last_scan_completed,
-                scan_status=lib.scan_status,
-                scan_interval=lib.scan_interval,
-                comic_count=stats.get('comic_count', 0),
-                folder_count=stats.get('folder_count', 0),
+                uuid=uuid_formatted
             ))
 
         return result
