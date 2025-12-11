@@ -157,20 +157,24 @@ async def get_folder_v2(
 
             api_path = f"/{relative_path}"
 
+            # Convert timestamps to Unix format
+            added_timestamp = int(folder.created_at.timestamp()) if hasattr(folder.created_at, 'timestamp') else folder.created_at
+            updated_timestamp = int(folder.updated_at.timestamp()) if hasattr(folder.updated_at, 'timestamp') else folder.updated_at
+
             child_folders.append({
                 "type": "folder",
                 "id": str(folder.id),
                 "library_id": str(library_id),
-                "library_uuid": library_uuid,
+                "library_uuid": f"{{{library_uuid}}}",  # Wrap UUID in curly braces
                 "folder_name": folder.name,
                 "num_children": num_children,
                 "first_comic_hash": first_comic_hash,
                 "finished": False,
                 "completed": False,
-                "custom_image": False,
+                "custom_image": "",  # Empty string, not False
                 "file_type": 0,
-                "added": folder.created_at,
-                "updated": folder.updated_at,
+                "added": added_timestamp,
+                "updated": updated_timestamp,
                 "parent_id": str(folder.parent_id) if folder.parent_id is not None else "0",
                 "path": api_path
             })
@@ -226,13 +230,18 @@ async def get_folder_v2(
                 relative_path = comic.filename
 
             api_path = f"/{relative_path}"
+
+            # Convert created_at to Unix timestamp if it's a datetime object
+            added_timestamp = int(comic.created_at.timestamp()) if hasattr(comic.created_at, 'timestamp') else comic.created_at
+            last_time_opened = int(last_read_at) if last_read_at else 0
+
             comics_list.append({
                 "type": "comic",
                 "id": str(comic.id),
                 "comic_info_id": str(comic.id),  # Using comic id as comic_info_id
                 "parent_id": str(comic.folder_id) if comic.folder_id is not None else "0",
                 "library_id": str(library_id),
-                "library_uuid": library_uuid,
+                "library_uuid": f"{{{library_uuid}}}",  # Wrap UUID in curly braces
                 "file_name": comic.filename,
                 "file_size": str(comic.file_size),
                 "hash": comic.hash,
@@ -241,14 +250,12 @@ async def get_folder_v2(
                 "num_pages": comic.num_pages,
                 "read": is_read,
                 "manga": (comic.reading_direction == 'rtl') if comic.reading_direction else False,
-                "file_type": 1,  # 1 = comic (vs 0 = folder)
-                "cover_size_ratio": 0.0,
-                "number": 0,
+                "file_type": 0,  # 0 for comics in official YACReader
+                "cover_size_ratio": 1.5,  # Default aspect ratio
+                "number": comic.issue_number if comic.issue_number else 0,
+                "cover_page": comic.cover_page if comic.cover_page else 1,
                 "has_been_opened": has_been_opened,
-                "last_read": last_read_at,
-                # Add metadata for proper sorting
-                "issue_number": comic.issue_number,
-                "volume": comic.volume
+                "added": added_timestamp
             })
 
         # Sort comics

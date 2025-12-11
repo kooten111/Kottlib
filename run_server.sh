@@ -59,9 +59,9 @@ fi
 echo "Activating virtual environment..."
 source venv/bin/activate
 
-# Upgrade pip
+# Upgrade pip (use the venv's pip directly)
 echo "Checking pip version..."
-python -m pip install --upgrade pip --quiet
+venv/bin/python -m pip install --upgrade pip --quiet 2>/dev/null || echo "Note: Pip upgrade skipped"
 
 # Check if requirements.txt exists
 if [ ! -f "requirements.txt" ]; then
@@ -75,7 +75,7 @@ MISSING_DEPS=0
 
 # Check for key dependencies
 for package in fastapi uvicorn pillow; do
-    if ! python -c "import $package" 2>/dev/null; then
+    if ! python3 -c "import $package" 2>/dev/null; then
         MISSING_DEPS=1
         break
     fi
@@ -83,7 +83,7 @@ done
 
 if [ $MISSING_DEPS -eq 1 ]; then
     echo -e "${YELLOW}Installing/updating dependencies...${NC}"
-    pip install -r requirements.txt
+    venv/bin/pip install -r requirements.txt
     echo -e "${GREEN}✓ Dependencies installed${NC}"
 else
     echo -e "${GREEN}✓ All dependencies satisfied${NC}"
@@ -108,7 +108,7 @@ fi
 
 echo ""
 echo "Initializing database..."
-python src/init_db.py
+python3 src/init_db.py
 echo -e "${GREEN}✓ Database initialized${NC}"
 
 echo ""
@@ -177,9 +177,8 @@ trap cleanup INT TERM
 
 # Start backend server (with logging to logs directory)
 mkdir -p logs
-python -m uvicorn src.api.main:app \
+python3 -m uvicorn src.api.main:app \
     --host 0.0.0.0 \
     --port 8081 \
     --log-level info \
-    --workers 4 \
     2>&1 | tee logs/server.log

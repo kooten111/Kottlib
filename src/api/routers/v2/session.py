@@ -19,6 +19,7 @@ from ....database import (
     get_user_by_username,
     get_user_by_id,
     update_reading_progress,
+    get_comic_by_id,
 )
 from ...middleware import get_current_user_id, get_request_user
 
@@ -50,68 +51,120 @@ async def sync_session_v2(request: Request, yacread_session: Optional[str] = Coo
     """
     Sync reading progress (v2 API)
 
-    Accepts JSON body with reading progress data and syncs it to the server.
-    Expected format:
-    {
-        "comics": [
-            {"comicId": 123, "libraryId": 1, "currentPage": 5, "totalPages": 20},
-            ...
-        ]
-    }
+    Accepts tab-separated values (YACReader format) with reading progress data.
 
-    Returns JSON with sync results
+    iOS Format (per line):
+    {libraryId}\t{comicId}\t{hash}\t{currentPage}\t{rating}\t{lastTimeOpened}\t{read}\t{lastTimeImageFiltersSet}\t{imageFiltersJson}\n
+
+    Android Format (per line):
+    u\t{libraryUUID}\t{comicId}\t{hash}\t{currentPage}\t{rating}\t{lastTimeOpened}\t{hasBeenOpened}\t{read}\t{lastTimeImageFiltersSet}\t{imageFiltersJson}\n
+
+    Returns: JSON array of comics that are more recent on server
 
     Args:
         request: HTTP request
         yacread_session: Optional session cookie
 
     Returns:
-        JSON with sync results including number of synced comics and any errors
+        JSON array of comics with more recent server timestamps
     """
     main_db = request.app.state.db
 
     try:
-        # Parse JSON body
-        # Handle "Extra data" error by using raw_decode to parse only the valid JSON part
-        try:
-            body_bytes = await request.body()
-            body_str = body_bytes.decode('utf-8')
-            body, _ = json.JSONDecoder().raw_decode(body_str)
-        except json.JSONDecodeError:
-             # Fallback to standard parsing if raw_decode fails (or if it was empty)
-            body = await request.json()
+        # Parse tab-separated body (YACReader format)
+        body_bytes = await request.body()
+        body_str = body_bytes.decode('utf-8').strip()
+        logger.info(f"v2 Sync: Received raw body: {body_str[:200]}")  # Log first 200 chars
 
-        comics = body.get("comics", [])
+        if not body_str:
+            logger.warning("v2 Sync: Empty body received")
+            return JSONResponse([])
+
+        # Parse lines
+        lines = body_str.split('\n')
 
         # Get user from session
         with main_db.get_session() as session:
             user = get_request_user(request, session)
 
         if not user:
-            return JSONResponse({"success": False, "error": "User not found"}, status_code=401)
+            logger.warning("v2 Sync: No user found in session")
+            return JSONResponse([])
 
-        # Update reading progress for each comic
+        # Update reading progress for each line
         synced_count = 0
-        errors = []
+        server_updates = []  # Comics that are more recent on server
 
-        for comic_data in comics:
-            comic_id = comic_data.get("comicId")
-            library_id = comic_data.get("libraryId")
-            current_page = comic_data.get("currentPage", 0)
-            total_pages = comic_data.get("totalPages")
-
-            if comic_id is None or library_id is None:
-                errors.append(f"Missing comicId or libraryId in comic data: {comic_data}")
+        for line in lines:
+            line = line.strip()
+            if not line:
                 continue
 
             try:
-                # Get library from main DB
-                with main_db.get_session() as session:
-                    library = get_library_by_id(session, library_id)
-                    if not library:
-                        errors.append(f"Library {library_id} not found")
+                parts = line.split('\t')
+
+                # Determine format based on first field
+                if parts[0] == 'u':
+                    # Android format: u\t{libraryUUID}\t{comicId}\t{hash}\t{currentPage}\t{rating}\t{lastTimeOpened}\t{hasBeenOpened}\t{read}\t{lastTimeImageFiltersSet}\t{imageFiltersJson}
+                    if len(parts) < 7:
+                        logger.warning(f"v2 Sync: Invalid Android format line: {line[:100]}")
                         continue
-                    library_name = library.name
+
+                    library_uuid = parts[1]
+                    comic_id = int(parts[2]) if parts[2] else None
+                    comic_hash = parts[3] if len(parts) > 3 else None
+                    current_page = int(parts[4]) if len(parts) > 4 and parts[4] else 0
+                    # rating = float(parts[5]) if len(parts) > 5 and parts[5] else 0
+                    # last_time_opened = int(parts[6]) if len(parts) > 6 and parts[6] else None
+                    # has_been_opened = parts[7] == '1' if len(parts) > 7 else False
+                    # is_read = parts[8] == '1' if len(parts) > 8 else False
+
+                    # Find library by UUID
+                    with main_db.get_session() as session:
+                        from ...database import get_all_libraries
+                        libs = get_all_libraries(session)
+                        library = next((lib for lib in libs if str(lib.uuid) == library_uuid), None)
+                        if not library:
+                            logger.warning(f"v2 Sync: Library UUID {library_uuid} not found")
+                            continue
+                        library_id = library.id
+
+                elif parts[0] == 'unknown':
+                    # Unknown library format: unknown\t\t{hash}\t{currentPage}\t...
+                    logger.info(f"v2 Sync: Skipping unknown library entry")
+                    continue
+                else:
+                    # iOS format: {libraryId}\t{comicId}\t{hash}\t{currentPage}\t{rating}\t{lastTimeOpened}\t{read}\t{lastTimeImageFiltersSet}\t{imageFiltersJson}
+                    # But sometimes mobile apps send incomplete data (just library ID)
+                    if len(parts) == 1:
+                        # Just a single value (likely library ID) - this is not valid sync data
+                        logger.warning(f"v2 Sync: Received incomplete sync data (single value): {line[:100]}")
+                        logger.warning("v2 Sync: Mobile app may be sending malformed sync request")
+                        continue
+
+                    if len(parts) < 4:
+                        logger.warning(f"v2 Sync: Invalid iOS format line (expected at least 4 fields, got {len(parts)}): {line[:100]}")
+                        continue
+
+                    library_id = int(parts[0]) if parts[0] else None
+                    comic_id = int(parts[1]) if parts[1] else None
+                    comic_hash = parts[2] if len(parts) > 2 else None
+                    current_page = int(parts[3]) if len(parts) > 3 and parts[3] else 0
+                    # rating = float(parts[4]) if len(parts) > 4 and parts[4] else 0
+                    # last_time_opened = int(parts[5]) if len(parts) > 5 and parts[5] else None
+                    # is_read = parts[6] == '1' if len(parts) > 6 else False
+
+                if comic_id is None or library_id is None:
+                    logger.warning(f"v2 Sync: Missing comic_id or library_id in line: {line[:100]}")
+                    continue
+
+                # Get comic to find total pages
+                with main_db.get_session() as session:
+                    comic = get_comic_by_id(session, comic_id)
+                    if not comic:
+                        logger.warning(f"v2 Sync: Comic {comic_id} not found")
+                        continue
+                    total_pages = comic.num_pages
 
                 # Update progress in main DB
                 with main_db.get_session() as session:
@@ -125,16 +178,13 @@ async def sync_session_v2(request: Request, yacread_session: Optional[str] = Coo
                     synced_count += 1
 
             except Exception as e:
-                logger.error(f"Error syncing comic {comic_id}: {e}")
-                errors.append(f"Comic {comic_id}: {str(e)}")
+                logger.error(f"v2 Sync: Error parsing line '{line[:100]}': {e}")
+                continue
 
         logger.info(f"v2 Sync: Updated {synced_count} comics for user {user.username}")
 
-        return JSONResponse({
-            "success": True,
-            "synced": synced_count,
-            "errors": errors if errors else None
-        })
+        # Return array of comics that are more recent on server (empty for now)
+        return JSONResponse(server_updates)
 
     except Exception as e:
         logger.error(f"v2 Sync error: {e}", exc_info=True)
