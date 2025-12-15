@@ -7,11 +7,11 @@ Provides the Database class for managing connections to the SQLite database.
 import time
 import logging
 from pathlib import Path
-from typing import Optional
+from typing import Optional, Generator, Union
 from contextlib import contextmanager
 
-from sqlalchemy import create_engine, text
-from sqlalchemy.orm import sessionmaker
+from sqlalchemy import create_engine, text, Engine
+from sqlalchemy.orm import sessionmaker, Session
 from sqlalchemy.pool import NullPool
 
 from .models import Base, User
@@ -24,7 +24,7 @@ logger = logging.getLogger(__name__)
 class Database:
     """Database connection manager."""
 
-    def __init__(self, db_path: Optional[Path] = None, echo: bool = False):
+    def __init__(self, db_path: Optional[Union[Path, str]] = None, echo: bool = False) -> None:
         """
         Initialize database connection.
 
@@ -65,7 +65,7 @@ class Database:
 
         logger.info(f"Database initialized: {self.db_path}")
 
-    def init_db(self):
+    def init_db(self) -> None:
         """Initialize database schema (create tables)."""
         Base.metadata.create_all(bind=self.engine)
         logger.info("Database schema created")
@@ -97,7 +97,7 @@ class Database:
                 # Re-raise unexpected errors
                 raise
 
-    def _run_migrations(self):
+    def _run_migrations(self) -> None:
         """
         Run database migrations to update schema for existing databases.
 
@@ -151,7 +151,7 @@ class Database:
             # This is a best-effort attempt to update the schema
 
     @contextmanager
-    def get_session(self):
+    def get_session(self) -> Generator[Session, None, None]:
         """
         Get a database session (context manager).
 
@@ -159,6 +159,9 @@ class Database:
             with db.get_session() as session:
                 # Use session here
                 pass
+        
+        Yields:
+            Session: SQLAlchemy database session
         """
         session = self.SessionLocal()
         try:
@@ -170,6 +173,6 @@ class Database:
         finally:
             session.close()
 
-    def close(self):
+    def close(self) -> None:
         """Close database connection."""
         self.engine.dispose()
