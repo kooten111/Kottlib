@@ -1,4 +1,4 @@
-# YACLib Enhanced
+# Kottlib
 
 **Modern comic library server with one-command setup.**
 
@@ -7,8 +7,8 @@
 - Just run `./scripts/yaclib.py`
 
 ```bash
-git clone https://github.com/yourusername/yaclib-enhanced.git
-cd yaclib-enhanced
+git clone https://github.com/kooten111/Kottlib.git
+cd Kottlib
 ./scripts/yaclib.py
 ```
 
@@ -20,9 +20,9 @@ Done!
 
 ---
 
-## What is YACLib Enhanced?
+## What is Kottlib?
 
-A complete replacement for YACReaderLibrary Server, written in Python, that:
+A modern comic library server written in Python that:
 - Maintains 100% backward compatibility with YACReader mobile apps
 - Provides a modern API and web interface
 - Makes setup incredibly simple
@@ -31,63 +31,46 @@ No complex configuration. No dependencies to manually install. Just works.
 
 ## Features
 
-### Phase 1: Foundation - COMPLETE
+### Core Features (Complete)
 
-- **Comic Loader** - Read CBZ, CBR, CB7 files
-- **Dual Thumbnails** - JPEG (mobile) + WebP (web)
+- **Comic Formats** - CBZ, CBR, CB7 support with automatic format detection
+- **Multi-threaded Scanning** - Fast library indexing with parallel processing
+- **Dual Thumbnails** - JPEG (mobile) + WebP (web) for optimal performance
 - **Database Layer** - SQLAlchemy ORM with extended YACReader schema
-- **FastAPI Server** - Production-ready async server
-- **Legacy API** - YACReader mobile app compatible
-- **Modern API** - JSON REST endpoints
-- **Configuration System** - YAML-based config
-- **One-Command Setup** - Interactive launcher
+- **FastAPI Server** - Production-ready async API server
+- **YACReader API** - 100% compatible with YACReader mobile apps (v1 & v2)
+- **Modern API** - RESTful JSON endpoints with OpenAPI documentation
+- **Configuration** - YAML-based with sensible defaults
+- **One-Command Setup** - Interactive launcher for easy installation
 
-### Phase 2: Mobile UX - COMPLETE
+### Web Interface (Complete)
 
-- **Folders-first sorting** - Proper folder hierarchy
-- **Continue reading list** - Track reading progress
-- **Reading progress tracking** - Per-user progress
-- **Custom cover selection** - Database ready
-
-### Phase 3: YACReader Compatibility - 90% COMPLETE
-
-- **Database schema** - 43 new fields + 5 tables
-- **Session management** - Multi-user support
-- **File size reporting** - Actual sizes, not "0"
-- **Library UUIDs** - In all V2 responses
-- **Root folder convention** - `__ROOT__` folders
-- **Multi-library support** - Same file in multiple libraries
-- **ComicInfo.xml extraction** - Scanner integration pending
-- **Search functionality** - Pending
-- **Favorites/Tags/Lists** - Database ready, endpoints pending
-
-### Phase 4: Web UI - IMPLEMENTED
-
-- **Modern SvelteKit Interface** - Fast, responsive web UI
-- **Comic Reader** - Full-featured reading experience with keyboard shortcuts
+- **Modern UI** - Fast, responsive SvelteKit interface
+- **Comic Reader** - Full-featured reader with keyboard shortcuts
 - **Library Browser** - Grid/list views with folder navigation
-- **Continue Reading** - Track and resume reading progress
+- **Continue Reading** - Track and resume reading progress across devices
 - **Favorites** - Mark and manage favorite comics
-- **Search** - Full-text search with autocomplete, filters, and cover previews
-- **Admin Dashboard** - Server stats and management
+- **Advanced Search** - Full-text search with autocomplete, filters, and previews
+- **Admin Dashboard** - Server stats and library management
 - **Dark Theme** - Beautiful dark-first design
 - **Responsive** - Works on desktop, tablet, and mobile
 
-### Scanner System - IMPLEMENTED
+### Metadata Scanner System (Complete)
 
 - **Pluggable Architecture** - Easy to add new metadata sources
-- **nhentai Scanner** - Automatic metadata extraction for individual releases
-- **AniList Scanner** - Manga metadata (in progress)
+- **Multiple Scanners** - nhentai, AniList, MangaDex, Comic Vine, Metron
 - **Smart Matching** - Fuzzy matching with confidence scoring
 - **Per-Library Configuration** - Different scanners for different library types
 - **Fallback Support** - Automatic fallback to secondary sources
+- **API Integration** - RESTful endpoints for scanner management
 
-### Phase 5: Advanced Features - PLANNED
+### Reading Progress & Social (Complete)
 
-- Series auto-detection
-- Smart search with FTS
-- Reading statistics
-- Enhanced collections
+- **Reading Progress** - Per-user, per-comic progress tracking
+- **Continue Reading** - Quick access to in-progress comics
+- **Favorites** - Mark comics as favorites
+- **Session Management** - Multi-user support with device tracking
+- **Multi-library Support** - Multiple comic libraries with separate configurations
 
 ## Quick Start
 
@@ -95,8 +78,8 @@ No complex configuration. No dependencies to manually install. Just works.
 
 ```bash
 # 1. Clone
-git clone https://github.com/yourusername/yaclib-enhanced.git
-cd yaclib-enhanced
+git clone https://github.com/kooten111/Kottlib.git
+cd Kottlib
 
 # 2. Run
 ./scripts/yaclib.py
@@ -259,15 +242,18 @@ For advanced users:
 - <http://localhost:8081/openapi.json> - OpenAPI schema
 
 **Project Documentation:**
-- [docs/API_DOCUMENTATION.md](docs/API_DOCUMENTATION.md) - Complete API reference
+- [docs/API.md](docs/API.md) - Complete API reference
+- [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) - System architecture
+- [docs/SCANNERS.md](docs/SCANNERS.md) - Scanner system documentation
+- [docs/SERVICES.md](docs/SERVICES.md) - Service layer guide
+- [docs/ROADMAP.md](docs/ROADMAP.md) - Future development plans
 - [docs/SEARCH.md](docs/SEARCH.md) - Search functionality guide
-- [scanners/README.md](scanners/README.md) - Scanner system documentation
 - `config.example.yml` - Configuration options and examples
 
 ## Project Structure
 
 ```text
-yaclib-enhanced/
+Kottlib/
 ├── start.sh               # Start everything (backend + web UI)
 ├── start_backend.sh       # Start backend API only
 ├── start_webui.sh         # Start web UI only
@@ -296,28 +282,38 @@ yaclib-enhanced/
 │   ├── database/          # Database layer
 │   │   ├── models.py      # SQLAlchemy models (extended YACReader schema)
 │   │   └── database.py    # Database connection management
-│   ├── scanner/           # Comic loader & thumbnails
+│   ├── scanner/           # Core scanner engine
+│   │   ├── base.py                # ScanResult dataclass
 │   │   ├── comic_loader.py        # CBZ/CBR/CB7 support
+│   │   ├── file_discovery.py      # File discovery
+│   │   ├── comic_processor.py     # Comic processing
 │   │   ├── thumbnail_generator.py # JPEG + WebP thumbnails
-│   │   └── threaded_scanner.py    # Multi-threaded scanning
-│   ├── services/          # Business logic
-│   │   └── metadata_service.py    # Metadata processing
+│   │   └── threaded_scanner.py    # Multi-threaded scanner
+│   ├── metadata_providers/ # Metadata scanner system
+│   │   ├── base.py                # Scanner interface
+│   │   ├── manager.py             # Scanner registry
+│   │   ├── schema.py              # Field mapping
+│   │   └── providers/             # Scanner implementations
+│   │       ├── nhentai/
+│   │       ├── anilist/
+│   │       ├── mangadex/
+│   │       ├── comicvine/
+│   │       └── metron/
+│   ├── services/          # Business logic layer
+│   │   ├── metadata_service.py    # Metadata application
+│   │   ├── library_service.py     # Library management
+│   │   └── scan_service.py        # Scan orchestration
 │   ├── client/            # Python client library
 │   │   └── yaclib.py      # API client for programmatic access
 │   ├── utils/             # Utilities
 │   │   └── series_utils.py        # Series detection
 │   └── config.py          # Configuration management
-├── scanners/              # Pluggable metadata scanner system
-│   ├── README.md          # Scanner documentation
-│   ├── QUICKSTART.md      # Quick start guide
-│   ├── SCANNERS           # Detailed scanner info
-│   ├── base_scanner.py    # Base scanner interface
-│   ├── scanner_manager.py # Central registry & orchestrator
-│   ├── metadata_schema.py # Metadata schemas
-│   ├── nhentai/           # nhentai scanner 
-│   │   └── nhentai_scanner.py
-│   └── AniList/           # AniList scanner (manga)
-│       └── anilist_scanner.py
+├── scanners/              # Scanner plugins (legacy location, still supported)
+│   ├── AniList/           # AniList scanner plugin
+│   ├── ComicVine/         # Comic Vine scanner plugin
+│   ├── mangadex/          # MangaDex scanner plugin
+│   ├── metron/            # Metron scanner plugin
+│   └── nhentai/           # nhentai scanner plugin
 ├── webui/                 # SvelteKit frontend
 │   ├── src/
 │   │   ├── routes/        # Page routes
@@ -344,8 +340,12 @@ yaclib-enhanced/
 │       ├── test_v2_api.py
 │       └── test_integration.py
 ├── docs/                  # Documentation
-│   ├── API_DOCUMENTATION.md  # Complete API reference
-│   └── SEARCH.md             # Search guide
+│   ├── API.md                 # Complete API reference
+│   ├── ARCHITECTURE.md        # System architecture
+│   ├── SCANNERS.md            # Scanner system guide
+│   ├── SERVICES.md            # Service layer documentation
+│   ├── ROADMAP.md             # Future development plans
+│   └── SEARCH.md              # Search functionality guide
 └── data/                  # Runtime data (created on first run, gitignored)
     ├── main.db            # SQLite database
     └── covers/            # Generated thumbnails (JPEG + WebP)
@@ -363,38 +363,49 @@ The launcher installs all Python dependencies automatically.
 
 ## Development Status
 
-**Current Phase:** Phase 4 - Web UI & Scanners (Implemented)
+**Current Version:** 1.0
 
-**Completed:**
+**Completed Phases:**
 
-- ✅ **Phase 1:** Foundation - All core infrastructure
-- ✅ **Phase 2:** Mobile UX - Reading progress, folder navigation
-- ✅ **Phase 3:** YACReader Compatibility (90%)
-  - Database schema extended with 43 new fields + 5 tables
-  - Session management & multi-user support
-  - Root folder implementation
-  - Multi-library support
-- ✅ **Phase 4:** Web UI - Modern SvelteKit interface with reader, search, and favorites
-- ✅ **Scanner System:** Pluggable metadata scanners (nhentai, AniList in progress)
+- ✅ **Phase 1:** Foundation - Core infrastructure (database, API server, comic loading)
+- ✅ **Phase 2:** Mobile UX - Reading progress, folder navigation, YACReader compatibility
+- ✅ **Phase 3:** Service Layer - Business logic extraction and organization
+- ✅ **Phase 4:** Code Quality - Type hints, documentation consolidation, testing
 
-**In Progress:**
+**Key Features:**
 
-- Phase 3 (10%): ComicInfo.xml extraction, tags/lists endpoints
-- Phase 5: Series auto-detection improvements, reading statistics, enhanced collections
+- ✅ **Core Scanner Engine** - Multi-threaded library scanning with automatic thumbnail generation
+- ✅ **Metadata Scanner System** - Pluggable scanners (nhentai, AniList, MangaDex, Comic Vine, Metron)
+- ✅ **Web UI** - Modern SvelteKit interface with reader, search, and favorites
+- ✅ **YACReader API** - 100% backward compatible with YACReader mobile apps (v1 & v2 APIs)
+- ✅ **Multi-user Support** - Session management and per-user reading progress
+- ✅ **Type Hints** - Comprehensive type annotations for better IDE support
+
+**Future Plans:**
+
+See [docs/ROADMAP.md](docs/ROADMAP.md) for planned enhancements including:
+- Enhanced metadata caching
+- GraphQL API
+- Advanced search features
+- Reading statistics and analytics
+- Plugin marketplace
 
 **API Compatibility:**
 - 100% backward compatible with YACReader mobile apps (v1 & v2 APIs)
 - Enhanced v2 endpoints provide additional functionality
-- See [docs/API_DOCUMENTATION.md](docs/API_DOCUMENTATION.md) for complete API reference
+- See [docs/API.md](docs/API.md) for complete API reference
 
 ## Contributing
 
 Contributions welcome! Please:
 
 1. Review the project structure and existing code style
-2. Check [docs/API_DOCUMENTATION.md](docs/API_DOCUMENTATION.md) for API reference
-3. Add tests for new features (see `tests/` directory)
-4. Update documentation as needed
+2. Check [docs/API.md](docs/API.md) for API reference
+3. Check [docs/SCANNERS.md](docs/SCANNERS.md) for scanner development guide
+4. Add tests for new features (see `tests/` directory)
+5. Update documentation as needed
+
+See [docs/ROADMAP.md](docs/ROADMAP.md) for planned features and areas where contributions are needed.
 
 ## License
 
