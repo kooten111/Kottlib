@@ -16,7 +16,7 @@ from sqlalchemy.orm import sessionmaker
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
 from src.database.models import Base, Library, Comic, User, Folder, ReadingProgress
-from src.database.database import Database
+from src.database import Database
 
 
 @pytest.fixture(scope="session")
