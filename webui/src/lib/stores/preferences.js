@@ -4,7 +4,8 @@ import { browser } from '$app/environment';
 // Default preferences
 const defaultPreferences = {
 	gridCoverSize: 1.0, // Multiplier for grid view cover size (0.5 to 2.0)
-	viewMode: 'grid' // 'grid' or 'list'
+	viewMode: 'grid', // 'grid' or 'list'
+	sortBy: 'name' // Sort option: 'name', 'recent-read', 'progress', 'recent', 'shuffle'
 };
 
 // Get initial preferences from localStorage
@@ -67,6 +68,15 @@ function createPreferencesStore() {
 			update((current) => {
 				const newMode = current.viewMode === 'grid' ? 'list' : 'grid';
 				const newPrefs = { ...current, viewMode: newMode };
+				if (browser) {
+					localStorage.setItem('libraryPreferences', JSON.stringify(newPrefs));
+				}
+				return newPrefs;
+			});
+		},
+		setSortBy: (sortValue) => {
+			update((current) => {
+				const newPrefs = { ...current, sortBy: sortValue };
 				if (browser) {
 					localStorage.setItem('libraryPreferences', JSON.stringify(newPrefs));
 				}

@@ -433,6 +433,7 @@ async def get_series_list(
                         volume_info["current_page"] = progress.current_page
                         volume_info["is_completed"] = progress.is_completed
                         volume_info["progress_percent"] = progress.progress_percent
+                        volume_info["last_read_at"] = progress.last_read_at
 
                 volumes.append(volume_info)
 

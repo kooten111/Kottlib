@@ -52,6 +52,7 @@
 	let searchDebounceTimer;
 	let showSizeSlider = false;
 	let initialFilterRestored = false; // Track if initial filter has been restored
+	let sortBy = $preferencesStore.sortBy || 'name';
 
 	// PERFORMANCE OPTIMIZATION: Cache for tree filtering
 	let treeFilterCache = new Map();
@@ -79,6 +80,14 @@
 				restoreFilter($currentFilterStore);
 			}
 		}
+	}
+
+	// Sync sortBy from preferences store
+	$: sortBy = $preferencesStore.sortBy || 'name';
+
+	// Apply sort when sortBy changes
+	$: if (sortBy && !isLoading) {
+		applySorting();
 	}
 
 	// React to search store changes with debounce (increased from 300ms to 500ms)
@@ -231,7 +240,7 @@
 							try {
 								const series = await getSeries(
 									lib.id,
-									"recent",
+									sortBy,
 								);
 								return series.map((s) => ({
 									...s,
@@ -248,7 +257,15 @@
 					),
 				]);
 
-			continueReading = continueReadingResults.flat().slice(0, 20);
+			// Sort globally by last_time_opened timestamp after flattening all libraries
+		continueReading = continueReadingResults
+			.flat()
+			.sort((a, b) => {
+				const aTime = a.last_time_opened ? new Date(a.last_time_opened).getTime() : 0;
+				const bTime = b.last_time_opened ? new Date(b.last_time_opened).getTime() : 0;
+				return bTime - aTime; // Most recent first
+			})
+			.slice(0, 20);
 
 			// Interleave series from different libraries
 			const maxLength = Math.max(
@@ -299,7 +316,7 @@
 			try {
 				const [contReading, series] = await Promise.all([
 					getContinueReading(lib.id, 50).catch(() => []),
-					getSeries(lib.id, "recent").catch(() => []),
+					getSeries(lib.id, sortBy).catch(() => []),
 				]);
 
 				// Merge into existing data
@@ -485,6 +502,107 @@
 			hasMoreSeries = librarySeries.length > seriesPageSize;
 		}
 	}
+
+async function applySorting() {
+	if (!allSeries || allSeries.length === 0) return;
+
+	console.log('[Home] Applying sort:', sortBy);
+
+	let sortedSeries;
+
+	switch (sortBy) {
+		case 'name':
+		case 'recent':
+		case 'progress':
+			// Backend sorts - reload data with sort parameter
+			await reloadWithBackendSort(sortBy);
+			return;
+
+		case 'recent-read':
+			// Client-side: Sort by most recent last_read_at
+			sortedSeries = [...allSeries].sort((a, b) => {
+				const aMaxTime = getMaxLastReadTime(a.volumes);
+				const bMaxTime = getMaxLastReadTime(b.volumes);
+
+				// Unread series go to end, sorted by first_comic_id
+				if (aMaxTime === 0 && bMaxTime === 0) {
+					return b.first_comic_id - a.first_comic_id;
+				}
+				if (aMaxTime === 0) return 1;
+				if (bMaxTime === 0) return -1;
+
+				return bMaxTime - aMaxTime; // Most recent first
+			});
+			break;
+
+		case 'shuffle':
+			// Fisher-Yates shuffle
+			sortedSeries = [...allSeries];
+			for (let i = sortedSeries.length - 1; i > 0; i--) {
+				const j = Math.floor(Math.random() * (i + 1));
+				[sortedSeries[i], sortedSeries[j]] = [sortedSeries[j], sortedSeries[i]];
+			}
+			break;
+
+		default:
+			return;
+	}
+
+	allSeries = sortedSeries;
+	updateDisplayedSeries();
+}
+
+function getMaxLastReadTime(volumes) {
+	if (!volumes || volumes.length === 0) return 0;
+	return Math.max(...volumes.map(v => v.last_read_at || 0));
+}
+
+async function reloadWithBackendSort(sortType) {
+	try {
+		console.log('[Home] Reloading data with backend sort:', sortType);
+
+		const allSeriesResults = await Promise.all(
+			libraries.map(async (lib) => {
+				try {
+					const series = await getSeries(lib.id, sortType);
+					return series.map((s) => ({
+						...s,
+						libraryId: lib.id,
+					}));
+				} catch (err) {
+					console.error(`Failed to fetch series for library ${lib.id}:`, err);
+					return [];
+				}
+			})
+		);
+
+		// Interleave series from different libraries
+		const maxLength = Math.max(...allSeriesResults.map((r) => r.length));
+		allSeries = [];
+		for (let i = 0; i < maxLength; i++) {
+			for (const libraryResults of allSeriesResults) {
+				if (i < libraryResults.length) {
+					allSeries.push(libraryResults[i]);
+				}
+			}
+		}
+
+		updateDisplayedSeries();
+	} catch (err) {
+		console.error('[Home] Failed to reload with sort:', err);
+	}
+}
+
+function updateDisplayedSeries() {
+	if (currentFilter?.type === 'library') {
+		const librarySeries = allSeries.filter(s => s.libraryId === currentFilter.libraryId);
+		displayedSeries = librarySeries.slice(0, seriesPageSize);
+		hasMoreSeries = librarySeries.length > seriesPageSize;
+	} else {
+		displayedSeries = allSeries.slice(0, seriesPageSize);
+		hasMoreSeries = allSeries.length > seriesPageSize;
+	}
+}
 
 	async function loadMoreSeries() {
 		if (isLoadingMore || !hasMoreSeries) {
@@ -964,6 +1082,30 @@
 										{/if}
 									</h2>
 									<div class="view-controls">
+				<select
+					bind:value={sortBy}
+					on:change={(e) =>
+						preferencesStore.setSortBy(
+							e.target.value,
+						)}
+					class="control-select"
+				>
+					<option value="name"
+						>Alphabetical</option
+					>
+					<option value="recent-read"
+						>Recently Read</option
+					>
+					<option value="progress"
+						>% Complete</option
+					>
+					<option value="recent"
+						>Date Added</option
+					>
+					<option value="shuffle"
+						>Shuffle</option
+					>
+				</select>
 										<button
 											class="control-btn"
 											class:active={showSizeSlider}
@@ -1324,6 +1466,28 @@
 		background: var(--color-accent);
 		border-color: var(--color-accent);
 		color: white;
+	}
+
+	.control-select {
+		padding: 0.5rem 0.75rem;
+		font-size: 0.875rem;
+		background: var(--color-secondary-bg);
+		border: 2px solid rgba(255, 255, 255, 0.1);
+		border-radius: 8px;
+		color: var(--color-text);
+		cursor: pointer;
+		transition: all 0.2s;
+		min-width: 150px;
+	}
+
+	.control-select:hover {
+		background: rgba(255, 255, 255, 0.05);
+		border-color: rgba(255, 255, 255, 0.2);
+	}
+
+	.control-select:focus {
+		outline: none;
+		border-color: var(--color-accent);
 	}
 
 	.size-slider-container {
