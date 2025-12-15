@@ -22,12 +22,9 @@ Done!
 
 ## What is Kottlib?
 
-A modern comic library server written in Python that:
+A comic library server written in Python that:
 - Maintains 100% backward compatibility with YACReader mobile apps
 - Provides a modern API and web interface
-- Makes setup incredibly simple
-
-No complex configuration. No dependencies to manually install. Just works.
 
 ## Features
 
@@ -40,7 +37,6 @@ No complex configuration. No dependencies to manually install. Just works.
 - **FastAPI Server** - Production-ready async API server
 - **YACReader API** - 100% compatible with YACReader mobile apps (v1 & v2)
 - **Modern API** - RESTful JSON endpoints with OpenAPI documentation
-- **Configuration** - YAML-based with sensible defaults
 - **One-Command Setup** - Interactive launcher for easy installation
 
 ### Web Interface (Complete)
@@ -360,52 +356,6 @@ Kottlib/
 - Node.js 18+ (for web UI)
 
 The launcher installs all Python dependencies automatically.
-
-## Development Status
-
-**Current Version:** 1.0
-
-**Completed Phases:**
-
-- ✅ **Phase 1:** Foundation - Core infrastructure (database, API server, comic loading)
-- ✅ **Phase 2:** Mobile UX - Reading progress, folder navigation, YACReader compatibility
-- ✅ **Phase 3:** Service Layer - Business logic extraction and organization
-- ✅ **Phase 4:** Code Quality - Type hints, documentation consolidation, testing
-
-**Key Features:**
-
-- ✅ **Core Scanner Engine** - Multi-threaded library scanning with automatic thumbnail generation
-- ✅ **Metadata Scanner System** - Pluggable scanners (nhentai, AniList, MangaDex, Comic Vine, Metron)
-- ✅ **Web UI** - Modern SvelteKit interface with reader, search, and favorites
-- ✅ **YACReader API** - 100% backward compatible with YACReader mobile apps (v1 & v2 APIs)
-- ✅ **Multi-user Support** - Session management and per-user reading progress
-- ✅ **Type Hints** - Comprehensive type annotations for better IDE support
-
-**Future Plans:**
-
-See [docs/ROADMAP.md](docs/ROADMAP.md) for planned enhancements including:
-- Enhanced metadata caching
-- GraphQL API
-- Advanced search features
-- Reading statistics and analytics
-- Plugin marketplace
-
-**API Compatibility:**
-- 100% backward compatible with YACReader mobile apps (v1 & v2 APIs)
-- Enhanced v2 endpoints provide additional functionality
-- See [docs/API.md](docs/API.md) for complete API reference
-
-## Contributing
-
-Contributions welcome! Please:
-
-1. Review the project structure and existing code style
-2. Check [docs/API.md](docs/API.md) for API reference
-3. Check [docs/SCANNERS.md](docs/SCANNERS.md) for scanner development guide
-4. Add tests for new features (see `tests/` directory)
-5. Update documentation as needed
-
-See [docs/ROADMAP.md](docs/ROADMAP.md) for planned features and areas where contributions are needed.
 
 ## License
 
