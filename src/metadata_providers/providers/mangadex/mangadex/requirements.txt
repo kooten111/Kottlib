@@ -1,3 +1,0 @@
-# MangaDex Scanner Requirements
-# These are typically already included in the main requirements.txt
-requests>=2.32.0

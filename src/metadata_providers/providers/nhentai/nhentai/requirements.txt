@@ -1,7 +1,0 @@
-requests>=2.32.0
-beautifulsoup4>=4.12.0
-lxml>=4.9.0
-
-# Note: Other dependencies are Python standard library:
-# - re, json, argparse, collections, enum, typing, difflib
-# - urllib.parse, pathlib, dataclasses, abc
