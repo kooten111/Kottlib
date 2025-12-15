@@ -11,7 +11,7 @@ import logging
 from fastapi import HTTPException, Request
 from sqlalchemy.orm.attributes import flag_modified
 
-from src.scanners import ScannerConfigError
+from src.metadata_providers import ScannerConfigError
 from src.database.models import Library
 from src.database import get_library_by_id, update_library
 

@@ -1,23 +1,13 @@
 """
-YACLib Metadata Scanners (DEPRECATED)
+YACLib Metadata Providers (formerly Scanners)
 
-This module has been moved to src.metadata_providers for clarity.
-This file provides backward compatibility by re-exporting from the new location.
+Pluggable metadata provider system for extracting metadata from different sources.
 
-DEPRECATED: Import from src.metadata_providers instead of src.scanners
+This module has been renamed from 'scanners' to 'metadata_providers' for clarity.
+Backward compatibility imports are maintained.
 """
 
-import warnings
-
-# Issue deprecation warning
-warnings.warn(
-    "src.scanners is deprecated. Use src.metadata_providers instead.",
-    DeprecationWarning,
-    stacklevel=2
-)
-
-# Re-export everything from the new location for backward compatibility
-from src.metadata_providers import (
+from .base import (
     BaseScanner,
     ScanResult,
     ScanLevel,
@@ -25,13 +15,26 @@ from src.metadata_providers import (
     ScannerError,
     ScannerConfigError,
     ScannerAPIError,
-    ScannerRateLimitError,
+    ScannerRateLimitError
+)
+
+from .manager import (
     ScannerManager,
     ScannerConfig,
     FallbackStrategy,
     get_manager,
     init_default_scanners,
     discover_scanners
+)
+
+from .config import (
+    ConfigOption,
+    ConfigType
+)
+
+from .schema import (
+    get_scanner_capabilities,
+    MetadataField
 )
 
 __all__ = [
@@ -54,6 +57,14 @@ __all__ = [
     'get_manager',
     'init_default_scanners',
     'discover_scanners',
+    
+    # Config
+    'ConfigOption',
+    'ConfigType',
+    
+    # Schema
+    'get_scanner_capabilities',
+    'MetadataField',
 ]
 
-__version__ = '1.0.0'
+__version__ = '2.0.0'

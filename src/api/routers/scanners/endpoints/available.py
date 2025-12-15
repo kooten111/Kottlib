@@ -10,7 +10,7 @@ import logging
 
 from fastapi import Request
 
-from src.scanners.metadata_schema import get_scanner_capabilities
+from src.metadata_providers.schema import get_scanner_capabilities
 from src.database.models import Library
 
 from ..models import ScannerInfo, LibraryScannerConfig, ScanLevelEnum

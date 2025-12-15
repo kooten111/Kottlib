@@ -10,8 +10,8 @@ from typing import List, Dict, Any, Optional, Tuple
 from sqlalchemy.orm import Session
 import logging
 
-from src.scanners.base_scanner import ScanResult, MatchConfidence
-from src.scanners.metadata_schema import (
+from src.metadata_providers.base import ScanResult, MatchConfidence
+from src.metadata_providers.schema import (
     map_scanner_metadata_to_comic,
     get_scanner_capabilities,
     FIELD_DEFINITIONS,

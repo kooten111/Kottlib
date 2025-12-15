@@ -17,7 +17,7 @@ import os
 # Add project root to path
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
 
-from scanners.mangadex.mangadex_scanner import (
+from src.metadata_providers.providers.mangadex.mangadex_scanner import (
     MangaDexScanner,
     MangaDexAPI,
     normalize_title,
@@ -32,7 +32,7 @@ from scanners.mangadex.mangadex_scanner import (
     get_alternative_titles,
     get_localized_description,
 )
-from src.scanners.base_scanner import ScanLevel, ScanResult
+from src.metadata_providers.base import ScanLevel, ScanResult
 
 
 # ============================================================================
@@ -393,7 +393,7 @@ class TestScannerDiscovery:
 
     def test_scanner_discovered(self):
         """Test MangaDex scanner is discovered by scanner manager"""
-        from src.scanners.scanner_manager import discover_scanners
+        from src.metadata_providers.manager import discover_scanners
         
         scanners = discover_scanners()
         scanner_names = []
