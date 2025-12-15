@@ -248,13 +248,13 @@ async def get_version():
 # Endpoints
 # ============================================================================
 
-@router.get("/libraries", response_model=List[LibrarySimple])
+@router.get("/libraries", response_model=List[LibraryInfo])
 async def list_libraries(request: Request):
     """
-    Get all libraries (YACReader-compatible format)
+    Get all libraries with extended information
 
-    Returns minimal library info for mobile app compatibility.
-    For extended info, use /library/{id}/info endpoint.
+    Returns full library info including path, comic count, and folder count.
+    For YACReader minimal format, the mobile app can filter the needed fields.
     """
     db = request.app.state.db
 
@@ -266,10 +266,21 @@ async def list_libraries(request: Request):
             # Format UUID with curly braces for YACReader compatibility
             uuid_formatted = f"{{{lib.uuid}}}" if not lib.uuid.startswith('{') else lib.uuid
 
-            result.append(LibrarySimple(
+            # Get library stats
+            stats = get_library_stats(session, lib.id)
+
+            result.append(LibraryInfo(
                 id=lib.id,
                 name=lib.name,
-                uuid=uuid_formatted
+                uuid=uuid_formatted,
+                path=lib.path,
+                created_at=lib.created_at,
+                updated_at=lib.updated_at,
+                last_scan_at=lib.last_scan_completed,
+                scan_status=lib.scan_status,
+                scan_interval=lib.scan_interval,
+                comic_count=stats.get('comic_count', 0),
+                folder_count=stats.get('folder_count', 0),
             ))
 
         return result
