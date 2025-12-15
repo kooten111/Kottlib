@@ -7,7 +7,7 @@ Provides access to the scanner manager instance for API endpoints.
 from typing import Optional
 import logging
 
-from src.scanners import (
+from src.metadata_providers import (
     init_default_scanners,
     ScannerManager,
 )
