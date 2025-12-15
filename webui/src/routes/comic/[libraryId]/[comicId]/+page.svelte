@@ -76,11 +76,11 @@
 	}
 
 	function handleRead() {
-		window.location.href = `/comic/${libraryId}/${comicId}/read`;
+		goto(`/comic/${libraryId}/${comicId}/read`, { replaceState: true });
 	}
 
 	function handleContinue() {
-		window.location.href = `/comic/${libraryId}/${comicId}/read?page=${comic.current_page || comic.currentPage || 1}`;
+		goto(`/comic/${libraryId}/${comicId}/read?page=${comic.current_page || comic.currentPage || 1}`, { replaceState: true });
 	}
 
 	$: readProgress = comic ? ((comic.current_page || comic.currentPage || 0) / (comic.num_pages || comic.numPages || 1)) * 100 : 0;
