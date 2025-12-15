@@ -2,6 +2,11 @@
 Database Module
 
 Provides database models and access layer for YACLib Enhanced.
+
+This module has been refactored to split the large database.py file into:
+- connection.py: Database class and session management
+- paths.py: Path-related utility functions
+- operations/: Individual operation modules organized by entity
 """
 
 from .models import (
@@ -22,17 +27,23 @@ from .models import (
     ReadingListItem,
 )
 
-from .database import (
-    Database,
+# Database connection
+from .connection import Database
+
+# Path utilities
+from .paths import (
     get_project_root,
     get_default_db_path,
     get_data_dir,
     get_library_data_dir,
     get_covers_dir,
+)
+
+# All database operations from the operations module
+from .operations import (
     # Library operations
     create_library,
     get_library_by_id,
-    get_library_by_path,
     get_library_by_path,
     get_all_libraries,
     update_library,
@@ -48,6 +59,7 @@ from .database import (
     get_all_comics_in_db,
     get_comics_in_folder,
     get_comics_in_folder_simple,
+    search_comics,
     get_sibling_comics,
     # Folder operations
     create_folder,
@@ -129,7 +141,6 @@ __all__ = [
     'create_library',
     'get_library_by_id',
     'get_library_by_path',
-    'get_library_by_path',
     'get_all_libraries',
     'update_library',
     'delete_library',
@@ -143,6 +154,7 @@ __all__ = [
     'get_all_comics_in_db',
     'get_comics_in_folder',
     'get_comics_in_folder_simple',
+    'search_comics',
     'get_sibling_comics',
     'create_folder',
     'get_folder_by_id',

@@ -232,7 +232,7 @@ class TestCreateCoverFunction:
     def test_create_cover_signature(self):
         """Test that create_cover has the new source parameters"""
         import inspect
-        from src.database.database import create_cover
+        from src.database import create_cover
 
         sig = inspect.signature(create_cover)
         params = list(sig.parameters.keys())
@@ -243,7 +243,7 @@ class TestCreateCoverFunction:
     def test_create_cover_default_source(self):
         """Test that source defaults to 'archive'"""
         import inspect
-        from src.database.database import create_cover
+        from src.database import create_cover
 
         sig = inspect.signature(create_cover)
         source_param = sig.parameters['source']
