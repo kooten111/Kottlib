@@ -74,13 +74,19 @@ def sample_user(test_db: Database) -> User:
 @pytest.fixture(scope="function")
 def sample_library(test_db: Database, test_data_dir: Path) -> Library:
     """Create a sample library for testing"""
+    import uuid
+    import time
+    
     library_path = test_data_dir / "library1"
     library_path.mkdir(exist_ok=True)
 
     with test_db.get_session() as session:
         library = Library(
+            uuid=str(uuid.uuid4()),
             name="Test Library",
-            path=str(library_path)
+            path=str(library_path),
+            created_at=int(time.time()),
+            updated_at=int(time.time())
         )
         session.add(library)
         session.commit()
@@ -91,11 +97,16 @@ def sample_library(test_db: Database, test_data_dir: Path) -> Library:
 @pytest.fixture(scope="function")
 def sample_folder(test_db: Database, sample_library: Library) -> Folder:
     """Create a sample folder for testing"""
+    import time
+    
     with test_db.get_session() as session:
         folder = Folder(
             name="Test Folder",
+            path=str(Path(sample_library.path) / "Test Folder"),
             parent_id=None,
-            library_id=sample_library.id
+            library_id=sample_library.id,
+            created_at=int(time.time()),
+            updated_at=int(time.time())
         )
         session.add(folder)
         session.commit()
@@ -106,6 +117,8 @@ def sample_folder(test_db: Database, sample_library: Library) -> Folder:
 @pytest.fixture(scope="function")
 def sample_comic(test_db: Database, sample_library: Library, sample_folder: Folder, test_data_dir: Path) -> Comic:
     """Create a sample comic for testing"""
+    import time
+    
     # Create a dummy comic file
     comic_path = test_data_dir / "library1" / "test_comic.cbz"
     comic_path.write_bytes(b"DUMMY_CBZ_DATA")
@@ -116,15 +129,18 @@ def sample_comic(test_db: Database, sample_library: Library, sample_folder: Fold
             folder_id=sample_folder.id,
             path=str(comic_path),
             filename="test_comic.cbz",
-            hash="abc123",
+            file_hash="abc123",
             file_size=14,
+            file_modified_at=int(time.time()),
             format="cbz",
             num_pages=24,
             title="Test Comic",
             series="Test Series",
             issue_number="1",
             year=2024,
-            reading_direction="ltr"
+            reading_direction="ltr",
+            created_at=int(time.time()),
+            updated_at=int(time.time())
         )
         session.add(comic)
         session.commit()
@@ -135,6 +151,8 @@ def sample_comic(test_db: Database, sample_library: Library, sample_folder: Fold
 @pytest.fixture(scope="function")
 def multiple_comics(test_db: Database, sample_library: Library, sample_folder: Folder, test_data_dir: Path) -> list[Comic]:
     """Create multiple sample comics for testing"""
+    import time
+    
     comics = []
     with test_db.get_session() as session:
         for i in range(5):
@@ -146,15 +164,18 @@ def multiple_comics(test_db: Database, sample_library: Library, sample_folder: F
                 folder_id=sample_folder.id,
                 path=str(comic_path),
                 filename=f"test_comic_{i}.cbz",
-                hash=f"hash_{i}",
+                file_hash=f"hash_{i}",
                 file_size=14,
+                file_modified_at=int(time.time()),
                 format="cbz",
                 num_pages=24 + i,
                 title=f"Test Comic {i}",
                 series="Test Series",
                 issue_number=str(i + 1),
                 year=2024,
-                reading_direction="ltr"
+                reading_direction="ltr",
+                created_at=int(time.time()),
+                updated_at=int(time.time())
             )
             session.add(comic)
             comics.append(comic)

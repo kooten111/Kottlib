@@ -17,7 +17,7 @@ import time
 import logging
 import warnings
 from pathlib import Path
-from typing import Tuple, List, Optional
+from typing import Tuple, List, Optional, Dict, Any, Callable
 from concurrent.futures import ThreadPoolExecutor
 from threading import Lock, Thread, current_thread
 
@@ -54,8 +54,8 @@ class ThreadedScanner:
         db: Database,
         library_id: int,
         max_workers: int = 4,
-        progress_callback=None
-    ):
+        progress_callback: Optional[Callable[..., None]] = None
+    ) -> None:
         """
         Initialize threaded scanner.
 
@@ -65,20 +65,20 @@ class ThreadedScanner:
             max_workers: Number of worker threads (default: 4)
             progress_callback: Optional callback(current, total, message)
         """
-        self.db = db
-        self.library_id = library_id
-        self.max_workers = max_workers
-        self.progress_callback = progress_callback
+        self.db: Database = db
+        self.library_id: int = library_id
+        self.max_workers: int = max_workers
+        self.progress_callback: Optional[Callable[..., None]] = progress_callback
 
         # Get library name for per-library data directories
         with self.db.get_session() as session:
             library = get_library_by_id(session, library_id)
-            self.library_name = library.name if library else None
+            self.library_name: Optional[str] = library.name if library else None
 
         # Thread-safe counters
-        self._lock = Lock()
-        self._comics_processed = 0
-        self._counters = {
+        self._lock: Lock = Lock()
+        self._comics_processed: int = 0
+        self._counters: Dict[str, int] = {
             'added': 0,
             'skipped': 0,
             'unchanged': 0,
@@ -88,10 +88,10 @@ class ThreadedScanner:
         }
 
         # Track active workers for progress display
-        self._active_workers = {}  # worker_id -> (series_name, filename)
+        self._active_workers: Dict[int, Tuple[str, str]] = {}  # worker_id -> (series_name, filename)
 
         # Structure cache: folder_path -> mode
-        self._structure_cache = {}
+        self._structure_cache: Dict[str, str] = {}
 
     def scan_library(self, library_path: Path) -> ScanResult:
         """
@@ -188,10 +188,10 @@ class ThreadedScanner:
     def _process_comics_parallel(
         self,
         comic_files: List[Tuple[Path, Optional[Path]]],
-        folder_map: dict,
+        folder_map: Dict[str, int],
         root_folder_id: int,
         total: int
-    ):
+    ) -> None:
         """
         Process comics in parallel using thread pool.
 
@@ -226,7 +226,7 @@ class ThreadedScanner:
                 futures.append((future, comic_path))
 
             # Progress monitoring thread
-            def monitor_progress():
+            def monitor_progress() -> None:
                 """Update progress display with active workers."""
                 while self._comics_processed < total:
                     with self._lock:
@@ -266,7 +266,7 @@ class ThreadedScanner:
             if self.progress_callback:
                 self.progress_callback(self._comics_processed, total, "Complete", None, None, [])
 
-    def _process_single_comic_tracked(self, comic_path: Path, folder_id: Optional[int]):
+    def _process_single_comic_tracked(self, comic_path: Path, folder_id: Optional[int]) -> None:
         """
         Wrapper for process_single_comic that tracks active workers.
 
@@ -306,7 +306,7 @@ def scan_library_threaded(
     library_id: int,
     library_path: Path,
     max_workers: int = 4,
-    progress_callback=None
+    progress_callback: Optional[Callable[..., None]] = None
 ) -> ScanResult:
     """
     Convenience function to scan library with threading.
