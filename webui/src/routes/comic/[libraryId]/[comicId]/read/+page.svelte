@@ -66,6 +66,9 @@
 		if (controlsTimeout) {
 			clearTimeout(controlsTimeout);
 		}
+		if (progressTimeout) {
+			clearTimeout(progressTimeout);
+		}
 	});
 
 	// Load page image
