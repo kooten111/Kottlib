@@ -27,7 +27,7 @@
 			stats.totalLibraries = libraries.length;
 
 			// Calculate total comics
-			stats.totalComics = libraries.reduce((sum, lib) => sum + (lib.comicsCount || 0), 0);
+			stats.totalComics = libraries.reduce((sum, lib) => sum + (lib.comic_count || 0), 0);
 
 			isLoading = false;
 		} catch (err) {
@@ -114,7 +114,7 @@
 									<p class="library-path">{library.path || 'No path'}</p>
 								</div>
 								<div class="library-stats">
-									<span class="stat-badge">{library.comicsCount || 0} comics</span>
+									<span class="stat-badge">{library.comic_count || 0} comics</span>
 								</div>
 							</div>
 						{/each}
