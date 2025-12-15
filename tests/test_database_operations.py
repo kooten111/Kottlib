@@ -108,6 +108,8 @@ class TestComicOperations:
     
     def test_create_comic(self, test_db, sample_library, sample_folder, test_data_dir):
         """Test creating a new comic record"""
+        import time
+        
         comic_path = test_data_dir / "library1" / "new_comic.cbz"
         comic_path.write_bytes(b"DUMMY_DATA")
         
@@ -118,15 +120,16 @@ class TestComicOperations:
                 folder_id=sample_folder.id,
                 path=str(comic_path),
                 filename="new_comic.cbz",
-                hash="abc123def456",
+                file_hash="abc123def456",
                 file_size=len(b"DUMMY_DATA"),
+                file_modified_at=int(time.time()),
                 format="cbz",
                 num_pages=10
             )
             
             assert comic.id is not None
             assert comic.filename == "new_comic.cbz"
-            assert comic.hash == "abc123def456"
+            assert comic.file_hash == "abc123def456"
             assert comic.num_pages == 10
     
     def test_get_comic_by_id(self, test_db, sample_comic):
@@ -148,10 +151,10 @@ class TestComicOperations:
     def test_get_comic_by_hash(self, test_db, sample_comic):
         """Test retrieving comic by file hash"""
         with test_db.get_session() as session:
-            comic = get_comic_by_hash(session, sample_comic.hash)
+            comic = get_comic_by_hash(session, sample_comic.file_hash)
             
             assert comic is not None
-            assert comic.hash == sample_comic.hash
+            assert comic.file_hash == sample_comic.file_hash
     
     def test_get_comics_in_library(self, test_db, sample_library, multiple_comics):
         """Test retrieving all comics in a library"""
@@ -196,6 +199,8 @@ class TestComicOperations:
     
     def test_comic_with_metadata(self, test_db, sample_library, sample_folder, test_data_dir):
         """Test creating comic with full metadata"""
+        import time
+        
         comic_path = test_data_dir / "library1" / "metadata_comic.cbz"
         comic_path.write_bytes(b"TEST")
         
@@ -206,8 +211,9 @@ class TestComicOperations:
                 folder_id=sample_folder.id,
                 path=str(comic_path),
                 filename="metadata_comic.cbz",
-                hash="hash123",
+                file_hash="hash123",
                 file_size=4,
+                file_modified_at=int(time.time()),
                 format="cbz",
                 num_pages=20,
                 title="Full Metadata Comic",
