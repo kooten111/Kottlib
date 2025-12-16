@@ -109,6 +109,11 @@
 		mouseZone = null;
 	}
 
+	// Get effective container width with fallback
+	function getEffectiveWidth() {
+		return containerWidth || container?.offsetWidth || window.innerWidth;
+	}
+
 	// Touch event handlers
 	function handleTouchStart(e) {
 		// Only handle single touch
@@ -155,7 +160,7 @@
 		}
 
 		const deltaX = touchCurrentX - touchStartX;
-		const effectiveWidth = containerWidth || container?.offsetWidth || window.innerWidth;
+		const effectiveWidth = getEffectiveWidth();
 		const swipeRatio = Math.abs(deltaX) / effectiveWidth;
 		const isRTL = $readerSettings.readingDirection === 'rtl';
 
@@ -213,7 +218,7 @@
 
 	// Calculate transform for adjacent page
 	$: adjacentPageTransform = (() => {
-		const effectiveWidth = containerWidth || window.innerWidth;
+		const effectiveWidth = getEffectiveWidth();
 		const offset = swipeOffset > 0 
 			? swipeOffset - effectiveWidth 
 			: swipeOffset + effectiveWidth;
