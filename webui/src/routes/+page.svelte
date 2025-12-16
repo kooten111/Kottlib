@@ -10,6 +10,7 @@
 		getLibraries,
 		getSeries,
 		getContinueReading,
+		getContinueReadingAll,
 		getLibrariesSeriesTree,
 	} from "$lib/api/libraries";
 	import HomeSidebar from "$lib/components/layout/HomeSidebar.svelte";
@@ -215,25 +216,15 @@
 			}
 
 			// Load continue reading and series for ALL libraries
-			const [continueReadingResults, allSeriesResults] =
+			const [continueReadingData, allSeriesResults] =
 				await Promise.all([
-					// Continue reading
-					Promise.all(
-						libraries.map(async (lib) => {
-							try {
-								const comics = await getContinueReading(
-									lib.id,
-									50,
-								);
-								return comics.map((comic) => ({
-									...comic,
-									libraryId: lib.id,
-								}));
-							} catch {
-								return [];
-							}
-						}),
-					),
+					// Continue reading - use new cross-library endpoint
+					getContinueReadingAll(50)
+						.then((comics) => comics.map((comic) => ({
+							...comic,
+							libraryId: parseInt(comic.library_id) // Ensure libraryId is set
+						})))
+						.catch(() => []),
 					// All series
 					Promise.all(
 						libraries.map(async (lib) => {
@@ -257,15 +248,8 @@
 					),
 				]);
 
-			// Sort globally by last_time_opened timestamp after flattening all libraries
-		continueReading = continueReadingResults
-			.flat()
-			.sort((a, b) => {
-				const aTime = a.last_time_opened ? new Date(a.last_time_opened).getTime() : 0;
-				const bTime = b.last_time_opened ? new Date(b.last_time_opened).getTime() : 0;
-				return bTime - aTime; // Most recent first
-			})
-			.slice(0, 20);
+			// The new endpoint already returns sorted data, just slice it
+			continueReading = continueReadingData.slice(0, 20);
 
 			// Interleave series from different libraries
 			const maxLength = Math.max(
