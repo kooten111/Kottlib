@@ -30,6 +30,7 @@
 	const SWIPE_THRESHOLD = 0.3; // 30% of screen width
 	const MIN_SWIPE_DISTANCE = 50; // minimum pixels to consider it a swipe
 	const MIN_SWIPE_VISUAL_FEEDBACK = 10; // minimum pixels to show adjacent page
+	const TRANSITION_DURATION_MS = 300; // duration of swipe animations in milliseconds
 
 	$: fitClass = getFitClass($readerSettings.fitMode);
 
@@ -154,8 +155,8 @@
 		}
 
 		const deltaX = touchCurrentX - touchStartX;
-		const containerWidth = container?.offsetWidth || window.innerWidth;
-		const swipeRatio = Math.abs(deltaX) / containerWidth;
+		const effectiveWidth = containerWidth || container?.offsetWidth || window.innerWidth;
+		const swipeRatio = Math.abs(deltaX) / effectiveWidth;
 		const isRTL = $readerSettings.readingDirection === 'rtl';
 
 		// Determine if swipe threshold was met
@@ -170,20 +171,20 @@
 				: (deltaX > 0 ? 'previous' : 'next');
 
 			// Animate to full width
-			swipeOffset = deltaX > 0 ? containerWidth : -containerWidth;
+			swipeOffset = deltaX > 0 ? effectiveWidth : -effectiveWidth;
 
 			// Wait for animation, then dispatch navigation
 			setTimeout(() => {
 				dispatch('navigate', { direction });
 				resetSwipeState();
-			}, 300);
+			}, TRANSITION_DURATION_MS);
 		} else {
 			// Snap back - swipe didn't meet threshold
 			isTransitioning = true;
 			swipeOffset = 0;
 			setTimeout(() => {
 				resetSwipeState();
-			}, 300);
+			}, TRANSITION_DURATION_MS);
 		}
 	}
 
@@ -208,14 +209,14 @@
 			return swipeOffset > 0 ? prevPageSrc : nextPageSrc;
 		}
 	})();
-	$: showAdjacentPage = isSwiping && adjacentPageSrc && Math.abs(swipeOffset) > MIN_SWIPE_VISUAL_FEEDBACK && containerWidth > 0;
+	$: showAdjacentPage = isSwiping && adjacentPageSrc && Math.abs(swipeOffset) > MIN_SWIPE_VISUAL_FEEDBACK;
 
 	// Calculate transform for adjacent page
 	$: adjacentPageTransform = (() => {
-		if (!containerWidth) return 'translateX(0)';
+		const effectiveWidth = containerWidth || window.innerWidth;
 		const offset = swipeOffset > 0 
-			? swipeOffset - containerWidth 
-			: swipeOffset + containerWidth;
+			? swipeOffset - effectiveWidth 
+			: swipeOffset + effectiveWidth;
 		return `translateX(${offset}px)`;
 	})();
 
@@ -354,6 +355,7 @@
 	}
 
 	.page-container.transitioning {
+		/* Duration matches TRANSITION_DURATION_MS constant (300ms) */
 		transition: transform 0.3s ease-out;
 	}
 
@@ -370,6 +372,7 @@
 	}
 
 	.adjacent-page.transitioning {
+		/* Duration matches TRANSITION_DURATION_MS constant (300ms) */
 		transition: transform 0.3s ease-out;
 	}
 
