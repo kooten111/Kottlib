@@ -79,36 +79,29 @@
 
 	$: isExpanded = (nodeId) => $treeExpandedNodes.has(nodeId);
 
-	// Close sidebar when clicking on items on mobile
-	function handleItemClick(callback) {
-		return () => {
-			if (callback) callback();
-			// Close sidebar on mobile after selection
-			if (window.innerWidth < 1024) {
-				uiStore.closeSidebar();
-			}
-		};
+	// Mobile breakpoint constant
+	const MOBILE_BREAKPOINT = 1024;
+
+	// Helper function to check if we're on mobile and close sidebar
+	function closeSidebarOnMobile() {
+		if (window.innerWidth < MOBILE_BREAKPOINT) {
+			uiStore.closeSidebar();
+		}
 	}
 
 	function handleLibraryClickWrapper(lib) {
 		handleLibraryClick(lib);
-		if (window.innerWidth < 1024) {
-			uiStore.closeSidebar();
-		}
+		closeSidebarOnMobile();
 	}
 
 	function handleAllLibrariesClickWrapper() {
 		handleAllLibrariesClick();
-		if (window.innerWidth < 1024) {
-			uiStore.closeSidebar();
-		}
+		closeSidebarOnMobile();
 	}
 
 	function handleViewChangeWrapper(view) {
 		handleViewChange(view);
-		if (window.innerWidth < 1024) {
-			uiStore.closeSidebar();
-		}
+		closeSidebarOnMobile();
 	}
 </script>
 

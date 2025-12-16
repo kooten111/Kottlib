@@ -1,4 +1,4 @@
-import { writable } from 'svelte';
+import { writable } from 'svelte/store';
 
 /**
  * UI state store for managing global UI state like sidebar visibility
