@@ -1,8 +1,9 @@
 <script>
 	import { createEventDispatcher } from 'svelte';
-	import { Library, FolderOpen, Heart, BookOpen, Layers, List } from 'lucide-svelte';
+	import { Library, FolderOpen, Heart, BookOpen, Layers, List, X } from 'lucide-svelte';
 	import SeriesTreeNode from './SeriesTreeNode.svelte';
 	import { treeExpandedNodes } from '$stores/library';
+	import { uiStore } from '$stores/ui';
 
 	const dispatch = createEventDispatcher();
 
@@ -77,11 +78,65 @@
 	}
 
 	$: isExpanded = (nodeId) => $treeExpandedNodes.has(nodeId);
+
+	// Close sidebar when clicking on items on mobile
+	function handleItemClick(callback) {
+		return () => {
+			if (callback) callback();
+			// Close sidebar on mobile after selection
+			if (window.innerWidth < 1024) {
+				uiStore.closeSidebar();
+			}
+		};
+	}
+
+	function handleLibraryClickWrapper(lib) {
+		handleLibraryClick(lib);
+		if (window.innerWidth < 1024) {
+			uiStore.closeSidebar();
+		}
+	}
+
+	function handleAllLibrariesClickWrapper() {
+		handleAllLibrariesClick();
+		if (window.innerWidth < 1024) {
+			uiStore.closeSidebar();
+		}
+	}
+
+	function handleViewChangeWrapper(view) {
+		handleViewChange(view);
+		if (window.innerWidth < 1024) {
+			uiStore.closeSidebar();
+		}
+	}
 </script>
 
+<!-- Mobile Backdrop Overlay -->
+{#if $uiStore.isSidebarOpen}
+	<div
+		class="sidebar-backdrop"
+		on:click={() => uiStore.closeSidebar()}
+		on:keydown={(e) => e.key === 'Escape' && uiStore.closeSidebar()}
+		role="button"
+		tabindex="0"
+		aria-label="Close sidebar"
+	></div>
+{/if}
+
 <aside
-	class="w-64 bg-dark-bg-secondary border-r border-gray-700 flex flex-col h-full overflow-y-auto shrink-0"
+	class="sidebar"
+	class:sidebar-open={$uiStore.isSidebarOpen}
 >
+	<!-- Mobile Close Button -->
+	<button
+		class="sidebar-close-btn lg:hidden"
+		on:click={() => uiStore.closeSidebar()}
+		aria-label="Close sidebar"
+	>
+		<X class="w-6 h-6" />
+	</button>
+
 	<!-- LIBRARIES SECTION -->
 	<div class="sidebar-section">
 		<div class="section-header">
@@ -95,7 +150,7 @@
 			<button
 				class="sidebar-item"
 				class:active={isAllLibrariesActive && currentView === 'home'}
-				on:click={handleAllLibrariesClick}
+				on:click={handleAllLibrariesClickWrapper}
 			>
 				<Layers class="w-4 h-4" />
 				<span class="truncate">All Libraries</span>
@@ -105,7 +160,7 @@
 				<button
 					class="sidebar-item"
 					class:active={isLibraryActive(lib.id) && currentView === 'home'}
-					on:click={() => handleLibraryClick(lib)}
+					on:click={() => handleLibraryClickWrapper(lib)}
 				>
 					<Library class="w-4 h-4" />
 					<span class="truncate">{lib.name}</span>
@@ -155,7 +210,7 @@
 			<button
 				class="sidebar-item"
 				class:active={currentView === 'favorites'}
-				on:click={() => handleViewChange('favorites')}
+				on:click={() => handleViewChangeWrapper('favorites')}
 			>
 				<Heart class="w-4 h-4" />
 				<span>Favorites</span>
@@ -164,7 +219,7 @@
 			<button
 				class="sidebar-item"
 				class:active={currentView === 'continue'}
-				on:click={() => handleViewChange('continue')}
+				on:click={() => handleViewChangeWrapper('continue')}
 			>
 				<BookOpen class="w-4 h-4" />
 				<span>Continue Reading</span>
@@ -174,6 +229,73 @@
 </aside>
 
 <style>
+	.sidebar {
+		width: 16rem;
+		background: var(--color-secondary-bg);
+		border-right: 1px solid rgb(55, 65, 81);
+		display: flex;
+		flex-direction: column;
+		height: 100%;
+		overflow-y: auto;
+		flex-shrink: 0;
+	}
+
+	/* Mobile drawer styles */
+	@media (max-width: 1023px) {
+		.sidebar {
+			position: fixed;
+			top: 0;
+			left: 0;
+			bottom: 0;
+			width: 280px;
+			z-index: 100;
+			transform: translateX(-100%);
+			transition: transform 0.3s ease-in-out;
+		}
+
+		.sidebar.sidebar-open {
+			transform: translateX(0);
+		}
+	}
+
+	.sidebar-backdrop {
+		display: none;
+	}
+
+	@media (max-width: 1023px) {
+		.sidebar-backdrop {
+			display: block;
+			position: fixed;
+			inset: 0;
+			background: rgba(0, 0, 0, 0.5);
+			z-index: 90;
+			cursor: pointer;
+		}
+	}
+
+	.sidebar-close-btn {
+		position: absolute;
+		top: 1rem;
+		right: 1rem;
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		width: 40px;
+		height: 40px;
+		padding: 0;
+		background: rgba(255, 255, 255, 0.1);
+		border: none;
+		border-radius: 8px;
+		color: var(--color-text);
+		cursor: pointer;
+		transition: all 0.2s;
+		z-index: 10;
+	}
+
+	.sidebar-close-btn:hover {
+		background: rgba(255, 255, 255, 0.2);
+	}
+
 	.sidebar-section {
 		padding: 1rem 0;
 	}

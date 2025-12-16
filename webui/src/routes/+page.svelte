@@ -1239,140 +1239,6 @@ function updateDisplayedSeries() {
 </div>
 
 <style>
-	.sidebar {
-		width: 280px;
-		background: var(--color-secondary-bg);
-		border-right: 1px solid rgba(255, 255, 255, 0.05);
-		display: flex;
-		flex-direction: column;
-		flex-shrink: 0;
-		overflow-y: auto;
-	}
-
-	.sidebar-header {
-		display: flex;
-		align-items: center;
-		gap: 0.75rem;
-		padding: 1.5rem;
-		border-bottom: 1px solid rgba(255, 255, 255, 0.05);
-	}
-
-	.sidebar-title {
-		font-size: 1.125rem;
-		font-weight: 600;
-		color: var(--color-text);
-		margin: 0;
-		flex: 1;
-	}
-
-	.reset-button {
-		display: flex;
-		align-items: center;
-		justify-content: center;
-		width: 24px;
-		height: 24px;
-		padding: 0;
-		background: rgba(255, 255, 255, 0.1);
-		border: none;
-		border-radius: 4px;
-		color: var(--color-text);
-		cursor: pointer;
-		transition: background 0.2s;
-		font-size: 14px;
-	}
-
-	.reset-button:hover {
-		background: rgba(255, 255, 255, 0.2);
-	}
-
-	.tree-container {
-		flex: 1;
-		padding: 0.5rem;
-		overflow-y: auto;
-	}
-
-	.libraries-nav {
-		flex: 1;
-		padding: 0.5rem;
-		overflow-y: auto;
-	}
-
-	.library-item {
-		display: flex;
-		align-items: center;
-		gap: 0.75rem;
-		padding: 0.75rem;
-		border-radius: 6px;
-		text-decoration: none;
-		color: var(--color-text);
-		transition: background 0.2s;
-		margin-bottom: 0.25rem;
-	}
-
-	.library-item:hover {
-		background: rgba(255, 255, 255, 0.05);
-	}
-
-	.library-item-icon {
-		display: flex;
-		align-items: center;
-		justify-content: center;
-		width: 32px;
-		height: 32px;
-		background: rgba(255, 103, 64, 0.1);
-		border-radius: 6px;
-		color: var(--color-accent);
-		flex-shrink: 0;
-	}
-
-	.library-item-content {
-		flex: 1;
-		min-width: 0;
-		display: flex;
-		flex-direction: column;
-		gap: 0.125rem;
-	}
-
-	.library-item-name {
-		font-size: 0.875rem;
-		font-weight: 500;
-		color: var(--color-text);
-		overflow: hidden;
-		text-overflow: ellipsis;
-		white-space: nowrap;
-	}
-
-	.library-item-count {
-		font-size: 0.75rem;
-		color: var(--color-text-secondary);
-	}
-
-	.sidebar-footer {
-		padding: 1rem;
-		border-top: 1px solid rgba(255, 255, 255, 0.05);
-	}
-
-	.sidebar-link {
-		display: block;
-		text-align: center;
-		padding: 0.5rem;
-		color: var(--color-accent);
-		text-decoration: none;
-		font-size: 0.875rem;
-		transition: opacity 0.2s;
-	}
-
-	.sidebar-link:hover {
-		opacity: 0.8;
-	}
-
-	.sidebar-empty {
-		padding: 1rem;
-		text-align: center;
-		color: var(--color-text-secondary);
-		font-size: 0.875rem;
-	}
-
 	.loading-container,
 	.error-container,
 	.empty-state {
@@ -1660,13 +1526,9 @@ function updateDisplayedSeries() {
 	}
 
 	@media (max-width: 768px) {
-		.sidebar {
-			display: none;
-		}
-
 		.comics-grid {
-			grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
-			gap: 1rem;
+			grid-template-columns: repeat(auto-fill, minmax(110px, 1fr));
+			gap: 0.75rem;
 		}
 
 		.section-title {
@@ -1679,6 +1541,28 @@ function updateDisplayedSeries() {
 
 		.search-input-wrapper {
 			max-width: 100%;
+		}
+
+		/* Improve touch targets for mobile */
+		.control-btn {
+			min-height: 44px;
+			min-width: 44px;
+		}
+
+		/* Better spacing on mobile */
+		.section {
+			margin-bottom: 2rem;
+		}
+
+		.section-header {
+			margin-bottom: 1rem;
+		}
+	}
+
+	@media (max-width: 480px) {
+		.comics-grid {
+			grid-template-columns: repeat(auto-fill, minmax(100px, 1fr));
+			gap: 0.5rem;
 		}
 	}
 </style>
