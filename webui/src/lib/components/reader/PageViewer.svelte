@@ -29,6 +29,7 @@
 	let isTransitioning = false;
 	const SWIPE_THRESHOLD = 0.3; // 30% of screen width
 	const MIN_SWIPE_DISTANCE = 50; // minimum pixels to consider it a swipe
+	const MIN_SWIPE_VISUAL_FEEDBACK = 10; // minimum pixels to show adjacent page
 
 	$: fitClass = getFitClass($readerSettings.fitMode);
 
@@ -197,8 +198,28 @@
 	}
 
 	// Get the adjacent page source based on swipe direction
-	$: adjacentPageSrc = swipeOffset > 0 ? prevPageSrc : nextPageSrc;
-	$: showAdjacentPage = isSwiping && adjacentPageSrc && Math.abs(swipeOffset) > 10 && containerWidth > 0;
+	// In LTR: swipe right (deltaX > 0) = go to previous page
+	// In RTL: swipe right (deltaX > 0) = go to next page
+	$: adjacentPageSrc = (() => {
+		const isRTL = $readerSettings.readingDirection === 'rtl';
+		if (isRTL) {
+			return swipeOffset > 0 ? nextPageSrc : prevPageSrc;
+		} else {
+			return swipeOffset > 0 ? prevPageSrc : nextPageSrc;
+		}
+	})();
+	$: showAdjacentPage = isSwiping && adjacentPageSrc && Math.abs(swipeOffset) > MIN_SWIPE_VISUAL_FEEDBACK && containerWidth > 0;
+
+	// Calculate transform for adjacent page
+	$: adjacentPageTransform = (() => {
+		if (!containerWidth) return 'translateX(0)';
+		const offset = swipeOffset > 0 
+			? swipeOffset - containerWidth 
+			: swipeOffset + containerWidth;
+		return `translateX(${offset}px)`;
+	})();
+
+	$: adjacentPagePosition = swipeOffset > 0 ? 'left: 0;' : 'right: 0;';
 
 	onMount(() => {
 		// Observe container resize
@@ -285,7 +306,7 @@
 		<div 
 			class="adjacent-page" 
 			class:transitioning={isTransitioning}
-			style="transform: translateX({swipeOffset > 0 ? swipeOffset - containerWidth : swipeOffset + containerWidth}px); {swipeOffset > 0 ? 'left: 0;' : 'right: 0;'}"
+			style="transform: {adjacentPageTransform}; {adjacentPagePosition}"
 		>
 			<img
 				src={adjacentPageSrc}
