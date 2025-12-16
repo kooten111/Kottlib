@@ -27,6 +27,26 @@
 	let preloadedPages = new Map();
 	let showReaderMenu = false;
 
+	// Get adjacent page sources for swipe transitions
+	$: nextPageSrc = getAdjacentPageSrc('next');
+	$: prevPageSrc = getAdjacentPageSrc('previous');
+
+	function getAdjacentPageSrc(direction) {
+		const isRTL = $readerSettings.readingDirection === 'rtl';
+		let targetPage;
+
+		if (direction === 'next') {
+			targetPage = isRTL ? currentPage - 1 : currentPage + 1;
+		} else {
+			targetPage = isRTL ? currentPage + 1 : currentPage - 1;
+		}
+
+		if (targetPage >= 1 && targetPage <= totalPages && preloadedPages.has(targetPage)) {
+			return preloadedPages.get(targetPage);
+		}
+		return '';
+	}
+
 	// Load comic data
 	onMount(async () => {
 		try {
@@ -369,6 +389,8 @@
 		pageNumber={currentPage}
 		totalPages={totalPages}
 		bind:isLoading
+		nextPageSrc={nextPageSrc}
+		prevPageSrc={prevPageSrc}
 		on:navigate={handleNavigate}
 		on:toggleMenu={handleToggleMenu}
 	/>
