@@ -198,7 +198,7 @@
 
 	// Get the adjacent page source based on swipe direction
 	$: adjacentPageSrc = swipeOffset > 0 ? prevPageSrc : nextPageSrc;
-	$: showAdjacentPage = isSwiping && adjacentPageSrc && Math.abs(swipeOffset) > 10;
+	$: showAdjacentPage = isSwiping && adjacentPageSrc && Math.abs(swipeOffset) > 10 && containerWidth > 0;
 
 	onMount(() => {
 		// Observe container resize
