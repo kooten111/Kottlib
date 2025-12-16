@@ -211,6 +211,42 @@ class TestV2ReadingProgress:
         if data:
             assert isinstance(data, list)
 
+    def test_get_all_libraries_reading(self, test_client: TestClient, sample_user, sample_reading_progress):
+        """Test GET /v2/reading - Get continue reading from ALL libraries (cross-library)"""
+        response = test_client.get("/v2/reading")
+
+        assert response.status_code == 200
+        assert response.headers["content-type"] == "application/json"
+        
+        data = response.json()
+        assert isinstance(data, list)
+        
+        # If we have reading progress, verify the structure
+        if len(data) > 0:
+            comic = data[0]
+            # Check required fields from v2 format
+            assert "id" in comic
+            assert "library_id" in comic
+            assert "title" in comic
+            assert "current_page" in comic or "currentPage" in comic
+            assert "num_pages" in comic or "numPages" in comic
+            assert "last_time_opened" in comic
+            
+    def test_get_library_reading(self, test_client: TestClient, sample_library, sample_user, sample_reading_progress):
+        """Test GET /v2/library/{id}/reading - Get continue reading for specific library"""
+        response = test_client.get(f"/v2/library/{sample_library.id}/reading")
+
+        assert response.status_code == 200
+        assert response.headers["content-type"] == "application/json"
+        
+        data = response.json()
+        assert isinstance(data, list)
+        
+        # All comics should be from the requested library
+        for comic in data:
+            assert "library_id" in comic
+            assert str(comic["library_id"]) == str(sample_library.id)
+
     def test_mark_comic_as_read(self, test_client: TestClient, sample_library, sample_comic):
         """Test POST /v2/library/{id}/comic/{comicId}/mark-read - Mark comic as read"""
         response = test_client.post(f"/v2/library/{sample_library.id}/comic/{sample_comic.id}/mark-read")

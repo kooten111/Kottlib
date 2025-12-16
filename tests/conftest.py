@@ -59,11 +59,13 @@ def test_db(test_db_path: Path) -> Generator[Database, None, None]:
 @pytest.fixture(scope="function")
 def sample_user(test_db: Database) -> User:
     """Create a sample user for testing"""
+    import time
     with test_db.get_session() as session:
         user = User(
             username="testuser",
             password_hash="test_hash",
-            is_admin=True
+            is_admin=True,
+            created_at=int(time.time())
         )
         session.add(user)
         session.commit()
@@ -129,7 +131,7 @@ def sample_comic(test_db: Database, sample_library: Library, sample_folder: Fold
             folder_id=sample_folder.id,
             path=str(comic_path),
             filename="test_comic.cbz",
-            file_hash="abc123",
+            hash="abc123",
             file_size=14,
             file_modified_at=int(time.time()),
             format="cbz",
@@ -164,7 +166,7 @@ def multiple_comics(test_db: Database, sample_library: Library, sample_folder: F
                 folder_id=sample_folder.id,
                 path=str(comic_path),
                 filename=f"test_comic_{i}.cbz",
-                file_hash=f"hash_{i}",
+                hash=f"hash_{i}",
                 file_size=14,
                 file_modified_at=int(time.time()),
                 format="cbz",
@@ -188,13 +190,18 @@ def multiple_comics(test_db: Database, sample_library: Library, sample_folder: F
 @pytest.fixture(scope="function")
 def sample_reading_progress(test_db: Database, sample_user: User, sample_comic: Comic) -> ReadingProgress:
     """Create sample reading progress for testing"""
+    import time
+    now = int(time.time())
     with test_db.get_session() as session:
         progress = ReadingProgress(
             user_id=sample_user.id,
             comic_id=sample_comic.id,
             current_page=5,
             total_pages=sample_comic.num_pages,
-            is_completed=False
+            progress_percent=(5 / sample_comic.num_pages * 100),
+            is_completed=False,
+            started_at=now,
+            last_read_at=now
         )
         session.add(progress)
         session.commit()
