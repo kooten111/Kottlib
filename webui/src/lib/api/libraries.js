@@ -52,10 +52,17 @@ export async function getFolderContents(libraryId, folderId = 0) {
 }
 
 /**
- * Get continue reading list
+ * Get continue reading list for a specific library
  */
 export async function getContinueReading(libraryId, limit = 10) {
 	return api.get(`/library/${libraryId}/reading?limit=${limit}`);
+}
+
+/**
+ * Get continue reading list from ALL libraries (cross-library, sorted by last_read_at)
+ */
+export async function getContinueReadingAll(limit = 100) {
+	return api.get(`/v2/reading?limit=${limit}`);
 }
 
 /**

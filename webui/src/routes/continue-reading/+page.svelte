@@ -2,7 +2,7 @@
 	import { onMount } from 'svelte';
 	import Navbar from '$lib/components/layout/Navbar.svelte';
 	import ComicCard from '$lib/components/comic/ComicCard.svelte';
-	import { getLibraries, getContinueReading } from '$lib/api/libraries';
+	import { getLibraries, getContinueReading, getContinueReadingAll } from '$lib/api/libraries';
 	import { BookOpen, Grid, List, SortAsc } from 'lucide-svelte';
 	import { navigationContext } from '$lib/stores/library';
 
@@ -35,6 +35,11 @@
 		applyFilter();
 	}
 
+	// Helper function to filter in-progress comics
+	function filterInProgressComics(comics) {
+		return comics.filter((comic) => comic && comic.currentPage > 0 && comic.currentPage < comic.numPages);
+	}
+
 	async function loadContinueReading() {
 		try {
 			isLoading = true;
@@ -43,27 +48,48 @@
 			// Load libraries first
 			libraries = await getLibraries();
 
-			// Load continue reading from all libraries
-			const continueResults = await Promise.all(
-				libraries.map((lib) =>
-					getContinueReading(lib.id, 100)
-						.then((comics) =>
-							comics
-								.filter((comic) => comic && comic.currentPage > 0 && comic.currentPage < comic.numPages)
-								.map((comic) => ({ ...comic, libraryId: lib.id }))
-						)
-						.catch(() => [])
-				)
-			);
+			// Check if we're viewing all libraries or a specific library
+			if (currentContext.type === 'all' || !currentContext.libraryId) {
+				// Use the new cross-library endpoint for "All Libraries" view
+				const allComics = await getContinueReadingAll(100);
+				
+				continueReading = filterInProgressComics(allComics)
+					.map((comic) => ({
+						...comic,
+						libraryId: parseInt(comic.library_id) // Ensure libraryId is set from library_id
+					}));
+			} else if (currentContext.type === 'library' && currentContext.libraryId) {
+				// For specific library, use the per-library endpoint
+				const lib = libraries.find(l => l.id === currentContext.libraryId);
+				if (lib) {
+					const comics = await getContinueReading(lib.id, 100);
+					continueReading = filterInProgressComics(comics)
+						.map((comic) => ({ ...comic, libraryId: lib.id }));
+				} else {
+					continueReading = [];
+				}
+			} else {
+				// Fallback: load from all libraries using old approach
+				const continueResults = await Promise.all(
+					libraries.map((lib) =>
+						getContinueReading(lib.id, 100)
+							.then((comics) =>
+								filterInProgressComics(comics)
+									.map((comic) => ({ ...comic, libraryId: lib.id }))
+							)
+							.catch(() => [])
+					)
+				);
 
-			// Sort globally by last_time_opened timestamp after flattening all libraries
-			continueReading = continueResults
-				.flat()
-				.sort((a, b) => {
-					const aTime = a.last_time_opened ? new Date(a.last_time_opened).getTime() : 0;
-					const bTime = b.last_time_opened ? new Date(b.last_time_opened).getTime() : 0;
-					return bTime - aTime; // Most recent first
-				});
+				// Sort globally by last_time_opened timestamp after flattening
+				continueReading = continueResults
+					.flat()
+					.sort((a, b) => {
+						const aTime = a.last_time_opened ? new Date(a.last_time_opened).getTime() : 0;
+						const bTime = b.last_time_opened ? new Date(b.last_time_opened).getTime() : 0;
+						return bTime - aTime; // Most recent first
+					});
+			}
 
 			isLoading = false;
 		} catch (err) {
