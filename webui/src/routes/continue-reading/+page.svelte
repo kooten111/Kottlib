@@ -60,8 +60,8 @@
 			continueReading = continueResults
 				.flat()
 				.sort((a, b) => {
-					const aTime = a.last_time_opened || 0;
-					const bTime = b.last_time_opened || 0;
+					const aTime = a.last_time_opened ? new Date(a.last_time_opened).getTime() : 0;
+					const bTime = b.last_time_opened ? new Date(b.last_time_opened).getTime() : 0;
 					return bTime - aTime; // Most recent first
 				});
 
@@ -117,7 +117,11 @@
 		const sorted = [...comicsList];
 		switch (sortType) {
 			case 'recent':
-				return sorted.sort((a, b) => (b.last_time_opened || 0) - (a.last_time_opened || 0));
+				return sorted.sort((a, b) => {
+					const aTime = a.last_time_opened ? new Date(a.last_time_opened).getTime() : 0;
+					const bTime = b.last_time_opened ? new Date(b.last_time_opened).getTime() : 0;
+					return bTime - aTime;
+				});
 			case 'progress':
 				return sorted.sort((a, b) => {
 					const progressA = (a.currentPage / a.numPages) * 100;
