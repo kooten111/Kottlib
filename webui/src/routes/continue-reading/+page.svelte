@@ -35,6 +35,11 @@
 		applyFilter();
 	}
 
+	// Helper function to filter in-progress comics
+	function filterInProgressComics(comics) {
+		return comics.filter((comic) => comic && comic.currentPage > 0 && comic.currentPage < comic.numPages);
+	}
+
 	async function loadContinueReading() {
 		try {
 			isLoading = true;
@@ -46,23 +51,19 @@
 			// Check if we're viewing all libraries or a specific library
 			if (currentContext.type === 'all' || !currentContext.libraryId) {
 				// Use the new cross-library endpoint for "All Libraries" view
-				console.log('Loading continue reading from all libraries using new endpoint');
 				const allComics = await getContinueReadingAll(100);
 				
-				continueReading = allComics
-					.filter((comic) => comic && comic.currentPage > 0 && comic.currentPage < comic.numPages)
+				continueReading = filterInProgressComics(allComics)
 					.map((comic) => ({
 						...comic,
 						libraryId: parseInt(comic.library_id) // Ensure libraryId is set from library_id
 					}));
 			} else if (currentContext.type === 'library' && currentContext.libraryId) {
 				// For specific library, use the per-library endpoint
-				console.log('Loading continue reading for library:', currentContext.libraryId);
 				const lib = libraries.find(l => l.id === currentContext.libraryId);
 				if (lib) {
 					const comics = await getContinueReading(lib.id, 100);
-					continueReading = comics
-						.filter((comic) => comic && comic.currentPage > 0 && comic.currentPage < comic.numPages)
+					continueReading = filterInProgressComics(comics)
 						.map((comic) => ({ ...comic, libraryId: lib.id }));
 				} else {
 					continueReading = [];
@@ -73,8 +74,7 @@
 					libraries.map((lib) =>
 						getContinueReading(lib.id, 100)
 							.then((comics) =>
-								comics
-									.filter((comic) => comic && comic.currentPage > 0 && comic.currentPage < comic.numPages)
+								filterInProgressComics(comics)
 									.map((comic) => ({ ...comic, libraryId: lib.id }))
 							)
 							.catch(() => [])
