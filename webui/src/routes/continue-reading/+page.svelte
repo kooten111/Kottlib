@@ -56,7 +56,14 @@
 				)
 			);
 
-			continueReading = continueResults.flat();
+			// Sort globally by last_time_opened timestamp after flattening all libraries
+			continueReading = continueResults
+				.flat()
+				.sort((a, b) => {
+					const aTime = a.last_time_opened ? new Date(a.last_time_opened).getTime() : 0;
+					const bTime = b.last_time_opened ? new Date(b.last_time_opened).getTime() : 0;
+					return bTime - aTime; // Most recent first
+				});
 
 			isLoading = false;
 		} catch (err) {
@@ -110,7 +117,11 @@
 		const sorted = [...comicsList];
 		switch (sortType) {
 			case 'recent':
-				return sorted.sort((a, b) => (b.lastRead || 0) - (a.lastRead || 0));
+				return sorted.sort((a, b) => {
+					const aTime = a.last_time_opened ? new Date(a.last_time_opened).getTime() : 0;
+					const bTime = b.last_time_opened ? new Date(b.last_time_opened).getTime() : 0;
+					return bTime - aTime;
+				});
 			case 'progress':
 				return sorted.sort((a, b) => {
 					const progressA = (a.currentPage / a.numPages) * 100;
