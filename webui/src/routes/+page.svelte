@@ -187,6 +187,12 @@
 				// Initialize filtered tree
 				filteredSeriesTree = seriesTree;
 				isLoading = false;
+
+				// Apply client-side sorting if needed (shuffle, recent-read)
+				// This ensures saved sort preference is applied on initial page load
+				if (['shuffle', 'recent-read'].includes(sortBy)) {
+					await applySorting();
+				}
 			} else {
 				// Fallback to client-side loading if SSR data not available
 				console.log(
@@ -281,6 +287,12 @@
 			// Initialize filtered tree
 			filteredSeriesTree = seriesTree;
 			isLoading = false;
+
+			// Apply client-side sorting if needed (shuffle, recent-read)
+			// This ensures saved sort preference is applied on initial page load
+			if (['shuffle', 'recent-read'].includes(sortBy)) {
+				await applySorting();
+			}
 		} catch (err) {
 			console.error("Failed to load client-side data:", err);
 			error = err.message;
