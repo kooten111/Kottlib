@@ -53,6 +53,7 @@
 	let searchDebounceTimer;
 	let showSizeSlider = false;
 	let initialFilterRestored = false; // Track if initial filter has been restored
+	let initialSortApplied = false; // Track if initial sort has been applied
 	let sortBy = $preferencesStore.sortBy || 'name';
 
 	// PERFORMANCE OPTIMIZATION: Cache for tree filtering
@@ -83,11 +84,22 @@
 		}
 	}
 
-	// Sync sortBy from preferences store
-	$: sortBy = $preferencesStore.sortBy || 'name';
+	// Get current library ID from filter
+	$: currentLibraryId = currentFilter?.type === 'library' ? currentFilter.libraryId : null;
 
-	// Apply sort when sortBy changes
-	$: if (sortBy && !isLoading) {
+	// Sync sortBy from preferences store (library-specific or global)
+	$: {
+		if (currentLibraryId !== null) {
+			// Use library-specific sort if available
+			sortBy = preferencesStore.getSortBy(currentLibraryId);
+		} else {
+			// Use global sort for "all libraries" view
+			sortBy = $preferencesStore.sortBy || 'name';
+		}
+	}
+
+	// Apply sort when sortBy changes (after initial load)
+	$: if (sortBy && !isLoading && initialFilterRestored && initialSortApplied) {
 		applySorting();
 	}
 
@@ -131,6 +143,17 @@
 		// Mark that initial filter restoration is complete
 		// This prevents reactive statements from interfering
 		initialFilterRestored = true;
+
+		// Apply saved sort preference after initial load is complete
+		// This ensures the correct sort order is displayed on page load
+		// Use library-specific or global sort based on current filter
+		const savedSort = preferencesStore.getSortBy(currentLibraryId);
+		if (savedSort && savedSort !== 'name') {
+			await applySorting();
+			initialSortApplied = true; // Mark that initial sort is complete
+		} else {
+			initialSortApplied = true; // Still mark as applied to allow reactive changes
+		}
 
 		// Restore search from URL if present
 		if (typeof window !== "undefined") {
@@ -187,12 +210,6 @@
 				// Initialize filtered tree
 				filteredSeriesTree = seriesTree;
 				isLoading = false;
-
-				// Apply client-side sorting if needed (shuffle, recent-read)
-				// This ensures saved sort preference is applied on initial page load
-				if (['shuffle', 'recent-read'].includes(sortBy)) {
-					await applySorting();
-				}
 			} else {
 				// Fallback to client-side loading if SSR data not available
 				console.log(
@@ -287,12 +304,6 @@
 			// Initialize filtered tree
 			filteredSeriesTree = seriesTree;
 			isLoading = false;
-
-			// Apply client-side sorting if needed (shuffle, recent-read)
-			// This ensures saved sort preference is applied on initial page load
-			if (['shuffle', 'recent-read'].includes(sortBy)) {
-				await applySorting();
-			}
 		} catch (err) {
 			console.error("Failed to load client-side data:", err);
 			error = err.message;
@@ -340,11 +351,9 @@
 					currentFilter.libraryId === lib.id
 				) {
 					// We just loaded the library we are currently filtering by!
-					const librarySeries = allSeries.filter(
-						(s) => s.libraryId === currentFilter.libraryId,
-					);
-					displayedSeries = librarySeries.slice(0, seriesPageSize);
-					hasMoreSeries = librarySeries.length > seriesPageSize;
+					console.log('[Home] Loaded filtered library, applying sort:', sortBy);
+					// Apply sorting to ensure correct order is displayed
+					await applySorting();
 				}
 
 				console.log(
@@ -359,12 +368,19 @@
 			"[Home] Background loading complete. Total series:",
 			allSeries.length,
 		);
+
+		// Reapply sorting after all libraries are loaded to ensure correct order
+		if (sortBy && sortBy !== 'name') {
+			console.log('[Home] Reapplying sort after background load:', sortBy);
+			await applySorting();
+		}
 	}
 
 	async function handleTreeFilter(event) {
 		const { type, libraryId, folderId, folderName, comicId, libraryName } =
 			event.detail;
 
+		console.log('[Home] Filter changing to:', event.detail);
 		currentFilter = event.detail;
 		// Persist filter to localStorage
 		currentFilterStore.set(event.detail);
@@ -500,9 +516,9 @@
 	}
 
 async function applySorting() {
-	if (!allSeries || allSeries.length === 0) return;
-
-	console.log('[Home] Applying sort:', sortBy);
+	if (!allSeries || allSeries.length === 0) {
+		return;
+	}
 
 	let sortedSeries;
 
@@ -510,12 +526,13 @@ async function applySorting() {
 		case 'name':
 		case 'recent':
 		case 'progress':
+		case 'recent-read':
 			// Backend sorts - reload data with sort parameter
 			await reloadWithBackendSort(sortBy);
 			return;
 
-		case 'recent-read':
-			// Client-side: Sort by most recent last_read_at
+		case 'recent-read-client':
+			// Client-side: Sort by most recent last_read_at (fallback, not normally used)
 			sortedSeries = [...allSeries].sort((a, b) => {
 				const aMaxTime = getMaxLastReadTime(a.volumes);
 				const bMaxTime = getMaxLastReadTime(b.volumes);
@@ -555,10 +572,13 @@ function getMaxLastReadTime(volumes) {
 
 async function reloadWithBackendSort(sortType) {
 	try {
-		console.log('[Home] Reloading data with backend sort:', sortType);
+		// If a library is selected, only fetch data for that library
+		const librariesToFetch = currentLibraryId
+			? libraries.filter(lib => lib.id === currentLibraryId)
+			: libraries;
 
 		const allSeriesResults = await Promise.all(
-			libraries.map(async (lib) => {
+			librariesToFetch.map(async (lib) => {
 				try {
 					const series = await getSeries(lib.id, sortType);
 					return series.map((s) => ({
@@ -1080,23 +1100,24 @@ function updateDisplayedSeries() {
 									<div class="view-controls">
 				<select
 					bind:value={sortBy}
-					on:change={(e) =>
-						preferencesStore.setSortBy(
-							e.target.value,
-						)}
+					on:change={(e) => {
+						const newSort = e.target.value;
+						// Save library-specific preference if a library is selected
+						preferencesStore.setSortBy(newSort, currentLibraryId);
+					}}
 					class="control-select"
 				>
 					<option value="name"
 						>Alphabetical</option
+					>
+					<option value="recent"
+						>Date Added</option
 					>
 					<option value="recent-read"
 						>Recently Read</option
 					>
 					<option value="progress"
 						>% Complete</option
-					>
-					<option value="recent"
-						>Date Added</option
 					>
 					<option value="shuffle"
 						>Shuffle</option

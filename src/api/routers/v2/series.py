@@ -419,7 +419,12 @@ async def get_series_list(
                     "issue_number": comic.issue_number,
                     "filename": comic.filename,
                     "hash": comic.hash,
-                    "num_pages": comic.num_pages
+                    "num_pages": comic.num_pages,
+                    # Always include progress fields for consistent data structure
+                    "current_page": 0,
+                    "is_completed": False,
+                    "progress_percent": 0,
+                    "last_read_at": None
                 }
 
                 # Add reading progress (already eager-loaded, no extra query!)
@@ -484,11 +489,49 @@ async def get_series_list(
             # Sort by most recent addition (first comic id descending)
             series_list.sort(key=lambda s: s["first_comic_id"], reverse=True)
         elif sort == "progress":
-            # Sort by reading progress (series with unread volumes first)
+            # Sort by reading progress - prioritize in-progress series (started but not finished)
             def get_progress_key(s):
+                total = s["total_issues"]
+                if total == 0:
+                    return (3, 0)  # Empty series go last
                 completed = sum(1 for v in s["volumes"] if v.get("is_completed", False))
-                return (completed / s["total_issues"]) if s["total_issues"] > 0 else 0
+                progress_pct = completed / total
+
+                # Sort priority groups (lower number = higher priority):
+                # 0 = In progress (started but not finished) - closest to completion first
+                # 1 = Not started (0% progress)
+                # 2 = Fully completed (100% progress)
+                # 3 = Empty series
+
+                if completed == total:
+                    # Fully completed - low priority
+                    return (2, 0)
+                elif completed == 0:
+                    # Not started - medium priority
+                    return (1, 0)
+                else:
+                    # In progress - highest priority, sort by progress descending (closer to done = higher)
+                    return (0, -progress_pct)
             series_list.sort(key=get_progress_key)
+        elif sort == "recent-read":
+            # Sort by most recently read (based on last_read_at timestamp)
+            def get_recent_read_key(s):
+                # Find the most recent read timestamp across all volumes
+                max_timestamp = None
+                for v in s["volumes"]:
+                    last_read = v.get("last_read_at")
+                    if last_read:
+                        if max_timestamp is None or last_read > max_timestamp:
+                            max_timestamp = last_read
+                # Return tuple: (has_been_read, timestamp)
+                # Read series (1) sort before unread series (0)
+                # Within read series, sort by timestamp descending (most recent first = higher timestamp)
+                # Using reverse=True, so return positive timestamp
+                if max_timestamp:
+                    timestamp_value = max_timestamp.timestamp() if hasattr(max_timestamp, 'timestamp') else max_timestamp
+                    return (1, timestamp_value)
+                return (0, 0)
+            series_list.sort(key=get_recent_read_key, reverse=True)
 
         logger.debug(f"v2 API: Returning {len(series_list)} series for library {library_id} (OPTIMIZED)")
         return JSONResponse(series_list)

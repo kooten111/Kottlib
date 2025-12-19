@@ -5,7 +5,8 @@ import { browser } from '$app/environment';
 const defaultPreferences = {
 	gridCoverSize: 1.0, // Multiplier for grid view cover size (0.5 to 2.0)
 	viewMode: 'grid', // 'grid' or 'list'
-	sortBy: 'name' // Sort option: 'name', 'recent-read', 'progress', 'recent', 'shuffle'
+	sortBy: 'name', // Global sort option: 'name', 'recent-read', 'progress', 'recent', 'shuffle'
+	librarySortBy: {} // Per-library sort preferences: { libraryId: sortMode }
 };
 
 // Get initial preferences from localStorage
@@ -74,14 +75,39 @@ function createPreferencesStore() {
 				return newPrefs;
 			});
 		},
-		setSortBy: (sortValue) => {
+		setSortBy: (sortValue, libraryId = null) => {
 			update((current) => {
-				const newPrefs = { ...current, sortBy: sortValue };
+				let newPrefs;
+				if (libraryId !== null) {
+					// Set sort for specific library
+					newPrefs = {
+						...current,
+						librarySortBy: {
+							...(current.librarySortBy || {}),
+							[libraryId]: sortValue
+						}
+					};
+				} else {
+					// Set global sort
+					newPrefs = { ...current, sortBy: sortValue };
+				}
 				if (browser) {
 					localStorage.setItem('libraryPreferences', JSON.stringify(newPrefs));
 				}
 				return newPrefs;
 			});
+		},
+		getSortBy: (libraryId = null) => {
+			let currentPrefs;
+			const unsubscribe = subscribe((prefs) => {
+				currentPrefs = prefs;
+			});
+			unsubscribe();
+
+			if (libraryId !== null && currentPrefs.librarySortBy && currentPrefs.librarySortBy[libraryId]) {
+				return currentPrefs.librarySortBy[libraryId];
+			}
+			return currentPrefs.sortBy || 'name';
 		}
 	};
 }

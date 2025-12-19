@@ -120,11 +120,28 @@
 	}
 
 	// Preload adjacent pages
-	function preloadAdjacentPages(pageNum) {
+	async function preloadAdjacentPages(pageNum) {
 		const preloadCount = $readerSettings.preloadPages;
 		const isRTL = $readerSettings.readingDirection === 'rtl';
 
-		for (let i = 1; i <= preloadCount; i++) {
+		// Immediately preload the very next and previous pages (for swipe transitions)
+		const immediateNext = isRTL ? pageNum - 1 : pageNum + 1;
+		const immediatePrev = isRTL ? pageNum + 1 : pageNum - 1;
+
+		// Preload immediate neighbors with priority
+		const priorityPromises = [];
+		if (immediateNext >= 1 && immediateNext <= totalPages && !preloadedPages.has(immediateNext)) {
+			priorityPromises.push(preloadPage(immediateNext));
+		}
+		if (immediatePrev >= 1 && immediatePrev <= totalPages && !preloadedPages.has(immediatePrev)) {
+			priorityPromises.push(preloadPage(immediatePrev));
+		}
+
+		// Wait for immediate neighbors to load before continuing
+		await Promise.all(priorityPromises);
+
+		// Then preload the rest in the background
+		for (let i = 2; i <= preloadCount; i++) {
 			const nextPage = isRTL ? pageNum - i : pageNum + i;
 			const prevPage = isRTL ? pageNum + i : pageNum - i;
 
@@ -143,6 +160,7 @@
 			const blob = await getComicPage(libraryId, comicId, pageNum);
 			const url = URL.createObjectURL(blob);
 			preloadedPages.set(pageNum, url);
+			preloadedPages = preloadedPages; // Force Svelte reactivity
 		} catch (error) {
 			console.error(`Failed to preload page ${pageNum}:`, error);
 		}

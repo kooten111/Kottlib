@@ -214,7 +214,7 @@
 			return swipeOffset > 0 ? prevPageSrc : nextPageSrc;
 		}
 	})();
-	$: showAdjacentPage = isSwiping && adjacentPageSrc && Math.abs(swipeOffset) > MIN_SWIPE_VISUAL_FEEDBACK;
+	$: showAdjacentPage = (isSwiping || isTransitioning) && adjacentPageSrc && Math.abs(swipeOffset) > MIN_SWIPE_VISUAL_FEEDBACK;
 
 	// Calculate transform for adjacent page
 	$: adjacentPageTransform = (() => {
@@ -309,16 +309,31 @@
 
 	<!-- Adjacent page for swipe transition -->
 	{#if showAdjacentPage}
-		<div 
-			class="adjacent-page" 
+		<div
+			class="adjacent-page"
 			class:transitioning={isTransitioning}
 			style="transform: {adjacentPageTransform}; {adjacentPagePosition}"
 		>
-			<img
-				src={adjacentPageSrc}
-				alt="Adjacent page"
-				class="page-image {fitClass}"
-			/>
+			{#if adjacentPageSrc}
+				<img
+					src={adjacentPageSrc}
+					alt="Adjacent page"
+					class="page-image {fitClass}"
+				/>
+			{:else}
+				<div class="debug-indicator">No adjacent page loaded</div>
+			{/if}
+		</div>
+	{/if}
+
+	<!-- Debug info -->
+	{#if isSwiping}
+		<div class="debug-info">
+			<div>Swiping: {swipeOffset}px</div>
+			<div>Adjacent src: {adjacentPageSrc ? 'loaded' : 'NOT loaded'}</div>
+			<div>Show adjacent: {showAdjacentPage ? 'yes' : 'no'}</div>
+			<div>Next: {nextPageSrc ? 'loaded' : 'empty'}</div>
+			<div>Prev: {prevPageSrc ? 'loaded' : 'empty'}</div>
 		</div>
 	{/if}
 </div>
@@ -440,5 +455,29 @@
 
 	.hidden {
 		display: none;
+	}
+
+	.debug-info {
+		position: fixed;
+		top: 10px;
+		left: 10px;
+		background: rgba(0, 0, 0, 0.8);
+		color: white;
+		padding: 10px;
+		font-family: monospace;
+		font-size: 12px;
+		z-index: 1000;
+		border-radius: 4px;
+	}
+
+	.debug-indicator {
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		width: 100%;
+		height: 100%;
+		color: red;
+		font-size: 24px;
+		background: rgba(255, 0, 0, 0.1);
 	}
 </style>

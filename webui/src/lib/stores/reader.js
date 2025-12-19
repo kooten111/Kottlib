@@ -15,7 +15,7 @@ const getDefaultSettings = () => ({
 	fitMode: 'fit-width', // fit-width, fit-height, original
 	readingMode: 'single', // single, double, continuous
 	readingDirection: 'ltr', // ltr, rtl (manga mode)
-	preloadPages: 2,
+	preloadPages: 3, // Increased from 2 for better swipe preview experience
 	backgroundColor: '#1a1a1a',
 	autoHideControls: true,
 	autoHideDelay: 3000
