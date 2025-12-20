@@ -14,12 +14,10 @@
 	$: isActive = activeNodeId === node.id;
 
 	function handleClick(event) {
-		console.log('TreeNode handleClick:', node.name, node.id);
 		dispatch('select', { node, event });
 	}
 
 	function handleToggle(event) {
-		console.log('TreeNode handleToggle:', node.name, node.id, 'current expanded:', expanded);
 		event.stopPropagation();
 		dispatch('toggle', { nodeId: node.id });
 	}

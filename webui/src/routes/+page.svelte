@@ -66,12 +66,6 @@
 			JSON.stringify(currentFilter) !==
 			JSON.stringify($currentFilterStore);
 		if (filterChanged) {
-			console.log(
-				"[Home] Filter store changed from",
-				currentFilter,
-				"to",
-				$currentFilterStore,
-			);
 			if ($currentFilterStore === null && currentFilter !== null) {
 				// Filter was cleared externally (e.g., from Navbar)
 				currentFilter = null;
@@ -106,22 +100,9 @@
 	// React to search store changes with debounce (increased from 300ms to 500ms)
 	$: if (!isLoading) {
 		const newQuery = $searchStore.query || "";
-		console.log(
-			"[Home] Search store changed. New query:",
-			newQuery,
-			"Last query:",
-			lastSearchQuery,
-			"isLoading:",
-			isLoading,
-		);
 		if (newQuery !== lastSearchQuery) {
-			console.log("[Home] Query changed, setting up debounce timer");
 			if (searchDebounceTimer) clearTimeout(searchDebounceTimer);
 			searchDebounceTimer = setTimeout(() => {
-				console.log(
-					"[Home] Debounce timer fired, calling handleSearch with:",
-					newQuery,
-				);
 				lastSearchQuery = newQuery;
 				handleSearch(newQuery);
 			}, 500); // Increased from 300ms for better performance
@@ -133,10 +114,6 @@
 
 		// Restore filter from persistent store if present
 		if ($currentFilterStore) {
-			console.log(
-				"[Home] Restoring filter from store:",
-				$currentFilterStore,
-			);
 			await restoreFilter($currentFilterStore);
 		}
 
@@ -168,9 +145,6 @@
 		// PERFORMANCE OPTIMIZATION: Load remaining libraries in background
 		// after initial page is interactive
 		if (data?.isPartialLoad && libraries.length > 1) {
-			console.log(
-				"[Home] Starting background load of remaining libraries",
-			);
 			// Small delay to ensure page is interactive first
 			setTimeout(() => {
 				loadRemainingLibraries();
@@ -185,7 +159,6 @@
 
 			// Use server-side data if available (SSR), otherwise load client-side
 			if (data?.libraries && data?.seriesTree && data?.firstLibrary) {
-				console.log("[Home] Using server-side rendered data");
 				libraries = data.libraries;
 				seriesTree = data.seriesTree;
 
@@ -199,22 +172,12 @@
 					hasMoreSeries = allSeries.length > seriesPageSize;
 				}
 
-				console.log("[Home] SSR data loaded:", {
-					totalFolders: allSeries.length,
-					displayedFolders: displayedSeries.length,
-					seriesPageSize,
-					hasMoreSeries,
-					hasFilter: !!$currentFilterStore,
-				});
 
 				// Initialize filtered tree
 				filteredSeriesTree = seriesTree;
 				isLoading = false;
 			} else {
 				// Fallback to client-side loading if SSR data not available
-				console.log(
-					"[Home] Server data not available, loading client-side",
-				);
 				await loadClientSide();
 			}
 		} catch (err) {
@@ -293,13 +256,6 @@
 				hasMoreSeries = allSeries.length > seriesPageSize;
 			}
 
-			console.log("[Home] Client-side data loaded:", {
-				totalSeries: allSeries.length,
-				displayedSeries: displayedSeries.length,
-				seriesPageSize,
-				hasMoreSeries,
-				hasFilter: !!$currentFilterStore,
-			});
 
 			// Initialize filtered tree
 			filteredSeriesTree = seriesTree;
@@ -314,9 +270,6 @@
 	// PERFORMANCE OPTIMIZATION: Load remaining libraries in background
 	async function loadRemainingLibraries() {
 		const remainingLibs = libraries.slice(1);
-		console.log(
-			`[Home] Loading ${remainingLibs.length} remaining libraries in background`,
-		);
 
 		// Load libraries one at a time to avoid overwhelming the browser
 		for (const lib of remainingLibs) {
@@ -351,27 +304,18 @@
 					currentFilter.libraryId === lib.id
 				) {
 					// We just loaded the library we are currently filtering by!
-					console.log('[Home] Loaded filtered library, applying sort:', sortBy);
 					// Apply sorting to ensure correct order is displayed
 					await applySorting();
 				}
 
-				console.log(
-					`[Home] Loaded library ${lib.id}: +${newSeries.length} series, +${newContinueReading.length} continue reading`,
-				);
 			} catch (err) {
 				console.error(`[Home] Failed to load library ${lib.id}:`, err);
 			}
 		}
 
-		console.log(
-			"[Home] Background loading complete. Total series:",
-			allSeries.length,
-		);
 
 		// Reapply sorting after all libraries are loaded to ensure correct order
 		if (sortBy && sortBy !== 'name') {
-			console.log('[Home] Reapplying sort after background load:', sortBy);
 			await applySorting();
 		}
 	}
@@ -380,7 +324,6 @@
 		const { type, libraryId, folderId, folderName, comicId, libraryName } =
 			event.detail;
 
-		console.log('[Home] Filter changing to:', event.detail);
 		currentFilter = event.detail;
 		// Persist filter to localStorage
 		currentFilterStore.set(event.detail);
@@ -478,7 +421,6 @@
 	async function restoreFilter(filter) {
 		if (!filter) return;
 
-		console.log("[Home] Restoring filter:", filter);
 		currentFilter = filter;
 
 		// Apply the filter based on its type
@@ -622,14 +564,9 @@ function updateDisplayedSeries() {
 
 	async function loadMoreSeries() {
 		if (isLoadingMore || !hasMoreSeries) {
-			console.log("[Home] loadMoreSeries blocked:", {
-				isLoadingMore,
-				hasMoreSeries,
-			});
 			return;
 		}
 
-		console.log("[Home] loadMoreSeries triggered");
 		isLoadingMore = true;
 
 		// Use requestAnimationFrame to ensure smooth UI updates
@@ -657,27 +594,12 @@ function updateDisplayedSeries() {
 			currentLength + seriesPageSize,
 		);
 
-		console.log("[Home] Loading more:", {
-			currentLength,
-			baseSourceLength: baseSource.length,
-			nextBatchLength: nextBatch.length,
-			seriesPageSize,
-			filterType: currentFilter?.type,
-			libraryId: currentFilter?.libraryId,
-		});
 
 		if (nextBatch.length > 0) {
 			displayedSeries = [...displayedSeries, ...nextBatch];
 			hasMoreSeries = displayedSeries.length < baseSource.length;
-			console.log(
-				"[Home] Added batch. New displayedSeries length:",
-				displayedSeries.length,
-				"hasMore:",
-				hasMoreSeries,
-			);
 		} else {
 			hasMoreSeries = false;
-			console.log("[Home] No more items to load");
 		}
 
 		// Small delay to prevent rapid fire loading
@@ -689,12 +611,6 @@ function updateDisplayedSeries() {
 		const trimmedQuery = query?.trim() || "";
 		searchQuery = trimmedQuery;
 
-		console.log(
-			"[Home] handleSearch called with query:",
-			query,
-			"trimmed:",
-			trimmedQuery,
-		);
 
 		// Update URL without adding to history
 		if (typeof window !== "undefined") {
@@ -709,7 +625,6 @@ function updateDisplayedSeries() {
 
 		// Clear search if query is empty (allow 1 character searches)
 		if (!trimmedQuery) {
-			console.log("[Home] Empty query, clearing search results");
 			// Clear search - show original filtered data
 			displayedSeries =
 				currentFilter?.type === "library"
@@ -733,28 +648,16 @@ function updateDisplayedSeries() {
 			return;
 		}
 
-		console.log("[Home] Performing search for:", trimmedQuery);
 		searchStore.update((s) => ({ ...s, isSearching: true }));
 
 		try {
 			// Filter allSeries by series name instead of API search
 			const lowerQuery = trimmedQuery.toLowerCase();
-			console.log(
-				"[Home] Filtering",
-				allSeries.length,
-				"series by name containing:",
-				lowerQuery,
-			);
 
 			searchResults = allSeries.filter(
 				(series) =>
 					series.series_name &&
 					series.series_name.toLowerCase().includes(lowerQuery),
-			);
-			console.log(
-				"[Home] Found",
-				searchResults.length,
-				"matching series",
 			);
 
 			// Filter based on current library selection
@@ -767,12 +670,6 @@ function updateDisplayedSeries() {
 
 			displayedSeries = filteredResults.slice(0, seriesPageSize);
 			hasMoreSeries = filteredResults.length > seriesPageSize;
-			console.log(
-				"[Home] Displaying",
-				displayedSeries.length,
-				"series, hasMore:",
-				hasMoreSeries,
-			);
 
 			// Filter sidebar tree based on search results
 			filterSidebarTree();
@@ -808,12 +705,10 @@ function updateDisplayedSeries() {
 
 		// Check cache first
 		if (treeFilterCache.has(cacheKey)) {
-			console.log("[Home] Tree filter cache hit for:", cacheKey);
 			filteredSeriesTree = treeFilterCache.get(cacheKey);
 			return;
 		}
 
-		console.log("[Home] Filtering tree for:", searchQuery);
 
 		// Use Set for O(1) lookups instead of array operations
 		const matchingSeriesNames = new Set(
@@ -1111,7 +1006,7 @@ function updateDisplayedSeries() {
 						>Alphabetical</option
 					>
 					<option value="recent"
-						>Date Added</option
+						>Order Added</option
 					>
 					<option value="recent-read"
 						>Recently Read</option

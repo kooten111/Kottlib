@@ -21,7 +21,6 @@
 	});
 
 	onMount(async () => {
-		console.log('Continue reading page mounted with context:', currentContext);
 		await loadContinueReading();
 
 		return () => {
@@ -31,7 +30,6 @@
 
 	// Reactively apply filter when context or data changes
 	$: if (continueReading.length > 0 && currentContext) {
-		console.log('Reactive update - context or data changed');
 		applyFilter();
 	}
 
@@ -107,33 +105,24 @@
 
 		let filtered = continueReading;
 
-		console.log('Applying filter with context:', currentContext);
-		console.log('Total continue reading comics:', continueReading.length);
-		console.log('Sample comic:', continueReading[0]);
 
 		// Apply context-based filtering
 		if (currentContext.seriesNames && currentContext.seriesNames.length > 0) {
-			console.log('Filtering by series names:', currentContext.seriesNames);
 			filtered = continueReading.filter(comic => {
 				// Check if comic title contains any of the series names
 				return currentContext.seriesNames.some(seriesName =>
 					comic.title && comic.title.includes(seriesName)
 				);
 			});
-			console.log('Filtered to', filtered.length, 'comics by series name matching');
 		} else if (currentContext.type === 'library' && currentContext.libraryId) {
-			console.log('Filtering by library:', currentContext.libraryId);
 			filtered = continueReading.filter(comic => comic.libraryId === currentContext.libraryId);
-			console.log('Filtered to', filtered.length, 'comics');
 		} else if (currentContext.type === 'series' && currentContext.seriesName) {
-			console.log('Filtering by series:', currentContext.seriesName, 'in library', currentContext.libraryId);
 			filtered = continueReading.filter(comic => {
 				const matchesLibrary = comic.libraryId === currentContext.libraryId;
 				const matchesSeries = comic.series === currentContext.seriesName ||
 				                      (comic.title && comic.title.includes(currentContext.seriesName));
 				return matchesLibrary && matchesSeries;
 			});
-			console.log('Filtered to', filtered.length, 'comics');
 		}
 
 		filteredContinueReading = sortComics(filtered, sortBy);

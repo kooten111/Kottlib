@@ -16,10 +16,8 @@
 	let searchInput;
 
 	// Debug: Track search store changes
-	$: console.log("[Navbar] Search store query changed:", $searchStore.query);
 
 	function clearSearch() {
-		console.log("[Navbar] Clearing search");
 		searchStore.set({
 			query: "",
 			isSearching: false,
@@ -30,7 +28,6 @@
 	}
 
 	function clearFilters() {
-		console.log("[Navbar] Clearing filters");
 		currentFilterStore.set(null);
 		clearSearch();
 	}

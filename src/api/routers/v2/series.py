@@ -494,8 +494,21 @@ async def get_series_list(
                 total = s["total_issues"]
                 if total == 0:
                     return (3, 0)  # Empty series go last
-                completed = sum(1 for v in s["volumes"] if v.get("is_completed", False))
-                progress_pct = completed / total
+                
+                # Calculate actual progress including partial completion
+                # Completed volumes count as 1.0 each, current volume contributes its progress_percent
+                total_progress = 0.0
+                for v in s["volumes"]:
+                    if v.get("is_completed", False):
+                        total_progress += 1.0
+                    else:
+                        # Add partial progress from current volume (0-100 scale to 0-1 scale)
+                        progress_pct = v.get("progress_percent", 0)
+                        if progress_pct > 0:
+                            total_progress += progress_pct / 100.0
+                
+                # Calculate overall series progress percentage (0.0 to 1.0)
+                progress_pct = total_progress / total
 
                 # Sort priority groups (lower number = higher priority):
                 # 0 = In progress (started but not finished) - closest to completion first
@@ -503,10 +516,10 @@ async def get_series_list(
                 # 2 = Fully completed (100% progress)
                 # 3 = Empty series
 
-                if completed == total:
+                if progress_pct >= 1.0:
                     # Fully completed - low priority
                     return (2, 0)
-                elif completed == 0:
+                elif progress_pct == 0.0:
                     # Not started - medium priority
                     return (1, 0)
                 else:

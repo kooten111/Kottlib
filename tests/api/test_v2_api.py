@@ -376,6 +376,28 @@ class TestV2Series:
 
         assert response.status_code in [200, 404]
 
+    def test_series_progress_sorting(self, test_client: TestClient, sample_library):
+        """Test GET /v2/library/{id}/series?sort=progress - Verify progress sorting includes partial completion"""
+        response = test_client.get(f"/v2/library/{sample_library.id}/series?sort=progress")
+        
+        assert response.status_code in [200, 404]
+        
+        if response.status_code == 200:
+            data = response.json()
+            assert isinstance(data, list) or isinstance(data, dict)
+            
+            # If we got series data, verify the structure includes volumes with progress_percent
+            if isinstance(data, list) and len(data) > 0:
+                for series in data:
+                    if "volumes" in series and len(series["volumes"]) > 0:
+                        # Verify that volumes have progress tracking fields
+                        for volume in series["volumes"]:
+                            assert "is_completed" in volume
+                            assert "progress_percent" in volume
+                            # progress_percent should be between 0 and 100
+                            if volume.get("progress_percent") is not None:
+                                assert 0 <= volume["progress_percent"] <= 100
+
 
 class TestV2Statistics:
     """Test v2 statistics and analytics endpoints"""

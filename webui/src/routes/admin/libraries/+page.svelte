@@ -65,13 +65,11 @@
                 const progress = await pollScanProgress(library.id);
                 if (progress && progress.in_progress) {
                     // Found an active scan - start monitoring it
-                    console.log(`Resuming progress monitoring for library ${library.id}`, progress);
                     scanProgress[library.id] = progress; // Set initial progress
                     scanningLibraries.add(library.id);
                     scanningLibraries = scanningLibraries; // Trigger reactivity
                     startProgressMonitoring(library.id);
                 } else {
-                    console.log(`No active scan for library ${library.id}`);
                 }
             } catch (err) {
                 console.error(`Failed to check scan progress for library ${library.id}:`, err);
@@ -187,7 +185,6 @@
                 if (existingProgress && progress.in_progress) {
                     // Only update if progress is moving forward or total changed
                     if (progress.current < existingProgress.current && progress.total === existingProgress.total) {
-                        console.log(`[Progress] Ignoring backwards progress: ${progress.current} < ${existingProgress.current}`);
                         return; // Skip this update
                     }
                 }
@@ -212,7 +209,6 @@
                 }, 5000);
             } else {
                 // No scan in progress - stop polling
-                console.log(`No active scan for library ${libraryId}, stopping monitoring`);
                 clearInterval(scanProgressIntervals[libraryId]);
                 delete scanProgressIntervals[libraryId];
                 scanningLibraries.delete(libraryId);
