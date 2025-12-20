@@ -3,7 +3,7 @@
 Kottlib - Single-Command Launcher
 
 Simply run:
-    ./yaclib.py
+    ./kottlib.py
 
 This will:
 - Check and install dependencies
@@ -164,7 +164,7 @@ def first_time_setup():
         print("\nYou can:")
         print(f"  - Edit config: {config_path}")
         print("  - Manage via web interface (coming in Phase 3)")
-        print("  - Use CLI: ./yaclib-cli.py --help")
+        print("  - Use CLI: ./kottlib-cli.py --help")
         print()
 
 

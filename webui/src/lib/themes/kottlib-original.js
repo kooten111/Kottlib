@@ -2,8 +2,8 @@
  * Kottlib Original Theme
  * The original dark theme with orange accents
  */
-export const yacLibOriginal = {
-    id: 'yaclib-original',
+export const kottlibOriginal = {
+    id: 'kottlib-original',
     name: 'Kottlib Original',
     type: 'dark',
     colors: {

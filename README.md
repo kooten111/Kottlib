@@ -4,7 +4,7 @@
 
 - 100% compatible with YACReader mobile apps
 - Zero configuration required
-- Just run `./scripts/yaclib.py`
+- Just run `./scripts/kottlib.py`
 
 ```bash
 git clone https://github.com/kooten111/Kottlib.git
@@ -123,8 +123,8 @@ This gives you:
 Your configuration is saved in `config.yml`.
 
 **Alternative Launchers:**
-- `./scripts/yaclib.py` - Interactive Python launcher with setup wizard
-- `./scripts/yaclib-cli.py` - CLI management tool (see CLI Tool section below)
+- `./scripts/kottlib.py` - Interactive Python launcher with setup wizard
+- `./scripts/kottlib-cli.py` - CLI management tool (see CLI Tool section below)
 - `./run_server.sh` - Legacy launcher (same as `start.sh`)
 
 **Quick Library Scanning:**
@@ -138,7 +138,7 @@ Your configuration is saved in `config.yml`.
 
 ### Connect YACReader Mobile App
 
-1. Start server: `./scripts/yaclib.py`
+1. Start server: `./scripts/kottlib.py`
 2. In YACReader mobile app, add server: `http://<your-ip>:8081`
 3. Browse your libraries!
 
@@ -165,10 +165,10 @@ Legacy Endpoints (mobile apps):
 
 ### Use Python Client
 
-A Python client library is available at `src/client/yaclib.py`:
+A Python client library is available at `src/client/kottlib.py`:
 
 ```python
-from src.client.yaclib import KottlibClient
+from src.client.kottlib import KottlibClient
 
 with KottlibClient("http://192.168.1.5:8081") as client:
     metadata = client.open_comic(library_id=2, comic_id=188)
@@ -183,7 +183,7 @@ with KottlibClient("http://192.168.1.5:8081") as client:
 
 ### Simple: Use the Launcher
 
-The interactive launcher (`./scripts/yaclib.py`) handles everything on first run.
+The interactive launcher (`./scripts/kottlib.py`) handles everything on first run.
 
 ### Advanced: Edit Config File
 
@@ -217,17 +217,17 @@ For advanced users:
 
 ```bash
 # Manage config
-./scripts/yaclib-cli.py config init
-./scripts/yaclib-cli.py config show
+./scripts/kottlib-cli.py config init
+./scripts/kottlib-cli.py config show
 
 # Manage libraries
-./scripts/yaclib-cli.py library add "Comics" /mnt/Comics
-./scripts/yaclib-cli.py library scan Comics
-./scripts/yaclib-cli.py library list
+./scripts/kottlib-cli.py library add "Comics" /mnt/Comics
+./scripts/kottlib-cli.py library scan Comics
+./scripts/kottlib-cli.py library list
 
 # Server control
-./scripts/yaclib-cli.py server start
-./scripts/yaclib-cli.py server info
+./scripts/kottlib-cli.py server start
+./scripts/kottlib-cli.py server info
 ```
 
 ## Documentation
@@ -300,7 +300,7 @@ Kottlib/
 │   │   ├── library_service.py     # Library management
 │   │   └── scan_service.py        # Scan orchestration
 │   ├── client/            # Python client library
-│   │   └── yaclib.py      # API client for programmatic access
+│   │   └── kottlib.py     # API client for programmatic access
 │   ├── utils/             # Utilities
 │   │   └── series_utils.py        # Series detection
 │   └── config.py          # Configuration management
@@ -324,8 +324,8 @@ Kottlib/
 │   ├── package.json       # Node dependencies
 │   └── vite.config.js     # Vite configuration
 ├── scripts/               # Utility scripts
-│   ├── yaclib.py          # Interactive Python launcher with setup wizard
-│   ├── yaclib-cli.py      # CLI management tool
+│   ├── kottlib.py         # Interactive Python launcher with setup wizard
+│   ├── kottlib-cli.py     # CLI management tool
 │   ├── scan_library.py    # Library scanning
 │   ├── diagnose_missing_data.py   # Debug tools
 │   └── regenerate_covers.py       # Cover regeneration
@@ -377,7 +377,7 @@ MIT License - See LICENSE file for details.
 Get started in seconds:
 
 ```bash
-./scripts/yaclib.py
+./scripts/kottlib.py
 ```
 
 That's it!

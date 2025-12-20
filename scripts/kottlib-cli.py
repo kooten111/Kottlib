@@ -5,14 +5,14 @@ Kottlib CLI
 Command-line interface for managing Kottlib server.
 
 Usage:
-    yaclib-cli.py config init          # Create example config
-    yaclib-cli.py config show          # Show current config
-    yaclib-cli.py config edit          # Edit config file
-    yaclib-cli.py library add NAME PATH  # Add library
-    yaclib-cli.py library list         # List libraries
-    yaclib-cli.py library scan NAME    # Scan library
-    yaclib-cli.py server start         # Start server
-    yaclib-cli.py server info          # Show server info
+    kottlib-cli.py config init          # Create example config
+    kottlib-cli.py config show          # Show current config
+    kottlib-cli.py config edit          # Edit config file
+    kottlib-cli.py library add NAME PATH  # Add library
+    kottlib-cli.py library list         # List libraries
+    kottlib-cli.py library scan NAME    # Scan library
+    kottlib-cli.py server start         # Start server
+    kottlib-cli.py server info          # Show server info
 """
 
 import sys
@@ -106,7 +106,7 @@ def cmd_config_edit():
 
     if not config_path.exists():
         print(f"Configuration file not found: {config_path}")
-        print("Run 'yaclib-cli.py config init' to create one.")
+        print("Run 'kottlib-cli.py config init' to create one.")
         return
 
     # Try to open with default editor
@@ -281,7 +281,7 @@ def main():
     # Config commands
     if command == 'config':
         if len(sys.argv) < 3:
-            print("Usage: yaclib-cli.py config <init|show|edit>")
+            print("Usage: kottlib-cli.py config <init|show|edit>")
             return
 
         subcommand = sys.argv[2]
@@ -297,20 +297,20 @@ def main():
     # Library commands
     elif command == 'library':
         if len(sys.argv) < 3:
-            print("Usage: yaclib-cli.py library <add|list|scan>")
+            print("Usage: kottlib-cli.py library <add|list|scan>")
             return
 
         subcommand = sys.argv[2]
         if subcommand == 'add':
             if len(sys.argv) < 5:
-                print("Usage: yaclib-cli.py library add NAME PATH")
+                print("Usage: kottlib-cli.py library add NAME PATH")
                 return
             cmd_library_add(sys.argv[3], sys.argv[4])
         elif subcommand == 'list':
             cmd_library_list()
         elif subcommand == 'scan':
             if len(sys.argv) < 4:
-                print("Usage: yaclib-cli.py library scan NAME")
+                print("Usage: kottlib-cli.py library scan NAME")
                 return
             cmd_library_scan(sys.argv[3])
         else:
@@ -319,7 +319,7 @@ def main():
     # Server commands
     elif command == 'server':
         if len(sys.argv) < 3:
-            print("Usage: yaclib-cli.py server <start|info>")
+            print("Usage: kottlib-cli.py server <start|info>")
             return
 
         subcommand = sys.argv[2]

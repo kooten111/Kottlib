@@ -106,7 +106,7 @@ Once your library is scanned:
 
 1. Start the server:
    ```bash
-   ./yaclib.py
+   ./kottlib.py
    ```
 
 2. Access via YACReader mobile app:
