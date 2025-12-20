@@ -402,6 +402,14 @@ Examples:
             library = create_library(session, library_name, str(library_path))
             library_id = library.id
             print(f"Library created (ID: {library_id})\n")
+            
+            # Sync database changes to config.yml
+            try:
+                from src.services.config_sync import sync_db_to_config
+                sync_db_to_config(session, config)
+                print(f"Synced library to config.yml\n")
+            except Exception as e:
+                print(f"Warning: Failed to sync config: {e}\n")
         else:
             library_id = library.id
             print(f"Library already exists (ID: {library_id})\n")

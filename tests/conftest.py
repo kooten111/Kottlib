@@ -213,9 +213,12 @@ def sample_reading_progress(test_db: Database, sample_user: User, sample_comic: 
 def test_client(test_db: Database) -> TestClient:
     """Create a FastAPI test client with test database"""
     from src.api.main import app
+    from src.config import get_config
 
     # Override database dependency
     app.state.db = test_db
+    # Add config to app state
+    app.state.config = get_config()
 
     client = TestClient(app)
     return client

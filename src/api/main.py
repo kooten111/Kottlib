@@ -55,6 +55,21 @@ async def lifespan(app: FastAPI):
     app.state.db = db
     app.state.config = config
 
+    # Sync config.yml with database
+    from ..services.config_sync import ensure_config_file, sync_config_to_db, get_sync_summary
+    from ..config import get_config_path
+    
+    with db.get_session() as session:
+        config_path = get_config_path()
+        if not config_path.exists():
+            logger.info("Config file not found, creating from database state...")
+            ensure_config_file(session, config)
+        else:
+            logger.info("Syncing config.yml with database...")
+            stats = sync_config_to_db(session, config)
+            summary = get_sync_summary(stats)
+            logger.info(summary)
+
     # Initialize scheduler
     from ..services.scheduler import get_scheduler
     scheduler = get_scheduler(db)

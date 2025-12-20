@@ -49,6 +49,11 @@ class Library(Base):
     folders: Mapped[List["Folder"]] = relationship(back_populates="library", cascade="all, delete-orphan")
     comics: Mapped[List["Comic"]] = relationship(back_populates="library", cascade="all, delete-orphan")
     series: Mapped[List["Series"]] = relationship(back_populates="library", cascade="all, delete-orphan")
+    
+    @property
+    def last_scan_at(self) -> Optional[int]:
+        """Alias for last_scan_completed for backward compatibility"""
+        return self.last_scan_completed
 
 
 # ============================================================================

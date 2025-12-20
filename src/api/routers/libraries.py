@@ -18,6 +18,7 @@ from ...database import (
     update_library,
     delete_library,
 )
+from ...services.config_sync import sync_db_to_config
 
 logger = logging.getLogger(__name__)
 
@@ -118,6 +119,7 @@ async def get_library(library_id: int, request: Request):
 async def add_library(request: Request, data: CreateLibraryRequest):
     """Create a new library"""
     db = request.app.state.db
+    config = request.app.state.config
 
     with db.get_session() as session:
         library = create_library(
@@ -128,6 +130,12 @@ async def add_library(request: Request, data: CreateLibraryRequest):
         )
 
         stats = get_library_stats(session, library.id)
+        
+        # Sync database changes to config.yml
+        try:
+            sync_db_to_config(session, config)
+        except Exception as e:
+            logger.error(f"Failed to sync config after library creation: {e}")
 
         return LibraryInfo(
             id=library.id,
@@ -146,6 +154,7 @@ async def add_library(request: Request, data: CreateLibraryRequest):
 async def update_library_details(library_id: int, request: Request, data: UpdateLibraryRequest):
     """Update library details"""
     db = request.app.state.db
+    config = request.app.state.config
 
     with db.get_session() as session:
         library = update_library(
@@ -160,6 +169,12 @@ async def update_library_details(library_id: int, request: Request, data: Update
             raise HTTPException(status_code=404, detail="Library not found")
 
         stats = get_library_stats(session, library.id)
+        
+        # Sync database changes to config.yml
+        try:
+            sync_db_to_config(session, config)
+        except Exception as e:
+            logger.error(f"Failed to sync config after library update: {e}")
 
         return LibraryInfo(
             id=library.id,
@@ -179,11 +194,18 @@ async def update_library_details(library_id: int, request: Request, data: Update
 async def remove_library(library_id: int, request: Request):
     """Delete a library"""
     db = request.app.state.db
+    config = request.app.state.config
 
     with db.get_session() as session:
         success = delete_library(session, library_id)
         
         if not success:
             raise HTTPException(status_code=404, detail="Library not found")
+        
+        # Sync database changes to config.yml
+        try:
+            sync_db_to_config(session, config)
+        except Exception as e:
+            logger.error(f"Failed to sync config after library deletion: {e}")
             
         return {"success": True, "message": "Library deleted"}
