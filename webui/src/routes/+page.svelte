@@ -314,6 +314,61 @@
 		}
 	}
 
+	// Load data for a specific library (used when user clicks before background loading completes)
+	async function loadLibraryData(libraryId) {
+		console.log('[Home] loadLibraryData called for library:', libraryId, 'with sortBy:', sortBy);
+
+		const lib = libraries.find(l => l.id === libraryId);
+		if (!lib) {
+			console.error('[Home] Library not found:', libraryId);
+			return;
+		}
+
+		try {
+			// For client-side sorts, load with 'name' sort from backend, then apply client sort
+			// For backend sorts, use the sort parameter directly
+			const backendSort = (sortBy === 'shuffle' || sortBy === 'recent-read-client') ? 'name' : sortBy;
+
+			const [contReading, series] = await Promise.all([
+				getContinueReading(libraryId, 50).catch(() => []),
+				getSeries(libraryId, backendSort).catch(() => []),
+			]);
+
+			// Merge into existing data
+			const newContinueReading = contReading.map((c) => ({
+				...c,
+				libraryId: libraryId,
+			}));
+			const newSeries = series.map((s) => ({
+				...s,
+				libraryId: libraryId,
+			}));
+
+			// Remove any existing data for this library (in case of reload)
+			continueReading = continueReading.filter(c => c.libraryId !== libraryId);
+			allSeries = allSeries.filter(s => s.libraryId !== libraryId);
+
+			// Add new data
+			continueReading = [...continueReading, ...newContinueReading];
+			allSeries = [...allSeries, ...newSeries];
+
+			console.log(
+				`[Home] Loaded library ${libraryId}: ${newSeries.length} series, ${newContinueReading.length} continue reading`,
+			);
+
+			// Apply client-side sort if needed
+			if (sortBy === 'shuffle' || sortBy === 'recent-read-client') {
+				console.log('[Home] Applying client-side sort:', sortBy);
+				await applySorting();
+			} else {
+				// Update display with backend-sorted data
+				updateDisplayedSeries();
+			}
+		} catch (err) {
+			console.error(`[Home] Failed to load library ${libraryId}:`, err);
+		}
+	}
+
 	// PERFORMANCE OPTIMIZATION: Load remaining libraries in background
 	async function loadRemainingLibraries() {
 		const remainingLibs = libraries.slice(1);
@@ -407,6 +462,13 @@
 			// Filter to show only series from selected library with pagination
 			displayedSeries = librarySeries.slice(0, seriesPageSize);
 			hasMoreSeries = librarySeries.length > seriesPageSize;
+
+			// If the library has no series loaded yet (or empty), load it immediately
+			// This handles the race condition where user clicks a library before background loading completes
+			if (librarySeries.length === 0) {
+				console.log('[Home] Library has no series loaded, loading data immediately for library:', libraryId);
+				await loadLibraryData(libraryId);
+			}
 		} else if (type === "folder") {
 			// Navigate to series view page
 			// The folder name corresponds to the series name
