@@ -123,7 +123,7 @@ def update_library_scan_status(
     library = get_library_by_id(session, library_id)
     if library:
         library.scan_status = status
-        library.last_scan_at = timestamp or int(time.time())
+        library.last_scan_completed = timestamp or int(time.time())
         library.updated_at = int(time.time())
         session.flush()  # Flush changes without committing
 
