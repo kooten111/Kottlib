@@ -3,7 +3,6 @@
 	import { scanComic, clearMetadata } from "$lib/api/scanners";
 
 	export let comic;
-	export let libraryId;
 
 	let isScanning = false;
 	let isClearing = false;

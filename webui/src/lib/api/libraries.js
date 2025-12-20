@@ -62,7 +62,7 @@ export async function getContinueReading(libraryId, limit = 10) {
  * Get continue reading list from ALL libraries (cross-library, sorted by last_read_at)
  */
 export async function getContinueReadingAll(limit = 100) {
-	return api.get(`/v2/reading?limit=${limit}`);
+	return api.get(`/reading?limit=${limit}`);
 }
 
 /**

@@ -249,7 +249,7 @@
 					{/if}
 
 					<!-- Scanner Metadata -->
-					<ScannerMetadata {libraryId} {comicId} comic={comic} on:updated={loadComicData} />
+					<ScannerMetadata comic={comic} on:updated={loadComicData} />
 				</div>
 			</div>
 

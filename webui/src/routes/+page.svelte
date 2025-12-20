@@ -1514,17 +1514,6 @@ function updateDisplayedSeries() {
 		box-shadow: 0 0 0 4px rgba(255, 103, 64, 0.2);
 	}
 
-	.see-all {
-		font-size: 0.875rem;
-		color: var(--color-accent);
-		text-decoration: none;
-		transition: opacity 0.2s;
-	}
-
-	.see-all:hover {
-		opacity: 0.8;
-	}
-
 	.comics-grid {
 		display: grid;
 		grid-template-columns: repeat(
