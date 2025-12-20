@@ -213,13 +213,16 @@ def get_sync_summary(stats: dict) -> str:
     summary_parts = []
     
     if stats['created'] > 0:
-        summary_parts.append(f"{stats['created']} libraries created")
+        plural = "libraries" if stats['created'] > 1 else "library"
+        summary_parts.append(f"{stats['created']} {plural} created")
     
     if stats['updated'] > 0:
-        summary_parts.append(f"{stats['updated']} libraries updated")
+        plural = "libraries" if stats['updated'] > 1 else "library"
+        summary_parts.append(f"{stats['updated']} {plural} updated")
     
     if stats['warnings'] > 0:
-        summary_parts.append(f"{stats['warnings']} warnings")
+        plural = "warnings" if stats['warnings'] > 1 else "warning"
+        summary_parts.append(f"{stats['warnings']} {plural}")
     
     summary = f"Config sync: {', '.join(summary_parts)}"
     

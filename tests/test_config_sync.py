@@ -346,8 +346,8 @@ def test_get_sync_summary_with_changes():
     
     summary = get_sync_summary(stats)
     assert "2 libraries created" in summary
-    assert "1 libraries updated" in summary
-    assert "1 warnings" in summary
+    assert "1 library updated" in summary
+    assert "1 warning" in summary
 
 
 def test_roundtrip_db_to_config_to_db(test_db, test_data_dir, monkeypatch):

@@ -405,7 +405,7 @@ Examples:
             
             # Sync database changes to config.yml
             try:
-                from services.config_sync import sync_db_to_config
+                from src.services.config_sync import sync_db_to_config
                 sync_db_to_config(session, config)
                 print(f"Synced library to config.yml\n")
             except Exception as e:
