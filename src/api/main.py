@@ -1,5 +1,5 @@
 """
-YACLib Enhanced - Main FastAPI Application
+Kottlib - Main FastAPI Application
 
 A modern replacement for YACReaderLibrary Server with enhanced features
 while maintaining full backward compatibility with YACReader mobile apps.
@@ -40,7 +40,7 @@ async def lifespan(app: FastAPI):
     Handles startup and shutdown events
     """
     # Startup
-    logger.info("Starting YACLib Enhanced Server...")
+    logger.info("Starting Kottlib Server...")
     logger.info(f"Configuration loaded: {len(config.libraries)} libraries defined")
 
     # Initialize database
@@ -61,13 +61,13 @@ async def lifespan(app: FastAPI):
     scheduler.load_schedules_from_db()
     app.state.scheduler = scheduler
 
-    logger.info("YACLib Enhanced Server started successfully!")
+    logger.info("Kottlib Server started successfully!")
     logger.info(f"Server running on {config.server.host}:{config.server.port}")
 
     yield
 
     # Shutdown
-    logger.info("Shutting down YACLib Enhanced Server...")
+    logger.info("Shutting down Kottlib Server...")
     scheduler.shutdown()
     db.close()
     logger.info("Shutdown complete")
@@ -78,7 +78,7 @@ async def lifespan(app: FastAPI):
 # ============================================================================
 
 app = FastAPI(
-    title="YACLib Enhanced",
+    title="Kottlib",
     description="Modern comic library server with YACReader compatibility",
     version="1.0.0",
     lifespan=lifespan
@@ -124,7 +124,7 @@ async def global_exception_handler(request: Request, exc: Exception):
 async def root():
     """Root endpoint - health check"""
     return {
-        "service": "YACLib Enhanced",
+        "service": "Kottlib",
         "version": "1.0.0",
         "status": "running"
     }
@@ -142,7 +142,7 @@ async def server_info():
     db_path = get_default_db_path()
 
     return {
-        "name": "YACLib Enhanced",
+        "name": "Kottlib",
         "version": "1.0.0",
         "database": str(db_path),
         "features": {

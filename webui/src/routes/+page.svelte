@@ -100,6 +100,7 @@
 
 	// Apply sort when sortBy changes (after initial load)
 	$: if (sortBy && !isLoading && initialFilterRestored && initialSortApplied) {
+		console.log('[Home] Reactive sort triggered - sortBy:', sortBy);
 		applySorting();
 	}
 
@@ -148,7 +149,9 @@
 		// This ensures the correct sort order is displayed on page load
 		// Use library-specific or global sort based on current filter
 		const savedSort = preferencesStore.getSortBy(currentLibraryId);
+		console.log('[Home] Initial sort - currentLibraryId:', currentLibraryId, 'savedSort:', savedSort, 'sortBy:', sortBy);
 		if (savedSort && savedSort !== 'name') {
+			console.log('[Home] Applying initial sort:', savedSort);
 			await applySorting();
 			initialSortApplied = true; // Mark that initial sort is complete
 		} else {
@@ -516,7 +519,9 @@
 	}
 
 async function applySorting() {
+	console.log('[Home] applySorting called - sortBy:', sortBy, 'allSeries length:', allSeries?.length || 0);
 	if (!allSeries || allSeries.length === 0) {
+		console.log('[Home] applySorting skipped - no series data');
 		return;
 	}
 
@@ -528,6 +533,7 @@ async function applySorting() {
 		case 'progress':
 		case 'recent-read':
 			// Backend sorts - reload data with sort parameter
+			console.log('[Home] Calling reloadWithBackendSort with:', sortBy);
 			await reloadWithBackendSort(sortBy);
 			return;
 
@@ -572,15 +578,20 @@ function getMaxLastReadTime(volumes) {
 
 async function reloadWithBackendSort(sortType) {
 	try {
+		console.log('[Home] reloadWithBackendSort called with:', sortType, 'currentLibraryId:', currentLibraryId);
 		// If a library is selected, only fetch data for that library
 		const librariesToFetch = currentLibraryId
 			? libraries.filter(lib => lib.id === currentLibraryId)
 			: libraries;
 
+		console.log('[Home] Fetching from', librariesToFetch.length, 'libraries');
+
 		const allSeriesResults = await Promise.all(
 			librariesToFetch.map(async (lib) => {
 				try {
+					console.log('[Home] Fetching series for library', lib.id, 'with sort:', sortType);
 					const series = await getSeries(lib.id, sortType);
+					console.log('[Home] Received', series.length, 'series for library', lib.id);
 					return series.map((s) => ({
 						...s,
 						libraryId: lib.id,
@@ -603,6 +614,7 @@ async function reloadWithBackendSort(sortType) {
 			}
 		}
 
+		console.log('[Home] reloadWithBackendSort complete - total series:', allSeries.length);
 		updateDisplayedSeries();
 	} catch (err) {
 		console.error('[Home] Failed to reload with sort:', err);
@@ -939,7 +951,7 @@ function updateDisplayedSeries() {
 </script>
 
 <svelte:head>
-	<title>Home - YACLib</title>
+	<title>Home - Kottlib</title>
 </svelte:head>
 
 <div class="flex flex-col h-screen overflow-hidden">
@@ -1100,10 +1112,13 @@ function updateDisplayedSeries() {
 									<div class="view-controls">
 				<select
 					bind:value={sortBy}
-					on:change={(e) => {
+					on:change={async (e) => {
 						const newSort = e.target.value;
+						console.log('[Home] Sort dropdown changed to:', newSort);
 						// Save library-specific preference if a library is selected
 						preferencesStore.setSortBy(newSort, currentLibraryId);
+						// Explicitly apply the sort (don't rely solely on reactive statement)
+						await applySorting();
 					}}
 					class="control-select"
 				>

@@ -1,5 +1,5 @@
 """
-YACLibrary Server Python Client
+Kottlibrary Server Python Client
 
 A Python client library for interacting with YACReaderLibrary Server.
 Handles session management, async loading delays, and provides a clean API.
@@ -61,7 +61,7 @@ class ComicMetadata:
         )
 
 
-class YACLibClient:
+class KottlibClient:
     """Client for YACReaderLibrary Server"""
 
     def __init__(
@@ -72,7 +72,7 @@ class YACLibClient:
         retry_delay: float = 0.5
     ):
         """
-        Initialize YACLib client
+        Initialize Kottlib client
 
         Args:
             base_url: Base URL of YACServer (e.g., http://192.168.1.5:25565)
@@ -286,7 +286,7 @@ class YACLibClient:
         self.close()
 
 
-class YACLibAsyncClient(YACLibClient):
+class KottlibAsyncClient(KottlibClient):
     """
     Enhanced client with async page loading
 
@@ -351,14 +351,14 @@ class YACLibAsyncClient(YACLibClient):
 
 
 # Convenience function
-def connect(base_url: str = "http://192.168.1.5:25565") -> YACLibClient:
+def connect(base_url: str = "http://192.168.1.5:25565") -> KottlibClient:
     """
-    Create a YACLib client
+    Create a Kottlib client
 
     Args:
         base_url: Base URL of YACServer
 
     Returns:
-        YACLibClient instance
+        KottlibClient instance
     """
-    return YACLibClient(base_url)
+    return KottlibClient(base_url)

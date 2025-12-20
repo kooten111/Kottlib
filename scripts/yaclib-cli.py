@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 """
-YACLib Enhanced CLI
+Kottlib CLI
 
-Command-line interface for managing YACLib Enhanced server.
+Command-line interface for managing Kottlib server.
 
 Usage:
     yaclib-cli.py config init          # Create example config
@@ -217,7 +217,7 @@ def cmd_server_start():
     """Start the server"""
     config = load_config()
 
-    print("Starting YACLib Enhanced Server...")
+    print("Starting Kottlib Server...")
     print(f"Host: {config.server.host}")
     print(f"Port: {config.server.port}")
     print(f"\nServer will be available at:")
@@ -242,7 +242,7 @@ def cmd_server_info():
     db_path = get_default_db_path()
 
     print("\n" + "="*60)
-    print("YACLIB ENHANCED SERVER INFO")
+    print("Kottlib SERVER INFO")
     print("="*60 + "\n")
 
     print("Server:")

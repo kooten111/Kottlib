@@ -1,5 +1,5 @@
 """
-Base Scanner Framework for YACLib
+Base Scanner Framework for Kottlib
 
 Defines the interface that all metadata scanners must implement.
 """

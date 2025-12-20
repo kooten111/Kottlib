@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-YACLib Enhanced - Single-Command Launcher
+Kottlib - Single-Command Launcher
 
 Simply run:
     ./yaclib.py
@@ -74,7 +74,7 @@ def first_time_setup():
 
     if not config_path.exists():
         print("\n" + "="*60)
-        print("🎉 Welcome to YACLib Enhanced!")
+        print("🎉 Welcome to Kottlib!")
         print("="*60)
         print("\nFirst-time setup - let's configure your comic libraries.\n")
 
@@ -223,7 +223,7 @@ def start_server():
     config = get_config()
 
     print("\n" + "="*60)
-    print("🚀 Starting YACLib Enhanced Server")
+    print("🚀 Starting Kottlib Server")
     print("="*60)
     print(f"\nServer will be available at:")
     print(f"  • http://localhost:{config.server.port}")
@@ -250,7 +250,7 @@ def main():
     # Check/install dependencies
     if not check_dependencies():
         print("="*60)
-        print("YACLib Enhanced - First Run Setup")
+        print("Kottlib - First Run Setup")
         print("="*60)
         print("\nDependencies need to be installed.")
         response = input("Install now? [Y/n] ")

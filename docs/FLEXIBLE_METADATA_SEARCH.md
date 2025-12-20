@@ -1,6 +1,6 @@
 # Flexible Metadata Search System
 
-Complete implementation of advanced metadata search for YACLib Enhanced, supporting dynamic metadata across all library types (comics, manga, etc.).
+Complete implementation of advanced metadata search for Kottlib, supporting dynamic metadata across all library types (comics, manga, etc.).
 
 ## 🎯 Overview
 
@@ -603,7 +603,7 @@ When extending the search system:
 
 ## 📄 License
 
-Part of YACLib Enhanced - same license as main project.
+Part of Kottlib - same license as main project.
 
 ---
 

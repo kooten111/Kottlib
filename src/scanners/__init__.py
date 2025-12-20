@@ -1,5 +1,5 @@
 """
-YACLib Metadata Scanners (DEPRECATED)
+Kottlib Metadata Scanners (DEPRECATED)
 
 This module has been moved to src.metadata_providers for clarity.
 This file provides backward compatibility by re-exporting from the new location.

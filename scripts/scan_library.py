@@ -360,7 +360,7 @@ Examples:
 
     # Header
     mode = "Single-threaded (Verbose)" if max_workers == 1 else f"Multi-threaded ({max_workers} workers)"
-    print(f"\nYACLib Enhanced - Library Scanner")
+    print(f"\nKottlib - Library Scanner")
     print(f"=" * 60)
     print(f"Library:  {library_name}")
     print(f"Path:     {library_path}")

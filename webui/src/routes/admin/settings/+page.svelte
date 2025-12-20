@@ -195,7 +195,7 @@
 </script>
 
 <svelte:head>
-	<title>Server Settings - YACLib</title>
+	<title>Server Settings - Kottlib</title>
 </svelte:head>
 
 <div class="flex flex-col min-h-screen">
@@ -211,7 +211,7 @@
 				<div>
 					<h1 class="page-title">Server Settings</h1>
 					<p class="page-subtitle">
-						Configure your YACLib server and preferences
+						Configure your Kottlib server and preferences
 					</p>
 				</div>
 			</div>

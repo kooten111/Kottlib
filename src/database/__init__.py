@@ -1,7 +1,7 @@
 """
 Database Module
 
-Provides database models and access layer for YACLib Enhanced.
+Provides database models and access layer for Kottlib.
 
 This module has been refactored to split the large database.py file into:
 - connection.py: Database class and session management

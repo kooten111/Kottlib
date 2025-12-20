@@ -1,6 +1,6 @@
-# YACLib Enhanced Database Schema
+# Kottlib Database Schema
 
-Modern, feature-rich SQLite database schema for YACLib Enhanced.
+Modern, feature-rich SQLite database schema for Kottlib.
 
 ## Design Philosophy
 
@@ -102,7 +102,7 @@ Centralized application database location:
 
 **macOS:**
 ```
-~/Library/Application Support/YACLib/
+~/Library/Application Support/Kottlib/
 ├── yaclib.db
 └── covers/
     ├── {hash}.jpg
@@ -111,7 +111,7 @@ Centralized application database location:
 
 **Windows:**
 ```
-%APPDATA%\YACLib\
+%APPDATA%\Kottlib\
 ├── yaclib.db
 └── covers\
     ├── {hash}.jpg
@@ -179,7 +179,7 @@ This performs a one-time conversion of:
 - Reading progress
 - Library metadata
 
-All data is imported into the centralized YACLib database.
+All data is imported into the centralized Kottlib database.
 
 ## Schema File
 

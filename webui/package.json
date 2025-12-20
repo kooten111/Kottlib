@@ -1,7 +1,7 @@
 {
   "name": "yaclib-webui",
   "version": "1.0.0",
-  "description": "Modern Web UI for YACLib Enhanced",
+  "description": "Modern Web UI for Kottlib",
   "type": "module",
   "scripts": {
     "dev": "vite dev",

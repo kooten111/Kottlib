@@ -1,6 +1,6 @@
 #!/bin/bash
 #
-# YACLib Enhanced - Start Backend Only
+# Kottlib - Start Backend Only
 # Starts the FastAPI backend server
 #
 # Usage: ./start_backend.sh
@@ -9,7 +9,7 @@
 set -e  # Exit on error
 
 echo "=================================================="
-echo "       YACLib Enhanced - Backend API"
+echo "       Kottlib - Backend API"
 echo "=================================================="
 echo ""
 

@@ -324,6 +324,7 @@ async def get_series_list(
         # Get user for reading progress
         user = get_request_user(request, session)
         user_id_for_progress = user.id if user else None
+        logger.info(f"[SERIES DEBUG] Library {library_id}, Sort: {sort}, User: {user.username if user else 'None'}, User ID: {user_id_for_progress}")
 
         from sqlalchemy.orm import selectinload
         from ....database.models import Series as SeriesModel
@@ -383,6 +384,11 @@ async def get_series_list(
             ).options(
                 selectinload(Comic.reading_progress)
             ).all()
+
+            logger.info(f"[SERIES DEBUG] Loaded {len(comics_query)} comics for library {library_id}")
+            # Count how many have progress
+            comics_with_progress = sum(1 for c in comics_query if len(c.reading_progress) > 0)
+            logger.info(f"[SERIES DEBUG] Comics with reading progress: {comics_with_progress}")
 
             # Build a lookup dict: series_name -> list of comics
             comics_by_series = {}
@@ -489,30 +495,54 @@ async def get_series_list(
             # Sort by most recent addition (first comic id descending)
             series_list.sort(key=lambda s: s["first_comic_id"], reverse=True)
         elif sort == "progress":
-            # Sort by reading progress - prioritize in-progress series (started but not finished)
+            # Sort by reading progress - show series with the most progress first
             def get_progress_key(s):
                 total = s["total_issues"]
                 if total == 0:
                     return (3, 0)  # Empty series go last
-                completed = sum(1 for v in s["volumes"] if v.get("is_completed", False))
-                progress_pct = completed / total
+
+                # Calculate progress based on both completed AND partially-read volumes
+                total_progress = 0
+                has_any_progress = False
+                for v in s["volumes"]:
+                    if v.get("is_completed", False):
+                        total_progress += 100  # Fully completed = 100%
+                        has_any_progress = True
+                    elif v.get("progress_percent", 0) > 0:
+                        total_progress += v.get("progress_percent", 0)
+                        has_any_progress = True
+
+                # Average progress across all volumes
+                avg_progress = total_progress / total if total > 0 else 0
 
                 # Sort priority groups (lower number = higher priority):
-                # 0 = In progress (started but not finished) - closest to completion first
+                # 0 = Has any progress (sort by % descending - most progress first)
                 # 1 = Not started (0% progress)
-                # 2 = Fully completed (100% progress)
-                # 3 = Empty series
+                # 2 = Empty series
 
-                if completed == total:
-                    # Fully completed - low priority
-                    return (2, 0)
-                elif completed == 0:
-                    # Not started - medium priority
+                if not has_any_progress:
+                    # Not started - lower priority
                     return (1, 0)
                 else:
-                    # In progress - highest priority, sort by progress descending (closer to done = higher)
-                    return (0, -progress_pct)
+                    # Has progress - highest priority, sort by progress descending
+                    return (0, -avg_progress)
+
+            # Log some examples before sorting
+            for idx, s in enumerate(series_list[:3]):
+                total = s["total_issues"]
+                total_progress = sum(100 if v.get("is_completed") else v.get("progress_percent", 0) for v in s["volumes"])
+                avg_progress = total_progress / total if total > 0 else 0
+                logger.info(f"[SERIES DEBUG] Series '{s['name']}': {avg_progress:.1f}% avg progress ({total} volumes)")
+
             series_list.sort(key=get_progress_key)
+
+            # Log after sorting
+            logger.info(f"[SERIES DEBUG] After progress sort, first 5 series:")
+            for idx, s in enumerate(series_list[:5]):
+                total = s["total_issues"]
+                total_progress = sum(100 if v.get("is_completed") else v.get("progress_percent", 0) for v in s["volumes"])
+                avg_progress = total_progress / total if total > 0 else 0
+                logger.info(f"[SERIES DEBUG]   {idx+1}. '{s['name']}': {avg_progress:.1f}% avg progress")
         elif sort == "recent-read":
             # Sort by most recently read (based on last_read_at timestamp)
             def get_recent_read_key(s):

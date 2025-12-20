@@ -1,6 +1,6 @@
 # Scanner Plugin Development Guide
 
-This guide explains how to create a pluggable metadata scanner for YACLib Enhanced.
+This guide explains how to create a pluggable metadata scanner for Kottlib.
 
 ## Overview
 

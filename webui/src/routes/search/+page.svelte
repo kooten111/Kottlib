@@ -154,7 +154,7 @@
 </script>
 
 <svelte:head>
-	<title>Search: {searchQuery || 'Comics'} - YACLib</title>
+	<title>Search: {searchQuery || 'Comics'} - Kottlib</title>
 </svelte:head>
 
 <div class="flex flex-col min-h-screen">

@@ -1,7 +1,7 @@
 #!/bin/bash
 
 #
-# YACLib Enhanced - Quick Library Scanner
+# Kottlib - Quick Library Scanner
 #
 # Usage:
 #   ./scan.sh /path/to/library            # Quick scan with defaults

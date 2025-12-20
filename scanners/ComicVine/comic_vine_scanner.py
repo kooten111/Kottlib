@@ -75,7 +75,7 @@ class ComicVineAPI:
         self.last_request_time = 0
         self.session = requests.Session()
         self.session.headers.update({
-            'User-Agent': 'YACLib-Enhanced/1.0 (Compatible; ComicVineScanner)',
+            'User-Agent': 'Kottlib-Enhanced/1.0 (Compatible; ComicVineScanner)',
             'Accept': 'application/json',
         })
     

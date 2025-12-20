@@ -174,7 +174,7 @@
 </script>
 
 <svelte:head>
-	<title>Continue Reading - YACLib</title>
+	<title>Continue Reading - Kottlib</title>
 </svelte:head>
 
 <div class="flex flex-col min-h-screen">

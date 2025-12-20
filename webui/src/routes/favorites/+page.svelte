@@ -69,7 +69,7 @@
 </script>
 
 <svelte:head>
-	<title>Favorites - YACLib</title>
+	<title>Favorites - Kottlib</title>
 </svelte:head>
 
 <div class="flex flex-col min-h-screen">

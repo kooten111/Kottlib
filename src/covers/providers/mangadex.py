@@ -25,7 +25,7 @@ logger = logging.getLogger(__name__)
 # MangaDex API Constants
 MANGADEX_API_BASE = "https://api.mangadex.org"
 MANGADEX_UPLOADS_BASE = "https://uploads.mangadex.org"
-USER_AGENT = "YACLib-Enhanced (Compatible; MangaDexCoverProvider)"
+USER_AGENT = "Kottlib-Enhanced (Compatible; MangaDexCoverProvider)"
 
 # Rate limiting: 5 requests per second
 RATE_LIMIT_DELAY = 0.2

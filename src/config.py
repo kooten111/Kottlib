@@ -108,9 +108,9 @@ def get_config_path() -> Path:
     if system == 'Linux':
         user_config_dir = Path.home() / '.config' / 'yaclib'
     elif system == 'Darwin':  # macOS
-        user_config_dir = Path.home() / 'Library' / 'Application Support' / 'YACLib'
+        user_config_dir = Path.home() / 'Library' / 'Application Support' / 'Kottlib'
     elif system == 'Windows':
-        user_config_dir = Path(os.environ.get('APPDATA', Path.home())) / 'YACLib'
+        user_config_dir = Path(os.environ.get('APPDATA', Path.home())) / 'Kottlib'
     else:
         user_config_dir = Path.home() / '.yaclib'
 
@@ -211,25 +211,25 @@ def apply_env_overrides(config: Config) -> Config:
     Apply environment variable overrides
 
     Environment variables:
-    - YACLIB_HOST
-    - YACLIB_PORT
-    - YACLIB_DB_PATH
-    - YACLIB_LOG_LEVEL
+    - KOTTLIB_HOST
+    - KOTTLIB_PORT
+    - KOTTLIB_DB_PATH
+    - KOTTLIB_LOG_LEVEL
     """
-    if os.getenv('YACLIB_HOST'):
-        config.server.host = os.getenv('YACLIB_HOST')
+    if os.getenv('KOTTLIB_HOST'):
+        config.server.host = os.getenv('KOTTLIB_HOST')
 
-    if os.getenv('YACLIB_PORT'):
+    if os.getenv('KOTTLIB_PORT'):
         try:
-            config.server.port = int(os.getenv('YACLIB_PORT'))
+            config.server.port = int(os.getenv('KOTTLIB_PORT'))
         except ValueError:
-            logger.warning(f"Invalid YACLIB_PORT: {os.getenv('YACLIB_PORT')}")
+            logger.warning(f"Invalid KOTTLIB_PORT: {os.getenv('KOTTLIB_PORT')}")
 
-    if os.getenv('YACLIB_DB_PATH'):
-        config.database.path = os.getenv('YACLIB_DB_PATH')
+    if os.getenv('KOTTLIB_DB_PATH'):
+        config.database.path = os.getenv('KOTTLIB_DB_PATH')
 
-    if os.getenv('YACLIB_LOG_LEVEL'):
-        config.server.log_level = os.getenv('YACLIB_LOG_LEVEL')
+    if os.getenv('KOTTLIB_LOG_LEVEL'):
+        config.server.log_level = os.getenv('KOTTLIB_LOG_LEVEL')
 
     return config
 

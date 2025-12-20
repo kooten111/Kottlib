@@ -1,7 +1,7 @@
 """
 Database Models
 
-SQLAlchemy ORM models for YACLib Enhanced database.
+SQLAlchemy ORM models for Kottlib database.
 """
 
 from datetime import datetime

@@ -80,13 +80,13 @@ def get_data_dir() -> Path:
     """
     Get the data directory (./data relative to project root).
 
-    Can be overridden with YACLIB_DATA_DIR environment variable.
+    Can be overridden with KOTTLIB_DATA_DIR environment variable.
     """
     # Check for environment variable override
-    env_data_dir = os.environ.get('YACLIB_DATA_DIR')
+    env_data_dir = os.environ.get('KOTTLIB_DATA_DIR')
     if env_data_dir:
         data_dir = Path(env_data_dir).resolve()
-        logger.info(f"Using data directory from YACLIB_DATA_DIR: {data_dir}")
+        logger.info(f"Using data directory from KOTTLIB_DATA_DIR: {data_dir}")
     else:
         project_root = get_project_root()
         data_dir = project_root / 'data'

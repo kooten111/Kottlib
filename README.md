@@ -168,9 +168,9 @@ Legacy Endpoints (mobile apps):
 A Python client library is available at `src/client/yaclib.py`:
 
 ```python
-from src.client.yaclib import YACLibClient
+from src.client.yaclib import KottlibClient
 
-with YACLibClient("http://192.168.1.5:8081") as client:
+with KottlibClient("http://192.168.1.5:8081") as client:
     metadata = client.open_comic(library_id=2, comic_id=188)
     print(f"Pages: {metadata.num_pages}")
 

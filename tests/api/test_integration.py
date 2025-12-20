@@ -1,5 +1,5 @@
 """
-Integration Tests for YACLib Enhanced API
+Integration Tests for Kottlib API
 
 Tests complete workflows across multiple endpoints to ensure
 mobile and webui functionality works end-to-end.

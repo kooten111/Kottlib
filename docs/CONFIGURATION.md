@@ -18,8 +18,8 @@ Configuration files are searched in the following order:
 
 1. **Current Directory:** `./config.yml`
 2. **Linux:** `~/.config/yaclib/config.yml`
-3. **macOS:** `~/Library/Application Support/YACLib/config.yml`
-4. **Windows:** `%APPDATA%/YACLib/config.yml`
+3. **macOS:** `~/Library/Application Support/Kottlib/config.yml`
+4. **Windows:** `%APPDATA%/Kottlib/config.yml`
 
 ---
 
@@ -67,8 +67,8 @@ class DatabaseConfig:
 
 **Default Paths:**
 - Linux: `~/.local/share/yaclib/yaclib.db`
-- macOS: `~/Library/Application Support/YACLib/yaclib.db`
-- Windows: `%LOCALAPPDATA%/YACLib/yaclib.db`
+- macOS: `~/Library/Application Support/Kottlib/yaclib.db`
+- Windows: `%LOCALAPPDATA%/Kottlib/yaclib.db`
 
 ---
 
@@ -164,20 +164,20 @@ All configuration can be overridden via environment variables.
 
 | Variable | Config Path | Description |
 |----------|-------------|-------------|
-| `YACLIB_HOST` | `server.host` | Server bind address |
-| `YACLIB_PORT` | `server.port` | Server port number |
-| `YACLIB_DB_PATH` | `database.path` | SQLite database path |
-| `YACLIB_LOG_LEVEL` | `server.log_level` | Logging level |
-| `YACLIB_RELOAD` | `server.reload` | Auto-reload (true/false) |
-| `YACLIB_CORS_ORIGINS` | `server.cors_origins` | Comma-separated origins |
+| `KOTTLIB_HOST` | `server.host` | Server bind address |
+| `KOTTLIB_PORT` | `server.port` | Server port number |
+| `KOTTLIB_DB_PATH` | `database.path` | SQLite database path |
+| `KOTTLIB_LOG_LEVEL` | `server.log_level` | Logging level |
+| `KOTTLIB_RELOAD` | `server.reload` | Auto-reload (true/false) |
+| `KOTTLIB_CORS_ORIGINS` | `server.cors_origins` | Comma-separated origins |
 
 ### Example
 
 ```bash
-export YACLIB_HOST=127.0.0.1
-export YACLIB_PORT=8080
-export YACLIB_DB_PATH=/data/yaclib.db
-export YACLIB_LOG_LEVEL=DEBUG
+export KOTTLIB_HOST=127.0.0.1
+export KOTTLIB_PORT=8080
+export KOTTLIB_DB_PATH=/data/yaclib.db
+export KOTTLIB_LOG_LEVEL=DEBUG
 ```
 
 ---
@@ -397,10 +397,10 @@ When `false`:
 For Docker deployments, use environment variables:
 
 ```dockerfile
-ENV YACLIB_HOST=0.0.0.0
-ENV YACLIB_PORT=8081
-ENV YACLIB_DB_PATH=/data/yaclib.db
-ENV YACLIB_LOG_LEVEL=INFO
+ENV KOTTLIB_HOST=0.0.0.0
+ENV KOTTLIB_PORT=8081
+ENV KOTTLIB_DB_PATH=/data/yaclib.db
+ENV KOTTLIB_LOG_LEVEL=INFO
 ```
 
 Or mount a config file:

@@ -1,5 +1,5 @@
 """
-YACLib Utilities
+Kottlib Utilities
 
 Shared utility functions and classes used across the codebase.
 """

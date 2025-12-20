@@ -1,13 +1,13 @@
 #!/bin/bash
 #
-# YACLib Enhanced Server Startup Script
+# Kottlib Server Startup Script
 # Automatically sets up environment, installs dependencies, and starts server
 #
 
 set -e  # Exit on error
 
 echo "=================================================="
-echo "       YACLib Enhanced Server"
+echo "       Kottlib Server"
 echo "=================================================="
 echo ""
 
@@ -112,7 +112,7 @@ python3 src/init_db.py
 echo -e "${GREEN}✓ Database initialized${NC}"
 
 echo ""
-echo "Starting YACLib Enhanced Server..."
+echo "Starting Kottlib Server..."
 echo ""
 
 # Check if Node.js is installed for Web UI

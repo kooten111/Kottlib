@@ -1,8 +1,8 @@
-# Kottlib (YACLib Enhanced) - Architecture Documentation
+# Kottlib (Kottlib) - Architecture Documentation
 
 ## Overview
 
-Kottlib (YACLib Enhanced) is a modern comic library server with full backward compatibility with YACReader mobile apps. It provides a FastAPI backend, SQLite database, and SvelteKit web frontend for managing and reading comic collections.
+Kottlib (Kottlib) is a modern comic library server with full backward compatibility with YACReader mobile apps. It provides a FastAPI backend, SQLite database, and SvelteKit web frontend for managing and reading comic collections.
 
 ## System Architecture Diagram
 

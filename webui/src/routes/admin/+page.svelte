@@ -40,7 +40,7 @@
 </script>
 
 <svelte:head>
-	<title>Admin Dashboard - YACLib</title>
+	<title>Admin Dashboard - Kottlib</title>
 </svelte:head>
 
 <div class="flex flex-col min-h-screen">
@@ -55,7 +55,7 @@
 				</div>
 				<div>
 					<h1 class="page-title">Admin Dashboard</h1>
-					<p class="page-subtitle">Manage your YACLib server</p>
+					<p class="page-subtitle">Manage your Kottlib server</p>
 				</div>
 			</div>
 		</div>

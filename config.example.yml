@@ -1,4 +1,4 @@
-# YACLib Enhanced Configuration File
+# Kottlib Configuration File
 # Copy this to config.yml and customize for your setup
 
 # Server settings
@@ -58,7 +58,7 @@ libraries:
   #   scan_on_startup: false
 
 # Environment variables (override config file):
-# YACLIB_HOST - Server host
-# YACLIB_PORT - Server port
-# YACLIB_DB_PATH - Database path
-# YACLIB_LOG_LEVEL - Log level
+# KOTTLIB_HOST - Server host
+# KOTTLIB_PORT - Server port
+# KOTTLIB_DB_PATH - Database path
+# KOTTLIB_LOG_LEVEL - Log level

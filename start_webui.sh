@@ -1,6 +1,6 @@
 #!/bin/bash
 #
-# YACLib Enhanced - Start Web UI Only
+# Kottlib - Start Web UI Only
 # Starts the Svelte web frontend
 #
 # Usage: ./start_webui.sh
@@ -12,7 +12,7 @@
 set -e  # Exit on error
 
 echo "=================================================="
-echo "       YACLib Enhanced - Web UI"
+echo "       Kottlib - Web UI"
 echo "=================================================="
 echo ""
 

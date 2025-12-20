@@ -105,7 +105,7 @@
 </script>
 
 <svelte:head>
-	<title>{comic ? comic.title || comic.file_name?.replace(/\.(cbz|cbr|cb7|cbt)$/i, '') : 'Loading...'} - YACLib</title>
+	<title>{comic ? comic.title || comic.file_name?.replace(/\.(cbz|cbr|cb7|cbt)$/i, '') : 'Loading...'} - Kottlib</title>
 </svelte:head>
 
 <div class="flex flex-col min-h-screen">

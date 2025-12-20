@@ -6,7 +6,7 @@
 	<div class="container mx-auto px-4 py-6 max-w-content">
 		<div class="flex flex-col md:flex-row justify-between items-center">
 			<div class="text-dark-text-secondary text-sm mb-4 md:mb-0">
-				<p>YACLib Enhanced - Modern Comic Library Server</p>
+				<p>Kottlib - Modern Comic Library Server</p>
 				<p class="mt-1">Compatible with YACReader mobile apps</p>
 			</div>
 

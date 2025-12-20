@@ -1,6 +1,6 @@
-# YACLib Enhanced - Web UI
+# Kottlib - Web UI
 
-Modern, responsive web interface for YACLib Enhanced comic library server.
+Modern, responsive web interface for Kottlib comic library server.
 
 ## Features ✨
 
@@ -152,7 +152,7 @@ See [WEB_UI_PLAN.md](../docs/WEB_UI_PLAN.md) for the complete implementation roa
 
 ### API Integration
 
-The web UI communicates with the YACLib Enhanced backend via REST API. All API calls go through the client in `src/lib/api/`.
+The web UI communicates with the Kottlib backend via REST API. All API calls go through the client in `src/lib/api/`.
 
 Example:
 ```javascript

@@ -1,4 +1,4 @@
--- YACLib Enhanced Database Schema
+-- Kottlib Database Schema
 -- Version: 1.0
 -- Modern, clean schema designed for flexibility and future features
 

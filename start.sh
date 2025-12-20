@@ -1,6 +1,6 @@
 #!/bin/bash
 #
-# YACLib Enhanced - Start Full System
+# Kottlib - Start Full System
 # Starts both Backend API and Web UI
 #
 # Usage: ./start.sh
@@ -9,7 +9,7 @@
 set -e  # Exit on error
 
 echo "=================================================="
-echo "       YACLib Enhanced - Full System"
+echo "       Kottlib - Full System"
 echo "=================================================="
 echo ""
 
@@ -114,7 +114,7 @@ python src/init_db.py
 echo -e "${GREEN}✓ Database initialized${NC}"
 
 echo ""
-echo "Starting YACLib Enhanced..."
+echo "Starting Kottlib..."
 echo ""
 
 # Check if Node.js is installed for Web UI

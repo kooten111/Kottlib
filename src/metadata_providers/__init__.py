@@ -1,5 +1,5 @@
 """
-YACLib Metadata Providers (formerly Scanners)
+Kottlib Metadata Providers (formerly Scanners)
 
 Pluggable metadata provider system for extracting metadata from different sources.
 

@@ -1,10 +1,10 @@
 /**
- * YACLib Original Theme
+ * Kottlib Original Theme
  * The original dark theme with orange accents
  */
 export const yacLibOriginal = {
     id: 'yaclib-original',
-    name: 'YACLib Original',
+    name: 'Kottlib Original',
     type: 'dark',
     colors: {
         // Background colors

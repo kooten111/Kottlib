@@ -63,7 +63,7 @@ EXACT_MATCH_CONFIDENCE = 1.0
 MAX_CONFIDENCE = 1.0
 
 # User-Agent for API requests
-USER_AGENT = 'YACLib-Enhanced (Compatible; MetronScanner)'
+USER_AGENT = 'Kottlib-Enhanced (Compatible; MetronScanner)'
 
 
 # ============================================================================

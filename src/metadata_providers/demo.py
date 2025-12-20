@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Demo script for YACLib Scanner System
+Demo script for Kottlib Scanner System
 
 Shows how to use the scanner framework for different library types.
 """
@@ -118,7 +118,7 @@ def demo_direct_scanner_use():
 def main():
     """Run all demos"""
     print("\n" + "╔" + "="*78 + "╗")
-    print("║" + " "*20 + "YACLib Scanner System Demo" + " "*32 + "║")
+    print("║" + " "*20 + "Kottlib Scanner System Demo" + " "*32 + "║")
     print("╚" + "="*78 + "╝\n")
 
     try:

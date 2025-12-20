@@ -307,7 +307,7 @@
 </script>
 
 <svelte:head>
-	<title>{series ? series.series_name : "Loading..."} - YACLib</title>
+	<title>{series ? series.series_name : "Loading..."} - Kottlib</title>
 </svelte:head>
 
 <div class="flex flex-col min-h-screen">

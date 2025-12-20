@@ -1,5 +1,5 @@
 #!/bin/bash
-# Test runner script for YACLib Enhanced
+# Test runner script for Kottlib
 
 set -e  # Exit on error
 
@@ -16,7 +16,7 @@ cd "$PROJECT_ROOT"
 
 # Print header
 echo -e "${BLUE}========================================${NC}"
-echo -e "${BLUE}  YACLib Enhanced - Test Suite${NC}"
+echo -e "${BLUE}  Kottlib - Test Suite${NC}"
 echo -e "${BLUE}========================================${NC}"
 echo ""
 

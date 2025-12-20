@@ -398,7 +398,7 @@
 </script>
 
 <svelte:head>
-	<title>{comic ? (comic.title || comic.file_name?.replace(/\.(cbz|cbr|cb7|cbt)$/i, '')) : 'Loading...'} - YACLib Reader</title>
+	<title>{comic ? (comic.title || comic.file_name?.replace(/\.(cbz|cbr|cb7|cbt)$/i, '')) : 'Loading...'} - Kottlib Reader</title>
 </svelte:head>
 
 <div class="reader-container" class:fullscreen={isFullscreen}>

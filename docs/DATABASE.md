@@ -8,11 +8,11 @@ Kottlib uses SQLite as its primary database with SQLAlchemy 2.0 ORM for data acc
 
 The database location follows platform conventions:
 - **Linux**: `~/.local/share/yaclib/yaclib.db`
-- **macOS**: `~/Library/Application Support/YACLib/yaclib.db`
-- **Windows**: `%LOCALAPPDATA%/YACLib/yaclib.db`
+- **macOS**: `~/Library/Application Support/Kottlib/yaclib.db`
+- **Windows**: `%LOCALAPPDATA%/Kottlib/yaclib.db`
 
 Can be overridden via:
-- Environment variable: `YACLIB_DB_PATH`
+- Environment variable: `KOTTLIB_DB_PATH`
 - Config file: `database.path`
 
 ## ORM Models

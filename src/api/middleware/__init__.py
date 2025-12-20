@@ -1,7 +1,7 @@
 """
 API Middleware
 
-FastAPI middleware components for YACLib Enhanced.
+FastAPI middleware components for Kottlib.
 """
 
 from .session import (

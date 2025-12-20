@@ -1,5 +1,5 @@
 /**
- * Base API client for YACLib Enhanced with persistent caching
+ * Base API client for Kottlib with persistent caching
  */
 
 import { getCached, setCached } from '$lib/utils/persistentCache';

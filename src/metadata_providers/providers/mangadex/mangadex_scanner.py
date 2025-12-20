@@ -68,7 +68,7 @@ SUBSTRING_MATCH_CONFIDENCE = 0.9
 MAX_CONFIDENCE = 1.0
 
 # User-Agent for API requests
-USER_AGENT = 'YACLib-Enhanced (Compatible; MangaDexScanner)'
+USER_AGENT = 'Kottlib-Enhanced (Compatible; MangaDexScanner)'
 
 
 # ============================================================================

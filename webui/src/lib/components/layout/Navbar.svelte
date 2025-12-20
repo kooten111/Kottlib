@@ -78,7 +78,7 @@
 					on:click={handleHomeClick}
 				>
 					<BookOpen class="w-8 h-8 text-accent-orange" />
-					<span class="text-xl font-bold text-dark-text">YACLib</span>
+					<span class="text-xl font-bold text-dark-text">Kottlib</span>
 				</a>
 
 				<!-- Main Navigation removed as it's now in the sidebar -->

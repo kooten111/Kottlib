@@ -1,5 +1,5 @@
 """
-Application-wide constants for YACLib Enhanced
+Application-wide constants for Kottlib
 
 This module contains constants used throughout the application to avoid
 magic strings and numbers scattered across the codebase.

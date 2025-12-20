@@ -1,4 +1,4 @@
-# YACLib Enhanced - Python Dependencies
+# Kottlib - Python Dependencies
 
 # Core
 requests>=2.32.0
