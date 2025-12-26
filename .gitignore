@@ -43,7 +43,6 @@ tests/testlibs
 
 # Project specific
 # User-specific configuration (use config.example.yml as template)
-config.yml
 metadata/
 *.db
 *.db-journal

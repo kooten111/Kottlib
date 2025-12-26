@@ -1,0 +1,28 @@
+# Kottlib Bootstrap Configuration
+#
+# This file contains ONLY bootstrap settings needed to start the server.
+# All other settings (storage, features, libraries) are managed in the database.
+
+# Server settings
+server:
+  host: "0.0.0.0"        # Listen on all interfaces (use "127.0.0.1" for local only)
+  port: 8081             # Server port
+  reload: false          # Auto-reload on code changes (development only)
+  log_level: "info"      # Log level: debug, info, warning, error
+  cors_origins:          # CORS allowed origins
+    - "*"                # Allow all (use specific domains in production)
+
+# Database settings
+database:
+  path: null             # null = auto-detect platform default
+                         # Or specify: "/path/to/kottlib.db"
+  echo: false            # Log all SQL queries (debugging)
+
+# Environment variable overrides:
+# KOTTLIB_HOST - Server host
+# KOTTLIB_PORT - Server port
+# KOTTLIB_DB_PATH - Database path
+# KOTTLIB_LOG_LEVEL - Log level
+#
+# Storage paths, feature flags, and libraries are configured via the web UI
+# or API and stored in the database.
