@@ -41,6 +41,7 @@ class ServerConfig:
 class DatabaseConfig:
     """Database configuration (bootstrap only)"""
     path: Optional[str] = None  # None = auto-detect platform default
+    echo: bool = False  # Log all SQL queries (debugging)
 
 
 # ============================================================================
