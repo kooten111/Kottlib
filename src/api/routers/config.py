@@ -2,12 +2,12 @@
 Configuration API Router
 
 Endpoints for reading and updating server configuration.
-Changes are persisted to config.yml.
+- Server/database settings are saved to config.yml
+- Storage/feature settings are saved to database
 """
 
 import logging
 from typing import Dict, Any, Optional, List
-from pathlib import Path
 
 from fastapi import APIRouter, HTTPException, Request
 from pydantic import BaseModel, Field
@@ -19,10 +19,12 @@ from ...config import (
     get_config_path,
     ServerConfig,
     DatabaseConfig,
-    StorageConfig,
-    FeaturesConfig,
-    LibraryDefinition,
     Config
+)
+from ...database import (
+    get_setting,
+    set_setting,
+    get_all_settings,
 )
 
 logger = logging.getLogger(__name__)
@@ -46,17 +48,25 @@ class ServerConfigModel(BaseModel):
 class DatabaseConfigModel(BaseModel):
     """Database configuration model"""
     path: Optional[str] = Field(None, description="Database path (null = auto-detect)")
-    echo: bool = Field(..., description="Log all SQL queries")
+
+
+class ConfigResponseModel(BaseModel):
+    """Complete configuration response"""
+    server: ServerConfigModel
+    database: DatabaseConfigModel
+    storage: "StorageConfigModel"
+    features: "FeaturesConfigModel"
+    config_path: str = Field(..., description="Path to config file")
 
 
 class StorageConfigModel(BaseModel):
-    """Storage configuration model"""
+    """Storage configuration model (stored in database)"""
     covers_dir: Optional[str] = Field(None, description="Covers directory (null = auto-detect)")
     cache_dir: Optional[str] = Field(None, description="Cache directory")
 
 
 class FeaturesConfigModel(BaseModel):
-    """Features configuration model"""
+    """Features configuration model (stored in database)"""
     legacy_api: bool = Field(..., description="Enable YACReader-compatible legacy API")
     modern_api: bool = Field(..., description="Enable modern JSON REST API")
     reading_progress: bool = Field(..., description="Track reading progress")
@@ -64,15 +74,6 @@ class FeaturesConfigModel(BaseModel):
     collections: bool = Field(..., description="Enable user collections/reading lists")
     auto_thumbnails: bool = Field(..., description="Auto-generate thumbnails on scan")
     ignore_series_metadata: bool = Field(..., description="Ignore series metadata from files")
-
-
-class ConfigResponseModel(BaseModel):
-    """Complete configuration response"""
-    server: ServerConfigModel
-    database: DatabaseConfigModel
-    storage: StorageConfigModel
-    features: FeaturesConfigModel
-    config_path: str = Field(..., description="Path to config file")
 
 
 class ConfigUpdateModel(BaseModel):
@@ -109,18 +110,40 @@ async def get_configuration(request: Request):
     """
     Get current server configuration
 
-    Returns all configuration settings including server, database,
-    storage, and feature flags.
+    Returns all configuration settings:
+    - Server/database settings from config.yml
+    - Storage/features settings from database
     """
     try:
         config = get_config()
         config_path = get_config_path()
+        
+        # Get database session from app state
+        db = request.app.state.db
+        
+        with db.get_session() as session:
+            # Load storage settings from database
+            storage = StorageConfigModel(
+                covers_dir=get_setting(session, 'storage.covers_dir'),
+                cache_dir=get_setting(session, 'storage.cache_dir')
+            )
+            
+            # Load feature flags from database
+            features = FeaturesConfigModel(
+                legacy_api=get_setting(session, 'features.legacy_api') or True,
+                modern_api=get_setting(session, 'features.modern_api') or True,
+                reading_progress=get_setting(session, 'features.reading_progress') or True,
+                series_detection=get_setting(session, 'features.series_detection') or True,
+                collections=get_setting(session, 'features.collections') or True,
+                auto_thumbnails=get_setting(session, 'features.auto_thumbnails') or True,
+                ignore_series_metadata=get_setting(session, 'features.ignore_series_metadata') or True
+            )
 
         return ConfigResponseModel(
             server=ServerConfigModel(**dataclass_to_dict(config.server)),
             database=DatabaseConfigModel(**dataclass_to_dict(config.database)),
-            storage=StorageConfigModel(**dataclass_to_dict(config.storage)),
-            features=FeaturesConfigModel(**dataclass_to_dict(config.features)),
+            storage=storage,
+            features=features,
             config_path=str(config_path)
         )
     except Exception as e:
@@ -136,38 +159,57 @@ async def update_configuration(
     """
     Update server configuration
 
-    Updates configuration and persists changes to config.yml.
-    Note: Some changes (like server host/port) require a server restart.
+    - Server/database settings: Saved to config.yml (requires restart)
+    - Storage/features settings: Saved to database (immediate effect where possible)
     """
     try:
-        # Get current config
-        config = get_config()
-
-        # Apply updates
-        if update.server:
-            config.server = ServerConfig(**update.server.model_dump())
-
-        if update.database:
-            config.database = DatabaseConfig(**update.database.model_dump())
-
-        if update.storage:
-            config.storage = StorageConfig(**update.storage.model_dump())
-
-        if update.features:
-            config.features = FeaturesConfig(**update.features.model_dump())
-
-        # Save to file
-        save_config(config)
-
-        # Reload configuration
-        reload_config()
+        restart_required = False
+        
+        # Get database session from app state
+        db = request.app.state.db
+        
+        # Update server/database settings if provided (save to config.yml)
+        if update.server or update.database:
+            config = get_config()
+            
+            if update.server:
+                config.server = ServerConfig(**update.server.model_dump())
+                restart_required = True
+            
+            if update.database:
+                config.database = DatabaseConfig(**update.database.model_dump())
+                restart_required = True
+            
+            # Save to config file
+            save_config(config)
+            
+            # Reload configuration
+            reload_config()
+            
+            logger.info("Bootstrap configuration (server/database) updated in config.yml")
+        
+        # Update storage/features settings if provided (save to database)
+        with db.get_session() as session:
+            if update.storage:
+                storage = update.storage.model_dump()
+                set_setting(session, 'storage.covers_dir', storage.get('covers_dir'))
+                set_setting(session, 'storage.cache_dir', storage.get('cache_dir'))
+                session.commit()
+                logger.info("Storage settings updated in database")
+            
+            if update.features:
+                features = update.features.model_dump()
+                for key, value in features.items():
+                    set_setting(session, f'features.{key}', value)
+                session.commit()
+                logger.info("Feature flags updated in database")
 
         logger.info("Configuration updated successfully")
 
         return {
             "success": True,
             "message": "Configuration updated successfully",
-            "restart_required": update.server is not None,
+            "restart_required": restart_required,
             "config_path": str(get_config_path())
         }
 
