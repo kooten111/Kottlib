@@ -1,14 +1,14 @@
 """
 Configuration Management
 
-Handles server configuration including:
-- Server settings (host, port, etc.)
-- Library definitions
-- Feature flags
-- Storage locations
+Handles MINIMAL bootstrap configuration including:
+- Server settings (host, port, log_level, cors_origins)
+- Database settings (path only)
+
+All other settings (storage, features, libraries) are stored in the database.
 
 Configuration is loaded from:
-1. config.yml (user configuration)
+1. config.yml (bootstrap settings only)
 2. Environment variables (override)
 3. Defaults (fallback)
 """
@@ -39,31 +39,25 @@ class ServerConfig:
 
 @dataclass
 class DatabaseConfig:
-    """Database configuration"""
+    """Database configuration (bootstrap only)"""
     path: Optional[str] = None  # None = auto-detect platform default
-    echo: bool = False  # Log SQL queries
 
+
+# ============================================================================
+# Legacy/Migration Support Classes
+# These are kept for backward compatibility during migration only
+# ============================================================================
 
 @dataclass
 class StorageConfig:
-    """Storage paths configuration"""
-    covers_dir: Optional[str] = None  # None = auto-detect (next to database)
-    cache_dir: Optional[str] = None   # For temporary page cache
-
-
-@dataclass
-class LibraryDefinition:
-    """Library definition from config"""
-    name: str
-    path: str
-    auto_scan: bool = True
-    scan_on_startup: bool = False
-    settings: Dict[str, Any] = field(default_factory=dict)
+    """Storage paths configuration (LEGACY - now in database)"""
+    covers_dir: Optional[str] = None
+    cache_dir: Optional[str] = None
 
 
 @dataclass
 class FeaturesConfig:
-    """Feature flags"""
+    """Feature flags (LEGACY - now in database)"""
     legacy_api: bool = True
     modern_api: bool = True
     reading_progress: bool = True
@@ -74,13 +68,24 @@ class FeaturesConfig:
 
 
 @dataclass
+class LibraryDefinition:
+    """Library definition (LEGACY - libraries now managed in database only)"""
+    name: str
+    path: str
+    auto_scan: bool = True
+    scan_on_startup: bool = False
+    settings: Dict[str, Any] = field(default_factory=dict)
+
+
+# ============================================================================
+# Main Configuration
+# ============================================================================
+
+@dataclass
 class Config:
-    """Main configuration"""
+    """Main bootstrap configuration (server + database only)"""
     server: ServerConfig = field(default_factory=ServerConfig)
     database: DatabaseConfig = field(default_factory=DatabaseConfig)
-    storage: StorageConfig = field(default_factory=StorageConfig)
-    features: FeaturesConfig = field(default_factory=FeaturesConfig)
-    libraries: List[LibraryDefinition] = field(default_factory=list)
 
 
 # ============================================================================
@@ -129,25 +134,22 @@ def get_config_path() -> Path:
 
 
 def create_default_config() -> Config:
-    """Create default configuration"""
+    """Create default bootstrap configuration"""
     return Config(
         server=ServerConfig(),
-        database=DatabaseConfig(),
-        storage=StorageConfig(),
-        features=FeaturesConfig(),
-        libraries=[]
+        database=DatabaseConfig()
     )
 
 
 def load_config(config_path: Optional[Path] = None) -> Config:
     """
-    Load configuration from file
+    Load bootstrap configuration from file
 
     Args:
         config_path: Path to config file (None = auto-detect)
 
     Returns:
-        Config object with settings
+        Config object with bootstrap settings (server + database only)
     """
     if config_path is None:
         config_path = get_config_path()
@@ -166,25 +168,23 @@ def load_config(config_path: Optional[Path] = None) -> Config:
                 logger.warning("Config file is empty, using defaults")
                 return config
 
-            # Parse sections
+            # Parse ONLY bootstrap sections (server and database)
             if 'server' in data:
                 config.server = ServerConfig(**data['server'])
 
             if 'database' in data:
                 config.database = DatabaseConfig(**data['database'])
 
-            if 'storage' in data:
-                config.storage = StorageConfig(**data['storage'])
-
-            if 'features' in data:
-                config.features = FeaturesConfig(**data['features'])
-
-            if 'libraries' in data:
-                config.libraries = [
-                    LibraryDefinition(**lib) for lib in data['libraries']
-                ]
-
-            logger.info(f"Loaded {len(config.libraries)} libraries from config")
+            # Ignore other sections - they should be in database
+            ignored_sections = []
+            for section in ['storage', 'features', 'libraries']:
+                if section in data:
+                    ignored_sections.append(section)
+            
+            if ignored_sections:
+                logger.warning(
+                    f"Ignoring sections from config file (should be in database): {', '.join(ignored_sections)}"
+                )
 
         except Exception as e:
             logger.error(f"Failed to load config: {e}")
@@ -236,10 +236,10 @@ def apply_env_overrides(config: Config) -> Config:
 
 def save_config(config: Config, config_path: Optional[Path] = None):
     """
-    Save configuration to file
+    Save bootstrap configuration to file
 
     Args:
-        config: Configuration to save
+        config: Bootstrap configuration to save (server + database only)
         config_path: Path to save to (None = auto-detect)
     """
     if config_path is None:
@@ -248,13 +248,10 @@ def save_config(config: Config, config_path: Optional[Path] = None):
     # Create directory if needed
     config_path.parent.mkdir(parents=True, exist_ok=True)
 
-    # Convert to dict
+    # Convert to dict - ONLY server and database
     data = {
         'server': asdict(config.server),
-        'database': asdict(config.database),
-        'storage': asdict(config.storage),
-        'features': asdict(config.features),
-        'libraries': [asdict(lib) for lib in config.libraries]
+        'database': asdict(config.database)
     }
 
     # Save to file
@@ -262,65 +259,6 @@ def save_config(config: Config, config_path: Optional[Path] = None):
         yaml.dump(data, f, default_flow_style=False, sort_keys=False)
 
     logger.info(f"Configuration saved to: {config_path}")
-
-
-def create_example_config(output_path: Path):
-    """
-    Create an example configuration file
-
-    Args:
-        output_path: Where to save the example config
-    """
-    config = Config(
-        server=ServerConfig(
-            host="0.0.0.0",
-            port=8081,
-            reload=False,
-            log_level="info",
-            cors_origins=["*"]
-        ),
-        database=DatabaseConfig(
-            path=None,  # Auto-detect
-            echo=False
-        ),
-        storage=StorageConfig(
-            covers_dir=None,  # Auto-detect
-            cache_dir=None
-        ),
-        features=FeaturesConfig(
-            legacy_api=True,
-            modern_api=True,
-            reading_progress=True,
-            series_detection=True,
-            collections=True,
-            auto_thumbnails=True
-        ),
-        libraries=[
-            LibraryDefinition(
-                name="Comics",
-                path="/path/to/comics",
-                auto_scan=True,
-                scan_on_startup=False,
-                settings={
-                    "sort_mode": "folders_first",
-                    "default_reading_direction": "ltr"
-                }
-            ),
-            LibraryDefinition(
-                name="Manga",
-                path="/path/to/manga",
-                auto_scan=True,
-                scan_on_startup=False,
-                settings={
-                    "sort_mode": "folders_first",
-                    "default_reading_direction": "rtl"
-                }
-            )
-        ]
-    )
-
-    save_config(config, output_path)
-    logger.info(f"Example config created at: {output_path}")
 
 
 # ============================================================================

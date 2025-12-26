@@ -41,13 +41,13 @@ async def lifespan(app: FastAPI):
     """
     # Startup
     logger.info("Starting Kottlib Server...")
-    logger.info(f"Configuration loaded: {len(config.libraries)} libraries defined")
 
     # Initialize database
     db_path = config.database.path or get_default_db_path()
     logger.info(f"Database: {db_path}")
 
-    db = Database(db_path, echo=config.database.echo)
+    # Get database echo setting from database (will be loaded after DB connection)
+    db = Database(db_path, echo=False)  # Default to False initially
     # Note: Database schema initialization is handled by init_db.py script
     # which must be run before starting the server (see run_server.sh)
 
@@ -55,20 +55,36 @@ async def lifespan(app: FastAPI):
     app.state.db = db
     app.state.config = config
 
-    # Sync config.yml with database
-    from ..services.config_sync import ensure_config_file, sync_config_to_db, get_sync_summary
+    # Initialize database settings and migrate legacy config if needed
+    from ..database import initialize_default_settings, get_setting
+    from ..services.config_sync import ensure_config_file, migrate_legacy_config_to_db, get_sync_summary
     from ..config import get_config_path
     
     with db.get_session() as session:
+        # Initialize default settings in database if not present
+        initialize_default_settings(session)
+        session.commit()
+        logger.info("Database settings initialized")
+        
+        # Load database echo setting
+        db_echo = get_setting(session, 'database.echo')
+        if db_echo is not None:
+            db.echo = db_echo
+        
+        # Ensure minimal config file exists
         config_path = get_config_path()
         if not config_path.exists():
-            logger.info("Config file not found, creating from database state...")
+            logger.info("Config file not found, creating minimal bootstrap config...")
             ensure_config_file(session, config)
-        else:
-            logger.info("Syncing config.yml with database...")
-            stats = sync_config_to_db(session, config)
+        
+        # Migrate legacy config libraries to database (one-time migration)
+        logger.info("Checking for legacy config libraries to migrate...")
+        stats = migrate_legacy_config_to_db(session)
+        if stats['created'] > 0 or stats['updated'] > 0:
             summary = get_sync_summary(stats)
             logger.info(summary)
+        else:
+            logger.info("No legacy config libraries to migrate")
 
     # Initialize scheduler
     from ..services.scheduler import get_scheduler
