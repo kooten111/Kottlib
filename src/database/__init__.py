@@ -25,6 +25,7 @@ from .models import (
     ComicLabel,
     ReadingList,
     ReadingListItem,
+    Setting,
 )
 
 # Database connection
@@ -111,6 +112,13 @@ from .operations import (
     add_comic_to_reading_list,
     remove_comic_from_reading_list,
     get_reading_list_comics,
+    # Settings operations
+    get_setting,
+    set_setting,
+    get_all_settings,
+    delete_setting,
+    set_multiple_settings,
+    initialize_default_settings,
 )
 
 __all__ = [
@@ -130,6 +138,7 @@ __all__ = [
     'ComicLabel',
     'ReadingList',
     'ReadingListItem',
+    'Setting',
     # Database
     'Database',
     'get_project_root',
@@ -200,4 +209,11 @@ __all__ = [
     'add_comic_to_reading_list',
     'remove_comic_from_reading_list',
     'get_reading_list_comics',
+    # Settings
+    'get_setting',
+    'set_setting',
+    'get_all_settings',
+    'delete_setting',
+    'set_multiple_settings',
+    'initialize_default_settings',
 ]

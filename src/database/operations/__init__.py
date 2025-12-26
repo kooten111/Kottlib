@@ -12,6 +12,7 @@ This package provides focused database operation functions organized by entity:
 - favorite: Favorites operations
 - label: Labels/tags operations
 - reading_list: Reading lists operations
+- setting: Application settings operations
 """
 
 from .library import (
@@ -95,6 +96,14 @@ from .reading_list import (
     remove_comic_from_reading_list,
     get_reading_list_comics,
 )
+from .setting import (
+    get_setting,
+    set_setting,
+    get_all_settings,
+    delete_setting,
+    set_multiple_settings,
+    initialize_default_settings,
+)
 
 
 __all__ = [
@@ -168,4 +177,11 @@ __all__ = [
     "add_comic_to_reading_list",
     "remove_comic_from_reading_list",
     "get_reading_list_comics",
+    # Setting
+    "get_setting",
+    "set_setting",
+    "get_all_settings",
+    "delete_setting",
+    "set_multiple_settings",
+    "initialize_default_settings",
 ]
