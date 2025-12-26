@@ -2,13 +2,62 @@
 
 ## Overview
 
-Kottlib uses a layered configuration system with support for YAML files and environment variables.
+Kottlib uses a **minimal bootstrap configuration** approach:
+- **config.yml**: Contains only essential bootstrap settings (server + database path)
+- **Database**: Stores all runtime settings (features, storage, libraries)
 
-## Configuration Sources (Priority Order)
+This design allows:
+- Easy deployment with sensible defaults
+- Settings changes via WebUI without file editing
+- Clear separation between bootstrap and runtime configuration
 
-1. **Environment Variables** (highest priority)
-2. **Config File** (`config.yml`)
-3. **Default Values** (lowest priority)
+---
+
+## Configuration Architecture
+
+### Bootstrap Settings (config.yml)
+
+The configuration file contains **only** settings needed before the database can be accessed:
+
+```yaml
+server:
+  host: "0.0.0.0"
+  port: 8081
+  log_level: "info"
+  cors_origins:
+    - "*"
+
+database:
+  path: null  # null = auto-detect platform default
+```
+
+**Why minimal?**
+- These settings are needed to start the server and connect to the database
+- Changes require a server restart anyway
+- Environment variables can override these for Docker/production
+
+### Runtime Settings (Database)
+
+All other settings are stored in the database `settings` table:
+
+**Storage Settings:**
+- `storage.covers_dir` - Cover thumbnails directory
+- `storage.cache_dir` - Cache directory
+
+**Feature Flags:**
+- `features.legacy_api` - Enable YACReader-compatible API
+- `features.modern_api` - Enable modern JSON REST API
+- `features.reading_progress` - Track reading progress
+- `features.series_detection` - Auto-detect series
+- `features.collections` - Enable user collections
+- `features.auto_thumbnails` - Auto-generate thumbnails
+- `features.ignore_series_metadata` - Ignore series metadata from files
+
+**Database Settings:**
+- `database.echo` - Log SQL queries (debugging)
+
+**Libraries:**
+- Stored in `libraries` table (managed via WebUI/API)
 
 ---
 
@@ -21,146 +70,42 @@ Configuration files are searched in the following order:
 3. **macOS:** `~/Library/Application Support/Kottlib/config.yml`
 4. **Windows:** `%APPDATA%/Kottlib/config.yml`
 
+If no config file exists, a default one is created on first run.
+
 ---
 
-## Data Classes (`src/config.py`)
+## Bootstrap Configuration Reference
 
 ### ServerConfig
 
 Server binding and runtime configuration.
 
-```python
-@dataclass
-class ServerConfig:
-    host: str = "0.0.0.0"         # Bind address
-    port: int = 8081              # Server port
-    reload: bool = False          # Auto-reload on file changes
-    log_level: str = "INFO"       # Logging level
-    cors_origins: List[str] = None  # CORS allowed origins
-```
-
 | Field | Type | Default | Description |
 |-------|------|---------|-------------|
 | `host` | str | "0.0.0.0" | IP address to bind (0.0.0.0 = all interfaces) |
 | `port` | int | 8081 | HTTP port number |
-| `reload` | bool | False | Enable Uvicorn auto-reload |
-| `log_level` | str | "INFO" | DEBUG, INFO, WARNING, ERROR |
-| `cors_origins` | List[str] | None | Allowed CORS origins (None = allow all) |
-
----
+| `reload` | bool | False | Enable Uvicorn auto-reload (development only) |
+| `log_level` | str | "info" | Logging level: debug, info, warning, error |
+| `cors_origins` | List[str] | ["*"] | Allowed CORS origins |
 
 ### DatabaseConfig
 
 Database connection settings.
 
-```python
-@dataclass
-class DatabaseConfig:
-    path: str = None              # SQLite database path
-    echo: bool = False            # SQLAlchemy SQL logging
-```
-
 | Field | Type | Default | Description |
 |-------|------|---------|-------------|
 | `path` | str | None | SQLite database path (uses platform default if None) |
-| `echo` | bool | False | Log all SQL statements (debugging) |
 
-**Default Paths:**
+**Default Database Paths:**
 - Linux: `~/.local/share/yaclib/yaclib.db`
 - macOS: `~/Library/Application Support/Kottlib/yaclib.db`
 - Windows: `%LOCALAPPDATA%/Kottlib/yaclib.db`
 
 ---
 
-### StorageConfig
-
-File storage paths.
-
-```python
-@dataclass
-class StorageConfig:
-    covers_dir: str = None        # Cover thumbnails directory
-    cache_dir: str = None         # Cache directory
-```
-
-| Field | Type | Default | Description |
-|-------|------|---------|-------------|
-| `covers_dir` | str | None | Cover thumbnails (default: `{data_dir}/covers/`) |
-| `cache_dir` | str | None | General cache (default: `{data_dir}/cache/`) |
-
----
-
-### LibraryDefinition
-
-Library configuration for auto-creation.
-
-```python
-@dataclass
-class LibraryDefinition:
-    name: str                     # Library display name
-    path: str                     # Filesystem path
-    auto_scan: bool = True        # Enable auto-scanning
-    scan_on_startup: bool = True  # Scan when server starts
-    settings: Dict = None         # Library-specific settings
-```
-
-| Field | Type | Default | Description |
-|-------|------|---------|-------------|
-| `name` | str | Required | Library display name |
-| `path` | str | Required | Full path to comic directory |
-| `auto_scan` | bool | True | Enable periodic scanning |
-| `scan_on_startup` | bool | True | Scan when server starts |
-| `settings` | Dict | None | Library-specific settings (scanner config, etc.) |
-
----
-
-### FeaturesConfig
-
-Feature flags for enabling/disabling functionality.
-
-```python
-@dataclass
-class FeaturesConfig:
-    legacy_api: bool = True           # Enable legacy v1 API
-    modern_api: bool = True           # Enable modern REST API
-    reading_progress: bool = True     # Track reading progress
-    series_detection: bool = True     # Auto-detect series from folder structure
-    collections: bool = True          # Enable user collections
-    auto_thumbnails: bool = True      # Generate thumbnails automatically
-    ignore_series_metadata: bool = True  # Ignore ComicInfo.xml series field
-```
-
-| Field | Type | Default | Description |
-|-------|------|---------|-------------|
-| `legacy_api` | bool | True | Enable `/library/*` endpoints for YACReader |
-| `modern_api` | bool | True | Enable modern JSON APIs |
-| `reading_progress` | bool | True | Track per-user reading progress |
-| `series_detection` | bool | True | Auto-detect series from folder structure |
-| `collections` | bool | True | Enable user collections feature |
-| `auto_thumbnails` | bool | True | Generate cover thumbnails during scan |
-| `ignore_series_metadata` | bool | True | Use folder-based series instead of ComicInfo.xml |
-
----
-
-### Config
-
-Root configuration aggregating all sections.
-
-```python
-@dataclass
-class Config:
-    server: ServerConfig = None
-    database: DatabaseConfig = None
-    storage: StorageConfig = None
-    libraries: List[LibraryDefinition] = None
-    features: FeaturesConfig = None
-```
-
----
-
 ## Environment Variables
 
-All configuration can be overridden via environment variables.
+Bootstrap settings can be overridden via environment variables:
 
 | Variable | Config Path | Description |
 |----------|-------------|-------------|
@@ -168,8 +113,6 @@ All configuration can be overridden via environment variables.
 | `KOTTLIB_PORT` | `server.port` | Server port number |
 | `KOTTLIB_DB_PATH` | `database.path` | SQLite database path |
 | `KOTTLIB_LOG_LEVEL` | `server.log_level` | Logging level |
-| `KOTTLIB_RELOAD` | `server.reload` | Auto-reload (true/false) |
-| `KOTTLIB_CORS_ORIGINS` | `server.cors_origins` | Comma-separated origins |
 
 ### Example
 
@@ -182,191 +125,162 @@ export KOTTLIB_LOG_LEVEL=DEBUG
 
 ---
 
-## Config File Example
+## First Run Behavior
 
-`config.yml`:
+On first run with no configuration:
 
-```yaml
-server:
-  host: "0.0.0.0"
-  port: 8081
-  reload: false
-  log_level: "INFO"
-  cors_origins:
-    - "http://localhost:5173"
-    - "http://localhost:3000"
+1. **Config file created** with bootstrap defaults at platform-appropriate location
+2. **Database created** at platform-appropriate location  
+3. **Default settings** initialized in database:
+   - All features enabled
+   - Auto-detect storage paths
+   - No libraries configured
 
-database:
-  path: "/data/yaclib/yaclib.db"
-  echo: false
-
-storage:
-  covers_dir: "/data/yaclib/covers"
-  cache_dir: "/data/yaclib/cache"
-
-libraries:
-  - name: "Manga"
-    path: "/comics/manga"
-    auto_scan: true
-    scan_on_startup: true
-    settings:
-      scanner:
-        primary_scanner: "AniList"
-        confidence_threshold: 0.6
-
-  - name: "Western Comics"
-    path: "/comics/western"
-    auto_scan: true
-    settings:
-      scanner:
-        primary_scanner: "Comic Vine"
-        scanner_configs:
-          "Comic Vine":
-            api_key: "your-api-key-here"
-
-features:
-  legacy_api: true
-  modern_api: true
-  reading_progress: true
-  series_detection: true
-  collections: true
-  auto_thumbnails: true
-  ignore_series_metadata: true
-```
+4. **WebUI accessible** at http://localhost:8081
+   - Add libraries via Settings page
+   - Configure features as needed
+   - Settings saved to database
 
 ---
 
-## Configuration Functions
+## Managing Settings
 
-### get_config_path
+### Via WebUI (Recommended)
 
-Get path to config file.
+1. Navigate to Settings page
+2. Modify settings as needed
+3. Settings are automatically saved to the database
+4. **Note:** Server/database changes require restart
 
-```python
-def get_config_path() -> Path
-```
+### Via API
 
-**Returns:** Path to config file, or None if not found
+**GET /api/v2/config**
 
-**Search Order:**
-1. `./config.yml`
-2. Platform-specific config directory
+Get current configuration:
 
----
-
-### load_config
-
-Load configuration from file.
-
-```python
-def load_config(config_path: Optional[Path] = None) -> Config
-```
-
-| Parameter | Type | Required | Default | Description |
-|-----------|------|----------|---------|-------------|
-| `config_path` | Path | No | None | Config file path (auto-detect if None) |
-
-**Returns:** Config instance
-
-**Behavior:**
-1. Load from file if exists
-2. Apply defaults for missing values
-3. Apply environment variable overrides
-
----
-
-### save_config
-
-Save configuration to file.
-
-```python
-def save_config(config: Config, config_path: Optional[Path] = None)
-```
-
-| Parameter | Type | Required | Default | Description |
-|-----------|------|----------|---------|-------------|
-| `config` | Config | Yes | - | Configuration to save |
-| `config_path` | Path | No | None | Output path (uses default if None) |
-
----
-
-### apply_env_overrides
-
-Apply environment variable overrides to config.
-
-```python
-def apply_env_overrides(config: Config) -> Config
-```
-
-| Parameter | Type | Required | Description |
-|-----------|------|----------|-------------|
-| `config` | Config | Yes | Configuration to modify |
-
-**Returns:** Modified Config instance
-
----
-
-### get_config
-
-Get global configuration singleton.
-
-```python
-def get_config() -> Config
-```
-
-**Returns:** Global Config instance
-
-**Note:** Loads config on first call, caches for subsequent calls.
-
----
-
-### reload_config
-
-Reload configuration from file.
-
-```python
-def reload_config()
-```
-
-**Side Effects:**
-- Clears cached config
-- Reloads from file on next `get_config()` call
-
----
-
-## Library-Specific Settings
-
-Each library can have custom settings stored in `settings` JSON:
-
-```python
+```json
 {
-    "scanner": {
-        "primary_scanner": "AniList",
-        "fallback_scanners": ["MangaDex"],
-        "confidence_threshold": 0.6,
-        "fallback_threshold": 0.7,
-        "scanner_configs": {
-            "Comic Vine": {
-                "api_key": "..."
-            }
-        }
-    },
-    "scanner_progress": {
-        "in_progress": false,
-        "processed": 0,
-        "total": 0
-    },
-    "file_scan_progress": {
-        "in_progress": false,
-        "current": 0,
-        "total": 0
-    }
+  "server": {
+    "host": "0.0.0.0",
+    "port": 8081,
+    "log_level": "info",
+    "cors_origins": ["*"]
+  },
+  "database": {
+    "path": "/path/to/yaclib.db"
+  },
+  "storage": {
+    "covers_dir": null,
+    "cache_dir": null
+  },
+  "features": {
+    "legacy_api": true,
+    "modern_api": true,
+    "reading_progress": true,
+    "series_detection": true,
+    "collections": true,
+    "auto_thumbnails": true,
+    "ignore_series_metadata": true
+  }
+}
+```
+
+**PUT /api/v2/config**
+
+Update configuration:
+
+```json
+{
+  "features": {
+    "ignore_series_metadata": false
+  },
+  "storage": {
+    "covers_dir": "/custom/path/covers"
+  }
+}
+```
+
+Response indicates if restart is required:
+
+```json
+{
+  "success": true,
+  "message": "Configuration updated successfully",
+  "restart_required": false
 }
 ```
 
 ---
 
-## Feature Flag Details
+## Migration from Legacy Config
+
+If you have an existing `config.yml` with libraries, storage, or feature settings:
+
+### Automatic Migration
+
+On first startup with legacy config:
+
+1. Bootstrap settings (server/database) are **kept** in config.yml
+2. Libraries are **migrated** to database
+3. Storage/features settings are **ignored** (database defaults used)
+4. Legacy sections can be safely removed from config.yml
+
+### Manual Migration
+
+If you want to preserve custom storage/feature settings:
+
+1. Note your custom settings from old config.yml
+2. Start server (automatic migration occurs)
+3. Configure settings via WebUI Settings page
+4. Clean up config.yml to remove legacy sections
+
+**Example Legacy Config:**
+
+```yaml
+# OLD - Will be migrated
+storage:
+  covers_dir: "/custom/covers"
+features:
+  legacy_api: false
+libraries:
+  - name: "Comics"
+    path: "/mnt/comics"
+```
+
+**After Migration:**
+
+Libraries moved to database → Manage via WebUI
+Storage/features → Set via Settings page
+config.yml → Only contains server/database
+
+---
+
+## Docker Configuration
+
+For Docker deployments, use environment variables for bootstrap settings:
+
+```dockerfile
+ENV KOTTLIB_HOST=0.0.0.0
+ENV KOTTLIB_PORT=8081
+ENV KOTTLIB_DB_PATH=/data/yaclib.db
+ENV KOTTLIB_LOG_LEVEL=INFO
+```
+
+Mount volumes for persistence:
+
+```bash
+docker run \
+  -v ./data:/data \
+  -p 8081:8081 \
+  -e KOTTLIB_DB_PATH=/data/yaclib.db \
+  kottlib
+```
+
+All other settings managed via WebUI after container starts.
+
+---
+
+## Feature Flags Details
 
 ### ignore_series_metadata
 
@@ -392,60 +306,142 @@ When `false`:
 
 ---
 
-## Docker Configuration
+## Storage Paths
 
-For Docker deployments, use environment variables:
+### Default Locations
 
-```dockerfile
-ENV KOTTLIB_HOST=0.0.0.0
-ENV KOTTLIB_PORT=8081
-ENV KOTTLIB_DB_PATH=/data/yaclib.db
-ENV KOTTLIB_LOG_LEVEL=INFO
-```
+If not specified in database settings:
 
-Or mount a config file:
+**covers_dir:** `{data_dir}/covers/`
+**cache_dir:** `{data_dir}/cache/`
 
-```bash
-docker run -v ./config.yml:/app/config.yml yaclib
+Where `{data_dir}` is:
+- Linux: `~/.local/share/yaclib/`
+- macOS: `~/Library/Application Support/Kottlib/`
+- Windows: `%LOCALAPPDATA%/Kottlib/`
+
+### Custom Paths
+
+Set via Settings page or API:
+
+```json
+{
+  "storage": {
+    "covers_dir": "/mnt/storage/covers",
+    "cache_dir": "/tmp/kottlib-cache"
+  }
+}
 ```
 
 ---
 
-## Configuration API
+## Library Management
 
-The server exposes configuration via REST API:
+Libraries are managed entirely through the database.
 
-### GET /api/v2/config
+### Add Library (via WebUI)
 
-Get current configuration (excluding secrets).
+1. Go to Settings → Libraries
+2. Click "Add Library"
+3. Specify name and path
+4. Configure scanner settings
+5. Save
 
-**Response:**
-```json
+### Add Library (via API)
+
+```http
+POST /api/v2/libraries
+Content-Type: application/json
+
 {
-    "server": {
-        "host": "0.0.0.0",
-        "port": 8081,
-        "log_level": "INFO"
-    },
-    "features": {
-        "legacy_api": true,
-        "modern_api": true,
-        "reading_progress": true
-    }
+  "name": "Comics",
+  "path": "/mnt/comics",
+  "settings": {
+    "auto_scan": true,
+    "scan_on_startup": false
+  }
 }
 ```
 
-### PUT /api/v2/config
+Libraries are stored in the `libraries` database table, **not** in config.yml.
 
-Update configuration.
+---
 
-**Request Body:**
-```json
-{
-    "features": {
-        "ignore_series_metadata": false
-    }
-}
+## Troubleshooting
+
+### Config file not updating
+
+**Issue:** Changes via WebUI don't update config.yml
+
+**Solution:** This is expected! Only server/database settings are saved to config.yml. Storage, features, and libraries are in the database.
+
+### Settings lost after restart
+
+**Issue:** Settings reset after server restart
+
+**Solution:** Check database file permissions. Settings are in the database, not the config file.
+
+### Migration not working
+
+**Issue:** Legacy libraries not appearing after migration
+
+**Solution:** Check server logs for migration messages. Libraries should be created in database on first startup.
+
+---
+
+## Advanced Configuration
+
+### Custom Database Location
+
+```yaml
+database:
+  path: "/custom/path/kottlib.db"
 ```
 
-**Note:** Some settings require server restart to take effect.
+Or via environment:
+
+```bash
+KOTTLIB_DB_PATH=/custom/path/kottlib.db
+```
+
+### Production CORS Settings
+
+```yaml
+server:
+  cors_origins:
+    - "https://yourdomain.com"
+    - "https://app.yourdomain.com"
+```
+
+### Debug Mode
+
+```yaml
+server:
+  log_level: "debug"
+```
+
+And set database echo via Settings page:
+- `database.echo = true` (logs all SQL queries)
+
+---
+
+## Summary
+
+**What goes where:**
+
+| Setting | Location | Change Method | Restart Required |
+|---------|----------|---------------|------------------|
+| Server host/port | config.yml | Edit file or env var | Yes |
+| Log level | config.yml | Edit file or env var | Yes |
+| CORS origins | config.yml | Edit file or env var | Yes |
+| Database path | config.yml | Edit file or env var | Yes |
+| Storage paths | Database | WebUI/API | No |
+| Feature flags | Database | WebUI/API | No |
+| Database echo | Database | WebUI/API | No |
+| Libraries | Database | WebUI/API | No |
+
+**Best Practices:**
+- Use config.yml for deployment-specific settings (host, port, db path)
+- Use database (via WebUI) for runtime settings (features, storage)
+- Use environment variables for Docker/production deployments
+- Backup both config.yml and database file for disaster recovery
