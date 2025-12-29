@@ -15,6 +15,7 @@ class ScanResult:
     comics_skipped: int = 0
     comics_skipped_unchanged: int = 0  # Fast path: unchanged files
     comics_updated: int = 0  # Moved/renamed files
+    comics_removed: int = 0  # Comics removed during cleanup (files no longer exist)
     folders_found: int = 0
     thumbnails_generated: int = 0
     errors: int = 0

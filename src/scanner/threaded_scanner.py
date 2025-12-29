@@ -11,6 +11,7 @@ This module has been refactored to use focused submodules:
 - folder_manager.py: create_folders function
 - comic_processor.py: process_single_comic, extract_metadata
 - series_builder.py: rebuild_series_table, build_series_tree_cache
+- cleanup.py: cleanup_missing_comics function
 """
 
 import time
@@ -33,6 +34,7 @@ from .structure_classifier import scan_library_structure
 from .folder_manager import create_folders
 from .comic_processor import process_single_comic
 from .series_builder import rebuild_series_table, build_series_tree_cache
+from .cleanup import cleanup_missing_comics
 
 
 logger = logging.getLogger(__name__)
@@ -42,9 +44,10 @@ class ThreadedScanner:
     """
     Multi-threaded comic library scanner.
 
-    Splits work into two phases:
+    Splits work into three phases:
     1. File discovery (fast, single-threaded)
     2. Comic processing (slow, multi-threaded)
+    3. Cleanup of missing comics (removes stale database entries)
 
     Uses thread pool for parallel processing of comics.
     """
@@ -138,6 +141,29 @@ class ThreadedScanner:
         logger.info(f"Phase 2: Processing comics with {self.max_workers} workers...")
         self._process_comics_parallel(comic_files, folder_map, root_folder_id, total_comics)
 
+        # Phase 3: Cleanup - remove comics that no longer exist on disk
+        logger.info("Phase 3: Cleaning up missing comics...")
+        if self.progress_callback:
+            self.progress_callback(0, 0, "Cleaning up...", None, None, [])
+        
+        # Build set of discovered paths for comparison
+        discovered_paths = {str(comic_path) for comic_path, _ in comic_files}
+        
+        # Get covers directory for thumbnail cleanup
+        covers_dir = library_path / '.yacreaderlibrary' / 'covers'
+        
+        try:
+            comics_removed = cleanup_missing_comics(
+                self.db,
+                self.library_id,
+                library_path,
+                discovered_paths,
+                covers_dir if covers_dir.exists() else None
+            )
+        except Exception as e:
+            logger.error(f"Failed to cleanup missing comics: {e}", exc_info=True)
+            comics_removed = 0
+
         duration = time.time() - start_time
 
         result = ScanResult(
@@ -146,6 +172,7 @@ class ThreadedScanner:
             comics_skipped=self._counters['skipped'],
             comics_skipped_unchanged=self._counters['unchanged'],
             comics_updated=self._counters['updated'],
+            comics_removed=comics_removed,
             folders_found=len(folders),
             thumbnails_generated=self._counters['thumbnails'],
             errors=self._counters['errors'],
@@ -156,6 +183,7 @@ class ThreadedScanner:
             f"Scan complete: {result.comics_added} added, "
             f"{result.comics_skipped} skipped ({result.comics_skipped_unchanged} unchanged, "
             f"{result.comics_updated} updated), "
+            f"{result.comics_removed} removed, "
             f"{result.errors} errors in {duration:.2f}s"
         )
 
