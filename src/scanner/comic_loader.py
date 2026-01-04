@@ -20,6 +20,8 @@ from io import BytesIO
 import xml.etree.ElementTree as ET
 from PIL import Image
 import logging
+import subprocess
+import shutil
 
 logger = logging.getLogger(__name__)
 
@@ -517,6 +519,120 @@ class CB7Archive(ComicArchive):
             self.archive.close()
 
 
+class SevenZipCliArchive(ComicArchive):
+    """
+    Fallback archive handler using 7z CLI tool.
+    Useful when unrar is missing for CBR files, or when py7zr fails.
+    Requires '7z' command to be available in PATH.
+    """
+
+    def __init__(self, file_path: Path):
+        super().__init__(file_path)
+        if not shutil.which('7z'):
+            raise RuntimeError("7z command not found")
+
+    def _load_pages(self) -> List[ComicPage]:
+        """Load pages by parsing '7z l -slt' output"""
+        pages = []
+        
+        try:
+            # List archive contents with technical details (-slt)
+            cmd = ['7z', 'l', '-slt', str(self.file_path)]
+            result = subprocess.run(
+                cmd, 
+                capture_output=True, 
+                text=True, 
+                encoding='utf-8', 
+                errors='replace',
+                check=True
+            )
+            
+            # Parse output
+            # Output format is blocks of lines separated by newlines
+            current_file = {}
+            
+            for line in result.stdout.splitlines():
+                line = line.strip()
+                if not line:
+                    if current_file:
+                        self._process_file_entry(current_file, pages)
+                        current_file = {}
+                    continue
+                
+                if '=' in line:
+                    key, value = line.split('=', 1)
+                    current_file[key.strip()] = value.strip()
+            
+            # Process last entry
+            if current_file:
+                self._process_file_entry(current_file, pages)
+                
+        except subprocess.CalledProcessError as e:
+            logger.error(f"7z list failed: {e.stderr}")
+            raise
+            
+        return pages
+
+    def _process_file_entry(self, entry: Dict[str, str], pages: List[ComicPage]):
+        """Process a single file entry from 7z output"""
+        path = entry.get('Path')
+        if not path:
+            return
+            
+        # Skip directories
+        if entry.get('Attributes', '').startswith('D'):
+            return
+            
+        # Skip hidden files
+        if Path(path).name.startswith('.'):
+            return
+            
+        # Skip ComicInfo.xml
+        if path.lower() == 'comicinfo.xml':
+            return
+            
+        try:
+            size = int(entry.get('Size', '0'))
+        except ValueError:
+            size = 0
+            
+        page = ComicPage(
+            filename=path,
+            index=len(pages),
+            size=size
+        )
+        
+        if page.is_image:
+            pages.append(page)
+
+    def get_file(self, filename: str) -> Optional[bytes]:
+        """Get file contents using '7z e -so'"""
+        try:
+            # Extract to stdout (-so)
+            cmd = ['7z', 'e', '-so', str(self.file_path), filename]
+            result = subprocess.run(
+                cmd, 
+                capture_output=True,
+                check=True
+            )
+            return result.stdout
+        except subprocess.CalledProcessError as e:
+            # 7z returns non-zero if file not found or other errors
+            # Only log if it's not just a missing file (which returns empty/error)
+            # 7z output might contain "No files to process"
+            error_msg = e.stderr.decode('utf-8', errors='replace')
+            logger.debug(f"Failed to extract {filename} with 7z: {error_msg}")
+            
+            # Identify if it was just not found (not critical) vs other error
+            return None
+        except Exception as e:
+            logger.error(f"Error executing 7z: {e}")
+            return None
+
+    def close(self):
+        pass
+
+
 def detect_archive_format(file_path: Path) -> Optional[str]:
     """
     Detect actual archive format by reading file magic numbers.
@@ -633,11 +749,33 @@ def open_comic(file_path: Path) -> Optional[ComicArchive]:
             # RuntimeError indicates missing external tool
             last_error = e
             tool_missing = True
+            
+            # If unrar is missing for a RAR file, try 7z fallback
+            if fmt == 'rar' and 'unrar' in str(e):
+                logger.info("unrar missing, attempting 7z fallback for CBR")
+                try:
+                    archive = SevenZipCliArchive(file_path)
+                    logger.info(f"[COMIC_LOADER] Successfully opened as CBR (via 7z): {file_path.name}")
+                    return archive
+                except Exception as e7z:
+                    logger.warning(f"[COMIC_LOADER] 7z fallback failed: {e7z}")
+            
             logger.warning(f"[COMIC_LOADER] Failed to open as {fmt} (tool missing): {e}")
             continue
         except Exception as e:
             last_error = e
             logger.warning(f"[COMIC_LOADER] Failed to open as {fmt}: {type(e).__name__}: {e}")
+            
+            # If standard py7zr failed for 7z/cb7, try 7z CLI fallback
+            if fmt == '7z':
+                logger.info("py7zr failed, attempting 7z fallback for CB7")
+                try:
+                    archive = SevenZipCliArchive(file_path)
+                    logger.info(f"[COMIC_LOADER] Successfully opened as CB7 (via 7z): {file_path.name}")
+                    return archive
+                except Exception as e7z:
+                    logger.warning(f"[COMIC_LOADER] 7z fallback failed: {e7z}")
+                    
             continue
 
     # All formats failed

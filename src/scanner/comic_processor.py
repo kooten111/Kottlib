@@ -86,6 +86,16 @@ def process_single_comic(
                         counters['skipped'] += 1
                         counters['unchanged'] += 1
                     logger.debug(f"Skipping unchanged file: {comic_path.name}")
+
+                # Check for missing thumbnail (self-healing)
+                covers_dir = get_covers_dir(library_name)
+                if not thumbnail_exists(covers_dir, existing.hash, 'JPEG'):
+                    logger.info(f"Regenerating missing thumbnail for: {comic_path.name}")
+                    comic = open_comic(comic_path)
+                    if comic:
+                        with comic:
+                            _generate_thumbnails(comic, existing.hash, library_name, lock, counters)
+
                 return
 
         # SLOW PATH: Calculate hash for new/modified files
@@ -107,6 +117,15 @@ def process_single_comic(
                     counters['skipped'] += 1
                     counters['updated'] += 1
                 logger.info(f"Updated moved/renamed comic: {comic_path.name}")
+
+                # Check for missing thumbnail
+                covers_dir = get_covers_dir(library_name)
+                if not thumbnail_exists(covers_dir, existing.hash, 'JPEG'):
+                    logger.info(f"Regenerating missing thumbnail for moved/renamed: {comic_path.name}")
+                    comic = open_comic(comic_path)
+                    if comic:
+                        with comic:
+                            _generate_thumbnails(comic, existing.hash, library_name, lock, counters)
                 return
 
         # Open comic to extract metadata
