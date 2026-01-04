@@ -8,7 +8,7 @@ import logging
 from pathlib import Path
 from typing import Set, Optional
 
-from src.database import Database
+from src.database import Database, get_covers_dir
 from src.database.operations.comic import get_comics_in_library
 
 from .thumbnail_generator import get_thumbnail_path
@@ -22,7 +22,7 @@ def cleanup_missing_comics(
     library_id: int,
     library_path: Path,
     discovered_paths: Set[str],
-    covers_dir: Optional[Path] = None
+    library_name: Optional[str] = None
 ) -> int:
     """
     Remove comics from database whose files no longer exist on disk.
@@ -35,7 +35,7 @@ def cleanup_missing_comics(
         library_id: Library ID to clean up
         library_path: Root path of the library
         discovered_paths: Set of absolute paths to files that were discovered
-        covers_dir: Optional covers directory for thumbnail cleanup
+        library_name: Optional library name for thumbnail cleanup
 
     Returns:
         Number of comics removed
@@ -68,7 +68,8 @@ def cleanup_missing_comics(
             logger.info(f"Removed {removed_count} comics that no longer exist on disk")
     
     # Clean up orphaned thumbnails for removed comics
-    if covers_dir and removed_hashes:
+    if library_name and removed_hashes:
+        covers_dir = get_covers_dir(library_name)
         _cleanup_thumbnails_for_hashes(covers_dir, removed_hashes)
     
     return removed_count
@@ -79,7 +80,7 @@ def _cleanup_thumbnails_for_hashes(covers_dir: Path, hashes: list) -> int:
     Remove thumbnails for specific file hashes.
 
     Args:
-        covers_dir: Covers directory (.yacreaderlibrary/covers/)
+        covers_dir: Covers directory (data/<LibraryName>/covers/)
         hashes: List of file hashes to remove thumbnails for
 
     Returns:

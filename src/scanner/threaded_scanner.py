@@ -149,16 +149,13 @@ class ThreadedScanner:
         # Build set of discovered paths for comparison
         discovered_paths = {str(comic_path) for comic_path, _ in comic_files}
         
-        # Get covers directory for thumbnail cleanup
-        covers_dir = library_path / '.yacreaderlibrary' / 'covers'
-        
         try:
             comics_removed = cleanup_missing_comics(
                 self.db,
                 self.library_id,
                 library_path,
                 discovered_paths,
-                covers_dir if covers_dir.exists() else None
+                self.library_name  # Pass library name for cover cleanup
             )
         except Exception as e:
             logger.error(f"Failed to cleanup missing comics: {e}", exc_info=True)

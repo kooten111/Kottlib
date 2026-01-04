@@ -19,8 +19,18 @@
 
 	export let data;
 
+	// Safe URI decoding that handles malformed URIs (e.g., series names with % in them)
+	function safeDecodeURIComponent(str) {
+		try {
+			return decodeURIComponent(str);
+		} catch (e) {
+			// If decoding fails, return the original string
+			return str;
+		}
+	}
+
 	$: libraryId = parseInt($page.params.libraryId);
-	$: seriesName = decodeURIComponent($page.params.seriesName);
+	$: seriesName = safeDecodeURIComponent($page.params.seriesName);
 
 	// Initialize from SSR data
 	$: series = data.series;
