@@ -59,18 +59,10 @@ def create_folders(
             folder = get_folder_by_path(session, library_id, str(folder_path))
 
             if not folder:
-                # Find parent folder ID
-                parent_path = folder_path.parent
-
-                if parent_path == library_path:
-                    # This is a top-level folder - parent is root
-                    parent_id = root_folder_id
-                elif str(parent_path) in folder_map:
-                    # This is a subfolder - parent is another folder
-                    parent_id = folder_map[str(parent_path)]
-                else:
-                    # Fallback: parent not found, make it top-level
-                    parent_id = root_folder_id
+                # Calculate parent recursively (creates it if missing)
+                parent_id = _get_or_create_parent_recursive(
+                    session, library_id, folder_path, folder_map, root_folder_id, library_path
+                )
 
                 folder = create_folder(
                     session,
@@ -79,7 +71,56 @@ def create_folders(
                     name=folder_path.name,
                     parent_id=parent_id
                 )
-
+            else:
+                 # Check/Fix existing parent
+                 expected_parent_id = _get_or_create_parent_recursive(
+                    session, library_id, folder_path, folder_map, root_folder_id, library_path
+                 )
+                 
+                 if folder.parent_id != expected_parent_id:
+                     logger.info(f"Fixing parent for {folder.name}: {folder.parent_id} -> {expected_parent_id}")
+                     folder.parent_id = expected_parent_id
+            
             folder_map[str(folder_path)] = folder.id
+
+    # Second pass: Ensure hierarchy using get_or_create_parent logic for everything
+    # This is cleaner than mixing it with the creation loop
+    return folder_map, root_folder_id
+
+def _get_or_create_parent_recursive(session, library_id: int, folder_path: Path, folder_map: dict, root_folder_id: int, library_path: Path) -> int:
+    """
+    Recursively find or create the parent ID for a given folder path.
+    """
+    parent_path = folder_path.parent
+    
+    # Base case: Parent is library root
+    if parent_path == library_path:
+        return root_folder_id
+        
+    # Check map (fastest)
+    if str(parent_path) in folder_map:
+        return folder_map[str(parent_path)]
+        
+    # Check DB
+    parent_db = get_folder_by_path(session, library_id, str(parent_path))
+    if parent_db:
+        folder_map[str(parent_path)] = parent_db.id
+        return parent_db.id
+        
+    # Parent missing: Recursively create grandparent, then create parent
+    grandparent_id = _get_or_create_parent_recursive(session, library_id, parent_path, folder_map, root_folder_id, library_path)
+    
+    # Create the missing parent
+    logger.info(f"Creating missing parent folder: {parent_path.name}")
+    new_parent = create_folder(
+        session,
+        library_id=library_id,
+        path=str(parent_path),
+        name=parent_path.name,
+        parent_id=grandparent_id
+    )
+    folder_map[str(parent_path)] = new_parent.id
+    return new_parent.id
+
 
     return folder_map, root_folder_id

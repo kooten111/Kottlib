@@ -25,7 +25,7 @@ from threading import Lock, Thread, current_thread
 # Suppress PIL warnings about corrupt EXIF data
 warnings.filterwarnings('ignore', message='Corrupt EXIF data')
 
-from src.database import Database, get_library_by_id
+from src.database import Database, get_library_by_id, get_folder_by_path
 
 # Import from refactored modules
 from .base import ScanResult
@@ -123,10 +123,7 @@ class ThreadedScanner:
         logger.info(f"Found {total_comics} comics in {len(folders)} folders")
 
         if total_comics == 0:
-            return ScanResult(
-                folders_found=len(folders),
-                duration=time.time() - start_time
-            )
+            logger.info("No comics found in scan - proceeding to cleanup phase to remove any deleted files")
 
         # Create folders in database first (including root folder)
         # Use extracted create_folders function
@@ -136,6 +133,22 @@ class ThreadedScanner:
             library_path,
             folders
         )
+
+        # Ensure all parent folders are in the map
+        # This prevents comics from being flattened to root if their parent wasn't in discovered folders
+        missing_parents = set()
+        for _, parent_folder in comic_files:
+            if parent_folder and str(parent_folder) not in folder_map:
+                missing_parents.add(str(parent_folder))
+        
+        if missing_parents:
+            logger.info(f"Resolving {len(missing_parents)} missing parent folders from DB...")
+            with self.db.get_session() as session:
+                for parent_path_str in missing_parents:
+                    folder = get_folder_by_path(session, self.library_id, parent_path_str)
+                    if folder:
+                        folder_map[parent_path_str] = folder.id
+                        logger.debug(f"Resolved missing folder: {parent_path_str}")
 
         # Phase 2: Process comics in parallel (slow, multi-threaded)
         logger.info(f"Phase 2: Processing comics with {self.max_workers} workers...")

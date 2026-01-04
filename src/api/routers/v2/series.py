@@ -28,7 +28,7 @@ from ....database import (
     get_user_by_id,
     get_reading_progress,
 )
-from ....database.models import Comic, ReadingProgress
+from ....database.models import Comic, ReadingProgress, Folder as FolderModel
 from ...middleware import get_current_user_id, get_request_user
 from ._shared import get_comic_display_name, series_tree_cache, get_comic_sort_key
 
@@ -298,278 +298,124 @@ async def get_series_list(
     include_metadata: Optional[bool] = True
 ):
     """
-    Get all series in a library with metadata aggregation (OPTIMIZED)
+    Get top-level folders and comics for a library (Folder-Based View)
 
-    Uses SQL aggregation and eager loading to avoid N+1 queries.
-    Series names are pre-computed in normalized_series_name field.
+    Replaces old metadata-based series grouping with a direct Folder Browse view.
+    This ensures the structure matches the Sidebar/File System exactly.
 
     Args:
         library_id: ID of the library
-        sort: Sort order - 'name', 'recent', 'progress'
-        include_metadata: Include series metadata (writer, artist, etc.) - default True
-
-    Returns:
-        Array of series objects with aggregated metadata
+        sort: Sort order - 'name', 'recent', 'updated'
+        include_metadata: Placeholder for compatibility
     """
-    # Get main database for library and user info
-    # Get main database
-    main_db = request.app.state.db
+    from ....database.models import Folder as FolderModel
 
-    with main_db.get_session() as session:
+    db = request.app.state.db
+
+    with db.get_session() as session:
         # Verify library exists
         library = get_library_by_id(session, library_id)
         if not library:
             raise HTTPException(status_code=404, detail="Library not found")
 
-        # Get user for reading progress
-        user = get_request_user(request, session)
-        user_id_for_progress = user.id if user else None
-        logger.info(f"[SERIES DEBUG] Library {library_id}, Sort: {sort}, User: {user.username if user else 'None'}, User ID: {user_id_for_progress}")
+        # Get Root Folder
+        root_folder = session.query(FolderModel).filter(
+            FolderModel.library_id == library_id,
+            FolderModel.name == "__ROOT__"
+        ).first()
 
-        from sqlalchemy.orm import selectinload
-        from ....database.models import Series as SeriesModel
+        if not root_folder:
+            # Fallback if no root found (shouldn't happen with new scanner)
+            # Just return empty list or try to find top-level by parent_id=None
+            logger.error(f"No __ROOT__ folder found for library {library_id}")
+            return JSONResponse([])
 
-        # OPTIMIZATION 1: Use SQL to group and aggregate series data
-        if include_metadata:
-            # Join with Series table to get metadata
-            series_aggregation = session.query(
-                Comic.series.label('series_name'),
-                SeriesModel.id.label('series_id'),
-                func.count(Comic.id).label('total_issues'),
-                func.min(Comic.id).label('first_comic_id'),
-                func.max(Comic.id).label('last_comic_id'),
-                func.min(Comic.hash).label('cover_hash'),
-                func.max(Comic.publisher).label('publisher'),
-                SeriesModel.writer.label('writer'),
-                SeriesModel.artist.label('artist'),
-                SeriesModel.genre.label('genre'),
-                SeriesModel.year_start.label('year'),
-                SeriesModel.description.label('synopsis')
-            ).filter(
-                Comic.library_id == library_id
-            ).outerjoin(
-                SeriesModel,
-                (SeriesModel.name == Comic.series) & (SeriesModel.library_id == library_id)
-            ).group_by(
-                Comic.series,
-                SeriesModel.id,
-                SeriesModel.writer,
-                SeriesModel.artist,
-                SeriesModel.genre,
-                SeriesModel.year_start,
-                SeriesModel.description
-            ).all()
-        else:
-            # Minimal query without metadata join
-            from sqlalchemy import literal
-            series_aggregation = session.query(
-                Comic.series.label('series_name'),
-                literal(None).label('series_id'),
-                func.count(Comic.id).label('total_issues'),
-                func.min(Comic.id).label('first_comic_id'),
-                func.max(Comic.id).label('last_comic_id'),
-                func.min(Comic.hash).label('cover_hash'),
-                func.max(Comic.publisher).label('publisher')
-            ).filter(
-                Comic.library_id == library_id
-            ).group_by(
-                Comic.series
-            ).all()
+        # 1. Get Top-Level Folders (children of Root)
+        folders = session.query(FolderModel).filter(
+            FolderModel.library_id == library_id,
+            FolderModel.parent_id == root_folder.id
+        ).all()
 
-        # OPTIMIZATION 2: Fetch all comics with reading progress in ONE query (fixes N+1)
-        if user_id_for_progress:
-            # Eager load reading progress for ALL comics at once
-            comics_query = session.query(Comic).filter(
-                Comic.library_id == library_id
-            ).options(
-                selectinload(Comic.reading_progress)
-            ).all()
+        # 2. Get Top-Level Comics (children of Root)
+        comics = session.query(Comic).filter(
+            Comic.library_id == library_id,
+            Comic.folder_id == root_folder.id
+        ).all()
 
-            logger.info(f"[SERIES DEBUG] Loaded {len(comics_query)} comics for library {library_id}")
-            # Count how many have progress
-            comics_with_progress = sum(1 for c in comics_query if len(c.reading_progress) > 0)
-            logger.info(f"[SERIES DEBUG] Comics with reading progress: {comics_with_progress}")
+        result_list = []
 
-            # Build a lookup dict: series_name -> list of comics
-            comics_by_series = {}
-            for comic in comics_query:
-                series_name = comic.series or "Unknown"
-                if series_name not in comics_by_series:
-                    comics_by_series[series_name] = []
-                comics_by_series[series_name].append(comic)
-        else:
-            # No user, just fetch comics without progress
-            comics_query = session.query(Comic).filter(
-                Comic.library_id == library_id
-            ).all()
-            comics_by_series = {}
-            for comic in comics_query:
-                series_name = comic.series or "Unknown"
-                if series_name not in comics_by_series:
-                    comics_by_series[series_name] = []
-                comics_by_series[series_name].append(comic)
+        # Process Folders as "Series"
+        for folder in folders:
+            # Find a cover image: First comic in this folder or its children
+            # Optimized subquery to find first comic by path sort
+            cover_comic = session.query(Comic).filter(
+                Comic.library_id == library_id,
+                Comic.path.startswith(folder.path)
+            ).order_by(Comic.path).first()
+            
+            cover_hash = cover_comic.hash if cover_comic else None
+            
+            # Count items inside (approximate)
+            # For speed, we might skip recursive count or just count direct children if performance matters
+            # Here we do a path prefix count which is reasonably fast
+            total_count = session.query(func.count(Comic.id)).filter(
+                Comic.library_id == library_id,
+                Comic.path.startswith(folder.path + "/")
+            ).scalar()
 
-        # Build series list from aggregated data
-        series_list = []
-        for series_data in series_aggregation:
-            series_name = series_data.series_name or "Unknown"
-            comics_in_series = comics_by_series.get(series_name, [])
+            # Create Series-like object
+            folder_item = {
+                "id": folder.id, # Use folder ID
+                "name": folder.name,
+                "title": folder.name,
+                "series": folder.name,
+                "series_name": folder.name,
+                "volumes": [], # Empty volumes, clicking drills down via get_series_detail
+                "publisher": None,
+                "total_issues": total_count,
+                "cover_hash": cover_hash,
+                "is_standalone": False,
+                # Sorting helpers
+                "created_at": folder.created_at or 0,
+                "first_comic_id": 0, # todo
+                "last_comic_id": 0   # todo
+            }
+            result_list.append(folder_item)
 
-            # Build volumes list
-            volumes = []
-            for comic in comics_in_series:
-                volume_info = {
+        # Process Loose Comics as "Standalone Series"
+        for comic in comics:
+             comic_item = {
+                "id": comic.id,
+                "name": get_comic_display_name(comic),
+                "title": get_comic_display_name(comic),
+                "series": comic.series or "Unknown",
+                "series_name": comic.series or "Unknown",
+                "volumes": [{
                     "id": comic.id,
                     "title": get_comic_display_name(comic),
-                    "volume": comic.volume,
-                    "issue_number": comic.issue_number,
-                    "filename": comic.filename,
                     "hash": comic.hash,
-                    "num_pages": comic.num_pages,
-                    # Always include progress fields for consistent data structure
-                    "current_page": 0,
-                    "is_completed": False,
-                    "progress_percent": 0,
-                    "last_read_at": None
-                }
-
-                # Add reading progress (already eager-loaded, no extra query!)
-                if user:
-                    # Find progress for this user (from the eager-loaded relationship)
-                    progress = next(
-                        (p for p in comic.reading_progress if p.user_id == user.id),
-                        None
-                    )
-                    if progress:
-                        volume_info["current_page"] = progress.current_page
-                        volume_info["is_completed"] = progress.is_completed
-                        volume_info["progress_percent"] = progress.progress_percent
-                        volume_info["last_read_at"] = progress.last_read_at
-
-                volumes.append(volume_info)
-
-            # Sort volumes to find the first one (for cover selection)
-            volumes.sort(key=get_comic_sort_key)
-
-            # Determine if this is a standalone volume (single comic, not part of a series)
-            is_standalone = series_data.total_issues == 1
-
-            # Generate a stable ID for the series (use SeriesModel ID if available, else hash)
-            series_id = series_data.series_id or abs(hash(series_name))
-
-            # Use first volume's hash for cover if available, otherwise fallback to aggregated min hash
-            cover_hash = series_data.cover_hash
-            if volumes and volumes[0].get("hash"):
-                cover_hash = volumes[0]["hash"]
-
-            series_info = {
-                "id": series_id,
-                "name": series_name,
-                "title": series_name,  # Alias for name
-                "series": series_name, # Alias for name
-                "series_name": series_name, # Legacy alias required by frontend
-                "volumes": volumes,
-                "publisher": series_data.publisher,
-                "total_issues": series_data.total_issues,
-                "cover_hash": cover_hash,
-                "first_comic_id": series_data.first_comic_id,
-                "last_comic_id": series_data.last_comic_id,
-                "is_standalone": is_standalone
-            }
-
-            # Add metadata fields if included
-            if include_metadata:
-                series_info["year"] = series_data.year
-                series_info["writer"] = series_data.writer
-                series_info["artist"] = series_data.artist
-                series_info["genre"] = series_data.genre
-                series_info["synopsis"] = series_data.synopsis
-            else:
-                series_info["year"] = None
-
-            series_list.append(series_info)
-
-        # Sort the results
+                    "issue_number": comic.issue_number
+                }],
+                "publisher": comic.publisher,
+                "total_issues": 1,
+                "cover_hash": comic.hash,
+                "is_standalone": True,
+                "created_at": comic.created_at,
+                "first_comic_id": comic.id,
+                "last_comic_id": comic.id
+             }
+             result_list.append(comic_item)
+        
+        # Sort logic
         if sort == "name":
-            series_list.sort(key=lambda s: s["name"].lower())
+            result_list.sort(key=lambda x: x["name"].lower())
         elif sort == "recent":
-            # Sort by most recent addition (first comic id descending)
-            series_list.sort(key=lambda s: s["first_comic_id"], reverse=True)
-        elif sort == "updated":
-            # Sort by most recently updated (last comic id descending)
-            # This floats series with new chapters to the top
-            series_list.sort(key=lambda s: s["last_comic_id"], reverse=True)
-        elif sort == "progress":
-            # Sort by reading progress - show series with the most progress first
-            def get_progress_key(s):
-                total = s["total_issues"]
-                if total == 0:
-                    return (3, 0)  # Empty series go last
-
-                # Calculate progress based on both completed AND partially-read volumes
-                total_progress = 0
-                has_any_progress = False
-                for v in s["volumes"]:
-                    if v.get("is_completed", False):
-                        total_progress += 100  # Fully completed = 100%
-                        has_any_progress = True
-                    elif v.get("progress_percent", 0) > 0:
-                        total_progress += v.get("progress_percent", 0)
-                        has_any_progress = True
-
-                # Average progress across all volumes
-                avg_progress = total_progress / total if total > 0 else 0
-
-                # Sort priority groups (lower number = higher priority):
-                # 0 = Has any progress (sort by % descending - most progress first)
-                # 1 = Not started (0% progress)
-                # 2 = Empty series
-
-                if not has_any_progress:
-                    # Not started - lower priority
-                    return (1, 0)
-                else:
-                    # Has progress - highest priority, sort by progress descending
-                    return (0, -avg_progress)
-
-            # Log some examples before sorting
-            for idx, s in enumerate(series_list[:3]):
-                total = s["total_issues"]
-                total_progress = sum(100 if v.get("is_completed") else v.get("progress_percent", 0) for v in s["volumes"])
-                avg_progress = total_progress / total if total > 0 else 0
-                logger.info(f"[SERIES DEBUG] Series '{s['name']}': {avg_progress:.1f}% avg progress ({total} volumes)")
-
-            series_list.sort(key=get_progress_key)
-
-            # Log after sorting
-            logger.info(f"[SERIES DEBUG] After progress sort, first 5 series:")
-            for idx, s in enumerate(series_list[:5]):
-                total = s["total_issues"]
-                total_progress = sum(100 if v.get("is_completed") else v.get("progress_percent", 0) for v in s["volumes"])
-                avg_progress = total_progress / total if total > 0 else 0
-                logger.info(f"[SERIES DEBUG]   {idx+1}. '{s['name']}': {avg_progress:.1f}% avg progress")
-        elif sort == "recent-read":
-            # Sort by most recently read (based on last_read_at timestamp)
-            def get_recent_read_key(s):
-                # Find the most recent read timestamp across all volumes
-                max_timestamp = None
-                for v in s["volumes"]:
-                    last_read = v.get("last_read_at")
-                    if last_read:
-                        if max_timestamp is None or last_read > max_timestamp:
-                            max_timestamp = last_read
-                # Return tuple: (has_been_read, timestamp)
-                # Read series (1) sort before unread series (0)
-                # Within read series, sort by timestamp descending (most recent first = higher timestamp)
-                # Using reverse=True, so return positive timestamp
-                if max_timestamp:
-                    timestamp_value = max_timestamp.timestamp() if hasattr(max_timestamp, 'timestamp') else max_timestamp
-                    return (1, timestamp_value)
-                return (0, 0)
-            series_list.sort(key=get_recent_read_key, reverse=True)
-
-        logger.debug(f"v2 API: Returning {len(series_list)} series for library {library_id} (OPTIMIZED)")
-        return JSONResponse(series_list)
+             # Sort folders by creation? Or by their newest content?
+             # For now, simple created_at or ID sort
+             result_list.sort(key=lambda x: x.get("created_at", 0) or 0, reverse=True)
+        
+        logger.info(f"Returning {len(result_list)} top-level items for library {library_id}")
+        return JSONResponse(result_list)
 
 
 @router.get("/library/{library_id}/series/{series_name}")

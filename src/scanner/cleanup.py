@@ -51,8 +51,9 @@ def cleanup_missing_comics(
             comic_path = Path(comic.path)
             
             # Check if the file path is in our discovered set
-            # Also verify the file actually exists (in case of path changes)
-            if str(comic_path) not in discovered_paths and not comic_path.exists():
+            # STRICT MODE: If it's not in the discovered set, it's gone.
+            # We trust discover_files returned the complete state of the library.
+            if str(comic_path) not in discovered_paths:
                 logger.info(f"Removing missing comic: {comic.filename} (was at {comic.path})")
                 
                 # Track hash for thumbnail cleanup
@@ -62,10 +63,25 @@ def cleanup_missing_comics(
                 # Delete the comic (cascade will handle related records)
                 session.delete(comic)
                 removed_count += 1
+                
+                # Commit in batches to avoid holding the database lock for too long
+                # This prevents "database is locked" errors during massive cleanups
+                if removed_count % 50 == 0:
+                    try:
+                        session.commit()
+                        logger.debug(f"Committed batch of 50 removed comics")
+                    except Exception as e:
+                        logger.error(f"Error committing batch cleanup: {e}")
+                        session.rollback()
         
         if removed_count > 0:
-            session.commit()
-            logger.info(f"Removed {removed_count} comics that no longer exist on disk")
+            # Commit any remaining deletions
+            try:
+                session.commit()
+                logger.info(f"Removed {removed_count} comics that no longer exist on disk")
+            except Exception as e:
+                logger.error(f"Error committing final cleanup: {e}")
+                session.rollback()
     
     # Clean up orphaned thumbnails for removed comics
     if library_name and removed_hashes:
