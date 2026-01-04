@@ -592,6 +592,7 @@ async function applySorting() {
 	switch (sortBy) {
 		case 'name':
 		case 'recent':
+		case 'updated':
 		case 'progress':
 		case 'recent-read':
 			// Backend sorts - reload data with sort parameter
@@ -1186,6 +1187,9 @@ function updateDisplayedSeries() {
 				>
 					<option value="name"
 						>Alphabetical</option
+					>
+					<option value="updated"
+						>Last Updated</option
 					>
 					<option value="recent"
 						>Date Added</option

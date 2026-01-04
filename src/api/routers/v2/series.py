@@ -473,6 +473,7 @@ async def get_series_list(
                 "total_issues": series_data.total_issues,
                 "cover_hash": cover_hash,
                 "first_comic_id": series_data.first_comic_id,
+                "last_comic_id": series_data.last_comic_id,
                 "is_standalone": is_standalone
             }
 
@@ -494,6 +495,10 @@ async def get_series_list(
         elif sort == "recent":
             # Sort by most recent addition (first comic id descending)
             series_list.sort(key=lambda s: s["first_comic_id"], reverse=True)
+        elif sort == "updated":
+            # Sort by most recently updated (last comic id descending)
+            # This floats series with new chapters to the top
+            series_list.sort(key=lambda s: s["last_comic_id"], reverse=True)
         elif sort == "progress":
             # Sort by reading progress - show series with the most progress first
             def get_progress_key(s):
