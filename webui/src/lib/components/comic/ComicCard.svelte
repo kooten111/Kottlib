@@ -8,10 +8,13 @@
 	export let isFolder = false; // New prop to indicate if this is a folder/series
 	export let itemCount = 0; // Number of items in folder
 	export let href = null; // Optional custom href for the card
-	export let coverSizeMultiplier = 1.0; // Size multiplier for grid view
 	export let isStandalone = false; // Flag for standalone comics (single volume series)
 
-	$: hash = comic.hash || comic.coverHash || comic.first_comic_hash;
+	$: hash =
+		comic.hash ||
+		comic.coverHash ||
+		comic.cover_hash ||
+		comic.first_comic_hash;
 	$: coverUrl = hash ? getCoverUrl(libraryId, hash) : null;
 	$: progress =
 		comic.current_page && comic.num_pages
@@ -33,12 +36,7 @@
 			: `/comic/${libraryId}/${comic.id}`);
 </script>
 
-<a
-	href={cardHref}
-	class="comic-card {variant}"
-	class:folder-card={isFolder}
-	style="--cover-size-multiplier: {coverSizeMultiplier};"
->
+<a href={cardHref} class="comic-card {variant}" class:folder-card={isFolder}>
 	<div class="cover-container" class:folder-cover={isFolder}>
 		{#if coverUrl}
 			<img
@@ -227,6 +225,11 @@
 			<h3 class="comic-title">{title}</h3>
 			{#if variant === "list"}
 				<div class="list-meta">
+					{#if comic.volume}
+						<span class="meta-badge">
+							Vol. {comic.volume}
+						</span>
+					{/if}
 					{#if comic.series}
 						<span class="meta-item">
 							<svg
@@ -324,6 +327,21 @@
 					{/if}
 				</div>
 			{/if}
+
+			{#if variant === "grid"}
+				<div class="grid-badges">
+					{#if comic.is_standalone}
+						<span class="meta-badge pill">Standalone</span>
+					{/if}
+					{#if comic.volume}
+						<span class="meta-badge pill">Vol. {comic.volume}</span>
+					{/if}
+					{#if comic.series && !comic.volume}
+						<span class="meta-badge pill">{comic.series}</span>
+					{/if}
+				</div>
+			{/if}
+
 			{#if showProgress && hasProgress}
 				<p class="comic-progress">
 					Page {comic.current_page} of {comic.num_pages}
@@ -405,9 +423,11 @@
 	}
 
 	.comic-card.grid .cover-container {
-		aspect-ratio: 2/3;
+		aspect-ratio: 1 / 1.414; /* ISO 216 paper ratio (1:√2), standard for books */
 		width: 100%;
-		max-height: calc(256px * var(--cover-size-multiplier, 1));
+		background: var(
+			--color-tertiary-bg
+		); /* Show background before image loads */
 	}
 
 	.comic-card.list .cover-container {
@@ -615,12 +635,28 @@
 			color-mix(in srgb, var(--color-accent) 30%, transparent);
 	}
 
-	/* Update list view cover size - scales with multiplier but with limits */
+	/* List view cover size - scales with multiplier but with limits */
 	.comic-card.list .cover-container {
 		width: calc(120px + (20px * var(--cover-size-multiplier, 1)));
 		height: calc(180px + (30px * var(--cover-size-multiplier, 1)));
 		flex-shrink: 0;
 		border-radius: 6px;
 		overflow: hidden;
+	}
+
+	.grid-badges {
+		display: flex;
+		flex-wrap: wrap;
+		gap: 0.5rem;
+		margin-bottom: 0.25rem;
+	}
+
+	.meta-badge.pill {
+		padding: 0.15rem 0.5rem;
+		font-size: 0.7rem;
+		border-radius: 4px;
+		background: var(--color-bg);
+		border: 1px solid var(--color-border);
+		color: var(--color-text-secondary);
 	}
 </style>

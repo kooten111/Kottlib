@@ -221,6 +221,13 @@ class ThreadedScanner:
             )
             # Don't fail the scan if cache building fails
 
+        # Invalidate browse cache so UI gets fresh data
+        try:
+            from ..services.library_cache import get_library_cache
+            get_library_cache(self.library_id).invalidate_all()
+        except Exception as e:
+            logger.error(f"Failed to invalidate browse cache: {e}")
+
         return result
 
     def _process_comics_parallel(

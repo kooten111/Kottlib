@@ -33,6 +33,8 @@ logger = logging.getLogger(__name__)
 # Application Lifespan
 # ============================================================================
 
+import asyncio
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """
@@ -70,27 +72,51 @@ async def lifespan(app: FastAPI):
         db_echo = get_setting(session, 'database.echo')
         if db_echo is not None:
             db.echo = db_echo
-        
+            
         # Ensure minimal config file exists
         config_path = get_config_path()
         if not config_path.exists():
             logger.info("Config file not found, creating minimal bootstrap config...")
             ensure_config_file(session, config)
-        
-        # Migrate legacy config libraries to database (one-time migration)
-        logger.info("Checking for legacy config libraries to migrate...")
-        stats = migrate_legacy_config_to_db(session)
-        if stats['created'] > 0 or stats['updated'] > 0:
-            summary = get_sync_summary(stats)
-            logger.info(summary)
-        else:
-            logger.info("No legacy config libraries to migrate")
 
-    # Initialize scheduler
+    # Initialize scheduler (fast, starts background thread)
     from ..services.scheduler import get_scheduler
     scheduler = get_scheduler(db)
-    scheduler.load_schedules_from_db()
     app.state.scheduler = scheduler
+
+    # Define background startup tasks to run without blocking server startup
+    async def run_background_startup():
+        logger.info("Running background startup tasks...")
+        
+        # 1. Migrate legacy config (might be slow)
+        try:
+            with db.get_session() as session:
+                logger.info("Checking for legacy config libraries to migrate...")
+                # Run in executor to avoid blocking event loop
+                loop = asyncio.get_running_loop()
+                stats = await loop.run_in_executor(None, migrate_legacy_config_to_db, session)
+                
+                if stats['created'] > 0 or stats['updated'] > 0:
+                    summary = get_sync_summary(stats)
+                    logger.info(summary)
+                else:
+                    logger.info("No legacy config libraries to migrate")
+        except Exception as e:
+            logger.error(f"Background config migration failed: {e}", exc_info=True)
+
+        # 2. Load schedules (DB query)
+        try:
+             # Run in executor
+            loop = asyncio.get_running_loop()
+            await loop.run_in_executor(None, scheduler.load_schedules_from_db)
+            logger.info("Scheduler schedules loaded")
+        except Exception as e:
+            logger.error(f"Failed to load scheduler schedules: {e}", exc_info=True)
+            
+        logger.info("Background startup tasks complete")
+
+    # Start background tasks
+    asyncio.create_task(run_background_startup())
 
     logger.info("Kottlib Server started successfully!")
     logger.info(f"Server running on {config.server.host}:{config.server.port}")

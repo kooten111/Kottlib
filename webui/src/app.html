@@ -11,11 +11,177 @@
 	<link rel="preconnect" href="http://localhost:8081" crossorigin />
 	<link rel="dns-prefetch" href="http://localhost:8081" />
 
+	<!-- FOUC PREVENTION: Inline blocking script to apply theme before paint -->
+	<script>
+		(function () {
+			// Default theme colors (Catppuccin Mocha)
+			const defaultColors = {
+				bg: '#1e1e2e',
+				bgSecondary: '#181825',
+				bgTertiary: '#11111b',
+				text: '#cdd6f4',
+				textSecondary: '#bac2de',
+				textMuted: '#a6adc8',
+				accent: '#fab387',
+				accentHover: '#f5e0dc',
+				accentBlue: '#89b4fa',
+				border: 'rgba(205, 214, 244, 0.1)',
+				borderStrong: 'rgba(205, 214, 244, 0.2)',
+				borderHover: 'rgba(205, 214, 244, 0.3)',
+				success: '#a6e3a1',
+				warning: '#f9e2af',
+				error: '#f38ba8',
+				overlay: 'rgba(17, 17, 27, 0.8)',
+				overlayLight: 'rgba(17, 17, 27, 0.5)'
+			};
+
+			// Theme definitions (inlined to avoid async loading)
+			const themes = {
+				'catppuccin-mocha': defaultColors,
+				'catppuccin-latte': {
+					bg: '#eff1f5', bgSecondary: '#e6e9ef', bgTertiary: '#dce0e8',
+					text: '#4c4f69', textSecondary: '#5c5f77', textMuted: '#6c6f85',
+					accent: '#fe640b', accentHover: '#dd7878', accentBlue: '#1e66f5',
+					border: 'rgba(0, 0, 0, 0.1)', borderStrong: 'rgba(0, 0, 0, 0.2)',
+					borderHover: 'rgba(0, 0, 0, 0.3)', success: '#40a02b', warning: '#df8e1d',
+					error: '#d20f39', overlay: 'rgba(255, 255, 255, 0.9)', overlayLight: 'rgba(255, 255, 255, 0.7)'
+				},
+				'catppuccin-frappe': {
+					bg: '#303446', bgSecondary: '#292c3c', bgTertiary: '#232634',
+					text: '#c6d0f5', textSecondary: '#b5bfe2', textMuted: '#a5adce',
+					accent: '#ef9f76', accentHover: '#f2d5cf', accentBlue: '#8caaee',
+					border: 'rgba(198, 208, 245, 0.1)', borderStrong: 'rgba(198, 208, 245, 0.2)',
+					borderHover: 'rgba(198, 208, 245, 0.3)', success: '#a6d189', warning: '#e5c890',
+					error: '#e78284', overlay: 'rgba(35, 38, 52, 0.8)', overlayLight: 'rgba(35, 38, 52, 0.5)'
+				},
+				'catppuccin-macchiato': {
+					bg: '#24273a', bgSecondary: '#1e2030', bgTertiary: '#181926',
+					text: '#cad3f5', textSecondary: '#b8c0e0', textMuted: '#a5adcb',
+					accent: '#f5a97f', accentHover: '#f4dbd6', accentBlue: '#8aadf4',
+					border: 'rgba(202, 211, 245, 0.1)', borderStrong: 'rgba(202, 211, 245, 0.2)',
+					borderHover: 'rgba(202, 211, 245, 0.3)', success: '#a6da95', warning: '#eed49f',
+					error: '#ed8796', overlay: 'rgba(24, 25, 38, 0.8)', overlayLight: 'rgba(24, 25, 38, 0.5)'
+				},
+				'dracula': {
+					bg: '#282a36', bgSecondary: '#21222c', bgTertiary: '#191a21',
+					text: '#f8f8f2', textSecondary: '#6272a4', textMuted: '#44475a',
+					accent: '#ff79c6', accentHover: '#ff92d0', accentBlue: '#8be9fd',
+					border: 'rgba(98, 114, 164, 0.3)', borderStrong: 'rgba(98, 114, 164, 0.5)',
+					borderHover: 'rgba(98, 114, 164, 0.7)', success: '#50fa7b', warning: '#f1fa8c',
+					error: '#ff5555', overlay: 'rgba(25, 26, 33, 0.9)', overlayLight: 'rgba(25, 26, 33, 0.7)'
+				},
+				'tokyo-night': {
+					bg: '#1a1b26', bgSecondary: '#16161e', bgTertiary: '#24283b',
+					text: '#c0caf5', textSecondary: '#a9b1d6', textMuted: '#565f89',
+					accent: '#7aa2f7', accentHover: '#7dcfff', accentBlue: '#2ac3de',
+					border: 'rgba(86, 95, 137, 0.3)', borderStrong: 'rgba(86, 95, 137, 0.5)',
+					borderHover: 'rgba(122, 162, 247, 0.4)', success: '#9ece6a', warning: '#e0af68',
+					error: '#f7768e', overlay: 'rgba(22, 22, 30, 0.9)', overlayLight: 'rgba(22, 22, 30, 0.7)'
+				},
+				'gruvbox-dark': {
+					bg: '#282828', bgSecondary: '#1d2021', bgTertiary: '#3c3836',
+					text: '#ebdbb2', textSecondary: '#d5c4a1', textMuted: '#a89984',
+					accent: '#fe8019', accentHover: '#fabd2f', accentBlue: '#83a598',
+					border: 'rgba(168, 153, 132, 0.3)', borderStrong: 'rgba(168, 153, 132, 0.5)',
+					borderHover: 'rgba(254, 128, 25, 0.4)', success: '#b8bb26', warning: '#fabd2f',
+					error: '#fb4934', overlay: 'rgba(29, 32, 33, 0.9)', overlayLight: 'rgba(29, 32, 33, 0.7)'
+				},
+				'argonaut': {
+					bg: '#0e1019', bgSecondary: '#151823', bgTertiary: '#0a0c12',
+					text: '#fffaf4', textSecondary: '#a0a0b0', textMuted: '#606070',
+					accent: '#ff0018', accentHover: '#ff3346', accentBlue: '#4a9eff',
+					border: 'rgba(255, 250, 244, 0.1)', borderStrong: 'rgba(255, 250, 244, 0.2)',
+					borderHover: 'rgba(255, 250, 244, 0.3)', success: '#00ff7f', warning: '#ffd700',
+					error: '#ff0018', overlay: 'rgba(14, 16, 25, 0.9)', overlayLight: 'rgba(14, 16, 25, 0.7)'
+				}
+			};
+
+
+			function applyColors(colors) {
+				var root = document.documentElement;
+				root.style.setProperty('--color-bg', colors.bg);
+				root.style.setProperty('--color-secondary-bg', colors.bgSecondary);
+				root.style.setProperty('--color-tertiary-bg', colors.bgTertiary);
+				root.style.setProperty('--color-text', colors.text);
+				root.style.setProperty('--color-text-secondary', colors.textSecondary);
+				root.style.setProperty('--color-text-muted', colors.textMuted);
+				root.style.setProperty('--color-accent', colors.accent);
+				root.style.setProperty('--color-accent-hover', colors.accentHover);
+				root.style.setProperty('--color-accent-blue', colors.accentBlue);
+				root.style.setProperty('--color-border', colors.border);
+				root.style.setProperty('--color-border-strong', colors.borderStrong);
+				root.style.setProperty('--color-border-hover', colors.borderHover);
+				root.style.setProperty('--color-success', colors.success);
+				root.style.setProperty('--color-warning', colors.warning);
+				root.style.setProperty('--color-error', colors.error);
+				root.style.setProperty('--color-overlay', colors.overlay);
+				root.style.setProperty('--color-overlay-light', colors.overlayLight);
+			}
+
+			// Read and apply theme from localStorage
+			try {
+				var stored = localStorage.getItem('themePreferences');
+				if (stored) {
+					var prefs = JSON.parse(stored);
+					var themeId = prefs.mode === 'light' ? prefs.lightTheme : prefs.darkTheme;
+					var colors = themes[themeId] || defaultColors;
+					applyColors(colors);
+					// Update dark class
+					if (prefs.mode === 'dark') {
+						document.documentElement.classList.add('dark');
+					} else {
+						document.documentElement.classList.remove('dark');
+					}
+				} else {
+					applyColors(defaultColors);
+				}
+			} catch (e) {
+				applyColors(defaultColors);
+			}
+
+			// Read and apply cover size from localStorage
+			// Also check for folder-specific cover sizes based on URL
+			try {
+				var libPrefs = localStorage.getItem('libraryPreferences');
+				if (libPrefs) {
+					var lp = JSON.parse(libPrefs);
+					var coverSize = lp.gridCoverSize || 1.0;
+
+					// Check for folder-specific cover size based on URL
+					// URL format: /library/{libraryId}/browse/{path}
+					var pathMatch = window.location.pathname.match(/^\/library\/(\d+)\/browse(?:\/(.*))?$/);
+					if (pathMatch && lp.folderCoverSizes) {
+						var libId = pathMatch[1];
+						var folderPath = pathMatch[2] ? decodeURIComponent(pathMatch[2]) : '';
+						var key = libId + ':' + folderPath;
+						if (lp.folderCoverSizes[key] !== undefined) {
+							coverSize = lp.folderCoverSizes[key];
+						}
+					}
+
+					document.documentElement.style.setProperty('--cover-size-multiplier', coverSize);
+				}
+			} catch (e) { }
+
+			// Read and apply sidebar width from localStorage
+			try {
+				var savedSidebarWidth = localStorage.getItem('sidebar-width');
+				if (savedSidebarWidth) {
+					document.documentElement.style.setProperty('--sidebar-width', savedSidebarWidth + 'px');
+				} else {
+					document.documentElement.style.setProperty('--sidebar-width', '256px');
+				}
+			} catch (e) {
+				document.documentElement.style.setProperty('--sidebar-width', '256px');
+			}
+		})();
+	</script>
+
 	%sveltekit.head%
 </head>
 
 <body data-sveltekit-preload-data="hover" class="bg-dark-bg text-dark-text"
-	style="background-color: #1e1e2e; color: #cdd6f4;">
+	style="background-color: var(--color-bg, #1e1e2e); color: var(--color-text, #cdd6f4);">
 	<div style="display: contents">%sveltekit.body%</div>
 </body>
 

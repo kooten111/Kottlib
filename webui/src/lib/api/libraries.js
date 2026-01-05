@@ -68,8 +68,12 @@ export async function getContinueReadingAll(limit = 100) {
 /**
  * Get folder tree for a library
  */
-export async function getFolderTree(libraryId, maxDepth = 10) {
-	return api.get(`/library/${libraryId}/tree?max_depth=${maxDepth}`);
+export async function getFolderTree(libraryId, maxDepth = 10, folderId = null) {
+	let url = `/library/${libraryId}/tree?max_depth=${maxDepth}`;
+	if (folderId) {
+		url += `&folder_id=${folderId}`;
+	}
+	return api.get(url);
 }
 
 /**
@@ -83,8 +87,8 @@ export async function getLibraryFolders(libraryId, folderId = null) {
 /**
  * Get all series in a library
  */
-export async function getSeries(libraryId, sort = 'name') {
-	return api.get(`/library/${libraryId}/series?sort=${sort}`);
+export async function getSeries(libraryId, sort = 'name', offset = 0, limit = 50) {
+	return api.get(`/library/${libraryId}/series?sort=${sort}&offset=${offset}&limit=${limit}`);
 }
 
 /**
@@ -100,4 +104,12 @@ export async function getSeriesDetail(libraryId, seriesName) {
  */
 export async function getLibrariesSeriesTree() {
 	return api.get('/libraries/series-tree');
+}
+
+/**
+ * Browse library folder
+ */
+export async function browseLibrary(libraryId, path = '', sort = 'name', offset = 0, limit = 50) {
+	const pathParam = path ? `&path=${encodeURIComponent(path)}` : '';
+	return api.get(`/library/${libraryId}/browse?sort=${sort}&offset=${offset}&limit=${limit}${pathParam}`);
 }

@@ -399,6 +399,8 @@ def _generate_thumbnails(comic, file_hash: str, library_name: Optional[str], loc
         if not cover_image:
             logger.warning(f"Failed to extract cover for hash {file_hash}")
             return
+        
+        # logger.debug(f"Extracted cover image for {file_hash}, generating thumbnails...")
 
         # Generate thumbnails
         jpeg_ok, webp_ok = generate_dual_thumbnails(

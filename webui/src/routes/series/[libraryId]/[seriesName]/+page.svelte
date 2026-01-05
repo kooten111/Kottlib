@@ -1,20 +1,13 @@
 <script>
 	import { onMount } from "svelte";
 	import { page } from "$app/stores";
+	import { goto } from "$app/navigation";
 	import Navbar from "$lib/components/layout/Navbar.svelte";
-	import BackButton from "$lib/components/common/BackButton.svelte";
+	import DetailHeader from "$lib/components/common/DetailHeader.svelte";
 	import ComicCard from "$lib/components/comic/ComicCard.svelte";
 	import { getSeriesDetail, getLibrary } from "$lib/api/libraries";
 	import { getCoverUrl } from "$lib/api/comics";
-	import {
-		BookOpen,
-		Calendar,
-		User,
-		Tag,
-		Search,
-		Check,
-		X,
-	} from "lucide-svelte";
+	import { Search, Check, X } from "lucide-svelte";
 	import { navigationContext } from "$lib/stores/library";
 
 	export let data;
@@ -336,148 +329,41 @@
 					<a href="/" class="btn-primary mt-4">Go Back</a>
 				</div>
 			{:else if series}
-				<!-- Back Button -->
-				<BackButton href="/" label="Home" />
-
-				<!-- Series Header -->
-				<div class="series-header">
-					<div class="series-cover">
-						<img
-							src={getCoverUrl(libraryId, series.cover_hash)}
-							alt={series.series_name}
-							class="cover-image"
-						/>
-					</div>
-
-					<div class="series-info">
-						<div class="title-row">
-							<h1 class="series-title">
-								{series.display_name || series.series_name}
-							</h1>
-
-							<!-- Show scanner button if metadata is missing and scanner is configured -->
-							{#if scannerConfig?.primary_scanner && scannerConfig?.scan_level === "series" && !series.writer && !series.artist && !series.synopsis}
-								<button
-									on:click={scanSeriesMetadata}
-									disabled={isScanning}
-									class="btn-scan-compact"
-									title="Scan for metadata"
-								>
-									<Search class="w-4 h-4" />
-									{isScanning
-										? "Scanning..."
-										: "Get Metadata"}
-								</button>
-							{/if}
-						</div>
-
-						<div class="series-meta">
-							{#if series.writer}
-								<div class="meta-item">
-									<User class="w-4 h-4" />
-									<span>{series.writer}</span>
-								</div>
-							{/if}
-							{#if series.artist}
-								<div class="meta-item">
-									<User class="w-4 h-4" />
-									<span>{series.artist}</span>
-								</div>
-							{/if}
-							{#if series.publisher}
-								<div class="meta-item">
-									<Tag class="w-4 h-4" />
-									<span>{series.publisher}</span>
-								</div>
-							{/if}
-							{#if series.year}
-								<div class="meta-item">
-									<Calendar class="w-4 h-4" />
-									<span>{series.year}</span>
-								</div>
-							{/if}
-							{#if series.genre}
-								<div class="meta-item">
-									<Tag class="w-4 h-4" />
-									<span>{series.genre}</span>
-								</div>
-							{/if}
-							{#if series.status}
-								<div class="meta-item">
-									<Tag class="w-4 h-4" />
-									<span>{series.status}</span>
-								</div>
-							{/if}
-							<div class="meta-item">
-								<BookOpen class="w-4 h-4" />
-								<span
-									>{series.total_issues}
-									{series.total_issues === 1
-										? "issue"
-										: "issues"}</span
-								>
-							</div>
-						</div>
-
-						{#if series.synopsis}
-							<div class="series-synopsis">
-								<p>{series.synopsis}</p>
-							</div>
-						{/if}
-
-						{#if series.scanner_source_url}
-							<div class="series-source">
-								<a
-									href={series.scanner_source_url}
-									target="_blank"
-									rel="noopener noreferrer"
-									class="source-link"
-								>
-									View on {series.scanner_source || "source"}
-								</a>
-							</div>
-						{/if}
-
-						<!-- Start/Continue Reading Button -->
-						{#if nextVolumeToRead}
-							<div class="reading-actions">
-								<a
-									href="/comic/{libraryId}/{nextVolumeToRead.id}/read{nextVolumeToRead.current_page >
-									0
+				<!-- Enhanced Series Header -->
+				<DetailHeader
+					item={{
+						...series,
+						name: series.series_name,
+						nextVolumeToRead,
+					}}
+					{libraryId}
+					onBack={() => goto("/")}
+					onStartReading={nextVolumeToRead
+						? () => {
+								const page =
+									nextVolumeToRead.current_page > 0
 										? `?page=${nextVolumeToRead.current_page}`
-										: ''}"
-									class="btn-reading"
-								>
-									<BookOpen class="w-5 h-5" />
-									{hasStartedReading
-										? "Continue Reading"
-										: "Start Reading"}
-								</a>
-							</div>
-						{/if}
+										: "";
+								goto(
+									`/comic/${libraryId}/${nextVolumeToRead.id}/read${page}`,
+								);
+							}
+						: null}
+				/>
 
-						<!-- Reading Progress -->
-						<div class="reading-progress">
-							<div class="progress-header">
-								<span class="progress-label"
-									>Reading Progress</span
-								>
-								<span class="progress-stats">
-									{series.completed_volumes} / {series.total_issues}
-									completed ({Math.round(
-										series.overall_progress,
-									)}%)
-								</span>
-							</div>
-							<div class="progress-bar">
-								<div
-									class="progress-fill"
-									style="width: {series.overall_progress}%"
-								></div>
-							</div>
-						</div>
+				<!-- Scanner button (show if metadata missing) -->
+				{#if scannerConfig?.primary_scanner && scannerConfig?.scan_level === "series" && !series.writer && !series.artist && !series.synopsis}
+					<div class="scanner-action">
+						<button
+							on:click={scanSeriesMetadata}
+							disabled={isScanning}
+							class="btn-scan"
+						>
+							<Search class="w-4 h-4" />
+							{isScanning ? "Scanning..." : "Get Metadata"}
+						</button>
 					</div>
-				</div>
+				{/if}
 
 				<!-- Scan error/result feedback -->
 				{#if scanError}
@@ -554,187 +440,36 @@
 		}
 	}
 
-	.series-header {
+	/* Scanner action button */
+	.scanner-action {
 		display: flex;
-		gap: 2rem;
-		margin-bottom: 3rem;
-		padding: 2rem;
-		background: var(--color-secondary-bg);
-		border-radius: 12px;
+		justify-content: center;
+		margin-bottom: 1.5rem;
 	}
 
-	.series-cover {
-		flex-shrink: 0;
-		width: 240px;
-	}
-
-	.cover-image {
-		width: 100%;
-		height: auto;
-		max-height: 600px;
-		object-fit: cover;
-		object-position: top;
-		border-radius: 8px;
-		box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
-	}
-
-	.series-info {
-		flex: 1;
-		display: flex;
-		flex-direction: column;
-		gap: 1.5rem;
-	}
-
-	.title-row {
-		display: flex;
-		align-items: center;
-		justify-content: space-between;
-		gap: 1rem;
-	}
-
-	.series-title {
-		font-size: 2rem;
-		font-weight: 700;
-		color: var(--color-text);
-		margin: 0;
-		flex: 1;
-	}
-
-	.btn-scan-compact {
+	.btn-scan {
 		display: flex;
 		align-items: center;
 		gap: 0.5rem;
-		padding: 0.5rem 1rem;
+		padding: 0.625rem 1.25rem;
 		background: rgba(96, 165, 250, 0.15);
 		color: #60a5fa;
 		border: 1px solid rgba(96, 165, 250, 0.3);
-		border-radius: 6px;
+		border-radius: 0.5rem;
 		font-weight: 500;
 		font-size: 0.875rem;
 		cursor: pointer;
 		transition: all 0.2s;
-		flex-shrink: 0;
 	}
 
-	.btn-scan-compact:hover:not(:disabled) {
+	.btn-scan:hover:not(:disabled) {
 		background: rgba(96, 165, 250, 0.25);
 		border-color: rgba(96, 165, 250, 0.5);
 	}
 
-	.btn-scan-compact:disabled {
+	.btn-scan:disabled {
 		opacity: 0.5;
 		cursor: not-allowed;
-	}
-
-	.series-meta {
-		display: flex;
-		flex-wrap: wrap;
-		gap: 1.5rem;
-	}
-
-	.meta-item {
-		display: flex;
-		align-items: center;
-		gap: 0.5rem;
-		color: var(--color-text-secondary);
-		font-size: 0.875rem;
-	}
-
-	.series-synopsis {
-		flex: 1;
-	}
-
-	.series-synopsis p {
-		color: var(--color-text-secondary);
-		line-height: 1.6;
-		margin: 0;
-	}
-
-	.series-source {
-		margin-top: 0.5rem;
-	}
-
-	.source-link {
-		display: inline-flex;
-		align-items: center;
-		gap: 0.375rem;
-		color: #60a5fa;
-		font-size: 0.875rem;
-		text-decoration: none;
-		transition: color 0.2s;
-	}
-
-	.source-link:hover {
-		color: #93c5fd;
-		text-decoration: underline;
-	}
-
-	.reading-actions {
-		display: flex;
-		gap: 1rem;
-		margin-top: 1rem;
-	}
-
-	.btn-reading {
-		display: inline-flex;
-		align-items: center;
-		gap: 0.5rem;
-		padding: 0.75rem 1.5rem;
-		background: #ff6740;
-		color: white;
-		font-weight: 600;
-		font-size: 1rem;
-		border-radius: 8px;
-		text-decoration: none;
-		transition: all 0.2s ease;
-		box-shadow: 0 2px 8px rgba(255, 103, 64, 0.3);
-	}
-
-	.btn-reading:hover {
-		background: #ff8a5c;
-		transform: translateY(-2px);
-		box-shadow: 0 4px 12px rgba(255, 103, 64, 0.4);
-	}
-
-	.btn-reading:active {
-		transform: translateY(0);
-	}
-
-	.reading-progress {
-		margin-top: auto;
-	}
-
-	.progress-header {
-		display: flex;
-		justify-content: space-between;
-		align-items: center;
-		margin-bottom: 0.5rem;
-	}
-
-	.progress-label {
-		font-size: 0.875rem;
-		font-weight: 600;
-		color: var(--color-text);
-	}
-
-	.progress-stats {
-		font-size: 0.875rem;
-		color: var(--color-text-secondary);
-	}
-
-	.progress-bar {
-		width: 100%;
-		height: 8px;
-		background: rgba(255, 255, 255, 0.1);
-		border-radius: 4px;
-		overflow: hidden;
-	}
-
-	.progress-fill {
-		height: 100%;
-		background: var(--color-accent);
-		border-radius: 4px;
-		transition: width 0.3s ease;
 	}
 
 	.volumes-section {
@@ -789,32 +524,6 @@
 	}
 
 	@media (max-width: 768px) {
-		.series-header {
-			flex-direction: column;
-			padding: 1.5rem;
-		}
-
-		.series-cover {
-			width: 100%;
-			max-width: 240px;
-			margin: 0 auto;
-		}
-
-		.title-row {
-			flex-direction: column;
-			align-items: flex-start;
-			gap: 0.75rem;
-		}
-
-		.series-title {
-			font-size: 1.5rem;
-		}
-
-		.btn-scan-compact {
-			width: 100%;
-			justify-content: center;
-		}
-
 		.volumes-grid {
 			grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
 			gap: 1rem;

@@ -1,20 +1,16 @@
 <script>
-	import { onMount, tick } from "svelte";
+	import { tick } from "svelte";
 	import { Filter, X } from "lucide-svelte";
+	import { browser } from "$app/environment";
 
 	export let open = true;
 
-	let sidebarWidth = 256; // Default width
+	// Read sidebar width synchronously to prevent FOUC
+	let sidebarWidth = browser
+		? parseInt(localStorage.getItem("sidebar-width") || "256", 10)
+		: 256;
 	let isResizing = false;
 	let sidebarElement;
-
-	// Load saved width on mount
-	onMount(() => {
-		const savedWidth = localStorage.getItem("sidebar-width");
-		if (savedWidth) {
-			sidebarWidth = parseInt(savedWidth, 10);
-		}
-	});
 
 	function startResize(e) {
 		isResizing = true;

@@ -26,6 +26,24 @@
 		dispatch("select", { node, event: e });
 	}
 
+	function getHref(node) {
+		if (!node) return "#";
+		if (node.type === "root") return "/";
+		if (node.type === "library") return `/library/${node.id}/browse`;
+		if (node.type === "folder" && node.path) {
+			// Split path by slashes and encode each segment to ensure valid URI
+			const encodedPath = node.path
+				.split("/")
+				.map((segment) => encodeURIComponent(segment))
+				.join("/");
+			return `/library/${node.libraryId}/browse/${encodedPath}`;
+		}
+		if (node.type === "comic") {
+			return `/comic/${node.libraryId}/${node.id}/read`;
+		}
+		return "#";
+	}
+
 	function getIcon(nodeType) {
 		if (nodeType === "root") return Library;
 		if (nodeType === "library") return Library;
@@ -56,17 +74,17 @@
 					{/if}
 				</button>
 			{:else}
-				<span class="toggle-spacer" />
+				<span class="toggle-spacer"></span>
 			{/if}
 
 			<!-- Node content -->
-			<button
+			<a
+				href={getHref(node)}
 				class="node-button"
 				class:active={isActive}
 				class:has-children={hasChildren}
 				on:click={handleSelect}
 				use:tooltip={{ content: node.name }}
-				type="button"
 			>
 				<!-- Node Icon -->
 				<span
@@ -87,7 +105,7 @@
 				{#if (node.type === "folder" || node.type === "library") && node.comicCount}
 					<span class="count-badge">{node.comicCount}</span>
 				{/if}
-			</button>
+			</a>
 		</div>
 
 		<!-- Children (recursively rendered) -->

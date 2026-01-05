@@ -8,9 +8,28 @@
 	/* Note: These variables are set dynamically by the theme system */
 	/* Default values are applied on initial load by the theme store */
 	:root {
-		/* Theme variables are populated dynamically */
-		/* See: src/lib/themes/index.js for theme definitions */
+		/* Default theme values (Catppuccin Mocha) - fallbacks in case inline script fails */
+		--color-bg: #1e1e2e;
+		--color-secondary-bg: #181825;
+		--color-tertiary-bg: #11111b;
+		--color-text: #cdd6f4;
+		--color-text-secondary: #bac2de;
+		--color-text-muted: #a6adc8;
+		--color-accent: #fab387;
+		--color-accent-hover: #f5e0dc;
+		--color-accent-blue: #89b4fa;
+		--color-border: rgba(205, 214, 244, 0.1);
+		--color-border-strong: rgba(205, 214, 244, 0.2);
+		--color-border-hover: rgba(205, 214, 244, 0.3);
+		--color-success: #a6e3a1;
+		--color-warning: #f9e2af;
+		--color-error: #f38ba8;
+		--color-overlay: rgba(17, 17, 27, 0.8);
+		--color-overlay-light: rgba(17, 17, 27, 0.5);
+		/* Default cover size multiplier */
+		--cover-size-multiplier: 1;
 	}
+
 
 	* {
 		@apply border-gray-700;

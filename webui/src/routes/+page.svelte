@@ -1,6 +1,8 @@
 <script>
 	import { onMount } from "svelte";
+	import { browser } from "$app/environment";
 	import Navbar from "$components/layout/Navbar.svelte";
+	import FolderCard from "$lib/components/library/FolderCard.svelte";
 	import ComicCard from "$lib/components/comic/ComicCard.svelte";
 	import SeriesTree from "$lib/components/layout/SeriesTree.svelte";
 	import InfiniteScroll from "$lib/components/common/InfiniteScroll.svelte";
@@ -116,6 +118,14 @@
 		}
 	}
 
+	// Update the CSS variable on documentElement when cover size changes
+	$: if (browser && $preferencesStore.gridCoverSize) {
+		document.documentElement.style.setProperty(
+			"--cover-size-multiplier",
+			String($preferencesStore.gridCoverSize),
+		);
+	}
+
 	onMount(async () => {
 		await loadHomeData();
 
@@ -224,8 +234,9 @@
 				Promise.all(
 					libraries.map(async (lib) => {
 						try {
-							const series = await getSeries(lib.id, sortBy);
-							return series.map((s) => ({
+							const seriesData = await getSeries(lib.id, sortBy);
+							const seriesItems = seriesData.items || [];
+							return seriesItems.map((s) => ({
 								...s,
 								libraryId: lib.id,
 							}));
@@ -288,10 +299,12 @@
 					? "name"
 					: sortBy;
 
-			const [contReading, series] = await Promise.all([
+			const [contReading, seriesData] = await Promise.all([
 				getContinueReading(libraryId, 50).catch(() => []),
-				getSeries(libraryId, backendSort).catch(() => []),
+				getSeries(libraryId, backendSort).catch(() => ({ items: [] })),
 			]);
+
+			const series = seriesData.items || [];
 
 			// Merge into existing data
 			const newContinueReading = contReading.map((c) => ({
@@ -332,10 +345,12 @@
 		// Load libraries one at a time to avoid overwhelming the browser
 		for (const lib of remainingLibs) {
 			try {
-				const [contReading, series] = await Promise.all([
+				const [contReading, seriesData] = await Promise.all([
 					getContinueReading(lib.id, 50).catch(() => []),
-					getSeries(lib.id, sortBy).catch(() => []),
+					getSeries(lib.id, sortBy).catch(() => ({ items: [] })),
 				]);
+
+				const series = seriesData.items || [];
 
 				// Merge into existing data
 				const newContinueReading = contReading.map((c) => ({
@@ -376,6 +391,16 @@
 			await applySorting();
 		}
 	}
+
+	// ... (handleTreeFilter etc unchanged) ...
+
+	// Since I cannot skip code chunks easily in replace_file_content when using large range,
+	// I will just implement the unpacking for reloadWithBackendSort too in next block if needed.
+	// But `reloadWithBackendSort` is further down.
+	// I will include it if it falls in range.
+	// Range 198 to 378 covers loadClientSide, loadLibraryData, loadRemainingLibraries.
+	// reloadWithBackendSort is at 583.
+	// I will check if I can use multi_replace.
 
 	async function handleTreeFilter(event) {
 		const { type, libraryId, folderId, folderName, comicId, libraryName } =
@@ -590,9 +615,9 @@
 			const allSeriesResults = await Promise.all(
 				librariesToFetch.map(async (lib) => {
 					try {
-						const series = await getSeries(lib.id, sortType);
-
-						return series.map((s) => ({
+						const seriesData = await getSeries(lib.id, sortType);
+						const seriesItems = seriesData.items || [];
+						return seriesItems.map((s) => ({
 							...s,
 							libraryId: lib.id,
 						}));
@@ -1176,7 +1201,9 @@
 										class="comics-grid"
 										class:list-view={$preferencesStore.viewMode ===
 											"list"}
-										style="--cover-size-multiplier: {$preferencesStore.gridCoverSize};"
+										style={browser
+											? `--cover-size-multiplier: ${$preferencesStore.gridCoverSize};`
+											: ""}
 									>
 										{#if currentFilter?.type === "folder"}
 											<!-- Show individual comics when folder is selected -->
@@ -1197,43 +1224,55 @@
 														libraryId={currentFilter.libraryId}
 														showProgress={true}
 														variant={$preferencesStore.viewMode}
-														coverSizeMultiplier={$preferencesStore.gridCoverSize}
 													/>
 												</a>
 											{/each}
 										{:else}
 											<!-- Show series cards -->
-											{#each displayedSeries as series}
-												<ComicCard
-													comic={{
-														id: series.first_comic_id,
-														name: series.name,
-														series_name:
-															series.series_name,
-														title: series.title,
-														hash: series.cover_hash,
-														itemCount:
-															series.total_issues,
-														writer: series.writer,
-														artist: series.artist,
-														publisher:
-															series.publisher,
-														year: series.year,
-														genre: series.genre,
-														synopsis:
-															series.synopsis,
-													}}
-													libraryId={series.libraryId}
-													showProgress={false}
-													isFolder={true}
-													itemCount={series.total_issues}
-													isStandalone={series.is_standalone}
-													href={series.is_standalone
-														? `/comic/${series.libraryId}/${series.first_comic_id}`
-														: `/series/${series.libraryId}/${encodeURIComponent(series.series_name || series.name)}`}
-													variant={$preferencesStore.viewMode}
-													coverSizeMultiplier={$preferencesStore.gridCoverSize}
-												/>
+											{#each displayedSeries as series (series.id)}
+												{#if series.type === "collection" || series.type === "series"}
+													<FolderCard
+														item={series}
+														libraryId={series.libraryId}
+														on:click={() => {
+															const path =
+																encodeURIComponent(
+																	series.name,
+																);
+															window.location.href = `/library/${series.libraryId}/browse/${path}`;
+														}}
+													/>
+												{:else}
+													<ComicCard
+														comic={{
+															id: series.first_comic_id,
+															name: series.name,
+															series_name:
+																series.series_name,
+															title: series.title,
+															hash: series.cover_hash,
+															itemCount:
+																series.total_issues,
+															writer: series.writer,
+															artist: series.artist,
+															publisher:
+																series.publisher,
+															year: series.year,
+															genre: series.genre,
+															synopsis:
+																series.synopsis,
+														}}
+														libraryId={series.libraryId}
+														showProgress={false}
+														isFolder={true}
+														itemCount={series.total_issues}
+														isStandalone={series.is_standalone}
+														cardHref={series.is_standalone
+															? `/comic/${series.libraryId}/${series.first_comic_id}`
+															: `/library/${series.libraryId}/browse/${encodeURIComponent(series.series_name || series.name)}`}
+														variant={$preferencesStore.viewMode}
+													/>
+												{/if}
 											{/each}
 										{/if}
 									</div>
@@ -1432,96 +1471,6 @@
 	.carousel-item {
 		flex-shrink: 0;
 		width: 180px;
-	}
-
-	.search-container {
-		margin-bottom: 2rem;
-		position: sticky;
-		top: 0;
-		z-index: 20;
-		background: var(--color-bg);
-		padding: 1rem 0;
-		margin: -1rem 0 2rem 0;
-	}
-
-	.search-input-wrapper {
-		position: relative;
-		display: flex;
-		align-items: center;
-		width: 100%;
-		max-width: 600px;
-		margin: 0 auto;
-	}
-
-	.search-icon {
-		position: absolute;
-		left: 1rem;
-		width: 20px;
-		height: 20px;
-		color: var(--color-text-secondary);
-		pointer-events: none;
-	}
-
-	.search-input {
-		width: 100%;
-		padding: 0.875rem 3rem 0.875rem 3rem;
-		background: var(--color-secondary-bg);
-		border: 2px solid rgba(255, 255, 255, 0.1);
-		border-radius: 12px;
-		color: var(--color-text);
-		font-size: 1rem;
-		transition: all 0.2s;
-	}
-
-	.search-input:focus {
-		outline: none;
-		border-color: var(--color-accent);
-		background: rgba(255, 255, 255, 0.05);
-	}
-
-	.search-input::placeholder {
-		color: var(--color-text-secondary);
-	}
-
-	.search-clear {
-		position: absolute;
-		right: 0.75rem;
-		display: flex;
-		align-items: center;
-		justify-content: center;
-		width: 32px;
-		height: 32px;
-		padding: 0;
-		background: rgba(255, 255, 255, 0.1);
-		border: none;
-		border-radius: 50%;
-		color: var(--color-text);
-		cursor: pointer;
-		transition: all 0.2s;
-	}
-
-	.search-clear:hover {
-		background: rgba(255, 255, 255, 0.2);
-		transform: scale(1.1);
-	}
-
-	.search-loading {
-		display: flex;
-		align-items: center;
-		justify-content: center;
-		gap: 0.5rem;
-		margin-top: 0.75rem;
-		color: var(--color-text-secondary);
-		font-size: 0.875rem;
-	}
-
-	.spinner-small {
-		width: 16px;
-		height: 16px;
-		border: 2px solid rgba(255, 255, 255, 0.1);
-		border-top-color: var(--color-accent);
-		border-radius: 50%;
-		animation: spin 0.6s linear infinite;
 	}
 
 	@media (max-width: 768px) {

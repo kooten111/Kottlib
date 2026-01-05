@@ -1,5 +1,5 @@
 <script>
-	import { createEventDispatcher, onMount } from "svelte";
+	import { createEventDispatcher } from "svelte";
 	import {
 		Library,
 		FolderOpen,
@@ -14,18 +14,16 @@
 	import { treeExpandedNodes } from "$stores/library";
 	import { uiStore } from "$stores/ui";
 
+	import { goto } from "$app/navigation";
+	import { browser } from "$app/environment";
+
 	const dispatch = createEventDispatcher();
 
-	// Resize state
-	let sidebarWidth = 256;
+	// Resize state - read from localStorage synchronously to prevent FOUC
+	let sidebarWidth = browser
+		? parseInt(localStorage.getItem("sidebar-width") || "256", 10)
+		: 256;
 	let isResizing = false;
-
-	onMount(() => {
-		const savedWidth = localStorage.getItem("sidebar-width");
-		if (savedWidth) {
-			sidebarWidth = parseInt(savedWidth, 10);
-		}
-	});
 
 	function startResize(e) {
 		isResizing = true;
@@ -60,12 +58,46 @@
 	export let currentView = "home"; // 'home', 'favorites', 'continue'
 
 	// Derived state for folders
+	// Use libraryId from both "library" and "folder" filter types
 	$: selectedLibraryId =
-		currentFilter?.type === "library" ? currentFilter.libraryId : null;
+		currentFilter?.type === "library" || currentFilter?.type === "folder"
+			? currentFilter.libraryId
+			: null;
 	$: selectedLibraryNode = seriesTree.find(
 		(node) => node.id === selectedLibraryId,
 	);
-	$: folderNodes = selectedLibraryNode?.children || [];
+
+	// Add paths to folder nodes for proper navigation links
+	function addPathsToNodes(nodes, parentPath = "", libraryId = null) {
+		if (!nodes) return [];
+		return nodes.map((node) => {
+			let currentPath = parentPath;
+			if (node.type === "folder") {
+				currentPath = parentPath
+					? `${parentPath}/${node.name}`
+					: node.name;
+			}
+			const newNode = {
+				...node,
+				path: currentPath,
+				libraryId: libraryId || node.libraryId,
+			};
+			if (node.children && node.children.length > 0) {
+				newNode.children = addPathsToNodes(
+					node.children,
+					currentPath,
+					libraryId || node.libraryId,
+				);
+			}
+			return newNode;
+		});
+	}
+
+	$: folderNodes = addPathsToNodes(
+		selectedLibraryNode?.children || [],
+		"",
+		selectedLibraryId,
+	);
 
 	// Helper to check if a library is active
 	$: isLibraryActive = (libId) =>
@@ -73,15 +105,11 @@
 	$: isAllLibrariesActive = !currentFilter || currentFilter.type === "all";
 
 	function handleLibraryClick(lib) {
-		dispatch("filter", {
-			type: "library",
-			libraryId: lib.id,
-			libraryName: lib.name,
-		});
+		goto(`/library/${lib.id}/browse`);
 	}
 
 	function handleAllLibrariesClick() {
-		dispatch("filter", { type: "all" });
+		goto("/");
 	}
 
 	function handleViewChange(view) {

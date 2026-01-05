@@ -4,6 +4,7 @@ import { browser } from '$app/environment';
 // Default preferences
 const defaultPreferences = {
 	gridCoverSize: 1.0, // Multiplier for grid view cover size (0.5 to 2.0)
+	folderCoverSizes: {}, // Per-folder cover size preferences: { "libraryId:path": size }
 	viewMode: 'grid', // 'grid' or 'list'
 	sortBy: 'name', // Global sort option: 'name', 'recent-read', 'progress', 'recent', 'shuffle'
 	librarySortBy: {} // Per-library sort preferences: { libraryId: sortMode }
@@ -55,6 +56,32 @@ function createPreferencesStore() {
 				}
 				return newPrefs;
 			});
+		},
+		setFolderCoverSize: (size, libraryId, path = "") => {
+			update((current) => {
+				const key = `${libraryId}:${path || ''}`;
+				const newPrefs = {
+					...current,
+					folderCoverSizes: {
+						...(current.folderCoverSizes || {}),
+						[key]: size
+					}
+				};
+				if (browser) {
+					localStorage.setItem('libraryPreferences', JSON.stringify(newPrefs));
+				}
+				return newPrefs;
+			});
+		},
+		getFolderCoverSize: (libraryId, path = "") => {
+			// Helper to get value, though usually accessed via store subscription in components
+			let val = 1.0;
+			const unsubscribe = subscribe(p => {
+				const key = `${libraryId}:${path || ''}`;
+				val = p.folderCoverSizes?.[key] ?? p.gridCoverSize ?? 1.0;
+			});
+			unsubscribe();
+			return val;
 		},
 		setViewMode: (mode) => {
 			update((current) => {

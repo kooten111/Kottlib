@@ -25,26 +25,39 @@
 		activeNodeId = null;
 	}
 
-	// Filter tree to remove individual comic files, keeping only libraries and folders
-	function filterTreeNodes(nodes) {
+	// Filter tree to remove individual comic files and add paths
+	function filterTreeNodes(nodes, parentPath = "") {
 		if (!nodes) return [];
 
 		return nodes
 			.map((node) => {
+				let currentPath = parentPath;
+
+				// Calculate path for this node
+				if (node.type === "folder") {
+					// Encode node name for path construction? No, keep raw for display/logic, encode in href
+					currentPath = parentPath
+						? `${parentPath}/${node.name}`
+						: node.name;
+				}
+
+				const newNode = { ...node, path: currentPath };
+
 				// If node has children, filter them recursively
 				if (node.children && node.children.length > 0) {
+					// For library nodes, reset path for children (they start at root)
+					const childPath =
+						node.type === "library" ? "" : currentPath;
+
 					// Remove comic-type children, keep folders and libraries
 					const filteredChildren = node.children
 						.filter((child) => child.type !== "comic")
-						.map((child) => filterTreeNodes([child])[0])
+						.map((child) => filterTreeNodes([child], childPath)[0])
 						.filter(Boolean);
 
-					return {
-						...node,
-						children: filteredChildren,
-					};
+					newNode.children = filteredChildren;
 				}
-				return node;
+				return newNode;
 			})
 			.filter(Boolean);
 	}
@@ -133,11 +146,67 @@
 		}
 	}
 
+	import { getFolderTree } from "$lib/api/libraries";
+
 	// Make isExpanded reactive by recreating it when treeExpandedNodes changes
 	$: isExpanded = (nodeId) => $treeExpandedNodes.has(nodeId);
 
-	function handleToggle(event) {
-		toggleNode(event.detail.nodeId);
+	async function handleToggle(event) {
+		const { nodeId, node } = event.detail;
+		toggleNode(nodeId);
+
+		// If expanding and no children loaded, fetch them
+		if (
+			$treeExpandedNodes.has(nodeId) &&
+			(!node.children || node.children.length === 0)
+		) {
+			console.log("Lazy loading children for node:", node.name);
+			try {
+				let children = [];
+				// If it's a library node
+				if (node.type === "library") {
+					// Fetch library root folders
+					// We use a specific call for shallow tree
+					const response = await getFolderTree(node.id, 0); // 0 = shallow/1-level
+					children = response.children || [];
+				}
+				// If it's a folder node
+				else if (node.type === "folder") {
+					// We need to fetch children of this folder
+					// Refactor getFolderTree to accept folderId or use getLibraryFolders
+					// Using getFolderTree with folder_id param (to be implemented in API wrapper)
+					const response = await getFolderTree(
+						node.libraryId || node.parent_id,
+						0,
+						node.id,
+					);
+					children = response.children || [];
+				}
+
+				if (children.length > 0) {
+					// Update the tree with new children
+					// We need to find the node in the tree structure and update it
+					updateNodeChildren(tree, nodeId, children);
+					tree = [...tree]; // Trigger reactivity
+				}
+			} catch (err) {
+				console.error("Failed to lazy load tree nodes:", err);
+			}
+		}
+	}
+
+	function updateNodeChildren(nodes, targetId, children) {
+		for (let node of nodes) {
+			if (node.id === targetId) {
+				node.children = children;
+				return true;
+			}
+			if (node.children && node.children.length > 0) {
+				if (updateNodeChildren(node.children, targetId, children))
+					return true;
+			}
+		}
+		return false;
 	}
 
 	function handleSelect(event) {
