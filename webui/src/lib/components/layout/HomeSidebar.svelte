@@ -1,41 +1,91 @@
 <script>
-	import { createEventDispatcher } from 'svelte';
-	import { Library, FolderOpen, Heart, BookOpen, Layers, List, X } from 'lucide-svelte';
-	import SeriesTreeNode from './SeriesTreeNode.svelte';
-	import { treeExpandedNodes } from '$stores/library';
-	import { uiStore } from '$stores/ui';
+	import { createEventDispatcher, onMount } from "svelte";
+	import {
+		Library,
+		FolderOpen,
+		Heart,
+		BookOpen,
+		Layers,
+		List,
+		X,
+	} from "lucide-svelte";
+	import { tooltip } from "$lib/actions/tooltip";
+	import SeriesTreeNode from "./SeriesTreeNode.svelte";
+	import { treeExpandedNodes } from "$stores/library";
+	import { uiStore } from "$stores/ui";
 
 	const dispatch = createEventDispatcher();
+
+	// Resize state
+	let sidebarWidth = 256;
+	let isResizing = false;
+
+	onMount(() => {
+		const savedWidth = localStorage.getItem("sidebar-width");
+		if (savedWidth) {
+			sidebarWidth = parseInt(savedWidth, 10);
+		}
+	});
+
+	function startResize(e) {
+		isResizing = true;
+		document.body.style.cursor = "col-resize";
+		document.body.style.userSelect = "none";
+		window.addEventListener("mousemove", handleResize);
+		window.addEventListener("mouseup", stopResize);
+	}
+
+	function handleResize(e) {
+		if (!isResizing) return;
+		let newWidth = e.clientX;
+		const MIN_WIDTH = 160;
+		const MAX_WIDTH = 448;
+		if (newWidth < MIN_WIDTH) newWidth = MIN_WIDTH;
+		if (newWidth > MAX_WIDTH) newWidth = MAX_WIDTH;
+		sidebarWidth = newWidth;
+	}
+
+	function stopResize() {
+		isResizing = false;
+		document.body.style.cursor = "";
+		document.body.style.userSelect = "";
+		window.removeEventListener("mousemove", handleResize);
+		window.removeEventListener("mouseup", stopResize);
+		localStorage.setItem("sidebar-width", sidebarWidth.toString());
+	}
 
 	export let libraries = [];
 	export let seriesTree = [];
 	export let currentFilter = null;
-	export let currentView = 'home'; // 'home', 'favorites', 'continue'
+	export let currentView = "home"; // 'home', 'favorites', 'continue'
 
 	// Derived state for folders
-	$: selectedLibraryId = currentFilter?.type === 'library' ? currentFilter.libraryId : null;
-	$: selectedLibraryNode = seriesTree.find((node) => node.id === selectedLibraryId);
+	$: selectedLibraryId =
+		currentFilter?.type === "library" ? currentFilter.libraryId : null;
+	$: selectedLibraryNode = seriesTree.find(
+		(node) => node.id === selectedLibraryId,
+	);
 	$: folderNodes = selectedLibraryNode?.children || [];
 
 	// Helper to check if a library is active
 	$: isLibraryActive = (libId) =>
-		currentFilter?.type === 'library' && currentFilter.libraryId === libId;
-	$: isAllLibrariesActive = !currentFilter || currentFilter.type === 'all';
+		currentFilter?.type === "library" && currentFilter.libraryId === libId;
+	$: isAllLibrariesActive = !currentFilter || currentFilter.type === "all";
 
 	function handleLibraryClick(lib) {
-		dispatch('filter', {
-			type: 'library',
+		dispatch("filter", {
+			type: "library",
 			libraryId: lib.id,
-			libraryName: lib.name
+			libraryName: lib.name,
 		});
 	}
 
 	function handleAllLibrariesClick() {
-		dispatch('filter', { type: 'all' });
+		dispatch("filter", { type: "all" });
 	}
 
 	function handleViewChange(view) {
-		dispatch('viewChange', view);
+		dispatch("viewChange", view);
 	}
 
 	// Forward events from SeriesTreeNode
@@ -50,8 +100,11 @@
 				newNodes.add(nodeId);
 			}
 			// Persist to localStorage
-			if (typeof window !== 'undefined') {
-				localStorage.setItem('series-tree-expanded', JSON.stringify([...newNodes]));
+			if (typeof window !== "undefined") {
+				localStorage.setItem(
+					"series-tree-expanded",
+					JSON.stringify([...newNodes]),
+				);
 			}
 			return newNodes;
 		});
@@ -60,19 +113,19 @@
 	function handleSelect(event) {
 		// Forward selection to parent
 		const { node } = event.detail;
-		if (node.type === 'folder') {
-			dispatch('filter', {
-				type: 'folder',
+		if (node.type === "folder") {
+			dispatch("filter", {
+				type: "folder",
 				libraryId: node.libraryId,
 				folderId: node.folderId,
-				folderName: node.name
+				folderName: node.name,
 			});
-		} else if (node.type === 'comic') {
-			dispatch('filter', {
-				type: 'comic',
+		} else if (node.type === "comic") {
+			dispatch("filter", {
+				type: "comic",
 				libraryId: node.libraryId,
 				comicId: node.id,
-				comicName: node.name
+				comicName: node.name,
 			});
 		}
 	}
@@ -110,7 +163,7 @@
 	<div
 		class="sidebar-backdrop"
 		on:click={() => uiStore.closeSidebar()}
-		on:keydown={(e) => e.key === 'Escape' && uiStore.closeSidebar()}
+		on:keydown={(e) => e.key === "Escape" && uiStore.closeSidebar()}
 		role="button"
 		tabindex="0"
 		aria-label="Close sidebar"
@@ -120,117 +173,155 @@
 <aside
 	class="sidebar"
 	class:sidebar-open={$uiStore.isSidebarOpen}
+	style="width: {sidebarWidth}px;"
 >
-	<!-- Mobile Close Button -->
-	<button
-		class="sidebar-close-btn lg:hidden"
-		on:click={() => uiStore.closeSidebar()}
-		aria-label="Close sidebar"
-	>
-		<X class="w-6 h-6" />
-	</button>
-
-	<!-- LIBRARIES SECTION -->
-	<div class="sidebar-section">
-		<div class="section-header">
-			<span class="text-xs font-bold text-gray-500 uppercase tracking-wider">Libraries</span>
-			<button class="text-gray-500 hover:text-white" title="Add Library">
-				<!-- Plus icon would go here if we had add functionality implemented -->
-			</button>
-		</div>
-
-		<div class="section-content">
-			<button
-				class="sidebar-item"
-				class:active={isAllLibrariesActive && currentView === 'home'}
-				on:click={handleAllLibrariesClickWrapper}
-			>
-				<Layers class="w-4 h-4" />
-				<span class="truncate">All Libraries</span>
-			</button>
-
-			{#each libraries as lib}
-				<button
-					class="sidebar-item"
-					class:active={isLibraryActive(lib.id) && currentView === 'home'}
-					on:click={() => handleLibraryClickWrapper(lib)}
+	<div class="sidebar-content">
+		<!-- LIBRARIES SECTION -->
+		<div class="sidebar-section">
+			<div class="section-header">
+				<span
+					class="text-xs font-bold text-gray-500 uppercase tracking-wider"
+					>Libraries</span
 				>
-					<Library class="w-4 h-4" />
-					<span class="truncate">{lib.name}</span>
+				<button
+					class="text-gray-500 hover:text-white"
+					title="Add Library"
+				>
+					<!-- Plus icon would go here if we had add functionality implemented -->
 				</button>
-			{/each}
-		</div>
-	</div>
+			</div>
 
-	<!-- FOLDERS SECTION -->
-	<div class="sidebar-section flex-1">
-		<div class="section-header">
-			<span class="text-xs font-bold text-gray-500 uppercase tracking-wider">Folders</span>
-			<div class="flex gap-2">
-				<!-- Action icons could go here -->
+			<div class="section-content">
+				<div class="sidebar-item-container w-full">
+					<button
+						class="sidebar-item w-full"
+						class:active={isAllLibrariesActive &&
+							currentView === "home"}
+						on:click={handleAllLibrariesClickWrapper}
+						use:tooltip={{ content: "All Libraries" }}
+					>
+						<Layers class="w-4 h-4" />
+						<span class="item-text">All Libraries</span>
+					</button>
+				</div>
+
+				{#each libraries as lib}
+					<div class="sidebar-item-container w-full">
+						<button
+							class="sidebar-item w-full"
+							class:active={isLibraryActive(lib.id) &&
+								currentView === "home"}
+							on:click={() => handleLibraryClickWrapper(lib)}
+							use:tooltip={{ content: lib.name }}
+						>
+							<Library class="w-4 h-4" />
+							<span class="item-text">{lib.name}</span>
+						</button>
+					</div>
+				{/each}
 			</div>
 		</div>
 
-		<div class="section-content">
-			{#if selectedLibraryId}
-				{#if folderNodes.length > 0}
-					{#each folderNodes as node (node.id)}
-						<SeriesTreeNode
-							{node}
-							level={0}
-							{isExpanded}
-							activeNodeId={currentFilter?.folderId}
-							on:toggle={handleToggle}
-							on:select={handleSelect}
-						/>
-					{/each}
+		<!-- FOLDERS SECTION -->
+		<div class="sidebar-section flex-1">
+			<div class="section-header">
+				<span
+					class="text-xs font-bold text-gray-500 uppercase tracking-wider"
+					>Folders</span
+				>
+				<div class="flex gap-2">
+					<!-- Action icons could go here -->
+				</div>
+			</div>
+
+			<div class="section-content">
+				{#if selectedLibraryId}
+					{#if folderNodes.length > 0}
+						{#each folderNodes as node (node.id)}
+							<SeriesTreeNode
+								{node}
+								level={0}
+								{isExpanded}
+								activeNodeId={currentFilter?.folderId}
+								on:toggle={handleToggle}
+								on:select={handleSelect}
+							/>
+						{/each}
+					{:else}
+						<div class="text-sm text-gray-500 px-3 py-2 italic">
+							No folders
+						</div>
+					{/if}
 				{:else}
-					<div class="text-sm text-gray-500 px-3 py-2 italic">No folders</div>
+					<div class="text-sm text-gray-500 px-3 py-2 italic">
+						Select a library to view folders
+					</div>
 				{/if}
-			{:else}
-				<div class="text-sm text-gray-500 px-3 py-2 italic">Select a library to view folders</div>
-			{/if}
+			</div>
+		</div>
+
+		<!-- READING LISTS SECTION -->
+		<div class="sidebar-section mt-auto border-t border-gray-700">
+			<div class="section-header">
+				<span
+					class="text-xs font-bold text-gray-500 uppercase tracking-wider"
+					>Reading Lists</span
+				>
+			</div>
+
+			<div class="section-content">
+				<button
+					class="sidebar-item"
+					class:active={currentView === "favorites"}
+					on:click={() => handleViewChangeWrapper("favorites")}
+					use:tooltip={{ content: "Favorites" }}
+				>
+					<Heart class="w-4 h-4" />
+					<span class="item-text">Favorites</span>
+				</button>
+
+				<button
+					class="sidebar-item"
+					class:active={currentView === "continue"}
+					on:click={() => handleViewChangeWrapper("continue")}
+					use:tooltip={{ content: "Continue Reading" }}
+				>
+					<BookOpen class="w-4 h-4" />
+					<span class="item-text">Continue Reading</span>
+				</button>
+			</div>
 		</div>
 	</div>
-
-	<!-- READING LISTS SECTION -->
-	<div class="sidebar-section mt-auto border-t border-gray-700">
-		<div class="section-header">
-			<span class="text-xs font-bold text-gray-500 uppercase tracking-wider">Reading Lists</span>
-		</div>
-
-		<div class="section-content">
-			<button
-				class="sidebar-item"
-				class:active={currentView === 'favorites'}
-				on:click={() => handleViewChangeWrapper('favorites')}
-			>
-				<Heart class="w-4 h-4" />
-				<span>Favorites</span>
-			</button>
-
-			<button
-				class="sidebar-item"
-				class:active={currentView === 'continue'}
-				on:click={() => handleViewChangeWrapper('continue')}
-			>
-				<BookOpen class="w-4 h-4" />
-				<span>Continue Reading</span>
-			</button>
-		</div>
-	</div>
+	<!-- Resize Handle -->
+	<div
+		class="resize-handle"
+		on:mousedown={startResize}
+		role="separator"
+		tabindex="0"
+		aria-label="Resize sidebar"
+	></div>
 </aside>
 
 <style>
 	.sidebar {
-		width: 16rem;
+		min-width: 10rem;
+		max-width: 28rem;
 		background: var(--color-secondary-bg);
 		border-right: 1px solid rgb(55, 65, 81);
 		display: flex;
-		flex-direction: column;
+		flex-direction: row;
 		height: 100%;
-		overflow-y: auto;
 		flex-shrink: 0;
+		position: relative;
+		overflow: hidden;
+	}
+
+	.sidebar-content {
+		flex: 1;
+		overflow-y: auto;
+		overflow-x: hidden;
+		display: flex;
+		flex-direction: column;
 	}
 
 	/* Mobile drawer styles */
@@ -264,29 +355,6 @@
 			z-index: 90;
 			cursor: pointer;
 		}
-	}
-
-	.sidebar-close-btn {
-		position: absolute;
-		top: 1rem;
-		right: 1rem;
-		display: flex;
-		align-items: center;
-		justify-content: center;
-		width: 40px;
-		height: 40px;
-		padding: 0;
-		background: rgba(255, 255, 255, 0.1);
-		border: none;
-		border-radius: 8px;
-		color: var(--color-text);
-		cursor: pointer;
-		transition: all 0.2s;
-		z-index: 10;
-	}
-
-	.sidebar-close-btn:hover {
-		background: rgba(255, 255, 255, 0.2);
 	}
 
 	.sidebar-section {
@@ -327,5 +395,27 @@
 		background: rgba(255, 103, 64, 0.1);
 		color: var(--color-accent);
 		border-left-color: var(--color-accent);
+	}
+
+	.resize-handle {
+		position: absolute;
+		top: 0;
+		right: 0;
+		bottom: 0;
+		width: 6px;
+		cursor: col-resize;
+		z-index: 100;
+		background: rgba(255, 255, 255, 0.05);
+		transition: background-color 0.2s;
+	}
+
+	.resize-handle:hover {
+		background-color: var(--color-accent);
+	}
+
+	@media (max-width: 1023px) {
+		.resize-handle {
+			display: none;
+		}
 	}
 </style>

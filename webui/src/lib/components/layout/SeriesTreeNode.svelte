@@ -1,6 +1,13 @@
 <script>
-	import { createEventDispatcher } from 'svelte';
-	import { ChevronRight, ChevronDown, Library, FolderOpen, Book } from 'lucide-svelte';
+	import { createEventDispatcher } from "svelte";
+	import {
+		ChevronRight,
+		ChevronDown,
+		Library,
+		FolderOpen,
+		Book,
+	} from "lucide-svelte";
+	import { tooltip } from "$lib/actions/tooltip";
 
 	const dispatch = createEventDispatcher();
 
@@ -11,18 +18,18 @@
 
 	function handleToggle(e) {
 		e.stopPropagation();
-		dispatch('toggle', { nodeId: node.id });
+		dispatch("toggle", { nodeId: node.id });
 	}
 
 	function handleSelect(e) {
 		e.stopPropagation();
-		dispatch('select', { node, event: e });
+		dispatch("select", { node, event: e });
 	}
 
 	function getIcon(nodeType) {
-		if (nodeType === 'root') return Library;
-		if (nodeType === 'library') return Library;
-		if (nodeType === 'folder') return FolderOpen;
+		if (nodeType === "root") return Library;
+		if (nodeType === "library") return Library;
+		if (nodeType === "folder") return FolderOpen;
 		return Book;
 	}
 
@@ -37,7 +44,11 @@
 		<div class="node-row">
 			<!-- Expand/Collapse Icon -->
 			{#if hasChildren}
-				<button class="toggle-button" on:click={handleToggle} type="button">
+				<button
+					class="toggle-button"
+					on:click={handleToggle}
+					type="button"
+				>
 					{#if expanded}
 						<ChevronDown class="w-4 h-4" />
 					{:else}
@@ -54,21 +65,28 @@
 				class:active={isActive}
 				class:has-children={hasChildren}
 				on:click={handleSelect}
+				use:tooltip={{ content: node.name }}
 				type="button"
 			>
+				<!-- Node Icon -->
+				<span
+					class="node-icon"
+					class:root={node.type === "root"}
+					class:library={node.type === "library"}
+					class:folder={node.type === "folder"}
+				>
+					<svelte:component this={Icon} class="w-4 h-4" />
+				</span>
 
-			<!-- Node Icon -->
-			<span class="node-icon" class:root={node.type === 'root'} class:library={node.type === 'library'} class:folder={node.type === 'folder'}>
-				<svelte:component this={Icon} class="w-4 h-4" />
-			</span>
+				<!-- Node Label -->
+				<div class="flex-1 min-w-0 flex flex-col items-start">
+					<span class="item-text text-left w-full">{node.name}</span>
+				</div>
 
-			<!-- Node Label -->
-			<span class="node-label">{node.name}</span>
-
-			<!-- Comic Count Badge (for libraries and folders) -->
-			{#if (node.type === 'folder' || node.type === 'library') && node.comicCount}
-				<span class="count-badge">{node.comicCount}</span>
-			{/if}
+				<!-- Comic Count Badge (for libraries and folders) -->
+				{#if (node.type === "folder" || node.type === "library") && node.comicCount}
+					<span class="count-badge">{node.comicCount}</span>
+				{/if}
 			</button>
 		</div>
 
@@ -168,14 +186,6 @@
 
 	.node-icon.folder {
 		color: #888;
-	}
-
-	.node-label {
-		flex: 1;
-		overflow: hidden;
-		text-overflow: ellipsis;
-		white-space: nowrap;
-		font-weight: 500;
 	}
 
 	.count-badge {

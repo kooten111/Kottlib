@@ -1,10 +1,61 @@
 <script>
+	import { onMount, tick } from "svelte";
+	import { Filter, X } from "lucide-svelte";
+
 	export let open = true;
 
-	import { Filter, X } from 'lucide-svelte';
+	let sidebarWidth = 256; // Default width
+	let isResizing = false;
+	let sidebarElement;
+
+	// Load saved width on mount
+	onMount(() => {
+		const savedWidth = localStorage.getItem("sidebar-width");
+		if (savedWidth) {
+			sidebarWidth = parseInt(savedWidth, 10);
+		}
+	});
+
+	function startResize(e) {
+		isResizing = true;
+		document.body.style.cursor = "col-resize";
+		document.body.style.userSelect = "none"; // Prevent text selection while resizing
+
+		window.addEventListener("mousemove", handleResize);
+		window.addEventListener("mouseup", stopResize);
+	}
+
+	function handleResize(e) {
+		if (!isResizing) return;
+
+		// Calculate new width
+		// Using e.clientX directly assumes sidebar is on the left
+		let newWidth = e.clientX;
+
+		// Constraints
+		const MINI_WIDTH = 160;
+		const MAX_WIDTH = 448;
+
+		if (newWidth < MINI_WIDTH) newWidth = MINI_WIDTH;
+		if (newWidth > MAX_WIDTH) newWidth = MAX_WIDTH;
+
+		sidebarWidth = newWidth;
+	}
+
+	function stopResize() {
+		isResizing = false;
+		document.body.style.cursor = "";
+		document.body.style.userSelect = "";
+
+		window.removeEventListener("mousemove", handleResize);
+		window.removeEventListener("mouseup", stopResize);
+
+		// Save to localStorage
+		localStorage.setItem("sidebar-width", sidebarWidth.toString());
+	}
 </script>
 
-<div class="relative">
+<div class="relative h-full flex">
 	<!-- Toggle Button (Mobile) -->
 	<button
 		on:click={() => (open = !open)}
@@ -18,15 +69,26 @@
 		{/if}
 	</button>
 
-	<!-- Sidebar -->
+	<!-- Sidebar Container -->
 	<aside
-		class="fixed lg:static inset-y-0 left-0 z-40 w-64 bg-dark-bg-secondary border-r border-gray-700 transform transition-transform duration-300 lg:transform-none"
+		class="fixed lg:static inset-y-0 left-0 z-40 bg-dark-bg-secondary border-r border-gray-700 transform transition-transform duration-300 lg:transform-none flex flex-col"
 		class:translate-x-0={open}
 		class:-translate-x-full={!open}
+		style="width: {open ? sidebarWidth + 'px' : '0px'};"
+		bind:this={sidebarElement}
 	>
-		<div class="h-full overflow-y-auto p-4">
+		<div class="h-full overflow-y-auto overflow-x-hidden flex-1 relative">
 			<slot />
 		</div>
+
+		<!-- Resize Handle -->
+		<div
+			class="resize-handle"
+			on:mousedown={startResize}
+			role="separator"
+			tabindex="0"
+			aria-label="Resize sidebar"
+		></div>
 	</aside>
 
 	<!-- Overlay for mobile -->
@@ -34,10 +96,30 @@
 		<div
 			class="lg:hidden fixed inset-0 bg-black bg-opacity-50 z-30"
 			on:click={() => (open = false)}
-			on:keydown={(e) => e.key === 'Escape' && (open = false)}
+			on:keydown={(e) => e.key === "Escape" && (open = false)}
 			role="button"
 			tabindex="0"
 			aria-label="Close sidebar"
 		/>
 	{/if}
 </div>
+
+<style>
+	.resize-handle {
+		position: absolute;
+		top: 0;
+		right: 0;
+		bottom: 0;
+		width: 4px;
+		cursor: col-resize;
+		z-index: 50;
+		transition: background-color 0.2s;
+	}
+
+	.resize-handle:hover,
+	.resize-handle:active {
+		background-color: var(--color-accent);
+	}
+
+	/* Ensure the resize handle is touch-friendly if needed, though mouse events are used */
+</style>
