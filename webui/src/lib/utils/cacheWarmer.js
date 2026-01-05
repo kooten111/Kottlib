@@ -11,7 +11,7 @@ import { getCacheStats, clearExpired } from './persistentCache';
  * This runs in the background after the page is loaded
  */
 export async function warmCache() {
-	console.log('[Cache Warmer] Starting cache warm-up...');
+
 
 	try {
 		// Clear expired entries first
@@ -21,7 +21,7 @@ export async function warmCache() {
 		const libraries = await getLibraries();
 		await getLibrariesSeriesTree();
 
-		console.log(`[Cache Warmer] Loaded ${libraries.length} libraries`);
+
 
 		// Pre-load each library's data in the background
 		for (const library of libraries) {
@@ -35,17 +35,14 @@ export async function warmCache() {
 					getSeries(library.id, 'recent')
 				]);
 
-				console.log(`[Cache Warmer] Cached library: ${library.name}`);
+
 			} catch (error) {
 				console.error(`[Cache Warmer] Failed to cache library ${library.id}:`, error);
 			}
 		}
 
 		const stats = await getCacheStats();
-		console.log('[Cache Warmer] Complete!', {
-			entries: stats.total,
-			sizeKB: stats.totalSize
-		});
+
 
 		return stats;
 	} catch (error) {
@@ -97,7 +94,7 @@ export async function getCacheHealth() {
  * Refresh cache for a specific library
  */
 export async function refreshLibraryCache(libraryId) {
-	console.log(`[Cache Warmer] Refreshing cache for library ${libraryId}`);
+
 
 	try {
 		await Promise.all([
@@ -105,7 +102,7 @@ export async function refreshLibraryCache(libraryId) {
 			getSeries(libraryId, 'recent')
 		]);
 
-		console.log(`[Cache Warmer] Refreshed library ${libraryId}`);
+
 		return true;
 	} catch (error) {
 		console.error(`[Cache Warmer] Failed to refresh library ${libraryId}:`, error);

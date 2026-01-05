@@ -1,5 +1,5 @@
 <script>
-	import { createEventDispatcher, onMount, onDestroy, tick } from 'svelte';
+	import { createEventDispatcher, onMount, onDestroy, tick } from "svelte";
 
 	const dispatch = createEventDispatcher();
 
@@ -16,38 +16,31 @@
 		observer = new IntersectionObserver(
 			(entries) => {
 				const entry = entries[0];
-				console.log('[InfiniteScroll] Observer triggered:', {
-					isIntersecting: entry.isIntersecting,
-					hasMore,
-					isLoading
-				});
+
 				// Add debounce check - only trigger if not already loading and hasMore is true
 				if (entry.isIntersecting && hasMore && !isLoading) {
 					// Slight delay to prevent double-triggering
 					setTimeout(() => {
 						if (hasMore && !isLoading) {
-							console.log('[InfiniteScroll] Dispatching loadMore event');
-							dispatch('loadMore');
+							dispatch("loadMore");
 						}
 					}, 50);
 				}
 			},
 			{
 				rootMargin: `${threshold}px`,
-				threshold: 0.1 // Trigger when 10% visible
-			}
+				threshold: 0.1, // Trigger when 10% visible
+			},
 		);
 	});
 
 	// Reactively observe the sentinel whenever it changes or hasMore changes
 	$: if (observer && container && hasMore) {
 		tick().then(() => {
-			const sentinel = container.querySelector('.infinite-scroll-sentinel');
-			console.log('[InfiniteScroll] Reactive check:', {
-				hasSentinel: !!sentinel,
-				hasMore,
-				sentinelChanged: sentinel !== sentinelElement
-			});
+			const sentinel = container.querySelector(
+				".infinite-scroll-sentinel",
+			);
+
 			if (sentinel && sentinel !== sentinelElement) {
 				// Disconnect previous observation
 				if (sentinelElement) {
@@ -56,12 +49,10 @@
 				// Observe new sentinel
 				observer.observe(sentinel);
 				sentinelElement = sentinel;
-				console.log('[InfiniteScroll] Now observing sentinel');
 			} else if (!sentinel && sentinelElement) {
 				// Sentinel was removed, clean up
 				observer.unobserve(sentinelElement);
 				sentinelElement = null;
-				console.log('[InfiniteScroll] Sentinel removed, cleaned up');
 			}
 		});
 	}

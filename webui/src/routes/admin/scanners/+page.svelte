@@ -78,11 +78,14 @@
 			const scannerName = configForm.primary_scanner;
 			const credentials = configForm.scanner_configs?.[scannerName] || {};
 
-			const response = await fetch(`/v2/scanners/verify-credentials/${scannerName}`, {
-				method: "POST",
-				headers: { "Content-Type": "application/json" },
-				body: JSON.stringify(credentials),
-			});
+			const response = await fetch(
+				`/v2/scanners/verify-credentials/${scannerName}`,
+				{
+					method: "POST",
+					headers: { "Content-Type": "application/json" },
+					body: JSON.stringify(credentials),
+				},
+			);
 
 			const result = await response.json();
 
@@ -108,8 +111,6 @@
 			isLoading = true;
 			error = null;
 
-			console.log("[loadScannerData] Fetching scanner data...");
-
 			// Fetch available scanners
 			const scannersRes = await fetch("/v2/scanners/available");
 			if (!scannersRes.ok) throw new Error("Failed to load scanners");
@@ -120,29 +121,6 @@
 			if (!configsRes.ok)
 				throw new Error("Failed to load configurations");
 			libraryConfigs = await configsRes.json();
-
-			console.log("[loadScannerData] Raw response:", libraryConfigs);
-			console.log(
-				"[loadScannerData] Threshold values:",
-				libraryConfigs.map((c) => ({
-					id: c.library_id,
-					name: c.library_name,
-					confidence_threshold: c.confidence_threshold,
-					confidence_type: typeof c.confidence_threshold,
-					fallback_threshold: c.fallback_threshold,
-					fallback_type: typeof c.fallback_threshold,
-				})),
-			);
-
-			console.log(
-				"[loadScannerData] Scanner capabilities:",
-				availableScanners.map((s) => ({
-					name: s.name,
-					provided_fields: s.provided_fields,
-					primary_fields: s.primary_fields,
-					description: s.description,
-				})),
-			);
 
 			// Set default test library to first library with a configured scanner
 			if (!testLibraryId && libraryConfigs.length > 0) {
@@ -237,7 +215,7 @@
 			);
 			if (response.ok) {
 				const progress = await response.json();
-				console.log("[SCAN PROGRESS]", progress);
+
 				scanProgress = {
 					processed: progress.processed ?? progress.scanned ?? 0,
 					scanned: progress.scanned ?? 0,
@@ -384,7 +362,6 @@
 	}
 
 	function openConfigModal(library) {
-		console.log("[openConfigModal] Opening modal for library:", library);
 		configLibrary = library;
 		configForm = {
 			primary_scanner: library.primary_scanner || "",
@@ -393,8 +370,7 @@
 			fallback_threshold: library.fallback_threshold || 0.7,
 			scanner_configs: library.scanner_configs || {},
 		};
-		console.log("[openConfigModal] Initial configForm:", configForm);
-		console.log("[openConfigModal] Initial configForm:", configForm);
+
 		configError = null;
 		verificationResult = null;
 		verificationError = null;
@@ -430,9 +406,6 @@
 				scanner_configs: configForm.scanner_configs,
 			};
 
-			console.log("[saveConfiguration] Current configForm:", configForm);
-			console.log("[saveConfiguration] Sending payload:", payload);
-
 			const response = await fetch(
 				`/v2/scanners/libraries/${configLibrary.library_id}/configure`,
 				{
@@ -450,10 +423,9 @@
 			}
 
 			const savedConfig = await response.json();
-			console.log("[saveConfiguration] Server returned:", savedConfig);
 
 			// Reload library configurations
-			console.log("[saveConfiguration] Reloading library data...");
+
 			await loadScannerData();
 
 			// Close modal
@@ -1439,7 +1411,7 @@
 								</details>
 							{/if}
 						</div>
-						
+
 						<!-- Verification Section -->
 						<div class="border-t border-gray-700 pt-4 mt-4">
 							<div class="flex items-center justify-between">
@@ -1449,23 +1421,29 @@
 									class="px-3 py-1.5 text-sm bg-dark-bg-tertiary border border-gray-600 text-dark-text rounded hover:bg-gray-700 transition-colors flex items-center gap-2"
 								>
 									{#if isVerifying}
-										<div class="animate-spin rounded-full h-3 w-3 border-b-2 border-white"></div>
+										<div
+											class="animate-spin rounded-full h-3 w-3 border-b-2 border-white"
+										></div>
 										Verifying...
 									{:else}
 										<CheckCircle class="w-3 h-3" />
 										Verify Credentials
 									{/if}
 								</button>
-								
+
 								{#if verificationResult}
-									<span class="text-sm text-status-success flex items-center gap-1">
+									<span
+										class="text-sm text-status-success flex items-center gap-1"
+									>
 										<CheckCircle class="w-4 h-4" />
 										{verificationResult}
 									</span>
 								{/if}
-								
+
 								{#if verificationError}
-									<span class="text-sm text-status-error flex items-center gap-1">
+									<span
+										class="text-sm text-status-error flex items-center gap-1"
+									>
 										<XCircle class="w-4 h-4" />
 										{verificationError}
 									</span>

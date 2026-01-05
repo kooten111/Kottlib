@@ -54,7 +54,7 @@
 	let showSizeSlider = false;
 	let initialFilterRestored = false; // Track if initial filter has been restored
 	let initialSortApplied = false; // Track if initial sort has been applied
-	let sortBy = $preferencesStore.sortBy || 'name';
+	let sortBy = $preferencesStore.sortBy || "name";
 
 	// PERFORMANCE OPTIMIZATION: Cache for tree filtering
 	let treeFilterCache = new Map();
@@ -66,12 +66,6 @@
 			JSON.stringify(currentFilter) !==
 			JSON.stringify($currentFilterStore);
 		if (filterChanged) {
-			console.log(
-				"[Home] Filter store changed from",
-				currentFilter,
-				"to",
-				$currentFilterStore,
-			);
 			if ($currentFilterStore === null && currentFilter !== null) {
 				// Filter was cleared externally (e.g., from Navbar)
 				currentFilter = null;
@@ -85,7 +79,8 @@
 	}
 
 	// Get current library ID from filter
-	$: currentLibraryId = currentFilter?.type === 'library' ? currentFilter.libraryId : null;
+	$: currentLibraryId =
+		currentFilter?.type === "library" ? currentFilter.libraryId : null;
 
 	// Sync sortBy from preferences store (library-specific or global)
 	$: {
@@ -94,35 +89,27 @@
 			sortBy = preferencesStore.getSortBy(currentLibraryId);
 		} else {
 			// Use global sort for "all libraries" view
-			sortBy = $preferencesStore.sortBy || 'name';
+			sortBy = $preferencesStore.sortBy || "name";
 		}
 	}
 
 	// Apply sort when sortBy changes (after initial load)
-	$: if (sortBy && !isLoading && initialFilterRestored && initialSortApplied) {
-		console.log('[Home] Reactive sort triggered - sortBy:', sortBy);
+	$: if (
+		sortBy &&
+		!isLoading &&
+		initialFilterRestored &&
+		initialSortApplied
+	) {
 		applySorting();
 	}
 
 	// React to search store changes with debounce (increased from 300ms to 500ms)
 	$: if (!isLoading) {
 		const newQuery = $searchStore.query || "";
-		console.log(
-			"[Home] Search store changed. New query:",
-			newQuery,
-			"Last query:",
-			lastSearchQuery,
-			"isLoading:",
-			isLoading,
-		);
+
 		if (newQuery !== lastSearchQuery) {
-			console.log("[Home] Query changed, setting up debounce timer");
 			if (searchDebounceTimer) clearTimeout(searchDebounceTimer);
 			searchDebounceTimer = setTimeout(() => {
-				console.log(
-					"[Home] Debounce timer fired, calling handleSearch with:",
-					newQuery,
-				);
 				lastSearchQuery = newQuery;
 				handleSearch(newQuery);
 			}, 500); // Increased from 300ms for better performance
@@ -134,10 +121,6 @@
 
 		// Restore filter from persistent store if present
 		if ($currentFilterStore) {
-			console.log(
-				"[Home] Restoring filter from store:",
-				$currentFilterStore,
-			);
 			await restoreFilter($currentFilterStore);
 		}
 
@@ -149,9 +132,8 @@
 		// This ensures the correct sort order is displayed on page load
 		// Use library-specific or global sort based on current filter
 		const savedSort = preferencesStore.getSortBy(currentLibraryId);
-		console.log('[Home] Initial sort - currentLibraryId:', currentLibraryId, 'savedSort:', savedSort, 'sortBy:', sortBy);
-		if (savedSort && savedSort !== 'name') {
-			console.log('[Home] Applying initial sort:', savedSort);
+
+		if (savedSort && savedSort !== "name") {
 			await applySorting();
 			initialSortApplied = true; // Mark that initial sort is complete
 		} else {
@@ -171,9 +153,6 @@
 		// PERFORMANCE OPTIMIZATION: Load remaining libraries in background
 		// after initial page is interactive
 		if (data?.isPartialLoad && libraries.length > 1) {
-			console.log(
-				"[Home] Starting background load of remaining libraries",
-			);
 			// Small delay to ensure page is interactive first
 			setTimeout(() => {
 				loadRemainingLibraries();
@@ -188,7 +167,6 @@
 
 			// Use server-side data if available (SSR), otherwise load client-side
 			if (data?.libraries && data?.seriesTree && data?.firstLibrary) {
-				console.log("[Home] Using server-side rendered data");
 				libraries = data.libraries;
 				seriesTree = data.seriesTree;
 
@@ -202,22 +180,12 @@
 					hasMoreSeries = allSeries.length > seriesPageSize;
 				}
 
-				console.log("[Home] SSR data loaded:", {
-					totalFolders: allSeries.length,
-					displayedFolders: displayedSeries.length,
-					seriesPageSize,
-					hasMoreSeries,
-					hasFilter: !!$currentFilterStore,
-				});
-
 				// Initialize filtered tree
 				filteredSeriesTree = seriesTree;
 				isLoading = false;
 			} else {
 				// Fallback to client-side loading if SSR data not available
-				console.log(
-					"[Home] Server data not available, loading client-side",
-				);
+
 				await loadClientSide();
 			}
 		} catch (err) {
@@ -242,37 +210,35 @@
 			}
 
 			// Load continue reading and series for ALL libraries
-			const [continueReadingData, allSeriesResults] =
-				await Promise.all([
-					// Continue reading - use new cross-library endpoint
-					getContinueReadingAll(50)
-						.then((comics) => comics.map((comic) => ({
+			const [continueReadingData, allSeriesResults] = await Promise.all([
+				// Continue reading - use new cross-library endpoint
+				getContinueReadingAll(50)
+					.then((comics) =>
+						comics.map((comic) => ({
 							...comic,
-							libraryId: parseInt(comic.library_id) // Ensure libraryId is set
-						})))
-						.catch(() => []),
-					// All series
-					Promise.all(
-						libraries.map(async (lib) => {
-							try {
-								const series = await getSeries(
-									lib.id,
-									sortBy,
-								);
-								return series.map((s) => ({
-									...s,
-									libraryId: lib.id,
-								}));
-							} catch (err) {
-								console.error(
-									`Failed to fetch series for library ${lib.id}:`,
-									err,
-								);
-								return [];
-							}
-						}),
-					),
-				]);
+							libraryId: parseInt(comic.library_id), // Ensure libraryId is set
+						})),
+					)
+					.catch(() => []),
+				// All series
+				Promise.all(
+					libraries.map(async (lib) => {
+						try {
+							const series = await getSeries(lib.id, sortBy);
+							return series.map((s) => ({
+								...s,
+								libraryId: lib.id,
+							}));
+						} catch (err) {
+							console.error(
+								`Failed to fetch series for library ${lib.id}:`,
+								err,
+							);
+							return [];
+						}
+					}),
+				),
+			]);
 
 			// The new endpoint already returns sorted data, just slice it
 			continueReading = continueReadingData.slice(0, 20);
@@ -296,14 +262,6 @@
 				hasMoreSeries = allSeries.length > seriesPageSize;
 			}
 
-			console.log("[Home] Client-side data loaded:", {
-				totalSeries: allSeries.length,
-				displayedSeries: displayedSeries.length,
-				seriesPageSize,
-				hasMoreSeries,
-				hasFilter: !!$currentFilterStore,
-			});
-
 			// Initialize filtered tree
 			filteredSeriesTree = seriesTree;
 			isLoading = false;
@@ -316,18 +274,19 @@
 
 	// Load data for a specific library (used when user clicks before background loading completes)
 	async function loadLibraryData(libraryId) {
-		console.log('[Home] loadLibraryData called for library:', libraryId, 'with sortBy:', sortBy);
-
-		const lib = libraries.find(l => l.id === libraryId);
+		const lib = libraries.find((l) => l.id === libraryId);
 		if (!lib) {
-			console.error('[Home] Library not found:', libraryId);
+			console.error("[Home] Library not found:", libraryId);
 			return;
 		}
 
 		try {
 			// For client-side sorts, load with 'name' sort from backend, then apply client sort
 			// For backend sorts, use the sort parameter directly
-			const backendSort = (sortBy === 'shuffle' || sortBy === 'recent-read-client') ? 'name' : sortBy;
+			const backendSort =
+				sortBy === "shuffle" || sortBy === "recent-read-client"
+					? "name"
+					: sortBy;
 
 			const [contReading, series] = await Promise.all([
 				getContinueReading(libraryId, 50).catch(() => []),
@@ -345,20 +304,17 @@
 			}));
 
 			// Remove any existing data for this library (in case of reload)
-			continueReading = continueReading.filter(c => c.libraryId !== libraryId);
-			allSeries = allSeries.filter(s => s.libraryId !== libraryId);
+			continueReading = continueReading.filter(
+				(c) => c.libraryId !== libraryId,
+			);
+			allSeries = allSeries.filter((s) => s.libraryId !== libraryId);
 
 			// Add new data
 			continueReading = [...continueReading, ...newContinueReading];
 			allSeries = [...allSeries, ...newSeries];
 
-			console.log(
-				`[Home] Loaded library ${libraryId}: ${newSeries.length} series, ${newContinueReading.length} continue reading`,
-			);
-
 			// Apply client-side sort if needed
-			if (sortBy === 'shuffle' || sortBy === 'recent-read-client') {
-				console.log('[Home] Applying client-side sort:', sortBy);
+			if (sortBy === "shuffle" || sortBy === "recent-read-client") {
 				await applySorting();
 			} else {
 				// Update display with backend-sorted data
@@ -372,9 +328,6 @@
 	// PERFORMANCE OPTIMIZATION: Load remaining libraries in background
 	async function loadRemainingLibraries() {
 		const remainingLibs = libraries.slice(1);
-		console.log(
-			`[Home] Loading ${remainingLibs.length} remaining libraries in background`,
-		);
 
 		// Load libraries one at a time to avoid overwhelming the browser
 		for (const lib of remainingLibs) {
@@ -409,27 +362,17 @@
 					currentFilter.libraryId === lib.id
 				) {
 					// We just loaded the library we are currently filtering by!
-					console.log('[Home] Loaded filtered library, applying sort:', sortBy);
+
 					// Apply sorting to ensure correct order is displayed
 					await applySorting();
 				}
-
-				console.log(
-					`[Home] Loaded library ${lib.id}: +${newSeries.length} series, +${newContinueReading.length} continue reading`,
-				);
 			} catch (err) {
 				console.error(`[Home] Failed to load library ${lib.id}:`, err);
 			}
 		}
 
-		console.log(
-			"[Home] Background loading complete. Total series:",
-			allSeries.length,
-		);
-
 		// Reapply sorting after all libraries are loaded to ensure correct order
-		if (sortBy && sortBy !== 'name') {
-			console.log('[Home] Reapplying sort after background load:', sortBy);
+		if (sortBy && sortBy !== "name") {
 			await applySorting();
 		}
 	}
@@ -438,7 +381,6 @@
 		const { type, libraryId, folderId, folderName, comicId, libraryName } =
 			event.detail;
 
-		console.log('[Home] Filter changing to:', event.detail);
 		currentFilter = event.detail;
 		// Persist filter to localStorage
 		currentFilterStore.set(event.detail);
@@ -466,7 +408,6 @@
 			// If the library has no series loaded yet (or empty), load it immediately
 			// This handles the race condition where user clicks a library before background loading completes
 			if (librarySeries.length === 0) {
-				console.log('[Home] Library has no series loaded, loading data immediately for library:', libraryId);
 				await loadLibraryData(libraryId);
 			}
 		} else if (type === "folder") {
@@ -543,7 +484,6 @@
 	async function restoreFilter(filter) {
 		if (!filter) return;
 
-		console.log("[Home] Restoring filter:", filter);
 		currentFilter = filter;
 
 		// Apply the filter based on its type
@@ -580,131 +520,129 @@
 		}
 	}
 
-async function applySorting() {
-	console.log('[Home] applySorting called - sortBy:', sortBy, 'allSeries length:', allSeries?.length || 0);
-	if (!allSeries || allSeries.length === 0) {
-		console.log('[Home] applySorting skipped - no series data');
-		return;
-	}
-
-	let sortedSeries;
-
-	switch (sortBy) {
-		case 'name':
-		case 'recent':
-		case 'updated':
-		case 'progress':
-		case 'recent-read':
-			// Backend sorts - reload data with sort parameter
-			console.log('[Home] Calling reloadWithBackendSort with:', sortBy);
-			await reloadWithBackendSort(sortBy);
+	async function applySorting() {
+		if (!allSeries || allSeries.length === 0) {
 			return;
-
-		case 'recent-read-client':
-			// Client-side: Sort by most recent last_read_at (fallback, not normally used)
-			sortedSeries = [...allSeries].sort((a, b) => {
-				const aMaxTime = getMaxLastReadTime(a.volumes);
-				const bMaxTime = getMaxLastReadTime(b.volumes);
-
-				// Unread series go to end, sorted by first_comic_id
-				if (aMaxTime === 0 && bMaxTime === 0) {
-					return b.first_comic_id - a.first_comic_id;
-				}
-				if (aMaxTime === 0) return 1;
-				if (bMaxTime === 0) return -1;
-
-				return bMaxTime - aMaxTime; // Most recent first
-			});
-			break;
-
-		case 'shuffle':
-			// Fisher-Yates shuffle
-			sortedSeries = [...allSeries];
-			for (let i = sortedSeries.length - 1; i > 0; i--) {
-				const j = Math.floor(Math.random() * (i + 1));
-				[sortedSeries[i], sortedSeries[j]] = [sortedSeries[j], sortedSeries[i]];
-			}
-			break;
-
-		default:
-			return;
-	}
-
-	allSeries = sortedSeries;
-	updateDisplayedSeries();
-}
-
-function getMaxLastReadTime(volumes) {
-	if (!volumes || volumes.length === 0) return 0;
-	return Math.max(...volumes.map(v => v.last_read_at || 0));
-}
-
-async function reloadWithBackendSort(sortType) {
-	try {
-		console.log('[Home] reloadWithBackendSort called with:', sortType, 'currentLibraryId:', currentLibraryId);
-		// If a library is selected, only fetch data for that library
-		const librariesToFetch = currentLibraryId
-			? libraries.filter(lib => lib.id === currentLibraryId)
-			: libraries;
-
-		console.log('[Home] Fetching from', librariesToFetch.length, 'libraries');
-
-		const allSeriesResults = await Promise.all(
-			librariesToFetch.map(async (lib) => {
-				try {
-					console.log('[Home] Fetching series for library', lib.id, 'with sort:', sortType);
-					const series = await getSeries(lib.id, sortType);
-					console.log('[Home] Received', series.length, 'series for library', lib.id);
-					return series.map((s) => ({
-						...s,
-						libraryId: lib.id,
-					}));
-				} catch (err) {
-					console.error(`Failed to fetch series for library ${lib.id}:`, err);
-					return [];
-				}
-			})
-		);
-
-		// Interleave series from different libraries
-		const maxLength = Math.max(...allSeriesResults.map((r) => r.length));
-		allSeries = [];
-		for (let i = 0; i < maxLength; i++) {
-			for (const libraryResults of allSeriesResults) {
-				if (i < libraryResults.length) {
-					allSeries.push(libraryResults[i]);
-				}
-			}
 		}
 
-		console.log('[Home] reloadWithBackendSort complete - total series:', allSeries.length);
-		updateDisplayedSeries();
-	} catch (err) {
-		console.error('[Home] Failed to reload with sort:', err);
-	}
-}
+		let sortedSeries;
 
-function updateDisplayedSeries() {
-	if (currentFilter?.type === 'library') {
-		const librarySeries = allSeries.filter(s => s.libraryId === currentFilter.libraryId);
-		displayedSeries = librarySeries.slice(0, seriesPageSize);
-		hasMoreSeries = librarySeries.length > seriesPageSize;
-	} else {
-		displayedSeries = allSeries.slice(0, seriesPageSize);
-		hasMoreSeries = allSeries.length > seriesPageSize;
+		switch (sortBy) {
+			case "name":
+			case "recent":
+			case "updated":
+			case "progress":
+			case "recent-read":
+				// Backend sorts - reload data with sort parameter
+
+				await reloadWithBackendSort(sortBy);
+				return;
+
+			case "recent-read-client":
+				// Client-side: Sort by most recent last_read_at (fallback, not normally used)
+				sortedSeries = [...allSeries].sort((a, b) => {
+					const aMaxTime = getMaxLastReadTime(a.volumes);
+					const bMaxTime = getMaxLastReadTime(b.volumes);
+
+					// Unread series go to end, sorted by first_comic_id
+					if (aMaxTime === 0 && bMaxTime === 0) {
+						return b.first_comic_id - a.first_comic_id;
+					}
+					if (aMaxTime === 0) return 1;
+					if (bMaxTime === 0) return -1;
+
+					return bMaxTime - aMaxTime; // Most recent first
+				});
+				break;
+
+			case "shuffle":
+				// Fisher-Yates shuffle
+				sortedSeries = [...allSeries];
+				for (let i = sortedSeries.length - 1; i > 0; i--) {
+					const j = Math.floor(Math.random() * (i + 1));
+					[sortedSeries[i], sortedSeries[j]] = [
+						sortedSeries[j],
+						sortedSeries[i],
+					];
+				}
+				break;
+
+			default:
+				return;
+		}
+
+		allSeries = sortedSeries;
+		updateDisplayedSeries();
 	}
-}
+
+	function getMaxLastReadTime(volumes) {
+		if (!volumes || volumes.length === 0) return 0;
+		return Math.max(...volumes.map((v) => v.last_read_at || 0));
+	}
+
+	async function reloadWithBackendSort(sortType) {
+		try {
+			// If a library is selected, only fetch data for that library
+			const librariesToFetch = currentLibraryId
+				? libraries.filter((lib) => lib.id === currentLibraryId)
+				: libraries;
+
+			const allSeriesResults = await Promise.all(
+				librariesToFetch.map(async (lib) => {
+					try {
+						const series = await getSeries(lib.id, sortType);
+
+						return series.map((s) => ({
+							...s,
+							libraryId: lib.id,
+						}));
+					} catch (err) {
+						console.error(
+							`Failed to fetch series for library ${lib.id}:`,
+							err,
+						);
+						return [];
+					}
+				}),
+			);
+
+			// Interleave series from different libraries
+			const maxLength = Math.max(
+				...allSeriesResults.map((r) => r.length),
+			);
+			allSeries = [];
+			for (let i = 0; i < maxLength; i++) {
+				for (const libraryResults of allSeriesResults) {
+					if (i < libraryResults.length) {
+						allSeries.push(libraryResults[i]);
+					}
+				}
+			}
+
+			updateDisplayedSeries();
+		} catch (err) {
+			console.error("[Home] Failed to reload with sort:", err);
+		}
+	}
+
+	function updateDisplayedSeries() {
+		if (currentFilter?.type === "library") {
+			const librarySeries = allSeries.filter(
+				(s) => s.libraryId === currentFilter.libraryId,
+			);
+			displayedSeries = librarySeries.slice(0, seriesPageSize);
+			hasMoreSeries = librarySeries.length > seriesPageSize;
+		} else {
+			displayedSeries = allSeries.slice(0, seriesPageSize);
+			hasMoreSeries = allSeries.length > seriesPageSize;
+		}
+	}
 
 	async function loadMoreSeries() {
 		if (isLoadingMore || !hasMoreSeries) {
-			console.log("[Home] loadMoreSeries blocked:", {
-				isLoadingMore,
-				hasMoreSeries,
-			});
 			return;
 		}
 
-		console.log("[Home] loadMoreSeries triggered");
 		isLoadingMore = true;
 
 		// Use requestAnimationFrame to ensure smooth UI updates
@@ -732,27 +670,11 @@ function updateDisplayedSeries() {
 			currentLength + seriesPageSize,
 		);
 
-		console.log("[Home] Loading more:", {
-			currentLength,
-			baseSourceLength: baseSource.length,
-			nextBatchLength: nextBatch.length,
-			seriesPageSize,
-			filterType: currentFilter?.type,
-			libraryId: currentFilter?.libraryId,
-		});
-
 		if (nextBatch.length > 0) {
 			displayedSeries = [...displayedSeries, ...nextBatch];
 			hasMoreSeries = displayedSeries.length < baseSource.length;
-			console.log(
-				"[Home] Added batch. New displayedSeries length:",
-				displayedSeries.length,
-				"hasMore:",
-				hasMoreSeries,
-			);
 		} else {
 			hasMoreSeries = false;
-			console.log("[Home] No more items to load");
 		}
 
 		// Small delay to prevent rapid fire loading
@@ -763,13 +685,6 @@ function updateDisplayedSeries() {
 	async function handleSearch(query) {
 		const trimmedQuery = query?.trim() || "";
 		searchQuery = trimmedQuery;
-
-		console.log(
-			"[Home] handleSearch called with query:",
-			query,
-			"trimmed:",
-			trimmedQuery,
-		);
 
 		// Update URL without adding to history
 		if (typeof window !== "undefined") {
@@ -784,7 +699,6 @@ function updateDisplayedSeries() {
 
 		// Clear search if query is empty (allow 1 character searches)
 		if (!trimmedQuery) {
-			console.log("[Home] Empty query, clearing search results");
 			// Clear search - show original filtered data
 			displayedSeries =
 				currentFilter?.type === "library"
@@ -808,28 +722,16 @@ function updateDisplayedSeries() {
 			return;
 		}
 
-		console.log("[Home] Performing search for:", trimmedQuery);
 		searchStore.update((s) => ({ ...s, isSearching: true }));
 
 		try {
 			// Filter allSeries by series name instead of API search
 			const lowerQuery = trimmedQuery.toLowerCase();
-			console.log(
-				"[Home] Filtering",
-				allSeries.length,
-				"series by name containing:",
-				lowerQuery,
-			);
 
 			searchResults = allSeries.filter(
 				(series) =>
 					series.series_name &&
 					series.series_name.toLowerCase().includes(lowerQuery),
-			);
-			console.log(
-				"[Home] Found",
-				searchResults.length,
-				"matching series",
 			);
 
 			// Filter based on current library selection
@@ -842,12 +744,6 @@ function updateDisplayedSeries() {
 
 			displayedSeries = filteredResults.slice(0, seriesPageSize);
 			hasMoreSeries = filteredResults.length > seriesPageSize;
-			console.log(
-				"[Home] Displaying",
-				displayedSeries.length,
-				"series, hasMore:",
-				hasMoreSeries,
-			);
 
 			// Filter sidebar tree based on search results
 			filterSidebarTree();
@@ -883,12 +779,9 @@ function updateDisplayedSeries() {
 
 		// Check cache first
 		if (treeFilterCache.has(cacheKey)) {
-			console.log("[Home] Tree filter cache hit for:", cacheKey);
 			filteredSeriesTree = treeFilterCache.get(cacheKey);
 			return;
 		}
-
-		console.log("[Home] Filtering tree for:", searchQuery);
 
 		// Use Set for O(1) lookups instead of array operations
 		const matchingSeriesNames = new Set(
@@ -1173,37 +1066,40 @@ function updateDisplayedSeries() {
 										{/if}
 									</h2>
 									<div class="view-controls">
-				<select
-					bind:value={sortBy}
-					on:change={async (e) => {
-						const newSort = e.target.value;
-						console.log('[Home] Sort dropdown changed to:', newSort);
-						// Save library-specific preference if a library is selected
-						preferencesStore.setSortBy(newSort, currentLibraryId);
-						// Explicitly apply the sort (don't rely solely on reactive statement)
-						await applySorting();
-					}}
-					class="control-select"
-				>
-					<option value="name"
-						>Alphabetical</option
-					>
-					<option value="updated"
-						>Last Updated</option
-					>
-					<option value="recent"
-						>Date Added</option
-					>
-					<option value="recent-read"
-						>Recently Read</option
-					>
-					<option value="progress"
-						>% Complete</option
-					>
-					<option value="shuffle"
-						>Shuffle</option
-					>
-				</select>
+										<select
+											bind:value={sortBy}
+											on:change={async (e) => {
+												const newSort = e.target.value;
+
+												// Save library-specific preference if a library is selected
+												preferencesStore.setSortBy(
+													newSort,
+													currentLibraryId,
+												);
+												// Explicitly apply the sort (don't rely solely on reactive statement)
+												await applySorting();
+											}}
+											class="control-select"
+										>
+											<option value="name"
+												>Alphabetical</option
+											>
+											<option value="updated"
+												>Last Updated</option
+											>
+											<option value="recent"
+												>Date Added</option
+											>
+											<option value="recent-read"
+												>Recently Read</option
+											>
+											<option value="progress"
+												>% Complete</option
+											>
+											<option value="shuffle"
+												>Shuffle</option
+											>
+										</select>
 										<button
 											class="control-btn"
 											class:active={showSizeSlider}

@@ -55,12 +55,12 @@ export async function getCached(key) {
 				// Check if cache is expired
 				const age = Date.now() - result.timestamp;
 				if (age > MAX_AGE) {
-					console.log(`[Cache] Expired: ${key} (${Math.round(age / 1000 / 60)}m old)`);
+
 					resolve(null);
 					return;
 				}
 
-				console.log(`[Cache] Hit: ${key} (${Math.round(age / 1000)}s old)`);
+
 				resolve(result.data);
 			};
 
@@ -96,7 +96,7 @@ export async function setCached(key, data) {
 			const request = store.put(cacheEntry);
 
 			request.onsuccess = () => {
-				console.log(`[Cache] Stored: ${key}`);
+
 				resolve();
 			};
 
@@ -123,7 +123,7 @@ export async function clearCache() {
 			const request = store.clear();
 
 			request.onsuccess = () => {
-				console.log('[Cache] Cleared all data');
+
 				resolve();
 			};
 
@@ -161,7 +161,7 @@ export async function clearCachePattern(pattern) {
 					}
 					cursor.continue();
 				} else {
-					console.log(`[Cache] Cleared ${deletedCount} entries matching pattern: ${pattern}`);
+
 					resolve();
 				}
 			};
@@ -200,7 +200,7 @@ export async function clearExpired() {
 					}
 					cursor.continue();
 				} else {
-					console.log(`[Cache] Cleared ${deletedCount} expired entries`);
+
 					resolve();
 				}
 			};

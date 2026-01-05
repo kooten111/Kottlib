@@ -16,10 +16,8 @@
 	let searchInput;
 
 	// Debug: Track search store changes
-	$: console.log("[Navbar] Search store query changed:", $searchStore.query);
 
 	function clearSearch() {
-		console.log("[Navbar] Clearing search");
 		searchStore.set({
 			query: "",
 			isSearching: false,
@@ -30,7 +28,6 @@
 	}
 
 	function clearFilters() {
-		console.log("[Navbar] Clearing filters");
 		currentFilterStore.set(null);
 		clearSearch();
 	}
@@ -78,7 +75,8 @@
 					on:click={handleHomeClick}
 				>
 					<BookOpen class="w-8 h-8 text-accent-orange" />
-					<span class="text-xl font-bold text-dark-text">Kottlib</span>
+					<span class="text-xl font-bold text-dark-text">Kottlib</span
+					>
 				</a>
 
 				<!-- Main Navigation removed as it's now in the sidebar -->

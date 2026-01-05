@@ -65,16 +65,18 @@
                 const progress = await pollScanProgress(library.id);
                 if (progress && progress.in_progress) {
                     // Found an active scan - start monitoring it
-                    console.log(`Resuming progress monitoring for library ${library.id}`, progress);
+
                     scanProgress[library.id] = progress; // Set initial progress
                     scanningLibraries.add(library.id);
                     scanningLibraries = scanningLibraries; // Trigger reactivity
                     startProgressMonitoring(library.id);
                 } else {
-                    console.log(`No active scan for library ${library.id}`);
                 }
             } catch (err) {
-                console.error(`Failed to check scan progress for library ${library.id}:`, err);
+                console.error(
+                    `Failed to check scan progress for library ${library.id}:`,
+                    err,
+                );
             }
         }
     }
@@ -156,7 +158,9 @@
 
     async function pollScanProgress(libraryId) {
         try {
-            const response = await fetch(`/v2/libraries/${libraryId}/scan/progress`);
+            const response = await fetch(
+                `/v2/libraries/${libraryId}/scan/progress`,
+            );
             if (response.ok) {
                 return await response.json();
             }
@@ -174,7 +178,12 @@
 
         // Initialize progress - use existing if available
         if (!scanProgress[libraryId]) {
-            scanProgress[libraryId] = { current: 0, total: 0, message: "Starting scan...", in_progress: true };
+            scanProgress[libraryId] = {
+                current: 0,
+                total: 0,
+                message: "Starting scan...",
+                in_progress: true,
+            };
         }
 
         // Poll for progress
@@ -186,8 +195,10 @@
                 const existingProgress = scanProgress[libraryId];
                 if (existingProgress && progress.in_progress) {
                     // Only update if progress is moving forward or total changed
-                    if (progress.current < existingProgress.current && progress.total === existingProgress.total) {
-                        console.log(`[Progress] Ignoring backwards progress: ${progress.current} < ${existingProgress.current}`);
+                    if (
+                        progress.current < existingProgress.current &&
+                        progress.total === existingProgress.total
+                    ) {
                         return; // Skip this update
                     }
                 }
@@ -210,9 +221,7 @@
                     delete scanProgress[libraryId];
                     scanProgress = scanProgress; // Trigger reactivity
                 }, 5000);
-            } else {
                 // No scan in progress - stop polling
-                console.log(`No active scan for library ${libraryId}, stopping monitoring`);
                 clearInterval(scanProgressIntervals[libraryId]);
                 delete scanProgressIntervals[libraryId];
                 scanningLibraries.delete(libraryId);
@@ -344,22 +353,52 @@
                                     <!-- Progress Bar -->
                                     {#if scanProgress[library.id]}
                                         <div class="mt-4 space-y-2">
-                                            <div class="flex justify-between text-sm {scanProgress[library.id].in_progress ? 'text-dark-text-secondary' : 'text-accent-green font-medium'}">
-                                                <span>{scanProgress[library.id].message}</span>
+                                            <div
+                                                class="flex justify-between text-sm {scanProgress[
+                                                    library.id
+                                                ].in_progress
+                                                    ? 'text-dark-text-secondary'
+                                                    : 'text-accent-green font-medium'}"
+                                            >
+                                                <span
+                                                    >{scanProgress[library.id]
+                                                        .message}</span
+                                                >
                                                 {#if scanProgress[library.id].total > 0}
-                                                    <span>{scanProgress[library.id].current} / {scanProgress[library.id].total}</span>
+                                                    <span
+                                                        >{scanProgress[
+                                                            library.id
+                                                        ].current} / {scanProgress[
+                                                            library.id
+                                                        ].total}</span
+                                                    >
                                                 {/if}
                                             </div>
                                             {#if scanProgress[library.id].total > 0}
-                                                <div class="w-full bg-dark-bg-tertiary rounded-full h-2 overflow-hidden">
+                                                <div
+                                                    class="w-full bg-dark-bg-tertiary rounded-full h-2 overflow-hidden"
+                                                >
                                                     <div
                                                         class="bg-accent-green h-full transition-all duration-300"
-                                                        style="width: {Math.min(100, (scanProgress[library.id].current / scanProgress[library.id].total) * 100)}%"
+                                                        style="width: {Math.min(
+                                                            100,
+                                                            (scanProgress[
+                                                                library.id
+                                                            ].current /
+                                                                scanProgress[
+                                                                    library.id
+                                                                ].total) *
+                                                                100,
+                                                        )}%"
                                                     ></div>
                                                 </div>
                                             {:else if scanProgress[library.id].in_progress}
-                                                <div class="w-full bg-dark-bg-tertiary rounded-full h-2 overflow-hidden">
-                                                    <div class="bg-accent-green h-full w-1/4 animate-pulse"></div>
+                                                <div
+                                                    class="w-full bg-dark-bg-tertiary rounded-full h-2 overflow-hidden"
+                                                >
+                                                    <div
+                                                        class="bg-accent-green h-full w-1/4 animate-pulse"
+                                                    ></div>
                                                 </div>
                                             {/if}
                                         </div>
@@ -374,7 +413,9 @@
                                     title="Scan Files"
                                 >
                                     <RefreshCw
-                                        class="w-5 h-5 {scanningLibraries.has(library.id)
+                                        class="w-5 h-5 {scanningLibraries.has(
+                                            library.id,
+                                        )
                                             ? 'animate-spin'
                                             : ''}"
                                     />

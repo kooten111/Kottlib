@@ -1,5 +1,5 @@
 <script>
-	import { createEventDispatcher } from 'svelte';
+	import { createEventDispatcher } from "svelte";
 
 	const dispatch = createEventDispatcher();
 
@@ -14,14 +14,12 @@
 	$: isActive = activeNodeId === node.id;
 
 	function handleClick(event) {
-		console.log('TreeNode handleClick:', node.name, node.id);
-		dispatch('select', { node, event });
+		dispatch("select", { node, event });
 	}
 
 	function handleToggle(event) {
-		console.log('TreeNode handleToggle:', node.name, node.id, 'current expanded:', expanded);
 		event.stopPropagation();
-		dispatch('toggle', { nodeId: node.id });
+		dispatch("toggle", { nodeId: node.id });
 	}
 </script>
 
@@ -34,7 +32,7 @@
 					class:expanded
 					on:click={handleToggle}
 					type="button"
-					aria-label={expanded ? 'Collapse' : 'Expand'}
+					aria-label={expanded ? "Collapse" : "Expand"}
 				>
 					▸
 				</button>

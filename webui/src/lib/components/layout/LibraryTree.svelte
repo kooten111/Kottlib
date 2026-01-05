@@ -1,7 +1,7 @@
 <script>
-	import { createEventDispatcher, onMount } from 'svelte';
-	import { browser } from '$app/environment';
-	import TreeNode from './TreeNode.svelte';
+	import { createEventDispatcher, onMount } from "svelte";
+	import { browser } from "$app/environment";
+	import TreeNode from "./TreeNode.svelte";
 
 	const dispatch = createEventDispatcher();
 
@@ -12,19 +12,18 @@
 	let activeNodeId = null;
 
 	// Debug: Log when tree changes
-	$: if (tree) {
-		console.log('LibraryTree received tree:', tree);
-	}
 
 	// Load expanded state from localStorage
 	onMount(() => {
 		if (browser) {
-			const saved = localStorage.getItem(`library-tree-expanded-${libraryId}`);
+			const saved = localStorage.getItem(
+				`library-tree-expanded-${libraryId}`,
+			);
 			if (saved) {
 				try {
 					expandedNodes = new Set(JSON.parse(saved));
 				} catch (e) {
-					console.error('Failed to load tree state:', e);
+					console.error("Failed to load tree state:", e);
 				}
 			}
 		}
@@ -40,31 +39,24 @@
 		if (browser && libraryId) {
 			localStorage.setItem(
 				`library-tree-expanded-${libraryId}`,
-				JSON.stringify([...expandedNodes])
+				JSON.stringify([...expandedNodes]),
 			);
 		}
 	}
 
 	function toggleNode(nodeId) {
-		console.log('LibraryTree toggleNode called with:', nodeId);
-		console.log('Current expandedNodes:', [...expandedNodes]);
-		console.log('Is root?', tree && nodeId === tree.id);
-
 		// Prevent toggling the root node - it should always stay expanded
 		if (tree && nodeId === tree.id) {
-			console.log('Prevented toggling root node');
 			return;
 		}
 
 		if (expandedNodes.has(nodeId)) {
-			console.log('Collapsing node:', nodeId);
 			expandedNodes.delete(nodeId);
 		} else {
-			console.log('Expanding node:', nodeId);
 			expandedNodes.add(nodeId);
 		}
 		expandedNodes = expandedNodes; // Trigger reactivity
-		console.log('New expandedNodes:', [...expandedNodes]);
+
 		saveExpandedState();
 	}
 
@@ -72,7 +64,7 @@
 		event.stopPropagation();
 
 		// Clicking the node name should only show content, not toggle expansion
-		dispatch('filter', { folderId: node.id, folderName: node.name });
+		dispatch("filter", { folderId: node.id, folderName: node.name });
 		activeNodeId = node.id;
 	}
 
@@ -85,7 +77,6 @@
 	}
 
 	function handleToggle(event) {
-		console.log('LibraryTree handleToggle event received:', event.detail);
 		toggleNode(event.detail.nodeId);
 	}
 

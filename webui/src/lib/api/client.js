@@ -44,7 +44,7 @@ class APIClient {
 		if (shouldCache) {
 			const cached = await getCached(cacheKey);
 			if (cached) {
-				console.log(`[API] Serving from cache: ${endpoint}`);
+
 
 				// Return cached data immediately
 				// Then fetch fresh data in background and update cache
@@ -124,7 +124,7 @@ class APIClient {
 				if (contentType && contentType.includes('application/json')) {
 					const data = await response.json();
 					await setCached(cacheKey, data);
-					console.log(`[API] Cache refreshed: ${cacheKey}`);
+
 				}
 			}
 		} catch (error) {
