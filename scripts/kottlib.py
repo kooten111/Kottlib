@@ -86,77 +86,9 @@ def first_time_setup():
         print("📚 Library Configuration")
         print("="*60)
         print("\nYou can add libraries now or later through the web interface.\n")
-
-        response = input("Would you like to add a library now? [y/N] ")
-
-        if response.lower() == 'y':
-            from config import load_config, save_config, LibraryDefinition
-
-            config = load_config(config_path)
-
-            while True:
-                print("\n" + "-"*60)
-                name = input("Library name (e.g., 'Comics'): ").strip()
-                if not name:
-                    break
-
-                path = input("Library path (e.g., '/mnt/Comics'): ").strip()
-                if not path:
-                    break
-
-                # Validate path
-                lib_path = Path(path)
-                if not lib_path.exists():
-                    print(f"⚠️  Warning: Path does not exist: {path}")
-                    response = input("Add anyway? [y/N] ")
-                    if response.lower() != 'y':
-                        continue
-
-                # Ask about reading direction
-                print("\nReading direction:")
-                print("  1. Left-to-right (Western comics)")
-                print("  2. Right-to-left (Manga)")
-                direction_choice = input("Choice [1]: ").strip() or "1"
-                direction = "rtl" if direction_choice == "2" else "ltr"
-
-                # Add library
-                library = LibraryDefinition(
-                    name=name,
-                    path=str(lib_path.resolve()),
-                    auto_scan=True,
-                    scan_on_startup=False,
-                    settings={
-                        "sort_mode": "folders_first",
-                        "default_reading_direction": direction
-                    }
-                )
-
-                config.libraries.append(library)
-                print(f"✅ Added library: {name}")
-
-                # Ask for another
-                response = input("\nAdd another library? [y/N] ")
-                if response.lower() != 'y':
-                    break
-
-            # Save config
-            save_config(config, config_path)
-            print(f"\n✅ Configuration saved to {config_path}")
-
-            # Ask about scanning
-            if config.libraries:
-                print("\n" + "="*60)
-                print("📖 Library Scanning")
-                print("="*60)
-                print("\nYou can scan libraries now or later through the web interface.")
-                print("Scanning will:")
-                print("  - Find all comic files (CBZ, CBR, CB7)")
-                print("  - Extract metadata")
-                print("  - Generate thumbnails\n")
-
-                response = input("Scan libraries now? [Y/n] ")
-                if response.lower() != 'n':
-                    scan_libraries(config)
+        print("NOTE: Libraries are now managed in the database.")
+        print("      Please use the web interface at http://localhost:8081 to add libraries.")
+        print("      This setup wizard no longer supports adding libraries via config.yml.\n")
 
         print("\n" + "="*60)
         print("✅ Setup Complete!")

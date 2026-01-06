@@ -7,13 +7,13 @@ Libraries and other settings are managed in the database only.
 
 import logging
 from pathlib import Path
-from typing import Optional
+from typing import Optional, Dict, Any
+from dataclasses import dataclass, field
 
 from sqlalchemy.orm import Session
 
 from ..config import (
     Config,
-    LibraryDefinition,  # Keep for migration/backward compatibility
     get_config_path,
     save_config,
     load_config,
@@ -28,6 +28,23 @@ from ..database import (
 from ..database.models import Library
 
 logger = logging.getLogger(__name__)
+
+
+# ============================================================================
+# Legacy Migration Support
+# ============================================================================
+
+@dataclass
+class LibraryDefinition:
+    """
+    Legacy library definition for migrating from config.yml to database.
+    Only used during migration - new libraries should be created via database operations.
+    """
+    name: str
+    path: str
+    auto_scan: bool = True
+    scan_on_startup: bool = False
+    settings: Dict[str, Any] = field(default_factory=dict)
 
 
 def ensure_config_file(session: Session, config: Optional[Config] = None) -> None:

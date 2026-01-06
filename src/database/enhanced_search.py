@@ -16,6 +16,7 @@ from sqlalchemy.orm import Session
 
 from .models import Comic, Series
 from .search_index import SearchIndexManager
+from .operations.comic import search_comics
 
 logger = logging.getLogger(__name__)
 
@@ -171,7 +172,6 @@ def search_with_fts(
     # Check if FTS index exists
     if not SearchIndexManager.check_fts_exists(session):
         logger.warning("FTS index does not exist, falling back to basic search")
-        from .database import search_comics
         return search_comics(session, library_id, query_str)
 
     # Parse query
@@ -224,7 +224,6 @@ def search_with_fts(
     except Exception as e:
         logger.error(f"FTS search failed: {e}", exc_info=True)
         # Fall back to basic search
-        from .database import search_comics
         return search_comics(session, library_id, query_str)
 
 

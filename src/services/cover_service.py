@@ -174,8 +174,13 @@ def fetch_and_set_cover(
         logger.error(f"Invalid image data: {e}")
         raise ValueError(f"Invalid image data: {e}")
         
+    # Get library name for cover directory
+    if not comic.library:
+        raise ValueError(f"Comic {comic_id} has no associated library")
+    library_name = comic.library.name
+    
     # Save cover to database and generate thumbnails
-    covers_dir = get_covers_dir()
+    covers_dir = get_covers_dir(library_name)
     
     # Create cover record
     cover = create_cover(
