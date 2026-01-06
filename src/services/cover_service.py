@@ -27,7 +27,11 @@ from ..covers import (
 from ..scanner.thumbnail_generator import (
     generate_dual_thumbnails,
     get_thumbnail_path,
+    thumbnail_exists,
 )
+from ..scanner.comic_loader import open_comic
+from ..database.models import Cover
+from pathlib import Path
 
 logger = logging.getLogger(__name__)
 
@@ -206,3 +210,91 @@ def fetch_and_set_cover(
         "message": "Cover set successfully",
         "cover_type": "external",
     }
+
+
+def regenerate_cover_for_comic(
+    session: Session,
+    comic,
+    library_name: str,
+    force: bool = False
+) -> Dict[str, Any]:
+    """
+    Regenerate cover for a single comic.
+    
+    This is the centralized function for cover regeneration used by
+    the regenerate_covers.py CLI script.
+    
+    Args:
+        session: Database session
+        comic: Comic model instance (must have id, path, hash attributes)
+        library_name: Name of the library for cover directory
+        force: If True, regenerate even if cover already exists
+        
+    Returns:
+        Dict with:
+        - status: 'success', 'skipped', 'failed', or 'error'
+        - comic_id: ID of the comic
+        - filename: Filename of the comic
+        - error: Error message if status is 'failed' or 'error'
+    """
+    try:
+        # Get covers directory
+        covers_dir = get_covers_dir(library_name)
+        
+        # Check if cover already exists (unless force)
+        if not force and thumbnail_exists(covers_dir, comic.hash, 'JPEG'):
+            return {
+                'status': 'skipped',
+                'comic_id': comic.id,
+                'filename': comic.filename
+            }
+
+        # Open the comic file and extract cover image
+        comic_obj = open_comic(Path(comic.path))
+        if comic_obj is None:
+            return {
+                'status': 'failed',
+                'comic_id': comic.id,
+                'filename': comic.filename,
+                'error': 'Failed to open comic file'
+            }
+        
+        with comic_obj:
+            # Extract cover image (first page)
+            cover_image = comic_obj.extract_page_as_image(0)
+            if not cover_image:
+                return {
+                    'status': 'failed',
+                    'comic_id': comic.id,
+                    'filename': comic.filename,
+                    'error': 'Failed to extract cover image'
+                }
+            
+            # Generate thumbnails
+            jpeg_ok, webp_ok = generate_dual_thumbnails(
+                cover_image,
+                covers_dir,
+                comic.hash
+            )
+            
+            if jpeg_ok:
+                return {
+                    'status': 'success',
+                    'comic_id': comic.id,
+                    'filename': comic.filename
+                }
+            else:
+                return {
+                    'status': 'failed',
+                    'comic_id': comic.id,
+                    'filename': comic.filename,
+                    'error': 'Thumbnail generation failed'
+                }
+
+    except Exception as e:
+        return {
+            'status': 'error',
+            'comic_id': comic.id,
+            'filename': comic.filename,
+            'error': str(e)
+        }

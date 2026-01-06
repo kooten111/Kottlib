@@ -1,6 +1,8 @@
 #!/usr/bin/env python3
 """
 Regenerate missing cover thumbnails for a library
+
+Uses the centralized cover_service for cover regeneration.
 """
 
 import sys
@@ -15,11 +17,8 @@ from database import (
     Database,
     get_library_by_id,
     get_comics_in_library,
-    get_covers_dir,
-    create_cover,
 )
-from database.models import Cover
-from scanner.thumbnail_generator import generate_thumbnail
+from services.cover_service import regenerate_cover_for_comic
 
 logging.basicConfig(
     level=logging.INFO,
@@ -29,51 +28,15 @@ logger = logging.getLogger(__name__)
 
 
 def regenerate_cover(comic, library_name, force=False):
-    """Regenerate cover for a single comic"""
-    try:
-        db = Database()
-        with db.get_session() as session:
-            # Check if cover already exists
-            existing_cover = session.query(Cover).filter_by(
-                comic_id=comic.id,
-                type='auto'
-            ).first()
-
-            if existing_cover and not force:
-                # Check if file actually exists
-                cover_path = Path(existing_cover.jpeg_path)
-                if cover_path.exists():
-                    return {'status': 'skipped', 'comic_id': comic.id, 'filename': comic.filename}
-
-            # Generate thumbnail
-            covers_dir = get_covers_dir(library_name)
-            thumbnail_path = generate_thumbnail(
-                comic_path=Path(comic.path),
-                comic_hash=comic.hash,
-                covers_dir=covers_dir,
-                page_number=0
-            )
-
-            if thumbnail_path:
-                # Update or create cover entry
-                if existing_cover:
-                    existing_cover.jpeg_path = str(thumbnail_path)
-                    existing_cover.page_number = 0
-                else:
-                    create_cover(
-                        session=session,
-                        comic_id=comic.id,
-                        cover_type='auto',
-                        page_number=0,
-                        jpeg_path=str(thumbnail_path)
-                    )
-
-                return {'status': 'success', 'comic_id': comic.id, 'filename': comic.filename}
-            else:
-                return {'status': 'failed', 'comic_id': comic.id, 'filename': comic.filename, 'error': 'Thumbnail generation failed'}
-
-    except Exception as e:
-        return {'status': 'error', 'comic_id': comic.id, 'filename': comic.filename, 'error': str(e)}
+    """Regenerate cover for a single comic using centralized service"""
+    db = Database()
+    with db.get_session() as session:
+        return regenerate_cover_for_comic(
+            session=session,
+            comic=comic,
+            library_name=library_name,
+            force=force
+        )
 
 
 def main():

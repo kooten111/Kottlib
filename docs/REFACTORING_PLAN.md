@@ -630,17 +630,17 @@ The `getGradientColors(hash)` function generates fallback cover gradient colors 
 - [x] **Create `src/services/comic_info_service.py` for V1/V2 shared logic**
 
 ### Phase 3: Legacy Cleanup (Higher Risk - Test Thoroughly)
-- [ ] Remove legacy config classes (after verifying migration complete)
-- [ ] Remove legacy path fallbacks in `get_covers_dir()`
-- [ ] Refactor `scripts/regenerate_covers.py` to use centralized functions
-- [ ] Move complex logic from `series.py` and `comics.py` routers to `src/services/`
-- [ ] Standardize on library-specific `covers_dir` and remove fallback path logic
-- [ ] Update environment variable override pattern
+- [x] Remove legacy config classes (after verifying migration complete)
+- [x] Remove legacy path fallbacks in `get_covers_dir()`
+- [x] Refactor `scripts/regenerate_covers.py` to use centralized functions
+- [x] Move complex logic from `series.py` and `comics.py` routers to `src/services/`
+- [x] Standardize on library-specific `covers_dir` and remove fallback path logic
+- [x] Update environment variable override pattern
 
 ### Phase 4: Documentation
-- [ ] Update docstrings to consistent Google style
-- [ ] Update README and docs with new module locations
-- [ ] Keep YACReader references in protocol documentation only
+- [x] Update docstrings to consistent Google style
+- [x] Update README and docs with new module locations
+- [x] Keep YACReader references in protocol documentation only
 
 ---
 

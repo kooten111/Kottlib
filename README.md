@@ -9,7 +9,7 @@
 ```bash
 git clone https://github.com/kooten111/Kottlib.git
 cd Kottlib
-./scripts/yaclib.py
+./scripts/kottlib.py
 ```
 
 Done!
@@ -78,7 +78,7 @@ git clone https://github.com/kooten111/Kottlib.git
 cd Kottlib
 
 # 2. Run
-./scripts/yaclib.py
+./scripts/kottlib.py
 ```
 
 The launcher will:
@@ -276,12 +276,13 @@ Kottlib/
 │   │           ├── series.py
 │   │           └── session.py
 │   ├── database/          # Database layer
-│   │   ├── models.py      # SQLAlchemy models (extended YACReader schema)
-│   │   └── database.py    # Database connection management
+│   │   ├── models/        # SQLAlchemy models (modular)
+│   │   ├── operations/    # CRUD operations
+│   │   ├── paths.py       # Path utilities
+│   │   └── connection.py  # Database connection
 │   ├── scanner/           # Core scanner engine
-│   │   ├── base.py                # ScanResult dataclass
-│   │   ├── comic_loader.py        # CBZ/CBR/CB7 support
-│   │   ├── file_discovery.py      # File discovery
+│   │   ├── loaders/       # Format-specific loaders (CBZ/CBR/CB7)
+│   │   ├── comic_loader.py        # Archive factory
 │   │   ├── comic_processor.py     # Comic processing
 │   │   ├── thumbnail_generator.py # JPEG + WebP thumbnails
 │   │   └── threaded_scanner.py    # Multi-threaded scanner
@@ -296,13 +297,17 @@ Kottlib/
 │   │       ├── comicvine/
 │   │       └── metron/
 │   ├── services/          # Business logic layer
+│   │   ├── cover_service.py       # Cover generation/retrieval
+│   │   ├── comic_info_service.py  # Shared V1/V2 comic info
 │   │   ├── metadata_service.py    # Metadata application
 │   │   ├── library_service.py     # Library management
 │   │   └── scan_service.py        # Scan orchestration
 │   ├── client/            # Python client library
 │   │   └── kottlib.py     # API client for programmatic access
 │   ├── utils/             # Utilities
-│   │   └── series_utils.py        # Series detection
+│   │   ├── platform.py    # Platform-specific paths
+│   │   ├── hashing.py     # Hash functions
+│   │   └── pagination.py  # Pagination helpers
 │   └── config.py          # Configuration management
 ├── scanners/              # Scanner plugins (legacy location, still supported)
 │   ├── AniList/           # AniList scanner plugin
