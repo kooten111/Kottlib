@@ -116,14 +116,14 @@ Returns array of comics with enhanced metadata from their series:
 To apply the search indexes to an existing database:
 
 ```bash
-cd yaclib-enhanced
+cd Kottlib
 python3 tools/migrations/apply_series_search_indexes.py
 ```
 
 Or specify a database path:
 
 ```bash
-python3 tools/migrations/apply_series_search_indexes.py /path/to/yaclib.db
+python3 tools/migrations/apply_series_search_indexes.py /path/to/kottlib.db
 ```
 
 ## Performance

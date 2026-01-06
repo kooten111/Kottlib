@@ -181,7 +181,7 @@ content_tags = get_tags_by_type(result, 'tag')
 Run the demo to verify everything works:
 
 ```bash
-cd /mnt/Black/Apps/KottLib/yaclib-enhanced
+cd /mnt/Black/Apps/KottLib/Kottlib
 python3 scanners/demo_scanners.py
 ```
 
@@ -204,7 +204,7 @@ python3 scanners/demo_scanners.py
 
 Make sure you're in the right directory:
 ```bash
-cd /mnt/Black/Apps/KottLib/yaclib-enhanced
+cd /mnt/Black/Apps/KottLib/Kottlib
 python3 -c "from scanners import NhentaiScanner; print('OK')"
 ```
 

@@ -1,6 +1,6 @@
-# YACReader Library Server API Documentation
+# Kottlib API Documentation (YACReader Protocol Compatible)
 
-This document details the API endpoints for the YACReader Library Server, covering both v1 and v2 versions.
+This document details the API endpoints for Kottlib, covering both v1 and v2 versions.
 
 ## Overview
 

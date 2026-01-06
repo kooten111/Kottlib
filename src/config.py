@@ -65,8 +65,8 @@ def get_config_path() -> Path:
 
     Looks for config.yml in:
     1. Current directory
-    2. User config directory (~/.config/yaclib/)
-    3. System config directory (/etc/yaclib/)
+    2. User config directory (~/.config/kottlib/)
+    3. System config directory (/etc/kottlib/)
     """
     # Check current directory first
     local_config = Path("config.yml")
@@ -85,7 +85,7 @@ def get_config_path() -> Path:
 
     # Check system config (Linux only)
     if platform.system() == 'Linux':
-        system_config = Path('/etc/yaclib/config.yml')
+        system_config = Path('/etc/kottlib/config.yml')
         if system_config.exists():
             return system_config
 

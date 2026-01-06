@@ -11,7 +11,7 @@ import { writable, get } from 'svelte/store';
 
 // Search history (stored in localStorage)
 function createSearchHistory() {
-    const HISTORY_KEY = 'yaclib_search_history';
+    const HISTORY_KEY = 'kottlib_search_history';
     const MAX_HISTORY = 20;
 
     // Load from localStorage
@@ -73,7 +73,7 @@ function createSearchHistory() {
 
 // Saved searches (stored in localStorage)
 function createSavedSearches() {
-    const SAVED_KEY = 'yaclib_saved_searches';
+    const SAVED_KEY = 'kottlib_saved_searches';
 
     // Load from localStorage
     let initial = [];

@@ -439,7 +439,7 @@ Theme management with localStorage persistence.
 import { writable } from 'svelte/store';
 import { browser } from '$app/environment';
 
-const STORAGE_KEY = 'yaclib-theme';
+const STORAGE_KEY = 'kottlib-theme';
 
 function createThemeStore() {
     // Load from localStorage
@@ -549,8 +549,8 @@ Advanced search with localStorage persistence.
 import { writable } from 'svelte/store';
 import { browser } from '$app/environment';
 
-const HISTORY_KEY = 'yaclib-search-history';
-const SAVED_KEY = 'yaclib-saved-searches';
+const HISTORY_KEY = 'kottlib-search-history';
+const SAVED_KEY = 'kottlib-saved-searches';
 
 function createHistoryStore() {
     const stored = browser ? JSON.parse(localStorage.getItem(HISTORY_KEY) || '[]') : [];
@@ -619,7 +619,7 @@ User preferences.
 import { writable } from 'svelte/store';
 import { browser } from '$app/environment';
 
-const PREFS_KEY = 'yaclib-preferences';
+const PREFS_KEY = 'kottlib-preferences';
 
 const defaults = {
     gridSize: 'medium',    // small, medium, large
