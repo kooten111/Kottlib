@@ -59,27 +59,20 @@ def get_library_data_dir(library_name: str) -> Path:
     return library_dir
 
 
-def get_covers_dir(library_name: Optional[str] = None) -> Path:
+def get_covers_dir(library_name: str) -> Path:
     """
     Get the covers directory for a library.
 
     Args:
-        library_name: Name of the library (optional, for library-specific covers)
+        library_name: Name of the library (required)
 
     Returns:
-        Path to covers directory:
-        - With library_name: ./data/<LibraryName>/covers/
-        - Without library_name: ./data/covers/ (shared/legacy)
+        Path to library-specific covers directory: ./data/<LibraryName>/covers/
     """
     logger.debug(f"[DB] get_covers_dir: library_name={library_name}")
-    if library_name:
-        library_dir = get_library_data_dir(library_name)
-        covers_dir = library_dir / 'covers'
-    else:
-        # Shared covers directory (legacy/fallback)
-        data_dir = get_data_dir()
-        covers_dir = data_dir / 'covers'
-
+    library_dir = get_library_data_dir(library_name)
+    covers_dir = library_dir / 'covers'
+    
     logger.debug(f"[DB] Covers directory: {covers_dir}, exists={covers_dir.exists()}")
     covers_dir.mkdir(parents=True, exist_ok=True)
     return covers_dir

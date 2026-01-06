@@ -45,40 +45,6 @@ class DatabaseConfig:
 
 
 # ============================================================================
-# Legacy/Migration Support Classes
-# These are kept for backward compatibility during migration only
-# ============================================================================
-
-@dataclass
-class StorageConfig:
-    """Storage paths configuration (LEGACY - now in database)"""
-    covers_dir: Optional[str] = None
-    cache_dir: Optional[str] = None
-
-
-@dataclass
-class FeaturesConfig:
-    """Feature flags (LEGACY - now in database)"""
-    legacy_api: bool = True
-    modern_api: bool = True
-    reading_progress: bool = True
-    series_detection: bool = True
-    collections: bool = True
-    auto_thumbnails: bool = True
-    ignore_series_metadata: bool = True
-
-
-@dataclass
-class LibraryDefinition:
-    """Library definition (LEGACY - libraries now managed in database only)"""
-    name: str
-    path: str
-    auto_scan: bool = True
-    scan_on_startup: bool = False
-    settings: Dict[str, Any] = field(default_factory=dict)
-
-
-# ============================================================================
 # Main Configuration
 # ============================================================================
 
@@ -200,9 +166,19 @@ def load_config(config_path: Optional[Path] = None) -> Config:
     return config
 
 
+# Environment variable override mapping
+# Format: 'ENV_VAR': ('section', 'field', converter_function)
+ENV_OVERRIDES = {
+    'KOTTLIB_HOST': ('server', 'host', str),
+    'KOTTLIB_PORT': ('server', 'port', int),
+    'KOTTLIB_DB_PATH': ('database', 'path', str),
+    'KOTTLIB_LOG_LEVEL': ('server', 'log_level', str),
+}
+
+
 def apply_env_overrides(config: Config) -> Config:
     """
-    Apply environment variable overrides
+    Apply environment variable overrides using a mapping pattern.
 
     Environment variables:
     - KOTTLIB_HOST
@@ -210,21 +186,14 @@ def apply_env_overrides(config: Config) -> Config:
     - KOTTLIB_DB_PATH
     - KOTTLIB_LOG_LEVEL
     """
-    if os.getenv('KOTTLIB_HOST'):
-        config.server.host = os.getenv('KOTTLIB_HOST')
-
-    if os.getenv('KOTTLIB_PORT'):
-        try:
-            config.server.port = int(os.getenv('KOTTLIB_PORT'))
-        except ValueError:
-            logger.warning(f"Invalid KOTTLIB_PORT: {os.getenv('KOTTLIB_PORT')}")
-
-    if os.getenv('KOTTLIB_DB_PATH'):
-        config.database.path = os.getenv('KOTTLIB_DB_PATH')
-
-    if os.getenv('KOTTLIB_LOG_LEVEL'):
-        config.server.log_level = os.getenv('KOTTLIB_LOG_LEVEL')
-
+    for env_var, (section, field, converter) in ENV_OVERRIDES.items():
+        value = os.getenv(env_var)
+        if value:
+            try:
+                setattr(getattr(config, section), field, converter(value))
+            except (ValueError, AttributeError) as e:
+                logger.warning(f"Invalid {env_var}: {value} - {e}")
+    
     return config
 
 

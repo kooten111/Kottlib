@@ -11,7 +11,13 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 # Add src to path
 sys.path.insert(0, str(Path(__file__).parent.parent / 'src'))
 
-from database.database import Database, get_library_by_id, get_comics_in_library, get_covers_dir
+from database import (
+    Database,
+    get_library_by_id,
+    get_comics_in_library,
+    get_covers_dir,
+    create_cover,
+)
 from database.models import Cover
 from scanner.thumbnail_generator import generate_thumbnail
 
@@ -54,7 +60,6 @@ def regenerate_cover(comic, library_name, force=False):
                     existing_cover.jpeg_path = str(thumbnail_path)
                     existing_cover.page_number = 0
                 else:
-                    from database.database import create_cover
                     create_cover(
                         session=session,
                         comic_id=comic.id,
