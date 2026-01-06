@@ -19,6 +19,7 @@ from ....database import (
 )
 from ....database.enhanced_search import (
     search_with_fts,
+    search_series,
     search_comics_advanced,
     get_searchable_fields,
     parse_search_query,
@@ -86,16 +87,35 @@ async def search_comics_v2(
             raise HTTPException(status_code=404, detail="Library not found")
 
         # Perform search using enhanced FTS search
-        comics = search_with_fts(session, library_id, query)
+        comics_results = search_with_fts(session, library_id, query)
+        
+        # Search for series first (prioritized)
+        series_results = search_series(session, library_id, query, limit=5)
 
-        logger.info(f"v2 API: Found {len(comics)} comics matching '{query}'")
+        logger.info(f"v2 API: Found {len(series_results)} series and {len(comics_results)} comics matching '{query}'")
 
         # Get user for reading progress
         user = get_request_user(request, session)
 
         # Format results
         results = []
-        for comic in comics:
+
+        
+        # Add series results first
+        for series in series_results:
+            results.append({
+                "type": "series",
+                "id": str(series.id),
+                "libraryId": str(library_id),
+                "name": series.name,
+                "publisher": series.publisher,
+                "comic_count": series.comic_count,
+                # Helper for frontend icon/display
+                "file_name": series.name, 
+                "path": f"/series/{library_id}/{series.name}", 
+            })
+            
+        for comic in comics_results:
             # Get reading progress
             current_page = 0
             is_read = False

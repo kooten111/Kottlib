@@ -14,6 +14,7 @@
 		getContinueReading,
 		getContinueReadingAll,
 		getLibrariesSeriesTree,
+		browseAllLibraries,
 	} from "$lib/api/libraries";
 	import HomeSidebar from "$lib/components/layout/HomeSidebar.svelte";
 	import { getFavorites } from "$lib/api/favorites";
@@ -205,7 +206,7 @@
 		}
 	}
 
-	// Client-side loading function as fallback (loads all data at once)
+	// Client-side loading function as fallback
 	async function loadClientSide() {
 		try {
 			// Load libraries and series tree
@@ -219,59 +220,31 @@
 				return;
 			}
 
-			// Load continue reading and series for ALL libraries
-			const [continueReadingData, allSeriesResults] = await Promise.all([
-				// Continue reading - use new cross-library endpoint
-				getContinueReadingAll(50)
-					.then((comics) =>
-						comics.map((comic) => ({
-							...comic,
-							libraryId: parseInt(comic.library_id), // Ensure libraryId is set
-						})),
-					)
-					.catch(() => []),
-				// All series
-				Promise.all(
-					libraries.map(async (lib) => {
-						try {
-							const seriesData = await getSeries(lib.id, sortBy);
-							const seriesItems = seriesData.items || [];
-							return seriesItems.map((s) => ({
-								...s,
-								libraryId: lib.id,
-							}));
-						} catch (err) {
-							console.error(
-								`Failed to fetch series for library ${lib.id}:`,
-								err,
-							);
-							return [];
-						}
-					}),
-				),
-			]);
-
-			// The new endpoint already returns sorted data, just slice it
+			// Load continue reading
+			const continueReadingData = await getContinueReadingAll(50).catch(
+				() => [],
+			);
 			continueReading = continueReadingData.slice(0, 20);
 
-			// Interleave series from different libraries
-			const maxLength = Math.max(
-				...allSeriesResults.map((r) => r.length),
+			// Load initial content for "All" view (Server-side paginated)
+			const contentStats = await browseAllLibraries(
+				sortBy,
+				0,
+				seriesPageSize,
 			);
-			allSeries = [];
-			for (let i = 0; i < maxLength; i++) {
-				for (const libraryResults of allSeriesResults) {
-					if (i < libraryResults.length) {
-						allSeries.push(libraryResults[i]);
-					}
-				}
-			}
+			const items = (contentStats.items || []).map((i) => ({
+				...i,
+				libraryId: i.library_id,
+			}));
 
-			// Only set displayedSeries if there's no filter to restore
-			if (!$currentFilterStore) {
-				displayedSeries = allSeries.slice(0, seriesPageSize);
-				hasMoreSeries = allSeries.length > seriesPageSize;
-			}
+			// Set displayedSeries directly
+			displayedSeries = items;
+			// For client-side compatibility if needed by other functions,
+			// but for "All" view we rely on displayedSeries + Pagination
+			allSeries = items;
+
+			// Use total from response to determine if more available
+			hasMoreSeries = items.length < (contentStats.total || 0);
 
 			// Initialize filtered tree
 			filteredSeriesTree = seriesTree;
@@ -607,10 +580,28 @@
 
 	async function reloadWithBackendSort(sortType) {
 		try {
+			// IF viewing All Libraries (Unified Browse)
+			if (!currentLibraryId) {
+				const contentStats = await browseAllLibraries(
+					sortType,
+					0,
+					seriesPageSize,
+				);
+				const items = (contentStats.items || []).map((i) => ({
+					...i,
+					libraryId: i.library_id,
+				}));
+				displayedSeries = items;
+				// allSeries isn't really used for Unified Browse, but we set it for safety if anything relies on non-empty
+				allSeries = items;
+				hasMoreSeries = items.length < (contentStats.total || 0);
+				return;
+			}
+
 			// If a library is selected, only fetch data for that library
-			const librariesToFetch = currentLibraryId
-				? libraries.filter((lib) => lib.id === currentLibraryId)
-				: libraries;
+			const librariesToFetch = libraries.filter(
+				(lib) => lib.id === currentLibraryId,
+			);
 
 			const allSeriesResults = await Promise.all(
 				librariesToFetch.map(async (lib) => {
@@ -631,18 +622,9 @@
 				}),
 			);
 
-			// Interleave series from different libraries
-			const maxLength = Math.max(
-				...allSeriesResults.map((r) => r.length),
-			);
-			allSeries = [];
-			for (let i = 0; i < maxLength; i++) {
-				for (const libraryResults of allSeriesResults) {
-					if (i < libraryResults.length) {
-						allSeries.push(libraryResults[i]);
-					}
-				}
-			}
+			// Flatten results since we only fetched one library
+			const flatSeries = allSeriesResults.flat();
+			allSeries = flatSeries;
 
 			updateDisplayedSeries();
 		} catch (err) {
@@ -673,20 +655,52 @@
 		// Use requestAnimationFrame to ensure smooth UI updates
 		await new Promise((resolve) => requestAnimationFrame(resolve));
 
-		const currentLength = displayedSeries.length;
+		// GLOBAL BROWSE PAGINATION
+		if (!currentFilter || currentFilter.type === "all") {
+			try {
+				const offset = displayedSeries.length;
+				const contentStats = await browseAllLibraries(
+					sortBy,
+					offset,
+					seriesPageSize,
+				);
+				const newItems = (contentStats.items || []).map((i) => ({
+					...i,
+					libraryId: i.library_id,
+				}));
 
+				if (newItems.length > 0) {
+					displayedSeries = [...displayedSeries, ...newItems];
+					// Check if we have more based on total
+					hasMoreSeries =
+						displayedSeries.length < (contentStats.total || 0);
+				} else {
+					hasMoreSeries = false;
+				}
+			} catch (err) {
+				console.error("Failed to load more items:", err);
+			} finally {
+				isLoadingMore = false;
+			}
+			return;
+		}
+
+		// OLD LOGIC (for specific libraries if they still load fully, or filtered views)
+		// Note: Library view loads `loadLibraryData` which populates `allSeries` filtered?
+		// Actually `loadLibraryData` loads ALL series for that library.
+		// So for "Library" filter, we still have client-side pagination from `allSeries`.
+
+		const currentLength = displayedSeries.length;
 		// Determine the base source based on current filters
 		let baseSource;
 		if (searchQuery) {
-			// If searching, use search results
 			baseSource = searchResults;
 		} else if (currentFilter?.type === "library") {
-			// If library filter is active, filter allSeries by library
 			baseSource = allSeries.filter(
 				(s) => s.libraryId === currentFilter.libraryId,
 			);
 		} else {
-			// Otherwise use all series
+			// Fallback
 			baseSource = allSeries;
 		}
 
@@ -1241,6 +1255,28 @@
 																);
 															window.location.href = `/library/${series.libraryId}/browse/${path}`;
 														}}
+													/>
+												{:else if series.type === "comic"}
+													<ComicCard
+														comic={{
+															...series,
+															id: series.id,
+															// Ensure required props for ComicCard
+															title:
+																series.title ||
+																series.name,
+															hash: series.cover_hash,
+															currentPage:
+																series.current_page,
+															totalPages:
+																series.num_pages,
+														}}
+														libraryId={series.libraryId}
+														showProgress={true}
+														isFolder={false}
+														isStandalone={true}
+														variant={$preferencesStore.viewMode}
+														href={`/comic/${series.libraryId}/${series.id}/read`}
 													/>
 												{:else}
 													<ComicCard

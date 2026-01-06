@@ -1,41 +1,29 @@
 <script>
-	import { onMount } from "svelte";
 	import { page } from "$app/stores";
 	import { goto } from "$app/navigation";
 	import Navbar from "$lib/components/layout/Navbar.svelte";
+	import HomeSidebar from "$lib/components/layout/HomeSidebar.svelte";
 	import DetailHeader from "$lib/components/common/DetailHeader.svelte";
+	import ComicCard from "$lib/components/comic/ComicCard.svelte";
 	import ScannerMetadata from "$lib/components/comic/ScannerMetadata.svelte";
-	import { getComicInfo } from "$lib/api/comics";
 	import { addFavorite, removeFavorite } from "$lib/api/favorites";
+	import { BookOpen } from "lucide-svelte";
 
-	$: libraryId = parseInt($page.params.libraryId);
-	$: comicId = parseInt($page.params.comicId);
+	export let data;
 
-	let comic = null;
-	let isLoading = true;
-	let error = null;
+	// Server-side loaded data
+	$: comic = data.comic;
+	$: libraries = data.libraries || [];
+	$: seriesTree = data.seriesTree || [];
+	$: libraryId = data.libraryId;
+	$: comicId = data.comicId;
+	$: error = data.error;
+
 	let isFavorite = false;
 	let favoriteLoading = false;
 
-	onMount(async () => {
-		await loadComicData();
-	});
-
-	async function loadComicData() {
-		try {
-			isLoading = true;
-			error = null;
-
-			const comicData = await getComicInfo(libraryId, comicId);
-			comic = comicData;
-			isFavorite = comic.favorite || false;
-
-			isLoading = false;
-		} catch (err) {
-			console.error("Failed to load comic:", err);
-			error = err.message;
-			isLoading = false;
-		}
+	$: if (comic) {
+		isFavorite = comic.favorite || false;
 	}
 
 	async function handleFavoriteToggle() {
@@ -71,15 +59,12 @@
 		}
 	}
 
-	// Determine series name for navigation
-	$: seriesName =
-		comic?.series || getSeriesFromPath(comic?.path || comic?.file_name);
-
-	function getSeriesFromPath(path) {
-		if (!path) return null;
-		const parts = path.split("/").filter((p) => p);
-		return parts.length > 1 ? parts[0] : null;
-	}
+	// Construct currentFilter for sidebar highlighting
+	$: currentFilter = {
+		type: "comic",
+		libraryId,
+		comicId,
+	};
 
 	// Prepare item for DetailHeader (mimic series structure)
 	$: itemForHeader = comic
@@ -97,6 +82,28 @@
 						: 0,
 			}
 		: null;
+
+	// Prepare comic as a single "volume" for the grid
+	$: volumes = comic
+		? [
+				{
+					id: comic.id,
+					title:
+						comic.title ||
+						comic.file_name?.replace(/\.(cbz|cbr|cb7|cbt)$/i, ""),
+					hash: comic.hash,
+					num_pages: comic.num_pages,
+					current_page: comic.current_page,
+					is_completed: comic.read || comic.is_completed,
+				},
+			]
+		: [];
+
+	// Reload comic data after scanner update
+	async function reloadComic() {
+		// Force page refresh to get updated data from server
+		window.location.reload();
+	}
 </script>
 
 <svelte:head>
@@ -108,96 +115,93 @@
 	>
 </svelte:head>
 
-<div class="comic-page">
+<div
+	class="h-screen flex flex-col overflow-hidden bg-[var(--color-bg)] text-[var(--color-text)]"
+>
+	<!-- Navbar at Top -->
 	<Navbar />
 
-	<main class="comic-content">
-		{#if isLoading}
-			<div class="loading-container">
-				<div class="spinner"></div>
-				<p class="loading-text">Loading comic...</p>
-			</div>
-		{:else if error}
-			<div class="error-container">
-				<p class="error-text">Failed to load comic: {error}</p>
-				<a href="/" class="btn-back">Back to Home</a>
-			</div>
-		{:else if comic}
-			<!-- Unified DetailHeader -->
-			<DetailHeader
-				item={itemForHeader}
-				{libraryId}
-				onBack={handleBack}
-				onStartReading={handleStartReading}
-			/>
+	<!-- Sidebar + Main Content Row -->
+	<div class="flex-1 flex overflow-hidden">
+		<!-- Sidebar -->
+		<HomeSidebar
+			{libraries}
+			{seriesTree}
+			{currentFilter}
+			currentView="home"
+		/>
 
-			<!-- Scanner Metadata (optional enhancement) -->
-			<div class="scanner-section">
-				<ScannerMetadata {comic} on:updated={loadComicData} />
+		<!-- Main Content -->
+		<main
+			class="flex-1 overflow-y-auto px-4 pb-8 scrollbar-thin scrollbar-thumb-[var(--color-border)] scrollbar-track-transparent"
+		>
+			<div class="max-w-7xl mx-auto w-full pt-4">
+				{#if error}
+					<div
+						class="flex flex-col items-center justify-center py-20"
+					>
+						<p class="text-[var(--color-error)] text-lg mb-4">
+							{error}
+						</p>
+						<a
+							href="/library/{libraryId}/browse"
+							class="px-4 py-2 bg-[var(--color-bg-secondary)] rounded hover:bg-[var(--color-bg-tertiary)] transition"
+							>Return to Library</a
+						>
+					</div>
+				{:else if comic}
+					<!-- Detail Header (Hero) -->
+					<DetailHeader
+						item={itemForHeader}
+						{libraryId}
+						onBack={handleBack}
+						onStartReading={handleStartReading}
+					/>
+
+					<!-- Volumes Section (single comic as "series of one") -->
+					<section class="mt-8">
+						<div class="flex items-center gap-2 mb-4 px-1">
+							<BookOpen
+								class="w-5 h-5 text-[var(--color-accent)]"
+							/>
+							<h2 class="text-xl font-bold text-white">
+								Volumes
+							</h2>
+						</div>
+						<div
+							class="grid gap-6 grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6"
+							style="grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));"
+						>
+							{#each volumes as volume (volume.id)}
+								<ComicCard
+									comic={volume}
+									{libraryId}
+									variant="grid"
+									showProgress={true}
+									href={`/comic/${libraryId}/${volume.id}/read`}
+								/>
+							{/each}
+						</div>
+					</section>
+
+					<!-- Scanner Metadata Section -->
+					<section class="mt-8">
+						<ScannerMetadata {comic} on:updated={reloadComic} />
+					</section>
+				{:else}
+					<!-- Loading State -->
+					<div
+						class="flex flex-col items-center justify-center py-20"
+					>
+						<div
+							class="w-10 h-10 border-4 border-[var(--color-border)] border-t-[var(--color-accent)] rounded-full animate-spin"
+						></div>
+						<p class="mt-4 text-[var(--color-text-muted)]">
+							Loading comic...
+						</p>
+					</div>
+				{/if}
 			</div>
-		{/if}
-	</main>
+		</main>
+	</div>
 </div>
-
-<style>
-	.comic-page {
-		min-height: 100vh;
-		display: flex;
-		flex-direction: column;
-		background: var(--color-bg, #09090b);
-	}
-
-	.comic-content {
-		flex: 1;
-		overflow-y: auto;
-	}
-
-	.loading-container,
-	.error-container {
-		display: flex;
-		flex-direction: column;
-		align-items: center;
-		justify-content: center;
-		padding: 4rem 2rem;
-	}
-
-	.spinner {
-		width: 64px;
-		height: 64px;
-		border: 4px solid rgba(255, 255, 255, 0.1);
-		border-top-color: #f97316;
-		border-radius: 50%;
-		animation: spin 1s linear infinite;
-	}
-
-	@keyframes spin {
-		to {
-			transform: rotate(360deg);
-		}
-	}
-
-	.loading-text {
-		color: #a1a1aa;
-		margin-top: 1rem;
-	}
-
-	.error-text {
-		color: #ef4444;
-	}
-
-	.btn-back {
-		margin-top: 1rem;
-		padding: 0.625rem 1.25rem;
-		background: #f97316;
-		color: white;
-		font-weight: 600;
-		border-radius: 0.5rem;
-		text-decoration: none;
-	}
-
-	.scanner-section {
-		max-width: 80rem;
-		margin: 0 auto;
-		padding: 0 1.5rem 2rem;
-	}
-</style>

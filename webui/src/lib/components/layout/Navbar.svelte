@@ -1,35 +1,13 @@
 <script>
 	import { page } from "$app/stores";
 	import { themeStore } from "$stores/theme";
-	import { searchStore } from "$stores/search";
 	import { currentFilterStore, treeExpandedNodes } from "$stores/library";
 	import { uiStore } from "$stores/ui";
-	import {
-		Moon,
-		Sun,
-		BookOpen,
-		Search as SearchIcon,
-		X,
-		Menu,
-	} from "lucide-svelte";
-
-	let searchInput;
-
-	// Debug: Track search store changes
-
-	function clearSearch() {
-		searchStore.set({
-			query: "",
-			isSearching: false,
-		});
-		if (searchInput) {
-			searchInput.value = "";
-		}
-	}
+	import SearchAutocomplete from "$lib/components/common/SearchAutocomplete.svelte";
+	import { Moon, Sun, BookOpen, Menu } from "lucide-svelte";
 
 	function clearFilters() {
 		currentFilterStore.set(null);
-		clearSearch();
 	}
 
 	function handleHomeClick() {
@@ -44,13 +22,6 @@
 				"series-tree-expanded",
 				JSON.stringify([...collapsedState]),
 			);
-		}
-	}
-
-	function handleSearchKeydown(e) {
-		if (e.key === "Escape") {
-			clearSearch();
-			searchInput?.blur();
 		}
 	}
 </script>
@@ -84,27 +55,9 @@
 
 			<!-- Search Bar -->
 			<div class="flex-1 max-w-md mx-8 hidden lg:flex">
-				<div class="search-input-wrapper">
-					<input
-						bind:this={searchInput}
-						type="text"
-						class="search-input"
-						placeholder="Search comics and series..."
-						bind:value={$searchStore.query}
-						on:keydown={handleSearchKeydown}
-					/>
-					{#if $searchStore.query}
-						<button
-							class="search-clear"
-							on:click={clearSearch}
-							aria-label="Clear search"
-						>
-							<X class="w-4 h-4" />
-						</button>
-					{:else}
-						<SearchIcon class="search-icon" />
-					{/if}
-				</div>
+				<SearchAutocomplete
+					placeholder="Search comics and libraries..."
+				/>
 			</div>
 
 			<!-- Right Side Actions -->
@@ -133,65 +86,3 @@
 		</div>
 	</div>
 </nav>
-
-<style>
-	.search-input-wrapper {
-		position: relative;
-		display: flex;
-		align-items: center;
-		width: 100%;
-	}
-
-	.search-icon {
-		position: absolute;
-		right: 0.75rem;
-		width: 18px;
-		height: 18px;
-		color: var(--color-text-secondary);
-		pointer-events: none;
-		z-index: 1;
-	}
-
-	.search-input {
-		width: 100%;
-		padding: 0.625rem 2.5rem 0.625rem 1rem;
-		background: rgba(255, 255, 255, 0.05);
-		border: 1px solid rgba(255, 255, 255, 0.1);
-		border-radius: 8px;
-		color: var(--color-text);
-		font-size: 0.875rem;
-		transition: all 0.2s;
-	}
-
-	.search-input:focus {
-		outline: none;
-		border-color: var(--color-accent);
-		background: rgba(255, 255, 255, 0.08);
-	}
-
-	.search-input::placeholder {
-		color: var(--color-text-secondary);
-	}
-
-	.search-clear {
-		position: absolute;
-		right: 0.5rem;
-		display: flex;
-		align-items: center;
-		justify-content: center;
-		width: 24px;
-		height: 24px;
-		padding: 0;
-		background: rgba(255, 255, 255, 0.1);
-		border: none;
-		border-radius: 50%;
-		color: var(--color-text);
-		cursor: pointer;
-		transition: all 0.2s;
-	}
-
-	.search-clear:hover {
-		background: rgba(255, 255, 255, 0.2);
-		transform: scale(1.1);
-	}
-</style>

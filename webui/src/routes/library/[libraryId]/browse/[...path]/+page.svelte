@@ -7,6 +7,7 @@
     import DetailHeader from "$lib/components/common/DetailHeader.svelte";
     import FolderCard from "$lib/components/library/FolderCard.svelte";
     import ComicCard from "$lib/components/comic/ComicCard.svelte";
+    import ScannerMetadata from "$lib/components/comic/ScannerMetadata.svelte";
     import Breadcrumbs from "$lib/components/common/Breadcrumbs.svelte";
     import HorizontalCarousel from "$lib/components/common/HorizontalCarousel.svelte";
     import {
@@ -34,6 +35,8 @@
     $: seriesTree = data.seriesTree || [];
 
     $: folder = browseData?.folder;
+    $: comic = browseData?.comic;
+    $: isComicView = browseData?.is_comic_view;
     $: library = browseData?.library;
     $: breadcrumbs = browseData?.breadcrumbs || [];
     // Unified Items List (Pagination Support)
@@ -88,32 +91,75 @@
         : { type: "library", libraryId, libraryName: library?.name };
 
     // Initial setup for preferences
-    let sortBy = $preferencesStore.librarySortBy?.[libraryId] || "name";
+    // Initial setup for preferences
+    // Derive sortBy from URL or fall back to store (but ideally URL drives everything)
+    // We use a reactive statement to keep it in sync with URL
+    $: sortBy =
+        $page.url.searchParams.get("sort") ||
+        $preferencesStore.librarySortBy?.[libraryId] ||
+        "name";
+
     let showSizeSlider = false;
     let showSortDropdown = false;
+    // We don't need local randomSeed state if we use URL
+    // But we might want to know if we just generated one?
+    // Actually, we can just read seed from URL too
+    $: randomSeed = $page.url.searchParams.get("seed");
 
     const sortOptions = [
         { value: "name", label: "Name" },
         { value: "created", label: "Date Added" },
         { value: "updated", label: "Last Updated" },
         { value: "progress", label: "Progress" },
+        { value: "random", label: "Shuffle" },
     ];
 
-    // We can't easily double-bind to store values if we want specific defaulting logic,
-    // so we watch the store and update local var if needed, or just use store directly.
+    onMount(() => {
+        // If URL doesn't have sort, but store does, redirect to add it
+        // This ensures "stickiness" when navigating from sidebar
+        const urlSort = $page.url.searchParams.get("sort");
+        const storeSort = $preferencesStore.librarySortBy?.[libraryId];
 
-    // Function to apply sorting
-    async function applySorting() {
-        // Reset items and load with new sort
-        items = [];
-        currentOffset = 0;
-        loadingMore = false;
-        hasMore = true;
+        if (!urlSort && storeSort && storeSort !== "name") {
+            // Apply store sort to URL
+            const url = new URL($page.url);
+            url.searchParams.set("sort", storeSort);
 
-        // Update preference
-        preferencesStore.setSortBy(sortBy, libraryId);
+            if (storeSort === "random") {
+                url.searchParams.set("seed", String(Date.now()));
+            }
 
-        await loadMoreItems();
+            goto(url.toString(), { replaceState: true });
+        } else if (!urlSort && (!storeSort || storeSort === "name")) {
+            // Implicit name sort, do nothing
+        }
+    });
+
+    // Function to apply sorting - now just updates URL
+    async function applySorting(newSort) {
+        // Save preference
+        if (newSort) {
+            preferencesStore.setSortBy(newSort, libraryId);
+        }
+
+        const targetSort = newSort || sortBy;
+        const url = new URL($page.url);
+        url.searchParams.set("sort", targetSort);
+
+        // Handle Random Seed
+        if (targetSort === "random") {
+            // Always generate new seed on explicit user action (applySorting)
+            // If we just loaded the page with an existing seed, we don't call this function unless user clicks something
+            url.searchParams.set("seed", String(Date.now()));
+        } else {
+            url.searchParams.delete("seed");
+        }
+
+        // Reset offset? SvelteKit load will reset data, but our client-side 'loadMore' logic needs reset
+        // Actually, if we navigate, 'items' reactive statement will handle it.
+        // We just navigate.
+        goto(url.toString(), { noScroll: true });
+        showSortDropdown = false;
     }
 
     // Watch for sort changes (only if triggered by user, not initial load which is handled by data)
@@ -193,6 +239,7 @@
                 sortBy,
                 nextOffset,
                 limit,
+                randomSeed,
             );
             const newItems = response.items || [];
 
@@ -213,8 +260,46 @@
         }
     }
 
+    function infiniteScroll(node) {
+        const observer = new IntersectionObserver(
+            (entries) => {
+                if (entries[0].isIntersecting) {
+                    loadMoreItems();
+                }
+            },
+            {
+                rootMargin: "400px", // Load next page when within 400px of bottom
+            },
+        );
+
+        observer.observe(node);
+
+        return {
+            destroy() {
+                observer.disconnect();
+            },
+        };
+    }
+
     // Determine if we should show the detail header
-    $: showDetailHeader = !!folder && currentPath !== "";
+    $: showDetailHeader = (!!folder && currentPath !== "") || isComicView;
+    $: headerItem = isComicView
+        ? comic
+        : folder
+          ? {
+                ...folder,
+                cover_hash:
+                    folder?.cover_hash ||
+                    items?.[0]?.cover_hash ||
+                    items?.[0]?.hash,
+            }
+          : null;
+
+    // Initial setup for grid size
+    $: if (isComicView) {
+        // Comic view always grid, but maybe default to larger for single item?
+        // Actually keep consistent size for now
+    }
 </script>
 
 <div
@@ -276,7 +361,7 @@
                                             comic={item}
                                             {libraryId}
                                             variant="grid"
-                                            href={`/comic/${libraryId}/${item.id}`}
+                                            href={`/comic/${libraryId}/${item.id}/read`}
                                         />
                                     </div>
                                 {/each}
@@ -287,16 +372,19 @@
                     <!-- Detail Header (Hero) -->
                     {#if showDetailHeader}
                         <DetailHeader
-                            item={{
-                                ...folder,
-                                cover_hash:
-                                    folder?.cover_hash ||
-                                    items?.[0]?.cover_hash ||
-                                    items?.[0]?.hash,
-                            }}
+                            item={headerItem}
                             {libraryId}
                             onBack={() => history.back()}
                             showBack={true}
+                            onStartReading={isComicView
+                                ? () => {
+                                      const page =
+                                          comic.current_page > 0
+                                              ? `?page=${comic.current_page}`
+                                              : "";
+                                      window.location.href = `/comic/${libraryId}/${comic.id}/read${page}`;
+                                  }
+                                : undefined}
                         />
                     {/if}
 
@@ -362,9 +450,9 @@
                                                         ? 'bg-[var(--color-accent)] text-white'
                                                         : 'text-[var(--color-text)] hover:bg-[var(--color-bg-tertiary)]'}"
                                                     on:click={() => {
-                                                        sortBy = option.value;
-                                                        showSortDropdown = false;
-                                                        applySorting();
+                                                        applySorting(
+                                                            option.value,
+                                                        );
                                                     }}
                                                 >
                                                     {option.label}
@@ -445,6 +533,18 @@
                         {/if}
                     {/if}
 
+                    <!-- Section Title for Comic View -->
+                    {#if isComicView && hasContent}
+                        <div class="flex items-center gap-2 mb-4 px-1">
+                            <BookOpen
+                                class="w-5 h-5 text-[var(--color-accent)]"
+                            />
+                            <h2 class="text-xl font-bold text-white">
+                                Volumes
+                            </h2>
+                        </div>
+                    {/if}
+
                     <!-- Content Grid -->
                     {#if !hasContent}
                         <div
@@ -478,30 +578,26 @@
                                         comic={item}
                                         {libraryId}
                                         variant={viewMode}
-                                        href={`/comic/${libraryId}/${item.id}`}
+                                        href={!currentPath
+                                            ? `/library/${libraryId}/browse/_comic/${item.id}`
+                                            : `/comic/${libraryId}/${item.id}/read`}
                                     />
                                 {/if}
                             {/each}
                         </div>
 
-                        <!-- Load More Button / Spinner -->
+                        <!-- Infinite Scroll Sentinel -->
                         {#if hasMore}
-                            <div class="flex justify-center mt-8 py-4">
-                                <button
-                                    class="px-6 py-2 bg-[var(--color-bg-secondary)] hover:bg-[var(--color-bg-tertiary)] rounded-full text-[var(--color-text-secondary)] font-medium transition flex items-center gap-2"
-                                    on:click={loadMoreItems}
-                                    disabled={loadingMore}
+                            <div
+                                use:infiniteScroll
+                                class="flex justify-center mt-8 py-8"
+                            >
+                                <div
+                                    class="flex items-center gap-2 text-[var(--color-text-secondary)]"
                                 >
-                                    {#if loadingMore}
-                                        <Loader2
-                                            size={18}
-                                            class="animate-spin"
-                                        />
-                                        Loading...
-                                    {:else}
-                                        Load More
-                                    {/if}
-                                </button>
+                                    <Loader2 size={24} class="animate-spin" />
+                                    <span>Loading more...</span>
+                                </div>
                             </div>
                         {/if}
                     {/if}

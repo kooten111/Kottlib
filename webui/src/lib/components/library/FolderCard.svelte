@@ -1,6 +1,13 @@
 <script>
     import { createEventDispatcher } from "svelte";
-    import { FolderOpen, BookOpen, Star, Clock, Play } from "lucide-svelte";
+    import {
+        FolderOpen,
+        BookOpen,
+        Star,
+        Clock,
+        Play,
+        Library,
+    } from "lucide-svelte";
     import { getCoverUrl } from "$lib/api/comics";
     import GenreTag from "$lib/components/common/GenreTag.svelte";
 
@@ -12,10 +19,17 @@
 
     // Determine type and styling
     $: isCollection = item.type === "collection";
-    $: typeLabel = isCollection ? "COLLECTION" : "SERIES";
-    $: badgeClass = isCollection
-        ? "text-orange-400 border-orange-500/30"
-        : "text-blue-400 border-blue-500/30";
+    $: isLibrary = item.type === "library";
+    $: typeLabel = isLibrary
+        ? "LIBRARY"
+        : isCollection
+          ? "COLLECTION"
+          : "SERIES";
+    $: badgeClass = isLibrary
+        ? "text-green-400 border-green-500/30"
+        : isCollection
+          ? "text-orange-400 border-orange-500/30"
+          : "text-blue-400 border-blue-500/30";
 
     $: metadata = item.metadata || item || {};
     $: coverHash = item.cover_hash || item.coverHash;
@@ -93,7 +107,9 @@
                 style="background-image: linear-gradient(135deg, {gradientColors[0]}, {gradientColors[1]})"
             >
                 <div class="text-white/50">
-                    {#if isCollection}
+                    {#if isLibrary}
+                        <Library size={48} />
+                    {:else if isCollection}
                         <FolderOpen size={48} />
                     {:else}
                         <BookOpen size={48} />
@@ -179,7 +195,7 @@
         {/if}
 
         <div class="mt-auto flex items-center gap-3 text-xs text-zinc-500 pt-1">
-            {#if isCollection}
+            {#if isCollection || isLibrary}
                 {#if subCollections > 0}
                     <span class="flex items-center gap-1"
                         ><FolderOpen class="w-3 h-3" />{subCollections}</span

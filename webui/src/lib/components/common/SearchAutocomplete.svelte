@@ -1,13 +1,18 @@
 <script>
-	import { onMount, onDestroy } from 'svelte';
-	import { Search, SlidersHorizontal } from 'lucide-svelte';
-	import { getLibraries } from '$lib/api/libraries';
-	import { searchComics } from '$lib/api/search';
-	import { getCoverUrl } from '$lib/api/comics';
-	import { showAdvancedSearch } from '$lib/stores/advancedSearch';
-	import AdvancedSearchModal from '$lib/components/search/AdvancedSearchModal.svelte';
+	import { onMount, onDestroy } from "svelte";
+	import {
+		Search,
+		SlidersHorizontal,
+		Library,
+		BookOpen,
+	} from "lucide-svelte";
+	import { getLibraries } from "$lib/api/libraries";
+	import { searchComics } from "$lib/api/search";
+	import { getCoverUrl } from "$lib/api/comics";
+	import { showAdvancedSearch } from "$lib/stores/advancedSearch";
+	import AdvancedSearchModal from "$lib/components/search/AdvancedSearchModal.svelte";
 
-	export let placeholder = 'Search comics... (Ctrl+K)';
+	export let placeholder = "Search comics... (Ctrl+K)";
 	export let onSelect = null;
 
 	// Expose focus method
@@ -26,7 +31,7 @@
 		}
 	}
 
-	let searchQuery = '';
+	let searchQuery = "";
 	let isOpen = false;
 	let results = [];
 	let isSearching = false;
@@ -59,10 +64,10 @@
 			const searchPromises = libraries.map(async (lib) => {
 				try {
 					const comics = await searchComics(lib.id, searchQuery);
-					return comics.map(comic => ({
-						...comic,
+					return comics.map((item) => ({
+						...item,
 						libraryId: lib.id,
-						libraryName: lib.name
+						libraryName: lib.name,
 					}));
 				} catch {
 					return [];
@@ -71,12 +76,12 @@
 
 			const searchResults = await Promise.all(searchPromises);
 			results = searchResults.flat().slice(0, 8); // Limit to 8 results
-			isOpen = results.length > 0;
+			isOpen = true; // Always open if search completes
 			selectedIndex = -1;
 		} catch (error) {
-			console.error('Search failed:', error);
+			console.error("Search failed:", error);
 			results = [];
-			isOpen = false;
+			isOpen = true; // Open to show error/empty state
 		} finally {
 			isSearching = false;
 		}
@@ -84,24 +89,24 @@
 
 	function handleKeydown(e) {
 		if (!isOpen) {
-			if (e.key === 'Enter' && searchQuery.trim()) {
+			if (e.key === "Enter" && searchQuery.trim()) {
 				navigateToSearch();
 			}
 			return;
 		}
 
 		switch (e.key) {
-			case 'ArrowDown':
+			case "ArrowDown":
 				e.preventDefault();
 				selectedIndex = Math.min(selectedIndex + 1, results.length - 1);
 				scrollToSelected();
 				break;
-			case 'ArrowUp':
+			case "ArrowUp":
 				e.preventDefault();
 				selectedIndex = Math.max(selectedIndex - 1, -1);
 				scrollToSelected();
 				break;
-			case 'Enter':
+			case "Enter":
 				e.preventDefault();
 				if (selectedIndex >= 0) {
 					selectResult(results[selectedIndex]);
@@ -109,7 +114,7 @@
 					navigateToSearch();
 				}
 				break;
-			case 'Escape':
+			case "Escape":
 				isOpen = false;
 				selectedIndex = -1;
 				break;
@@ -120,7 +125,7 @@
 		if (!dropdownElement || selectedIndex < 0) return;
 		const selectedElement = dropdownElement.children[selectedIndex];
 		if (selectedElement) {
-			selectedElement.scrollIntoView({ block: 'nearest' });
+			selectedElement.scrollIntoView({ block: "nearest" });
 		}
 	}
 
@@ -128,10 +133,15 @@
 		if (onSelect) {
 			onSelect(result);
 		} else {
-			window.location.href = `/comic/${result.libraryId}/${result.id}`;
+			if (result.type === "series") {
+				window.location.href =
+					result.path || `/series/${result.libraryId}/${result.name}`;
+			} else {
+				window.location.href = `/comic/${result.libraryId}/${result.id}`;
+			}
 		}
 		isOpen = false;
-		searchQuery = '';
+		searchQuery = "";
 		selectedIndex = -1;
 	}
 
@@ -153,49 +163,64 @@
 	}
 
 	function handleClickOutside(e) {
-		if (inputElement && !inputElement.contains(e.target) &&
-		    dropdownElement && !dropdownElement.contains(e.target)) {
+		if (
+			inputElement &&
+			!inputElement.contains(e.target) &&
+			dropdownElement &&
+			!dropdownElement.contains(e.target)
+		) {
 			isOpen = false;
 			selectedIndex = -1;
 		}
 	}
 
 	function handleFocus() {
-		if (results.length > 0 && searchQuery.trim().length >= 2) {
+		if (searchQuery.trim().length >= 2) {
 			isOpen = true;
 		}
 	}
 
 	// Keyboard shortcut (Ctrl/Cmd + K)
 	function handleGlobalKeydown(e) {
-		if ((e.ctrlKey || e.metaKey) && e.key === 'k') {
+		if ((e.ctrlKey || e.metaKey) && e.key === "k") {
 			e.preventDefault();
 			inputElement?.focus();
 		}
 	}
 
 	onMount(() => {
-		if (typeof document !== 'undefined') {
-			document.addEventListener('click', handleClickOutside);
-			document.addEventListener('keydown', handleGlobalKeydown);
+		if (typeof document !== "undefined") {
+			document.addEventListener("click", handleClickOutside);
+			document.addEventListener("keydown", handleGlobalKeydown);
 		}
 	});
 
 	onDestroy(() => {
-		if (typeof document !== 'undefined') {
-			document.removeEventListener('click', handleClickOutside);
-			document.removeEventListener('keydown', handleGlobalKeydown);
+		if (typeof document !== "undefined") {
+			document.removeEventListener("click", handleClickOutside);
+			document.removeEventListener("keydown", handleGlobalKeydown);
 		}
 		clearTimeout(searchTimeout);
 	});
 
-	function getComicTitle(comic) {
-		return comic.title || comic.file_name?.replace(/\.(cbz|cbr|cb7|cbt)$/i, '') || 'Untitled';
+	function getResultTitle(result) {
+		if (result.type === "series") {
+			return result.name;
+		}
+		return (
+			result.title ||
+			result.file_name?.replace(/\.(cbz|cbr|cb7|cbt)$/i, "") ||
+			"Untitled"
+		);
 	}
 
-	function getComicCover(comic) {
-		const hash = comic.hash || comic.coverHash || comic.first_comic_hash;
-		return hash ? getCoverUrl(comic.libraryId, hash) : null;
+	function getResultCover(result) {
+		// Series normally don't have a direct cover hash in this API yet,
+		// relying on icon for now unless we add cover support later.
+		if (result.type === "series") return null;
+
+		const hash = result.hash || result.coverHash || result.first_comic_hash;
+		return hash ? getCoverUrl(result.libraryId, hash) : null;
 	}
 </script>
 
@@ -213,63 +238,97 @@
 			spellcheck="false"
 		/>
 		{#if isSearching}
-			<div class="search-spinner" />
+			<div class="search-spinner"></div>
 		{/if}
 	</div>
 
-	{#if isOpen && results.length > 0}
+	{#if isOpen}
 		<div bind:this={dropdownElement} class="search-dropdown">
-			{#each results as result, index}
-				<button
-					class="search-result"
-					class:selected={index === selectedIndex}
-					on:click={() => selectResult(result)}
-					type="button"
-				>
-					<div class="result-cover">
-						{#if getComicCover(result)}
-							<img
-								src={getComicCover(result)}
-								alt={getComicTitle(result)}
-								loading="lazy"
-							/>
-						{:else}
-							<div class="result-cover-placeholder">
-								<svg
-									xmlns="http://www.w3.org/2000/svg"
-									width="24"
-									height="24"
-									viewBox="0 0 24 24"
-									fill="none"
-									stroke="currentColor"
-									stroke-width="2"
-								>
-									<path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20" />
-									<path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z" />
-								</svg>
-							</div>
-						{/if}
-					</div>
-					<div class="result-info">
-						<div class="result-title">{getComicTitle(result)}</div>
-						<div class="result-meta">
-							{#if result.series}
-								<span class="result-series">{result.series}</span>
-								<span class="result-separator">•</span>
+			{#if results.length > 0}
+				{#each results as result, index}
+					<button
+						class="search-result"
+						class:selected={index === selectedIndex}
+						on:click={() => selectResult(result)}
+						type="button"
+					>
+						<div
+							class="result-cover"
+							class:result-cover-icon={result.type === "series"}
+						>
+							{#if getResultCover(result)}
+								<img
+									src={getResultCover(result)}
+									alt={getResultTitle(result)}
+									loading="lazy"
+								/>
+							{:else if result.type === "series"}
+								<div class="result-icon-placeholder">
+									<BookOpen size={32} class="opacity-50" />
+								</div>
+							{:else}
+								<div class="result-cover-placeholder">
+									<svg
+										xmlns="http://www.w3.org/2000/svg"
+										width="24"
+										height="24"
+										viewBox="0 0 24 24"
+										fill="none"
+										stroke="currentColor"
+										stroke-width="2"
+									>
+										<path
+											d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"
+										/>
+										<path
+											d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"
+										/>
+									</svg>
+								</div>
 							{/if}
-							<span class="result-library">{result.libraryName}</span>
 						</div>
-					</div>
-				</button>
-			{/each}
+						<div class="result-info">
+							<div class="result-title">
+								{getResultTitle(result)}
+							</div>
+							<div class="result-meta">
+								{#if result.type === "series"}
+									<span class="result-tag">Series</span>
+								{:else if result.series}
+									<span class="result-series"
+										>{result.series}</span
+									>
+									<span class="result-separator">•</span>
+								{/if}
+								<span class="result-library"
+									>{result.libraryName}</span
+								>
+							</div>
+						</div>
+					</button>
+				{/each}
 
-			{#if results.length === 8}
-				<button class="search-see-all" on:click={navigateToSearch} type="button">
-					See all results →
-				</button>
+				{#if results.length === 8}
+					<button
+						class="search-see-all"
+						on:click={navigateToSearch}
+						type="button"
+					>
+						See all results →
+					</button>
+				{/if}
+			{:else if !isSearching && searchQuery.trim().length >= 2}
+				<div class="no-results">
+					<Search class="w-8 h-8 opacity-50 mb-2" />
+					<p>No comics found matching "{searchQuery}"</p>
+				</div>
 			{/if}
 
-			<button class="search-advanced" on:click={openAdvancedSearch} type="button">
+			<button
+				class="search-advanced"
+				on:click={openAdvancedSearch}
+				type="button"
+			>
 				<SlidersHorizontal class="w-4 h-4" />
 				Advanced Search
 			</button>
@@ -317,17 +376,6 @@
 		color: var(--color-text-secondary);
 	}
 
-	.search-icon {
-		position: absolute;
-		right: 0.5rem;
-		top: 50%;
-		transform: translateY(-50%);
-		width: 1.25rem;
-		height: 1.25rem;
-		color: var(--color-text-secondary);
-		pointer-events: none;
-	}
-
 	.search-spinner {
 		position: absolute;
 		right: 2.25rem;
@@ -342,7 +390,9 @@
 	}
 
 	@keyframes spin {
-		to { transform: translateY(-50%) rotate(360deg); }
+		to {
+			transform: translateY(-50%) rotate(360deg);
+		}
 	}
 
 	.search-dropdown {
@@ -445,6 +495,27 @@
 		opacity: 0.8;
 	}
 
+	.result-tag {
+		font-size: 0.7rem;
+		font-weight: 600;
+		background: var(--color-accent);
+		color: #fff;
+		padding: 0.125rem 0.375rem;
+		border-radius: 4px;
+		text-transform: uppercase;
+		letter-spacing: 0.05em;
+	}
+
+	.result-icon-placeholder {
+		width: 100%;
+		height: 100%;
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		background: rgba(255, 103, 64, 0.1);
+		color: var(--color-accent);
+	}
+
 	.search-see-all {
 		width: 100%;
 		padding: 0.75rem;
@@ -499,5 +570,16 @@
 
 	.search-dropdown::-webkit-scrollbar-thumb:hover {
 		background: rgba(255, 255, 255, 0.3);
+	}
+
+	.no-results {
+		padding: 2rem;
+		display: flex;
+		flex-direction: column;
+		align-items: center;
+		justify-content: center;
+		color: var(--color-text-secondary);
+		text-align: center;
+		font-size: 0.875rem;
 	}
 </style>

@@ -1,18 +1,22 @@
 <script>
-	import { onMount, onDestroy } from 'svelte';
-	import { page } from '$app/stores';
-	import { goto } from '$app/navigation';
-	import { readerSettings } from '$lib/stores/reader';
-	import { getComic, getComicPage, updateReadingProgress } from '$lib/api/comics';
-	import PageViewer from '$lib/components/reader/PageViewer.svelte';
-	import ReaderControls from '$lib/components/reader/ReaderControls.svelte';
-	import ReaderSettings from '$lib/components/reader/ReaderSettings.svelte';
-	import ReaderMenu from '$lib/components/reader/ReaderMenu.svelte';
+	import { onMount, onDestroy } from "svelte";
+	import { page } from "$app/stores";
+	import { goto } from "$app/navigation";
+	import { readerSettings } from "$lib/stores/reader";
+	import {
+		getComic,
+		getComicPage,
+		updateReadingProgress,
+	} from "$lib/api/comics";
+	import PageViewer from "$lib/components/reader/PageViewer.svelte";
+	import ReaderControls from "$lib/components/reader/ReaderControls.svelte";
+	import ReaderSettings from "$lib/components/reader/ReaderSettings.svelte";
+	import ReaderMenu from "$lib/components/reader/ReaderMenu.svelte";
 
 	// Extract route parameters
 	$: libraryId = parseInt($page.params.libraryId);
 	$: comicId = parseInt($page.params.comicId);
-	$: startPage = parseInt($page.url.searchParams.get('page') || '1') || 1;
+	$: startPage = parseInt($page.url.searchParams.get("page") || "1") || 1;
 
 	// Component state
 	let comic = null;
@@ -23,28 +27,32 @@
 	let showSettings = false;
 	let showControls = true;
 	let controlsTimeout;
-	let currentPageImage = '';
+	let currentPageImage = "";
 	let preloadedPages = new Map();
 	let showReaderMenu = false;
 
 	// Get adjacent page sources for swipe transitions
-	$: nextPageSrc = getAdjacentPageSrc('next');
-	$: prevPageSrc = getAdjacentPageSrc('previous');
+	$: nextPageSrc = getAdjacentPageSrc("next");
+	$: prevPageSrc = getAdjacentPageSrc("previous");
 
 	function getAdjacentPageSrc(direction) {
-		const isRTL = $readerSettings.readingDirection === 'rtl';
+		const isRTL = $readerSettings.readingDirection === "rtl";
 		let targetPage;
 
-		if (direction === 'next') {
+		if (direction === "next") {
 			targetPage = isRTL ? currentPage - 1 : currentPage + 1;
 		} else {
 			targetPage = isRTL ? currentPage + 1 : currentPage - 1;
 		}
 
-		if (targetPage >= 1 && targetPage <= totalPages && preloadedPages.has(targetPage)) {
+		if (
+			targetPage >= 1 &&
+			targetPage <= totalPages &&
+			preloadedPages.has(targetPage)
+		) {
 			return preloadedPages.get(targetPage);
 		}
-		return '';
+		return "";
 	}
 
 	// Load comic data
@@ -69,19 +77,19 @@
 			await loadPage(currentPage);
 
 			// Setup keyboard shortcuts
-			if (typeof document !== 'undefined') {
-				document.addEventListener('keydown', handleKeyPress);
-				document.addEventListener('mousemove', handleMouseMove);
+			if (typeof document !== "undefined") {
+				document.addEventListener("keydown", handleKeyPress);
+				document.addEventListener("mousemove", handleMouseMove);
 			}
 		} catch (error) {
-			console.error('Failed to load comic:', error);
+			console.error("Failed to load comic:", error);
 		}
 	});
 
 	onDestroy(() => {
-		if (typeof document !== 'undefined') {
-			document.removeEventListener('keydown', handleKeyPress);
-			document.removeEventListener('mousemove', handleMouseMove);
+		if (typeof document !== "undefined") {
+			document.removeEventListener("keydown", handleKeyPress);
+			document.removeEventListener("mousemove", handleMouseMove);
 		}
 		if (controlsTimeout) {
 			clearTimeout(controlsTimeout);
@@ -114,7 +122,7 @@
 			// Save reading progress (debounced)
 			saveProgress(pageNum);
 		} catch (error) {
-			console.error('Failed to load page:', pageNum, error);
+			console.error("Failed to load page:", pageNum, error);
 			isLoading = false;
 		}
 	}
@@ -122,7 +130,7 @@
 	// Preload adjacent pages
 	async function preloadAdjacentPages(pageNum) {
 		const preloadCount = $readerSettings.preloadPages;
-		const isRTL = $readerSettings.readingDirection === 'rtl';
+		const isRTL = $readerSettings.readingDirection === "rtl";
 
 		// Immediately preload the very next and previous pages (for swipe transitions)
 		const immediateNext = isRTL ? pageNum - 1 : pageNum + 1;
@@ -130,10 +138,18 @@
 
 		// Preload immediate neighbors with priority
 		const priorityPromises = [];
-		if (immediateNext >= 1 && immediateNext <= totalPages && !preloadedPages.has(immediateNext)) {
+		if (
+			immediateNext >= 1 &&
+			immediateNext <= totalPages &&
+			!preloadedPages.has(immediateNext)
+		) {
 			priorityPromises.push(preloadPage(immediateNext));
 		}
-		if (immediatePrev >= 1 && immediatePrev <= totalPages && !preloadedPages.has(immediatePrev)) {
+		if (
+			immediatePrev >= 1 &&
+			immediatePrev <= totalPages &&
+			!preloadedPages.has(immediatePrev)
+		) {
 			priorityPromises.push(preloadPage(immediatePrev));
 		}
 
@@ -145,10 +161,18 @@
 			const nextPage = isRTL ? pageNum - i : pageNum + i;
 			const prevPage = isRTL ? pageNum + i : pageNum - i;
 
-			if (nextPage >= 1 && nextPage <= totalPages && !preloadedPages.has(nextPage)) {
+			if (
+				nextPage >= 1 &&
+				nextPage <= totalPages &&
+				!preloadedPages.has(nextPage)
+			) {
 				preloadPage(nextPage);
 			}
-			if (prevPage >= 1 && prevPage <= totalPages && !preloadedPages.has(prevPage)) {
+			if (
+				prevPage >= 1 &&
+				prevPage <= totalPages &&
+				!preloadedPages.has(prevPage)
+			) {
 				preloadPage(prevPage);
 			}
 		}
@@ -176,14 +200,14 @@
 			try {
 				await updateReadingProgress(libraryId, comicId, pageNum);
 			} catch (error) {
-				console.error('Failed to save progress:', error);
+				console.error("Failed to save progress:", error);
 			}
 		}, 1000);
 	}
 
 	// Navigate to previous page
 	function goToPreviousPage() {
-		const isRTL = $readerSettings.readingDirection === 'rtl';
+		const isRTL = $readerSettings.readingDirection === "rtl";
 		const newPage = isRTL ? currentPage + 1 : currentPage - 1;
 		if (newPage >= 1 && newPage <= totalPages) {
 			currentPage = newPage;
@@ -193,7 +217,7 @@
 
 	// Navigate to next page
 	function goToNextPage() {
-		const isRTL = $readerSettings.readingDirection === 'rtl';
+		const isRTL = $readerSettings.readingDirection === "rtl";
 		const newPage = isRTL ? currentPage - 1 : currentPage + 1;
 		if (newPage >= 1 && newPage <= totalPages) {
 			currentPage = newPage;
@@ -212,20 +236,20 @@
 	// Keyboard navigation
 	function handleKeyPress(event) {
 		// Don't handle if typing in input
-		if (event.target.tagName === 'INPUT') {
+		if (event.target.tagName === "INPUT") {
 			return;
 		}
 
 		switch (event.key) {
-			case 'ArrowLeft':
+			case "ArrowLeft":
 				event.preventDefault();
 				goToPreviousPage();
 				break;
-			case 'ArrowRight':
+			case "ArrowRight":
 				event.preventDefault();
 				goToNextPage();
 				break;
-			case ' ':
+			case " ":
 				event.preventDefault();
 				if (event.shiftKey) {
 					goToPreviousPage();
@@ -233,22 +257,22 @@
 					goToNextPage();
 				}
 				break;
-			case 'f':
-			case 'F':
+			case "f":
+			case "F":
 				event.preventDefault();
 				toggleFullscreen();
 				break;
-			case 's':
-			case 'S':
+			case "s":
+			case "S":
 				event.preventDefault();
 				showSettings = !showSettings;
 				break;
-			case 'm':
-			case 'M':
+			case "m":
+			case "M":
 				event.preventDefault();
 				showReaderMenu = !showReaderMenu;
 				break;
-			case 'Escape':
+			case "Escape":
 				event.preventDefault();
 				if (isFullscreen) {
 					exitFullscreen();
@@ -258,33 +282,33 @@
 					exitReader();
 				}
 				break;
-			case 'PageDown':
+			case "PageDown":
 				event.preventDefault();
-				if ($readerSettings.readingDirection === 'rtl') {
+				if ($readerSettings.readingDirection === "rtl") {
 					goToPreviousPage();
 				} else {
 					goToNextPage();
 				}
 				break;
-			case 'PageUp':
+			case "PageUp":
 				event.preventDefault();
-				if ($readerSettings.readingDirection === 'rtl') {
+				if ($readerSettings.readingDirection === "rtl") {
 					goToNextPage();
 				} else {
 					goToPreviousPage();
 				}
 				break;
-			case 'Home':
+			case "Home":
 				event.preventDefault();
 				goToPage(1);
 				break;
-			case 'End':
+			case "End":
 				event.preventDefault();
 				goToPage(totalPages);
 				break;
 			default:
 				// Handle number keys 1-9 for percentage jumps
-				if (event.key >= '1' && event.key <= '9') {
+				if (event.key >= "1" && event.key <= "9") {
 					event.preventDefault();
 					const percent = parseInt(event.key) / 10;
 					const targetPage = Math.floor(totalPages * percent);
@@ -330,9 +354,9 @@
 		isFullscreen = false;
 	}
 
-	// Exit reader
+	// Exit reader - navigate back to previous page (context aware)
 	function exitReader() {
-		goto(`/comic/${libraryId}/${comicId}`, { replaceState: true });
+		history.back();
 	}
 
 	// Event handlers
@@ -367,15 +391,15 @@
 	// Handle PageViewer navigation events
 	function handleNavigate(event) {
 		const { direction } = event.detail;
-		const isRTL = $readerSettings.readingDirection === 'rtl';
+		const isRTL = $readerSettings.readingDirection === "rtl";
 
-		if (direction === 'previous') {
+		if (direction === "previous") {
 			if (isRTL) {
 				goToNextPage();
 			} else {
 				goToPreviousPage();
 			}
-		} else if (direction === 'next') {
+		} else if (direction === "next") {
 			if (isRTL) {
 				goToPreviousPage();
 			} else {
@@ -398,17 +422,22 @@
 </script>
 
 <svelte:head>
-	<title>{comic ? (comic.title || comic.file_name?.replace(/\.(cbz|cbr|cb7|cbt)$/i, '')) : 'Loading...'} - Kottlib Reader</title>
+	<title
+		>{comic
+			? comic.title ||
+				comic.file_name?.replace(/\.(cbz|cbr|cb7|cbt)$/i, "")
+			: "Loading..."} - Kottlib Reader</title
+	>
 </svelte:head>
 
 <div class="reader-container" class:fullscreen={isFullscreen}>
 	<PageViewer
 		imageSrc={currentPageImage}
 		pageNumber={currentPage}
-		totalPages={totalPages}
+		{totalPages}
 		bind:isLoading
-		nextPageSrc={nextPageSrc}
-		prevPageSrc={prevPageSrc}
+		{nextPageSrc}
+		{prevPageSrc}
 		on:navigate={handleNavigate}
 		on:toggleMenu={handleToggleMenu}
 	/>

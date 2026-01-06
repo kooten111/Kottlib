@@ -99,6 +99,23 @@ def get_or_create_root_folder(session: Session, library_id: int, library_path: s
         if root:
             return root
 
+    # Check if a root folder exists by path but finding by name failed
+    # This prevents unique constraint violations if the root folder exists but has a different name
+    root_by_path = session.query(Folder).filter_by(
+        library_id=library_id,
+        path=str(Path(library_path).resolve())
+    ).first()
+
+    if root_by_path:
+        # We found the folder by path!
+        # Update its name to __ROOT__ if it's not already
+        if root_by_path.name != "__ROOT__":
+            logger.warning(f"Found root folder by path but with name '{root_by_path.name}'. Renaming to '__ROOT__'.")
+            root_by_path.name = "__ROOT__"
+            session.add(root_by_path)
+            session.flush()
+        return root_by_path
+
     # Create new root folder
     now = int(time.time())
 

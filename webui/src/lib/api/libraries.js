@@ -109,7 +109,17 @@ export async function getLibrariesSeriesTree() {
 /**
  * Browse library folder
  */
-export async function browseLibrary(libraryId, path = '', sort = 'name', offset = 0, limit = 50) {
-	const pathParam = path ? `&path=${encodeURIComponent(path)}` : '';
+export async function browseLibrary(libraryId, path = '', sort = 'name', offset = 0, limit = 50, seed = null) {
+	let pathParam = path ? `&path=${encodeURIComponent(path)}` : '';
+	if (seed) {
+		pathParam += `&seed=${seed}`;
+	}
 	return api.get(`/library/${libraryId}/browse?sort=${sort}&offset=${offset}&limit=${limit}${pathParam}`);
+}
+
+/**
+ * Browse content from all libraries
+ */
+export async function browseAllLibraries(sort = 'name', offset = 0, limit = 50) {
+	return api.get(`/libraries/browse-content?sort=${sort}&offset=${offset}&limit=${limit}`);
 }

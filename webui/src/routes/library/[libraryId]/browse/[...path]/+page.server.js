@@ -4,20 +4,19 @@
 
 const API_BASE_URL = process.env.API_BASE_URL || 'http://localhost:8081/v2';
 
-export async function load({ params, fetch }) {
+export async function load({ params, url: pageUrl, fetch }) {
     const { libraryId, path } = params;
 
-    // Construct API URL
-    // If path is present, we browse that path. If not (empty rest param?), we browse root.
-    // SvelteKit rest param might be undefined or empty string if optional.
-    // Since we put this in browse/[...path], it expects at least one segment usually, 
-    // unless we made it [[...path]]. But we want to browse subfolders here.
-    // Root browsing should probably be handled by the main library page or a redirect.
-    // However, let's simple encode the path.
+    const sort = pageUrl.searchParams.get('sort') || 'name';
+    const seed = pageUrl.searchParams.get('seed');
 
-    // URL for browsing
+    // Construct API URL
     const browsePath = path ? encodeURIComponent(path) : '';
-    const url = `${API_BASE_URL}/library/${libraryId}/browse?path=${browsePath}`;
+    let apiUrl = `${API_BASE_URL}/library/${libraryId}/browse?path=${browsePath}&sort=${sort}`;
+
+    if (seed) {
+        apiUrl += `&seed=${seed}`;
+    }
 
     // URLs for sidebar data
     const librariesUrl = `${API_BASE_URL}/libraries`;
@@ -26,7 +25,7 @@ export async function load({ params, fetch }) {
 
     try {
         const [browseRes, librariesRes, treeRes, libTreeRes] = await Promise.all([
-            fetch(url),
+            fetch(apiUrl),
             fetch(librariesUrl),
             fetch(treeUrl),
             fetch(libTreeUrl)

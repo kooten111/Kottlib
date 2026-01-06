@@ -50,6 +50,8 @@ def handle_file_operation(error_message: str = "File operation failed", status_c
             except (OSError, IOError) as e:
                 logger.error(f"{error_message}: I/O error - {e}", exc_info=True)
                 raise HTTPException(status_code=status_code, detail=f"{error_message}: I/O error")
+            except HTTPException:
+                raise
             except Exception as e:
                 logger.error(f"{error_message}: Unexpected error - {e}", exc_info=True)
                 raise HTTPException(status_code=status_code, detail=f"{error_message}")
@@ -67,6 +69,8 @@ def handle_file_operation(error_message: str = "File operation failed", status_c
             except (OSError, IOError) as e:
                 logger.error(f"{error_message}: I/O error - {e}", exc_info=True)
                 raise HTTPException(status_code=status_code, detail=f"{error_message}: I/O error")
+            except HTTPException:
+                raise
             except Exception as e:
                 logger.error(f"{error_message}: Unexpected error - {e}", exc_info=True)
                 raise HTTPException(status_code=status_code, detail=f"{error_message}")
@@ -106,6 +110,8 @@ def handle_comic_archive_errors(error_message: str = "Failed to open comic archi
             except FileNotFoundError as e:
                 logger.warning(f"{error_message}: Comic file not found - {e}")
                 raise HTTPException(status_code=404, detail="Comic file not found")
+            except HTTPException:
+                raise
             except Exception as e:
                 # Check for specific archive-related exceptions
                 error_str = str(e).lower()
@@ -134,6 +140,8 @@ def handle_comic_archive_errors(error_message: str = "Failed to open comic archi
             except FileNotFoundError as e:
                 logger.warning(f"{error_message}: Comic file not found - {e}")
                 raise HTTPException(status_code=404, detail="Comic file not found")
+            except HTTPException:
+                raise
             except Exception as e:
                 # Check for specific archive-related exceptions
                 error_str = str(e).lower()

@@ -228,6 +228,37 @@ def search_with_fts(
         return search_comics(session, library_id, query_str)
 
 
+def search_series(
+    session: Session,
+    library_id: int,
+    query_str: str,
+    limit: int = 5
+) -> List[Series]:
+    """
+    Search for series in a library
+
+    Args:
+        session: Database session
+        library_id: Library to search in
+        query_str: Search query
+        limit: Max results
+
+    Returns:
+        List of matching Series
+    """
+    if not query_str or not query_str.strip():
+        return []
+
+    search_pattern = f"%{query_str.strip()}%"
+    
+    query = session.query(Series).filter(
+        Series.library_id == library_id,
+        Series.name.ilike(search_pattern)
+    ).limit(limit)
+    
+    return query.all()
+
+
 def get_searchable_fields(session: Session, library_id: Optional[int] = None) -> Dict[str, Any]:
     """
     Get list of searchable fields for a library
