@@ -31,6 +31,7 @@ from ....database import (
 from ....database.models import Comic, ReadingProgress, Folder as FolderModel
 from ...middleware import get_current_user_id, get_request_user
 from ._shared import get_comic_display_name, series_tree_cache, get_comic_sort_key
+from ._item_builders import build_folder_item, build_comic_item
 
 logger = logging.getLogger(__name__)
 
@@ -437,7 +438,6 @@ async def browse_folder(
                      has_children = folder.id in folders_with_children
                      
                      cover_hash = folder.first_child_hash
-                     total_count = series_record.total_issues if series_record else 0
                      
                      if not cover_hash:
                          cover_comic = session.query(Comic.hash).filter(
@@ -446,21 +446,13 @@ async def browse_folder(
                          ).order_by(Comic.path).first()
                          if cover_comic: cover_hash = cover_comic[0]
 
-                     item_data = {
-                        "id": folder.id,
-                        "type": "collection" if has_children else "series",
-                        "name": folder.name,
-                        "title": folder.name,
-                        "cover_hash": cover_hash,
-                        "total_issues": total_count,
-                        "path": '/'.join([b["name"] for b in breadcrumbs] + [folder.name]) if breadcrumbs else folder.name,
-                     }
-                     if series_record:
-                        item_data.update({
-                            "writer": series_record.writer,
-                            "description": series_record.description,
-                            "status": series_record.status
-                        })
+                     item_data = build_folder_item(
+                         folder=folder,
+                         series_record=series_record,
+                         has_children=has_children,
+                         breadcrumbs=breadcrumbs,
+                         cover_hash=cover_hash
+                     )
                      items.append(item_data)
                  
                  elif item_type == 'comic':
@@ -468,18 +460,12 @@ async def browse_folder(
                      if not comic: continue
                      
                      p = progress_map.get(comic.id)
-                     items.append({
-                        "id": comic.id,
-                        "type": "comic",
-                        "name": get_comic_display_name(comic),
-                        "title": get_comic_display_name(comic),
-                        "cover_hash": comic.hash,
-                        "progress_percent": p.progress_percent if p else 0,
-                        "is_completed": p.is_completed if p else False,
-                        "current_page": p.current_page if p else 0,
-                        "num_pages": comic.num_pages,
-                        "size": comic.file_size
-                     })
+                     item_data = build_comic_item(
+                         comic=comic,
+                         progress=p,
+                         include_size=True
+                     )
+                     items.append(item_data)
 
         else:
             # Standard Sorting Logic (Base queries + Sort + Limits)
@@ -759,7 +745,6 @@ async def get_series_list(
                 series_record = series_map.get(folder.name)
                 has_children = folder.id in folders_with_children
                 cover_hash = folder.first_child_hash
-                total_count = series_record.total_issues if series_record else 0
 
                 if not cover_hash:
                      cover_comic = session.query(Comic.hash).filter(
@@ -768,16 +753,14 @@ async def get_series_list(
                      ).order_by(Comic.path).first()
                      if cover_comic: cover_hash = cover_comic[0]
 
-                item_data = {
-                    "id": folder.id,
-                    "type": "collection" if has_children else "series",
-                    "name": folder.name,
-                    "title": folder.name,
-                    "cover_hash": cover_hash,
-                    "total_issues": total_count,
-                }
-                if series_record:
-                     item_data.update({"status": series_record.status}) # min metadata
+                item_data = build_folder_item(
+                    folder=folder,
+                    series_record=series_record,
+                    has_children=has_children,
+                    cover_hash=cover_hash,
+                    include_path=False,
+                    minimal=True
+                )
                 items.append(item_data)
 
         # 3. Fetch Comics
@@ -804,17 +787,11 @@ async def get_series_list(
             
             for comic in comics_query:
                 p = progress_map.get(comic.id)
-                items.append({
-                    "id": comic.id,
-                    "type": "comic",
-                    "name": get_comic_display_name(comic),
-                    "title": get_comic_display_name(comic),
-                    "cover_hash": comic.hash,
-                    "progress_percent": p.progress_percent if p else 0,
-                    "is_completed": p.is_completed if p else False,
-                    "current_page": p.current_page if p else 0,
-                    "num_pages": comic.num_pages,
-                })
+                item_data = build_comic_item(
+                    comic=comic,
+                    progress=p
+                )
+                items.append(item_data)
 
         result = {
             "library": {"id": library.id, "name": library.name},
@@ -956,7 +933,6 @@ async def browse_all_content(
                 has_children = folder.id in folders_with_children
                 
                 cover_hash = folder.first_child_hash
-                total_count = series_record.total_issues if series_record else 0
                 
                 # Fallback cover query
                 if not cover_hash:
@@ -966,24 +942,13 @@ async def browse_all_content(
                      ).order_by(Comic.path).first()
                      if cover_comic: cover_hash = cover_comic[0]
 
-                item_data = {
-                    "id": folder.id,
-                    "type": "collection" if has_children else "series",
-                    "name": folder.name,
-                    "title": folder.name,
-                    "cover_hash": cover_hash,
-                    "total_issues": total_count,
-                    "library_id": folder.library_id, # Crucial for linking back
-                    "path": folder.name # Root level path is just name
-                }
-                
-                if series_record:
-                    item_data.update({
-                        "writer": series_record.writer,
-                        "description": series_record.description,
-                        "status": series_record.status
-                    })
-                    
+                item_data = build_folder_item(
+                    folder=folder,
+                    series_record=series_record,
+                    has_children=has_children,
+                    library_id=folder.library_id,
+                    cover_hash=cover_hash
+                )
                 items.append(item_data)
         
         # 3. Fetch Comics
@@ -1007,19 +972,13 @@ async def browse_all_content(
             
             for comic in fetched_comics:
                 p = progress_map.get(comic.id)
-                items.append({
-                    "id": comic.id,
-                    "type": "comic",
-                    "name": get_comic_display_name(comic),
-                    "title": get_comic_display_name(comic),
-                    "cover_hash": comic.hash,
-                    "progress_percent": p.progress_percent if p else 0,
-                    "is_completed": p.is_completed if p else False,
-                    "current_page": p.current_page if p else 0,
-                    "num_pages": comic.num_pages,
-                    "size": comic.file_size,
-                    "library_id": comic.library_id
-                })
+                item_data = build_comic_item(
+                    comic=comic,
+                    progress=p,
+                    include_size=True,
+                    include_library_id=True
+                )
+                items.append(item_data)
 
         return JSONResponse({
             "items": items,
