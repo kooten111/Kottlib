@@ -83,6 +83,7 @@
                 alt={displayName}
                 class="w-full h-full object-cover rounded-none transition-transform duration-500 group-hover:scale-105"
                 loading="lazy"
+                decoding="async"
             />
         {:else}
             <div

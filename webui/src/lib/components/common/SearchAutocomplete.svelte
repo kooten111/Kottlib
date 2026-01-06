@@ -261,6 +261,7 @@
 									src={getResultCover(result)}
 									alt={getResultTitle(result)}
 									loading="lazy"
+									decoding="async"
 								/>
 							{:else if result.type === "series"}
 								<div class="result-icon-placeholder">
