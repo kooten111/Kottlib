@@ -8,11 +8,14 @@
  * Used for fallback cover backgrounds when no cover image is available.
  * Generates consistent colors based on the hash value.
  * 
- * @param {string} hash - Hash string to generate colors from
+ * @param {string} hash - Hash string to generate colors from (can be null/undefined)
+ * @param {string} fallback - Optional fallback string to use if hash is empty
  * @returns {[string, string]} - Array of two color hex strings for gradient
  */
-export function getGradientColors(hash) {
-    if (!hash) return ["#3f3f46", "#18181b"];
+export function getGradientColors(hash, fallback = null) {
+    const value = hash || fallback || "";
+    
+    if (!value) return ["#3f3f46", "#18181b"];
     
     const colorPairs = [
         ["#f97316", "#dc2626"],  // Orange to Red
@@ -26,8 +29,8 @@ export function getGradientColors(hash) {
     ];
     
     let sum = 0;
-    for (let i = 0; i < hash.length; i++) {
-        sum += hash.charCodeAt(i);
+    for (let i = 0; i < value.length; i++) {
+        sum += value.charCodeAt(i);
     }
     
     return colorPairs[sum % colorPairs.length];

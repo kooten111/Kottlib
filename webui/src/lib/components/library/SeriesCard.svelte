@@ -37,7 +37,7 @@
         item?.volumes?.filter((v) => v.current_page > 0 && !v.is_completed)
             .length || 0;
 
-    $: gradientColors = getGradientColors(coverHash || name);
+    $: gradientColors = getGradientColors(coverHash, name);
 </script>
 
 {#if href}

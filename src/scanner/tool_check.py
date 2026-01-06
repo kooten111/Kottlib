@@ -109,12 +109,13 @@ class ToolChecker:
         # Show installation hints for missing optional tools if verbose
         missing = self.get_missing_tools(required_only=False)
         if missing and verbose:
-            logger.info("\nTo install missing tools:")
+            logger.info("To install missing tools:")
             logger.info("-" * 60)
             for tool in missing:
-                logger.info(f"\n{tool.name}:")
+                logger.info(f"{tool.name}:")
                 for line in tool.install_hint.split('\n'):
-                    logger.info(f"  {line}")
+                    if line.strip():
+                        logger.info(f"  {line}")
 
     def print_warnings(self):
         """Print warnings for missing tools"""
@@ -127,7 +128,8 @@ class ToolChecker:
             logger.warning("-" * 60)
             for tool in missing_required:
                 logger.warning(f"  • {tool.name}: {tool.purpose}")
-                logger.warning(f"    Install: {tool.install_hint.split(chr(10))[0]}")
+                install_cmd = tool.install_hint.split('\n')[0] if '\n' in tool.install_hint else tool.install_hint
+                logger.warning(f"    Install: {install_cmd}")
             logger.warning("-" * 60)
 
         if missing_optional:
@@ -135,11 +137,12 @@ class ToolChecker:
             logger.warning("-" * 60)
             for tool in missing_optional:
                 logger.warning(f"  • {tool.name} is missing - {tool.purpose}")
-            logger.warning(f"\nSupported formats: {', '.join(self.get_available_formats())}")
+            logger.warning(f"Supported formats: {', '.join(self.get_available_formats())}")
             logger.warning("Unsupported archives will be skipped during scan.")
-            logger.warning("\nTo enable all formats, install the missing tools:")
+            logger.warning("To enable all formats, install the missing tools:")
             for tool in missing_optional:
-                logger.warning(f"  {tool.install_hint.split(chr(10))[0]}")
+                install_cmd = tool.install_hint.split('\n')[0] if '\n' in tool.install_hint else tool.install_hint
+                logger.warning(f"  {install_cmd}")
             logger.warning("-" * 60)
 
 

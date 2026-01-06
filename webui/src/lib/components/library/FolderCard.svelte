@@ -58,7 +58,7 @@
         }
     }
 
-    $: gradientColors = getGradientColors(coverHash || displayName);
+    $: gradientColors = getGradientColors(coverHash, displayName);
 </script>
 
 <button
