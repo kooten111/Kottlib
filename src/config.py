@@ -108,24 +108,17 @@ def get_config_path() -> Path:
         return local_config
 
     # Check user config directory
+    from .utils.platform import get_config_dir
     import platform
-    system = platform.system()
-
-    if system == 'Linux':
-        user_config_dir = Path.home() / '.config' / 'yaclib'
-    elif system == 'Darwin':  # macOS
-        user_config_dir = Path.home() / 'Library' / 'Application Support' / 'Kottlib'
-    elif system == 'Windows':
-        user_config_dir = Path(os.environ.get('APPDATA', Path.home())) / 'Kottlib'
-    else:
-        user_config_dir = Path.home() / '.yaclib'
+    
+    user_config_dir = get_config_dir()
 
     user_config = user_config_dir / 'config.yml'
     if user_config.exists():
         return user_config
 
     # Check system config (Linux only)
-    if system == 'Linux':
+    if platform.system() == 'Linux':
         system_config = Path('/etc/yaclib/config.yml')
         if system_config.exists():
             return system_config
