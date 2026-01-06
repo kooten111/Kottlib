@@ -1,38 +1,38 @@
 """
 Comic Archive Loader
 
-Handles loading comic files from various archive formats:
+Provides ComicInfo and ComicPage dataclasses, and factory functions for opening
+comic archives. The actual archive format implementations are in the loaders/
+package.
+
+Supported formats:
 - CBZ (ZIP)
 - CBR (RAR)
 - CB7 (7-Zip)
-- PDF (experimental)
-
-Provides unified interface for extracting pages, metadata, and generating thumbnails.
 """
 
-import zipfile
-import rarfile
-import py7zr
 from pathlib import Path
-from typing import List, Optional, BinaryIO, Dict, Any
+from typing import Optional
 from dataclasses import dataclass
-from io import BytesIO
 import xml.etree.ElementTree as ET
-from PIL import Image
 import logging
-import subprocess
-import shutil
+
+# Import archive implementations from loaders package
+from .loaders import (
+    ComicArchive,
+    CBZArchive,
+    CBRArchive,
+    CB7Archive,
+    SevenZipCliArchive,
+    detect_archive_format,
+    is_comic_file,
+    get_comic_format,
+    IMAGE_EXTENSIONS,
+)
 
 logger = logging.getLogger(__name__)
 
-# Configure rarfile to use system unrar tool
-rarfile.UNRAR_TOOL = "unrar"
-rarfile.NEED_COMMENTS = 0
-rarfile.USE_DATETIME = 0
 
-
-# Supported image extensions for comic pages
-IMAGE_EXTENSIONS = {'.jpg', '.jpeg', '.png', '.gif', '.bmp', '.webp', '.tiff', '.tif'}
 
 
 @dataclass
@@ -110,7 +110,15 @@ class ComicInfo:
 
     @classmethod
     def from_xml(cls, xml_data: bytes) -> 'ComicInfo':
-        """Parse ComicInfo.xml data"""
+        """
+        Parse ComicInfo.xml data.
+        
+        Args:
+            xml_data: Raw XML data as bytes
+        
+        Returns:
+            ComicInfo object with parsed metadata, or empty ComicInfo on parse error
+        """
         try:
             root = ET.fromstring(xml_data)
 
@@ -201,478 +209,9 @@ class ComicInfo:
             return cls()
 
 
-class ComicArchive:
-    """Base class for comic archives"""
-
-    def __init__(self, file_path: Path):
-        self.file_path = file_path
-        self._pages: Optional[List[ComicPage]] = None
-        self._comic_info: Optional[ComicInfo] = None
-
-    @property
-    def pages(self) -> List[ComicPage]:
-        """Get list of pages in the comic"""
-        if self._pages is None:
-            logger.debug(f"[COMIC_LOADER] Loading pages from archive: {self.file_path.name}")
-            self._pages = self._load_pages()
-            logger.debug(f"[COMIC_LOADER] Loaded {len(self._pages)} pages from {self.file_path.name}")
-        return self._pages
-
-    @property
-    def page_count(self) -> int:
-        """Get number of pages in the comic"""
-        return len(self.pages)
-
-    @property
-    def comic_info(self) -> Optional[ComicInfo]:
-        """Get comic metadata from ComicInfo.xml if available"""
-        if self._comic_info is None:
-            self._comic_info = self._load_comic_info()
-        return self._comic_info
-
-    def _load_pages(self) -> List[ComicPage]:
-        """Load list of pages from archive (to be implemented by subclasses)"""
-        raise NotImplementedError
-
-    def _load_comic_info(self) -> Optional[ComicInfo]:
-        """Load ComicInfo.xml from archive if available"""
-        try:
-            xml_data = self.get_file('ComicInfo.xml')
-            if xml_data:
-                return ComicInfo.from_xml(xml_data)
-        except Exception as e:
-            logger.debug(f"No ComicInfo.xml found or failed to parse: {e}")
-        return None
-
-    def get_file(self, filename: str) -> Optional[bytes]:
-        """Get file contents by filename (to be implemented by subclasses)"""
-        raise NotImplementedError
-
-    def get_page(self, index: int) -> Optional[bytes]:
-        """Get page data by index"""
-        logger.debug(f"[COMIC_LOADER] get_page called: index={index}, total_pages={len(self.pages)}")
-        if 0 <= index < len(self.pages):
-            page_filename = self.pages[index].filename
-            logger.debug(f"[COMIC_LOADER] Extracting page: {page_filename}")
-            page_data = self.get_file(page_filename)
-            if page_data:
-                logger.debug(f"[COMIC_LOADER] Page extracted successfully: size={len(page_data)} bytes")
-            else:
-                logger.error(f"[COMIC_LOADER] Failed to extract page: {page_filename}")
-            return page_data
-        logger.error(f"[COMIC_LOADER] Page index out of range: index={index}, total_pages={len(self.pages)}")
-        return None
-
-    def get_cover(self) -> Optional[bytes]:
-        """Get cover page (first page)"""
-        return self.get_page(0) if self.page_count > 0 else None
-
-    def extract_page_as_image(self, index: int) -> Optional[Image.Image]:
-        """Extract page as PIL Image"""
-        page_data = self.get_page(index)
-        if page_data:
-            try:
-                return Image.open(BytesIO(page_data))
-            except Exception as e:
-                logger.error(f"Failed to open image at index {index}: {e}")
-        return None
-
-    def close(self):
-        """Close archive (to be implemented by subclasses)"""
-        pass
-
-    def __enter__(self):
-        return self
-
-    def __exit__(self, exc_type, exc_val, exc_tb):
-        self.close()
-
-
-class CBZArchive(ComicArchive):
-    """ZIP-based comic archive (.cbz)"""
-
-    def __init__(self, file_path: Path):
-        super().__init__(file_path)
-        self.archive = zipfile.ZipFile(file_path, 'r')
-
-    def _load_pages(self) -> List[ComicPage]:
-        """Load pages from ZIP archive"""
-        pages = []
-
-        # Get all files from the archive
-        for idx, info in enumerate(sorted(self.archive.infolist(), key=lambda x: x.filename)):
-            # Skip directories and non-image files
-            if info.is_dir():
-                continue
-
-            # Skip hidden files and metadata
-            if Path(info.filename).name.startswith('.'):
-                continue
-
-            # Skip ComicInfo.xml
-            if info.filename.lower() == 'comicinfo.xml':
-                continue
-
-            page = ComicPage(
-                filename=info.filename,
-                index=len(pages),
-                size=info.file_size
-            )
-
-            # Only include image files
-            if page.is_image:
-                pages.append(page)
-
-        return pages
-
-    def get_file(self, filename: str) -> Optional[bytes]:
-        """Get file contents from ZIP"""
-        try:
-            return self.archive.read(filename)
-        except KeyError:
-            # Try case-insensitive search
-            for name in self.archive.namelist():
-                if name.lower() == filename.lower():
-                    return self.archive.read(name)
-        except Exception as e:
-            logger.error(f"Failed to read {filename} from ZIP: {e}")
-        return None
-
-    def close(self):
-        """Close ZIP archive"""
-        if hasattr(self, 'archive'):
-            self.archive.close()
-
-
-class CBRArchive(ComicArchive):
-    """RAR-based comic archive (.cbr)"""
-
-    def __init__(self, file_path: Path):
-        super().__init__(file_path)
-        try:
-            self.archive = rarfile.RarFile(file_path, 'r')
-        except rarfile.RarCannotExec as e:
-            raise RuntimeError(
-                f"Cannot extract RAR files: unrar tool not found. "
-                f"Please install unrar to read CBR archives. "
-                f"(Arch: sudo pacman -S unrar, Debian/Ubuntu: sudo apt install unrar)"
-            ) from e
-
-    def _load_pages(self) -> List[ComicPage]:
-        """Load pages from RAR archive"""
-        pages = []
-
-        for idx, info in enumerate(sorted(self.archive.infolist(), key=lambda x: x.filename)):
-            # Skip directories
-            if info.is_dir():
-                continue
-
-            # Skip hidden files
-            if Path(info.filename).name.startswith('.'):
-                continue
-
-            # Skip ComicInfo.xml
-            if info.filename.lower() == 'comicinfo.xml':
-                continue
-
-            page = ComicPage(
-                filename=info.filename,
-                index=len(pages),
-                size=info.file_size
-            )
-
-            if page.is_image:
-                pages.append(page)
-
-        return pages
-
-    def get_file(self, filename: str) -> Optional[bytes]:
-        """Get file contents from RAR"""
-        try:
-            return self.archive.read(filename)
-        except (KeyError, rarfile.NoRarEntry):
-            # Try case-insensitive search
-            for name in self.archive.namelist():
-                if name.lower() == filename.lower():
-                    return self.archive.read(name)
-            # Not found - return None silently (expected for optional files)
-            return None
-        except Exception as e:
-            logger.error(f"Failed to read {filename} from RAR: {e}")
-        return None
-
-    def close(self):
-        """Close RAR archive"""
-        if hasattr(self, 'archive'):
-            self.archive.close()
-
-
-class _MemoryWriter:
-    """Simple in-memory writer for py7zr extraction"""
-    def __init__(self):
-        self._buffer = BytesIO()
-
-    def write(self, data: bytes) -> int:
-        return self._buffer.write(data)
-
-    def seek(self, offset: int, whence: int = 0) -> int:
-        return self._buffer.seek(offset, whence)
-
-    def tell(self) -> int:
-        return self._buffer.tell()
-
-    def flush(self):
-        pass
-
-    def close(self):
-        pass
-
-    def get_bytes(self) -> bytes:
-        return self._buffer.getvalue()
-
-
-class _MemoryWriterFactory:
-    """Factory for creating in-memory writers for py7zr"""
-    def __init__(self, target_file: str):
-        self.target_file = target_file
-        self.writer = None
-
-    def create(self, filename: str):
-        """Create writer for the target file"""
-        if filename == self.target_file:
-            self.writer = _MemoryWriter()
-            return self.writer
-        # For other files, return a dummy writer that discards data
-        return _MemoryWriter()
-
-
-class CB7Archive(ComicArchive):
-    """7-Zip-based comic archive (.cb7)"""
-
-    def __init__(self, file_path: Path):
-        super().__init__(file_path)
-        self.archive = py7zr.SevenZipFile(file_path, 'r')
-
-    def _load_pages(self) -> List[ComicPage]:
-        """Load pages from 7z archive"""
-        pages = []
-
-        # Get all files - list() returns FileInfo objects directly
-        for info in sorted(self.archive.list(), key=lambda x: x.filename):
-            # Skip directories
-            if info.is_directory:
-                continue
-
-            # Skip hidden files
-            if Path(info.filename).name.startswith('.'):
-                continue
-
-            # Skip ComicInfo.xml
-            if info.filename.lower() == 'comicinfo.xml':
-                continue
-
-            page = ComicPage(
-                filename=info.filename,
-                index=len(pages),
-                size=info.uncompressed
-            )
-
-            if page.is_image:
-                pages.append(page)
-
-        return pages
-
-    def get_file(self, filename: str) -> Optional[bytes]:
-        """Get file contents from 7z archive"""
-        try:
-            # Find the actual filename (might be case-insensitive)
-            target_name = filename
-            found = False
-
-            for name in self.archive.getnames():
-                if name == filename:
-                    found = True
-                    break
-                elif name.lower() == filename.lower():
-                    target_name = name
-                    found = True
-                    break
-
-            if not found:
-                return None
-
-            # Extract to memory using factory pattern
-            factory = _MemoryWriterFactory(target_name)
-            self.archive.reset()  # Reset archive position for extraction
-            self.archive.extract(targets=[target_name], factory=factory)
-
-            if factory.writer:
-                return factory.writer.get_bytes()
-
-        except Exception as e:
-            logger.error(f"Failed to read {filename} from 7z: {e}")
-        return None
-
-    def close(self):
-        """Close 7z archive"""
-        if hasattr(self, 'archive'):
-            self.archive.close()
-
-
-class SevenZipCliArchive(ComicArchive):
-    """
-    Fallback archive handler using 7z CLI tool.
-    Useful when unrar is missing for CBR files, or when py7zr fails.
-    Requires '7z' command to be available in PATH.
-    """
-
-    def __init__(self, file_path: Path):
-        super().__init__(file_path)
-        if not shutil.which('7z'):
-            raise RuntimeError("7z command not found")
-
-    def _load_pages(self) -> List[ComicPage]:
-        """Load pages by parsing '7z l -slt' output"""
-        pages = []
-        
-        try:
-            # List archive contents with technical details (-slt)
-            cmd = ['7z', 'l', '-slt', str(self.file_path)]
-            result = subprocess.run(
-                cmd, 
-                capture_output=True, 
-                text=True, 
-                encoding='utf-8', 
-                errors='replace',
-                check=True
-            )
-            
-            # Parse output
-            # Output format is blocks of lines separated by newlines
-            current_file = {}
-            
-            for line in result.stdout.splitlines():
-                line = line.strip()
-                if not line:
-                    if current_file:
-                        self._process_file_entry(current_file, pages)
-                        current_file = {}
-                    continue
-                
-                if '=' in line:
-                    key, value = line.split('=', 1)
-                    current_file[key.strip()] = value.strip()
-            
-            # Process last entry
-            if current_file:
-                self._process_file_entry(current_file, pages)
-                
-        except subprocess.CalledProcessError as e:
-            logger.error(f"7z list failed: {e.stderr}")
-            raise
-            
-        return pages
-
-    def _process_file_entry(self, entry: Dict[str, str], pages: List[ComicPage]):
-        """Process a single file entry from 7z output"""
-        path = entry.get('Path')
-        if not path:
-            return
-            
-        # Skip directories
-        if entry.get('Attributes', '').startswith('D'):
-            return
-            
-        # Skip hidden files
-        if Path(path).name.startswith('.'):
-            return
-            
-        # Skip ComicInfo.xml
-        if path.lower() == 'comicinfo.xml':
-            return
-            
-        try:
-            size = int(entry.get('Size', '0'))
-        except ValueError:
-            size = 0
-            
-        page = ComicPage(
-            filename=path,
-            index=len(pages),
-            size=size
-        )
-        
-        if page.is_image:
-            pages.append(page)
-
-    def get_file(self, filename: str) -> Optional[bytes]:
-        """Get file contents using '7z e -so'"""
-        try:
-            # Extract to stdout (-so)
-            cmd = ['7z', 'e', '-so', str(self.file_path), filename]
-            result = subprocess.run(
-                cmd, 
-                capture_output=True,
-                check=True
-            )
-            return result.stdout
-        except subprocess.CalledProcessError as e:
-            # 7z returns non-zero if file not found or other errors
-            # Only log if it's not just a missing file (which returns empty/error)
-            # 7z output might contain "No files to process"
-            error_msg = e.stderr.decode('utf-8', errors='replace')
-            logger.debug(f"Failed to extract {filename} with 7z: {error_msg}")
-            
-            # Identify if it was just not found (not critical) vs other error
-            return None
-        except Exception as e:
-            logger.error(f"Error executing 7z: {e}")
-            return None
-
-    def close(self):
-        pass
-
-
-def detect_archive_format(file_path: Path) -> Optional[str]:
-    """
-    Detect actual archive format by reading file magic numbers.
-
-    This handles cases where files have incorrect extensions (e.g., .cbr file
-    that's actually a ZIP archive).
-
-    Returns:
-        'zip', 'rar', '7z', or None if format cannot be determined
-    """
-    try:
-        with open(file_path, 'rb') as f:
-            header = f.read(16)
-
-        if not header:
-            return None
-
-        # ZIP magic number: 50 4B (PK)
-        if header[:2] == b'PK':
-            return 'zip'
-
-        # RAR magic numbers
-        # RAR 4.x: 52 61 72 21 1A 07 00 (Rar!\x1a\x07\x00)
-        # RAR 5.x: 52 61 72 21 1A 07 01 00 (Rar!\x1a\x07\x01\x00)
-        if header[:4] == b'Rar!':
-            return 'rar'
-
-        # 7z magic number: 37 7A BC AF 27 1C
-        if header[:6] == b'7z\xbc\xaf\x27\x1c':
-            return '7z'
-
-        return None
-    except Exception as e:
-        logger.debug(f"Failed to detect format for {file_path}: {e}")
-        return None
-
-
 def open_comic(file_path: Path) -> Optional[ComicArchive]:
     """
-    Open a comic archive file
+    Open a comic archive file.
 
     Args:
         file_path: Path to comic file (.cbz, .cbr, .cb7)
@@ -793,19 +332,3 @@ def open_comic(file_path: Path) -> Optional[ComicArchive]:
 
     return None
 
-
-def is_comic_file(file_path: Path) -> bool:
-    """Check if file is a supported comic format"""
-    return file_path.suffix.lower() in {'.cbz', '.cbr', '.cb7', '.zip'}
-
-
-def get_comic_format(file_path: Path) -> Optional[str]:
-    """Get comic format type"""
-    ext = file_path.suffix.lower()
-    formats = {
-        '.cbz': 'CBZ',
-        '.cbr': 'CBR',
-        '.cb7': 'CB7',
-        '.zip': 'CBZ',  # .zip files are treated as CBZ
-    }
-    return formats.get(ext)
