@@ -38,7 +38,7 @@ def build_folder_item(
     """
     # Determine cover hash
     if cover_hash is None:
-        cover_hash = folder.first_child_hash or (series_record.cover_hash if series_record else None)
+        cover_hash = folder.first_child_hash
     
     item_data = {
         "id": folder.id,
