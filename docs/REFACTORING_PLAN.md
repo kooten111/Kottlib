@@ -619,14 +619,14 @@ The `getGradientColors(hash)` function generates fallback cover gradient colors 
 - [ ] **Rename `.yacreaderlibrary` hidden directories to `.kottlib`**
 
 ### Phase 2: Modularization (Medium Risk)
-- [ ] Split `src/database/models.py` into `models/` package
+- [x] Split `src/database/models.py` into `models/` package
 - [ ] Split `src/scanner/comic_loader.py` into `loaders/` package
 - [ ] Split largest metadata scanners (nHentai, AniList) into provider packages
 - [ ] Refactor `admin/scanners/+page.svelte` into smaller components
-- [ ] Create `src/utils/platform.py`
+- [x] Create `src/utils/platform.py`
 - [ ] **Extract `browse_folder` helper functions to `_browse_helpers.py`**
-- [ ] **Create `_item_builders.py` with shared folder/comic item builders**
-- [ ] **Create `persistAndReturn()` helper in preferences store**
+- [x] **Create `_item_builders.py` with shared folder/comic item builders**
+- [x] **Create `persistAndReturn()` helper in preferences store**
 - [ ] **Create `src/services/comic_info_service.py` for V1/V2 shared logic**
 
 ### Phase 3: Legacy Cleanup (Higher Risk - Test Thoroughly)

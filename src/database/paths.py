@@ -9,43 +9,10 @@ import logging
 from pathlib import Path
 from typing import Optional
 
+from ..utils.platform import get_project_root, get_data_dir
+
 
 logger = logging.getLogger(__name__)
-
-
-def get_project_root() -> Path:
-    """
-    Get the project root directory.
-
-    This finds the project root by looking for key files (config.yml, src/ directory)
-    starting from this file's location and walking up the directory tree.
-    """
-    # Start from this file's directory
-    current = Path(__file__).parent.parent.parent.resolve()
-    logger.debug(f"Looking for project root, starting from: {current}")
-
-    # Walk up to find project root (directory containing config.yml or src/)
-    max_depth = 10
-    for _ in range(max_depth):
-        # Check for project markers
-        has_config = (current / 'config.yml').exists()
-        has_src = (current / 'src').exists()
-        logger.debug(f"Checking {current}: config.yml={has_config}, src/={has_src}")
-
-        if has_config or has_src:
-            logger.info(f"Found project root: {current}")
-            return current
-
-        # Move up one level
-        parent = current.parent
-        if parent == current:  # Reached filesystem root
-            break
-        current = parent
-
-    # Fallback to current working directory if not found
-    fallback = Path.cwd()
-    logger.warning(f"Could not find project root, falling back to cwd: {fallback}")
-    return fallback
 
 
 def get_default_db_path() -> Path:
@@ -74,25 +41,6 @@ def get_default_db_path() -> Path:
     logger.debug(f"Database path: {db_path}")
 
     return db_path
-
-
-def get_data_dir() -> Path:
-    """
-    Get the data directory (./data relative to project root).
-
-    Can be overridden with KOTTLIB_DATA_DIR environment variable.
-    """
-    # Check for environment variable override
-    env_data_dir = os.environ.get('KOTTLIB_DATA_DIR')
-    if env_data_dir:
-        data_dir = Path(env_data_dir).resolve()
-        logger.info(f"Using data directory from KOTTLIB_DATA_DIR: {data_dir}")
-    else:
-        project_root = get_project_root()
-        data_dir = project_root / 'data'
-
-    data_dir.mkdir(parents=True, exist_ok=True)
-    return data_dir
 
 
 def get_library_data_dir(library_name: str) -> Path:
