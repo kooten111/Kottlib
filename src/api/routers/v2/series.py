@@ -799,7 +799,8 @@ async def browse_all_content(
     request: Request,
     sort: Optional[str] = "name",
     offset: int = 0,
-    limit: int = 50
+    limit: int = 50,
+    seed: Optional[int] = None
 ):
     """
     Unified endpoint to browse content from ALL libraries simultaneously.
@@ -835,138 +836,256 @@ async def browse_all_content(
         # -------------------
         # SORTING STRATEGY
         # -------------------
+        # -------------------
+        # SORTING STRATEGY
+        # -------------------
         user = get_request_user(request, session)
-        
-        # Base queries - looking for items whose parent is one of the root folders
-        folders_query = session.query(FolderModel).filter(
-            FolderModel.parent_id.in_(root_ids)
-        )
-        
-        # Comics at root of libraries (unlikely but possible)
-        # Note: Comics don't have parent_id pointing to folder, they have folder_id
-        comics_query = session.query(Comic).filter(
-            Comic.folder_id.in_(root_ids)
-        )
-
-        # Apply Sort
-        if sort == 'created' or sort == 'recent':
-            folders_query = folders_query.order_by(desc(FolderModel.created_at), FolderModel.name)
-            comics_query = comics_query.order_by(desc(Comic.created_at), Comic.path)
-        elif sort == 'updated':
-            folders_query = folders_query.order_by(desc(FolderModel.updated_at), FolderModel.name)
-            comics_query = comics_query.order_by(desc(Comic.file_modified_at), Comic.path)
-        elif sort == 'progress' and user:
-            # Sort comics by progress
-            comics_query = comics_query.outerjoin(
-                ReadingProgress, 
-                (ReadingProgress.comic_id == Comic.id) & (ReadingProgress.user_id == user.id)
-            ).order_by(
-                desc(ReadingProgress.last_read_at.nullslast()),
-                desc(ReadingProgress.progress_percent.nullslast()),
-                Comic.path
-            )
-            # Folders sort by name for now
-            folders_query = folders_query.order_by(FolderModel.name)
-        else:
-            # Default: Name
-            folders_query = folders_query.order_by(FolderModel.name)
-            comics_query = comics_query.order_by(Comic.path)
-
-        # -------------------
-        # PAGINATION LOGIC
-        # -------------------
-        
-        # 1. Count totals
-        num_folders = session.query(func.count(FolderModel.id)).filter(
-            FolderModel.parent_id.in_(root_ids)
-        ).scalar()
-        
-        num_comics = session.query(func.count(Comic.id)).filter(
-            Comic.folder_id.in_(root_ids)
-        ).scalar()
-        
-        total_items = num_folders + num_comics
-        
         items = []
         
-        # 2. Fetch Folders
-        if offset < num_folders:
-            folder_limit = limit
-            fetched_folders = folders_query.offset(offset).limit(folder_limit).all()
-            
-            # Batch fetch metadata
-            sub_folder_names = [f.name for f in fetched_folders]
-            series_map = {}
-            if sub_folder_names:
-                # Need to be careful about strict name matching across libraries if names duplicate
-                # Use name + library_id tuple? Or just simple map for now.
-                # Ideally we fetch Series where name IN names AND library_id IN library_ids
-                series_records = session.query(Series).filter(
-                   Series.name.in_(sub_folder_names)
-                ).all()
-                # Map by (library_id, name)
-                series_map = {(s.library_id, s.name): s for s in series_records}
-                
-            # Check children
-            sub_folder_ids = [f.id for f in fetched_folders]
-            folders_with_children = set()
-            if sub_folder_ids:
-                parents = session.query(FolderModel.parent_id).filter(
-                    FolderModel.parent_id.in_(sub_folder_ids)
-                ).distinct().all()
-                folders_with_children = {p[0] for p in parents}
+        if sort == 'random':
+             import random
+             logger.info(f"[BROWSE-CONTENT] Random sort requested with seed={seed}")
+             
+             # 1. Fetch ALL IDs for this view
+             all_folders = session.query(FolderModel.id).filter(
+                 FolderModel.parent_id.in_(root_ids)
+             ).all()
+             folder_ids = [f.id for f in all_folders]
 
-            for folder in fetched_folders:
-                series_record = series_map.get((folder.library_id, folder.name))
-                has_children = folder.id in folders_with_children
-                
-                cover_hash = folder.first_child_hash
-                
-                # Fallback cover query
-                if not cover_hash:
-                     cover_comic = session.query(Comic.hash).filter(
-                        Comic.library_id == folder.library_id,
-                        Comic.path.startswith(folder.path)
-                     ).order_by(Comic.path).first()
-                     if cover_comic: cover_hash = cover_comic[0]
+             all_comics = session.query(Comic.id).filter(
+                 Comic.folder_id.in_(root_ids)
+             ).all()
+             comic_ids = [c.id for c in all_comics]
 
-                item_data = build_folder_item(
-                    folder=folder,
-                    series_record=series_record,
-                    has_children=has_children,
-                    library_id=folder.library_id,
-                    cover_hash=cover_hash
-                )
-                items.append(item_data)
-        
-        # 3. Fetch Comics
-        folders_fetched = len(items)
-        remaining_limit = limit - folders_fetched
-        
-        if remaining_limit > 0:
-            comic_offset = max(0, offset - num_folders)
-            
-            fetched_comics = comics_query.offset(comic_offset).limit(remaining_limit).all()
-            
-            # User progress (batch fetch)
-            progress_map = {}
-            if user and fetched_comics:
-                c_ids = [c.id for c in fetched_comics]
-                progs = session.query(ReadingProgress).filter(
-                    ReadingProgress.user_id == user.id, 
-                    ReadingProgress.comic_id.in_(c_ids)
-                ).all()
-                progress_map = {p.comic_id: p for p in progs}
-            
-            for comic in fetched_comics:
-                p = progress_map.get(comic.id)
-                item_data = build_comic_item(
-                    comic=comic,
-                    progress=p,
-                    include_size=True,
-                    include_library_id=True
-                )
-                items.append(item_data)
+             # Combine into a list of (type, id) tuples
+             combined_items = [('folder', fid) for fid in folder_ids] + [('comic', cid) for cid in comic_ids]
+             total_items = len(combined_items)
+             logger.info(f"[BROWSE-CONTENT] Total items for shuffle: {total_items} (folders: {len(folder_ids)}, comics: {len(comic_ids)})")
+
+             # 2. Shuffle
+             rng = random.Random(seed) if seed is not None else random.Random()
+             rng.shuffle(combined_items)
+
+             # 3. Slice for pagination
+             paged_items = combined_items[offset : offset + limit]
+
+             # 4. Fetch details
+             paged_folder_ids = [i[1] for i in paged_items if i[0] == 'folder']
+             paged_comic_ids = [i[1] for i in paged_items if i[0] == 'comic']
+
+             # Batch fetch folders
+             fetched_folders = []
+             if paged_folder_ids:
+                 fetched_folders = session.query(FolderModel).filter(
+                     FolderModel.id.in_(paged_folder_ids)
+                 ).all()
+
+             # Batch fetch comics
+             fetched_comics = []
+             if paged_comic_ids:
+                 fetched_comics = session.query(Comic).filter(
+                     Comic.id.in_(paged_comic_ids)
+                 ).all()
+
+             folder_map = {f.id: f for f in fetched_folders}
+             comic_map = {c.id: c for c in fetched_comics}
+
+             # Batch Metadata for Folders
+             series_map = {}
+             if fetched_folders:
+                 sub_folder_names = [f.name for f in fetched_folders]
+                 series_records = session.query(Series).filter(
+                     Series.name.in_(sub_folder_names)
+                 ).all()
+                 # Map by (library_id, name) since names can be duplicated across libraries
+                 series_map = {(s.library_id, s.name): s for s in series_records}
+
+             # Batch Children Info
+             folders_with_children = set()
+             if paged_folder_ids:
+                 parents = session.query(FolderModel.parent_id).filter(
+                     FolderModel.parent_id.in_(paged_folder_ids)
+                 ).distinct().all()
+                 folders_with_children = {p[0] for p in parents}
+
+             # Batch Progress for Comics
+             progress_map = {}
+             if user and fetched_comics:
+                 c_ids = [c.id for c in fetched_comics]
+                 progs = session.query(ReadingProgress).filter(
+                     ReadingProgress.user_id == user.id,
+                     ReadingProgress.comic_id.in_(c_ids)
+                 ).all()
+                 progress_map = {p.comic_id: p for p in progs}
+
+             # Reconstruct ordered list
+             for item_type, item_id in paged_items:
+                 if item_type == 'folder':
+                     folder = folder_map.get(item_id)
+                     if not folder: continue
+                     
+                     series_record = series_map.get((folder.library_id, folder.name))
+                     has_children = folder.id in folders_with_children
+                     
+                     cover_hash = folder.first_child_hash
+                     if not cover_hash:
+                          cover_comic = session.query(Comic.hash).filter(
+                             Comic.library_id == folder.library_id,
+                             Comic.path.startswith(folder.path)
+                          ).order_by(Comic.path).first()
+                          if cover_comic: cover_hash = cover_comic[0]
+
+                     item_data = build_folder_item(
+                         folder=folder,
+                         series_record=series_record,
+                         has_children=has_children,
+                         library_id=folder.library_id,
+                         cover_hash=cover_hash
+                     )
+                     items.append(item_data)
+                 
+                 elif item_type == 'comic':
+                     comic = comic_map.get(item_id)
+                     if not comic: continue
+                     
+                     p = progress_map.get(comic.id)
+                     item_data = build_comic_item(
+                         comic=comic,
+                         progress=p,
+                         include_size=True,
+                         include_library_id=True
+                     )
+                     items.append(item_data)
+
+        else:
+             # Base queries - looking for items whose parent is one of the root folders
+             folders_query = session.query(FolderModel).filter(
+                 FolderModel.parent_id.in_(root_ids)
+             )
+             
+             # Comics at root of libraries (unlikely but possible)
+             # Note: Comics don't have parent_id pointing to folder, they have folder_id
+             comics_query = session.query(Comic).filter(
+                 Comic.folder_id.in_(root_ids)
+             )
+
+             # Apply Sort
+             if sort == 'created' or sort == 'recent':
+                 folders_query = folders_query.order_by(desc(FolderModel.created_at), FolderModel.name)
+                 comics_query = comics_query.order_by(desc(Comic.created_at), Comic.path)
+             elif sort == 'updated':
+                 folders_query = folders_query.order_by(desc(FolderModel.updated_at), FolderModel.name)
+                 comics_query = comics_query.order_by(desc(Comic.file_modified_at), Comic.path)
+             elif sort == 'progress' and user:
+                 # Sort comics by progress
+                 comics_query = comics_query.outerjoin(
+                     ReadingProgress, 
+                     (ReadingProgress.comic_id == Comic.id) & (ReadingProgress.user_id == user.id)
+                 ).order_by(
+                     desc(ReadingProgress.last_read_at.nullslast()),
+                     desc(ReadingProgress.progress_percent.nullslast()),
+                     Comic.path
+                 )
+                 # Folders sort by name for now
+                 folders_query = folders_query.order_by(FolderModel.name)
+             else:
+                 # Default: Name
+                 folders_query = folders_query.order_by(FolderModel.name)
+                 comics_query = comics_query.order_by(Comic.path)
+
+             # -------------------
+             # PAGINATION LOGIC
+             # -------------------
+             
+             # 1. Count totals
+             num_folders = session.query(func.count(FolderModel.id)).filter(
+                 FolderModel.parent_id.in_(root_ids)
+             ).scalar()
+             
+             num_comics = session.query(func.count(Comic.id)).filter(
+                 Comic.folder_id.in_(root_ids)
+             ).scalar()
+             
+             total_items = num_folders + num_comics
+             
+             # 2. Fetch Folders
+             if offset < num_folders:
+                 folder_limit = limit
+                 fetched_folders = folders_query.offset(offset).limit(folder_limit).all()
+                 
+                 # Batch fetch metadata
+                 sub_folder_names = [f.name for f in fetched_folders]
+                 series_map = {}
+                 if sub_folder_names:
+                     # Need to be careful about strict name matching across libraries if names duplicate
+                     # Use name + library_id tuple? Or just simple map for now.
+                     # Ideally we fetch Series where name IN names AND library_id IN library_ids
+                     series_records = session.query(Series).filter(
+                        Series.name.in_(sub_folder_names)
+                     ).all()
+                     # Map by (library_id, name)
+                     series_map = {(s.library_id, s.name): s for s in series_records}
+                     
+                 # Check children
+                 sub_folder_ids = [f.id for f in fetched_folders]
+                 folders_with_children = set()
+                 if sub_folder_ids:
+                     parents = session.query(FolderModel.parent_id).filter(
+                         FolderModel.parent_id.in_(sub_folder_ids)
+                     ).distinct().all()
+                     folders_with_children = {p[0] for p in parents}
+
+                 for folder in fetched_folders:
+                     series_record = series_map.get((folder.library_id, folder.name))
+                     has_children = folder.id in folders_with_children
+                     
+                     cover_hash = folder.first_child_hash
+                     
+                     # Fallback cover query
+                     if not cover_hash:
+                          cover_comic = session.query(Comic.hash).filter(
+                             Comic.library_id == folder.library_id,
+                             Comic.path.startswith(folder.path)
+                          ).order_by(Comic.path).first()
+                          if cover_comic: cover_hash = cover_comic[0]
+
+                     item_data = build_folder_item(
+                         folder=folder,
+                         series_record=series_record,
+                         has_children=has_children,
+                         library_id=folder.library_id,
+                         cover_hash=cover_hash
+                     )
+                     items.append(item_data)
+             
+             # 3. Fetch Comics
+             folders_fetched = len(items)
+             remaining_limit = limit - folders_fetched
+             
+             if remaining_limit > 0:
+                 comic_offset = max(0, offset - num_folders)
+                 
+                 fetched_comics = comics_query.offset(comic_offset).limit(remaining_limit).all()
+                 
+                 # User progress (batch fetch)
+                 progress_map = {}
+                 if user and fetched_comics:
+                     c_ids = [c.id for c in fetched_comics]
+                     progs = session.query(ReadingProgress).filter(
+                         ReadingProgress.user_id == user.id, 
+                         ReadingProgress.comic_id.in_(c_ids)
+                     ).all()
+                     progress_map = {p.comic_id: p for p in progs}
+                 
+                 for comic in fetched_comics:
+                     p = progress_map.get(comic.id)
+                     item_data = build_comic_item(
+                         comic=comic,
+                         progress=p,
+                         include_size=True,
+                         include_library_id=True
+                     )
+                     items.append(item_data)
 
         return JSONResponse({
             "items": items,

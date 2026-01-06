@@ -1,10 +1,10 @@
 <script>
-	import { onMount, onDestroy } from 'svelte';
-	import { ChevronLeft, ChevronRight } from 'lucide-svelte';
+	import { onMount, onDestroy } from "svelte";
+	import { ChevronLeft, ChevronRight } from "lucide-svelte";
 
 	export let itemWidth = 180; // Width of each item in pixels
 	export let gap = 24; // Gap between items in pixels
-	export let visibleItems = 'auto'; // Number of items to show, 'auto' calculates based on container width
+	export let visibleItems = "auto"; // Number of items to show, 'auto' calculates based on container width
 
 	let container;
 	let scrollContainer;
@@ -49,11 +49,12 @@
 
 		const scrollAmount = (itemWidth + gap) * 3; // Scroll 3 items at a time
 		const newScrollLeft =
-			scrollContainer.scrollLeft + (direction === 'left' ? -scrollAmount : scrollAmount);
+			scrollContainer.scrollLeft +
+			(direction === "left" ? -scrollAmount : scrollAmount);
 
 		scrollContainer.scrollTo({
 			left: newScrollLeft,
-			behavior: 'smooth'
+			behavior: "smooth",
 		});
 	}
 
@@ -61,7 +62,7 @@
 		isDragging = true;
 		startX = e.pageX - scrollContainer.offsetLeft;
 		scrollLeft = scrollContainer.scrollLeft;
-		scrollContainer.style.cursor = 'grabbing';
+		scrollContainer.style.cursor = "grabbing";
 	}
 
 	function handleMouseMove(e) {
@@ -75,12 +76,12 @@
 
 	function handleMouseUp() {
 		isDragging = false;
-		scrollContainer.style.cursor = 'grab';
+		scrollContainer.style.cursor = "grab";
 	}
 
 	function handleMouseLeave() {
 		isDragging = false;
-		scrollContainer.style.cursor = 'grab';
+		scrollContainer.style.cursor = "grab";
 	}
 
 	// Touch events for mobile
@@ -103,10 +104,14 @@
 			updateButtonVisibility();
 
 			// Update button visibility on scroll with throttling for better performance
-			scrollContainer.addEventListener('scroll', throttledUpdateButtonVisibility, { passive: true });
+			scrollContainer.addEventListener(
+				"scroll",
+				throttledUpdateButtonVisibility,
+				{ passive: true },
+			);
 
 			// Update on resize with debouncing
-			window.addEventListener('resize', throttledResizeHandler);
+			window.addEventListener("resize", throttledResizeHandler);
 		}
 	});
 
@@ -117,15 +122,23 @@
 
 		// Remove event listeners
 		if (scrollContainer) {
-			scrollContainer.removeEventListener('scroll', throttledUpdateButtonVisibility);
+			scrollContainer.removeEventListener(
+				"scroll",
+				throttledUpdateButtonVisibility,
+			);
 		}
-		window.removeEventListener('resize', throttledResizeHandler);
+		if (typeof window !== "undefined") {
+			window.removeEventListener("resize", throttledResizeHandler);
+		}
 	});
 </script>
 
 <div class="carousel-wrapper" bind:this={container}>
 	{#if showLeftButton}
-		<button class="carousel-button carousel-button-left" on:click={() => scroll('left')}>
+		<button
+			class="carousel-button carousel-button-left"
+			on:click={() => scroll("left")}
+		>
 			<ChevronLeft class="w-6 h-6" />
 		</button>
 	{/if}
@@ -145,7 +158,10 @@
 	</div>
 
 	{#if showRightButton}
-		<button class="carousel-button carousel-button-right" on:click={() => scroll('right')}>
+		<button
+			class="carousel-button carousel-button-right"
+			on:click={() => scroll("right")}
+		>
 			<ChevronRight class="w-6 h-6" />
 		</button>
 	{/if}

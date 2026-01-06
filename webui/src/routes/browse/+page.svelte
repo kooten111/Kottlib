@@ -1,5 +1,6 @@
 <script>
-    import { goto } from "$app/navigation";
+    import { goto, afterNavigate } from "$app/navigation";
+    import { onMount } from "svelte";
     import { page } from "$app/stores";
     import { browser } from "$app/environment";
     import Navbar from "$lib/components/layout/Navbar.svelte";
@@ -18,7 +19,6 @@
     } from "lucide-svelte";
     import { browseAllLibraries } from "$lib/api/libraries";
     import { preferencesStore } from "$lib/stores/preferences";
-    import { onMount } from "svelte";
 
     export let data;
 
@@ -52,7 +52,10 @@
     $: currentFilter = { type: "all" };
 
     // Derive sortBy from URL or fall back to store
-    $: sortBy = $page.url.searchParams.get("sort") || $preferencesStore.sortBy || "name";
+    $: sortBy =
+        $page.url.searchParams.get("sort") ||
+        $preferencesStore.sortBy ||
+        "name";
 
     let showSizeSlider = false;
     let showSortDropdown = false;
@@ -66,26 +69,52 @@
         { value: "random", label: "Shuffle" },
     ];
 
-    onMount(() => {
-        // If URL doesn't have sort, but store does, redirect to add it
+    // Unified sort check using afterNavigate
+    afterNavigate(() => {
         const urlSort = $page.url.searchParams.get("sort");
         const storeSort = $preferencesStore.sortBy;
+        console.log(
+            "[DEBUG] afterNavigate - urlSort:",
+            urlSort,
+            "storeSort:",
+            storeSort,
+        );
 
         if (!urlSort && storeSort && storeSort !== "name") {
-            // Apply store sort to URL
-            const url = new URL($page.url);
-            url.searchParams.set("sort", storeSort);
+            const newUrl = new URL($page.url);
+            newUrl.searchParams.set("sort", storeSort);
+            if (storeSort === "random")
+                newUrl.searchParams.set("seed", String(Date.now()));
+            console.log(
+                "[DEBUG] afterNavigate - redirecting to:",
+                newUrl.toString(),
+            );
+            goto(newUrl.toString(), {
+                replaceState: true,
+                invalidateAll: true,
+            });
+        }
+    });
 
-            if (storeSort === "random") {
-                url.searchParams.set("seed", String(Date.now()));
-            }
+    // onMount handles the "refresh on random" case
+    onMount(() => {
+        const urlSort = new URL(window.location.href).searchParams.get("sort");
+        console.log("[DEBUG] onMount - urlSort:", urlSort);
 
-            goto(url.toString(), { replaceState: true });
+        if (urlSort === "random") {
+            const newUrl = new URL(window.location.href);
+            newUrl.searchParams.set("seed", String(Date.now()));
+            console.log("[DEBUG] onMount - reseeding to:", newUrl.toString());
+            goto(newUrl.toString(), {
+                replaceState: true,
+                invalidateAll: true,
+            });
         }
     });
 
     // Function to apply sorting - updates URL
     async function applySorting(newSort) {
+        console.log("[DEBUG] applySorting called with:", newSort);
         // Save preference
         if (newSort) {
             preferencesStore.setSortBy(newSort);
@@ -97,12 +126,15 @@
 
         // Handle Random Seed
         if (targetSort === "random") {
-            url.searchParams.set("seed", String(Date.now()));
+            const seed = String(Date.now());
+            url.searchParams.set("seed", seed);
+            console.log("[DEBUG] applySorting - random seed:", seed);
         } else {
             url.searchParams.delete("seed");
         }
 
-        goto(url.toString(), { noScroll: true });
+        console.log("[DEBUG] applySorting - navigating to:", url.toString());
+        goto(url.toString(), { noScroll: true, invalidateAll: true });
         showSortDropdown = false;
     }
 
@@ -157,7 +189,12 @@
         loadingMore = true;
         try {
             const nextOffset = items.length;
-            const response = await browseAllLibraries(sortBy, nextOffset, limit, randomSeed);
+            const response = await browseAllLibraries(
+                sortBy,
+                nextOffset,
+                limit,
+                randomSeed,
+            );
             const newItems = response.items || [];
 
             if (newItems.length > 0) {
@@ -166,7 +203,7 @@
                     totalItems = response.total;
                 }
             }
-            
+
             // Check if we've reached the end based on total count
             if (items.length >= totalItems) {
                 hasMore = false;

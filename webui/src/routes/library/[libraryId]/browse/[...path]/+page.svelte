@@ -114,15 +114,15 @@
         { value: "random", label: "Shuffle" },
     ];
 
-    onMount(() => {
-        // If URL doesn't have sort, but store does, redirect to add it
-        // This ensures "stickiness" when navigating from sidebar
+    // Reactive: Check sort when libraryId changes (handles navigation between libraries)
+    $: if (browser && libraryId) {
         const urlSort = $page.url.searchParams.get("sort");
         const storeSort = $preferencesStore.librarySortBy?.[libraryId];
 
+        // Only apply if URL is missing sort but store has one
+        // And ensure we are at the root of the library (optional, depending on requirements, but safe)
         if (!urlSort && storeSort && storeSort !== "name") {
-            // Apply store sort to URL
-            const url = new URL($page.url);
+            const url = new URL(window.location.href);
             url.searchParams.set("sort", storeSort);
 
             if (storeSort === "random") {
@@ -130,8 +130,16 @@
             }
 
             goto(url.toString(), { replaceState: true });
-        } else if (!urlSort && (!storeSort || storeSort === "name")) {
-            // Implicit name sort, do nothing
+        }
+    }
+
+    // Handle Refresh on Random (Initial Load)
+    onMount(() => {
+        const urlSort = new URL(window.location.href).searchParams.get("sort");
+        if (urlSort === "random") {
+            const url = new URL(window.location.href);
+            url.searchParams.set("seed", String(Date.now()));
+            goto(url.toString(), { replaceState: true });
         }
     });
 
