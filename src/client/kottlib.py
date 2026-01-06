@@ -1,7 +1,7 @@
 """
 Kottlibrary Server Python Client
 
-A Python client library for interacting with YACReaderLibrary Server.
+A Python client library for interacting with Kottlib Server.
 Handles session management, async loading delays, and provides a clean API.
 """
 
@@ -62,7 +62,7 @@ class ComicMetadata:
 
 
 class KottlibClient:
-    """Client for YACReaderLibrary Server"""
+    """Client for Kottlib Server"""
 
     def __init__(
         self,

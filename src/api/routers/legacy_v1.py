@@ -2,7 +2,7 @@
 Legacy API v1 Router
 
 YACReader-compatible API endpoints.
-Implements the original YACReaderLibrary Server protocol for mobile app compatibility.
+Implements the original YACReader Server protocol for mobile app compatibility.
 
 The mobile app expects text-based responses (not JSON).
 """
