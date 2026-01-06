@@ -44,6 +44,7 @@
 				alt={comic.title}
 				class="cover-image"
 				loading="lazy"
+				decoding="async"
 			/>
 		{:else}
 			<div class="cover-placeholder">

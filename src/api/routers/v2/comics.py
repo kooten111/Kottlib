@@ -703,7 +703,10 @@ async def get_cover_v2(
         return FileResponse(
             cover_file,
             media_type=media_type,
-            headers={"Cache-Control": "public, max-age=86400"}
+            headers={
+                "Cache-Control": "public, max-age=604800",  # 7 days
+                "Vary": "Accept-Encoding"
+            }
         )
 
     # Cover not found

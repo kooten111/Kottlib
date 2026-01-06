@@ -578,7 +578,10 @@ async def get_comic_cover(
         return FileResponse(
             cover_path,
             media_type=media_type,
-            headers={"Cache-Control": "public, max-age=31536000"}  # Cache for 1 year
+            headers={
+                "Cache-Control": "public, max-age=31536000",  # 1 year
+                "Vary": "Accept-Encoding"
+            }
         )
 
     raise HTTPException(status_code=404, detail="Cover not found")

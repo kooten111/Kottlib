@@ -62,6 +62,7 @@
                         alt={name}
                         class="cover-image"
                         loading="lazy"
+                        decoding="async"
                     />
                 {:else}
                     <div
@@ -128,6 +129,7 @@
                         alt={name}
                         class="cover-image"
                         loading="lazy"
+                        decoding="async"
                     />
                 {:else}
                     <div
