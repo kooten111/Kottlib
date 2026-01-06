@@ -120,6 +120,10 @@ export async function browseLibrary(libraryId, path = '', sort = 'name', offset 
 /**
  * Browse content from all libraries
  */
-export async function browseAllLibraries(sort = 'name', offset = 0, limit = 50) {
-	return api.get(`/libraries/browse-content?sort=${sort}&offset=${offset}&limit=${limit}`);
+export async function browseAllLibraries(sort = 'name', offset = 0, limit = 50, seed = null) {
+	let url = `/libraries/browse-content?sort=${sort}&offset=${offset}&limit=${limit}`;
+	if (seed) {
+		url += `&seed=${seed}`;
+	}
+	return api.get(url);
 }
