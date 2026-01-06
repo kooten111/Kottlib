@@ -11,6 +11,7 @@
      */
     import { BookOpen, Clock, Star, Play } from "lucide-svelte";
     import { getCoverUrl } from "$lib/api/comics";
+    import { getGradientColors } from "$lib/utils/colors";
 
     export let item;
     export let libraryId;
@@ -36,23 +37,7 @@
         item?.volumes?.filter((v) => v.current_page > 0 && !v.is_completed)
             .length || 0;
 
-    // Generate gradient colors from hash
-    function getGradientColors(hash) {
-        const colorPairs = [
-            ["#f97316", "#dc2626"],
-            ["#3b82f6", "#8b5cf6"],
-            ["#22c55e", "#14b8a6"],
-            ["#ec4899", "#f43f5e"],
-            ["#eab308", "#f97316"],
-            ["#6366f1", "#3b82f6"],
-        ];
-        let sum = 0;
-        for (let i = 0; i < (hash || name || "").length; i++)
-            sum += (hash || name).charCodeAt(i);
-        return colorPairs[sum % colorPairs.length] || colorPairs[0];
-    }
-
-    $: gradientColors = getGradientColors(coverHash);
+    $: gradientColors = getGradientColors(coverHash || name);
 </script>
 
 {#if href}
