@@ -883,7 +883,7 @@ async def search_comics(
             raise HTTPException(status_code=404, detail="Library not found")
 
         # Perform search
-        from ...database.database import search_comics as db_search_comics
+        from ...database import search_comics as db_search_comics
         comics = db_search_comics(session, library_id, query)
 
         logger.info(f"v1 API: Found {len(comics)} comics matching '{query}'")
