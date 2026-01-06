@@ -16,10 +16,10 @@ from src.database import (
     get_comic_by_path_and_mtime,
     get_covers_dir,
 )
+from src.utils.hashing import calculate_comic_hash
 
 from .comic_loader import open_comic
 from .thumbnail_generator import (
-    calculate_yacreader_hash,
     generate_dual_thumbnails,
     thumbnail_exists,
 )
@@ -100,7 +100,7 @@ def process_single_comic(
 
         # SLOW PATH: Calculate hash for new/modified files
         # This catches renamed files and ensures proper deduplication
-        file_hash = calculate_yacreader_hash(comic_path)
+        file_hash = calculate_comic_hash(comic_path)
 
         # Check if already in database by hash (catches moved/renamed files)
         with db.get_session() as session:

@@ -113,7 +113,6 @@ class Comic(Base):
     # Comic metadata
     title: Mapped[Optional[str]] = mapped_column(String, nullable=True)
     series: Mapped[Optional[str]] = mapped_column(String, nullable=True)
-    # normalized_series_name removed as per user request
     volume: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)
     issue_number: Mapped[Optional[float]] = mapped_column(Float, nullable=True)
     year: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)

@@ -5,7 +5,7 @@ Generates dual-format thumbnails for comic covers:
 - JPEG (300px) for mobile app compatibility
 - WebP (400px) for web UI (better quality, smaller size)
 
-Stores thumbnails in .yacreaderlibrary/covers/ directory.
+Stores thumbnails in covers/ directory.
 """
 
 import hashlib
@@ -15,6 +15,8 @@ from PIL import Image
 from io import BytesIO
 import logging
 
+from src.utils.hashing import calculate_comic_hash
+
 logger = logging.getLogger(__name__)
 
 
@@ -23,36 +25,6 @@ JPEG_SIZE = (300, 450)  # Width x Height for mobile
 WEBP_SIZE = (400, 600)  # Width x Height for web
 JPEG_QUALITY = 85
 WEBP_QUALITY = 90
-
-
-def calculate_yacreader_hash(file_path: Path) -> str:
-    """
-    Calculate hash exactly as YACReader expects.
-
-    Format: SHA1(first 512KB) + file_size_as_string
-    Example: "a1b2c3d4e5f6...7890" + "123456789"
-
-    This MUST match YACReader's algorithm or clients will fail to load covers.
-    """
-    import hashlib
-
-    try:
-        # Read first 512KB (or entire file if smaller)
-        with open(file_path, 'rb') as f:
-            first_chunk = f.read(512 * 1024)  # 512KB
-
-        # Calculate SHA1 of chunk
-        sha1_hash = hashlib.sha1(first_chunk).hexdigest()
-
-        # Get file size
-        file_size = file_path.stat().st_size
-
-        # Concatenate: hash + size
-        return f"{sha1_hash}{file_size}"
-    except Exception as e:
-        logger.error(f"Failed to calculate hash for {file_path}: {e}")
-        # Fallback or re-raise? For now, return empty string or raise
-        raise
 
 
 def resize_image_to_fit(
@@ -95,7 +67,7 @@ def get_thumbnail_path(
     Example: hash "abc123..." -> covers/ab/abc123.jpg
 
     Args:
-        covers_dir: Base covers directory (.yacreaderlibrary/covers/)
+        covers_dir: Base covers directory
         file_hash: File hash (MD5 hex string)
         format: 'JPEG' or 'WEBP'
         custom: If True, look in custom_covers subdirectory
@@ -212,7 +184,7 @@ def generate_dual_thumbnails(
 
     Args:
         cover_image: PIL Image of the cover
-        covers_dir: Directory where covers are stored (.yacreaderlibrary/covers/)
+        covers_dir: Directory where covers are stored
         file_hash: MD5 hash of the comic file (used as filename)
 
     Returns:

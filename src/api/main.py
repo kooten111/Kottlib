@@ -1,7 +1,7 @@
 """
 Kottlib - Main FastAPI Application
 
-A modern replacement for YACReaderLibrary Server with enhanced features
+A modern replacement for YACReader Server with enhanced features
 while maintaining full backward compatibility with YACReader mobile apps.
 """
 

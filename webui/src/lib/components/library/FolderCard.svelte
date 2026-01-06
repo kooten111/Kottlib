@@ -9,6 +9,7 @@
         Library,
     } from "lucide-svelte";
     import { getCoverUrl } from "$lib/api/comics";
+    import { getGradientColors } from "$lib/utils/colors";
     import GenreTag from "$lib/components/common/GenreTag.svelte";
 
     export let item; // The folder/series object
@@ -57,25 +58,7 @@
         }
     }
 
-    // Generate gradient colors from hash (simple hash-based color fallback)
-    function getGradientColors(hash) {
-        if (!hash) return ["#3f3f46", "#18181b"];
-        const colorPairs = [
-            ["#f97316", "#dc2626"],
-            ["#3b82f6", "#8b5cf6"],
-            ["#22c55e", "#14b8a6"],
-            ["#ec4899", "#f43f5e"],
-            ["#eab308", "#f97316"],
-            ["#6366f1", "#3b82f6"],
-            ["#06b6d4", "#0ea5e9"],
-            ["#a855f7", "#ec4899"],
-        ];
-        let sum = 0;
-        for (let i = 0; i < hash.length; i++) sum += hash.charCodeAt(i);
-        return colorPairs[sum % colorPairs.length];
-    }
-
-    $: gradientColors = getGradientColors(coverHash || displayName);
+    $: gradientColors = getGradientColors(coverHash, displayName);
 </script>
 
 <button

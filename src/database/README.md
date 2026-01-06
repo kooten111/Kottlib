@@ -168,7 +168,7 @@ Use the import tool to migrate existing YACReader libraries:
 ```bash
 python tools/import_yacreader.py \
   --yacreader-db /path/to/Comics/.yacreaderlibrary/library.ydb \
-  --output-db ~/.local/share/yaclib/yaclib.db \
+  --output-db ~/.local/share/kottlib/kottlib.db \
   --library-path /path/to/Comics \
   --library-name "My Comics"
 ```

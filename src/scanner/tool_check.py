@@ -5,10 +5,13 @@ Checks if required external tools (unrar, 7z, etc.) are available on the system
 before attempting to scan comic archives.
 """
 
+import logging
 import shutil
 import subprocess
 from typing import Dict, List, Tuple, Optional
 from dataclasses import dataclass
+
+logger = logging.getLogger(__name__)
 
 
 @dataclass
@@ -92,28 +95,27 @@ class ToolChecker:
         """Print status of all tools"""
         results = self.check_all()
 
-        print("External Tool Status:")
-        print("-" * 60)
+        logger.info("External Tool Status:")
+        logger.info("-" * 60)
 
         for key, tool in self.TOOLS.items():
             status = "✓ Available" if results[key] else "✗ Missing"
             required = "(Required)" if tool.required else "(Optional)"
-            print(f"  {tool.name:12} {status:15} {required:12} - {tool.purpose}")
+            logger.info(f"  {tool.name:12} {status:15} {required:12} - {tool.purpose}")
 
-        print("-" * 60)
-        print(f"Supported formats: {', '.join(self.get_available_formats())}")
-        print()
+        logger.info("-" * 60)
+        logger.info(f"Supported formats: {', '.join(self.get_available_formats())}")
 
         # Show installation hints for missing optional tools if verbose
         missing = self.get_missing_tools(required_only=False)
         if missing and verbose:
-            print("\nTo install missing tools:")
-            print("-" * 60)
+            logger.info("To install missing tools:")
+            logger.info("-" * 60)
             for tool in missing:
-                print(f"\n{tool.name}:")
+                logger.info(f"{tool.name}:")
                 for line in tool.install_hint.split('\n'):
-                    print(f"  {line}")
-            print()
+                    if line.strip():
+                        logger.info(f"  {line}")
 
     def print_warnings(self):
         """Print warnings for missing tools"""
@@ -122,26 +124,26 @@ class ToolChecker:
                            if t not in missing_required]
 
         if missing_required:
-            print("\n⚠️  WARNING: Required tools missing!")
-            print("-" * 60)
+            logger.warning("⚠️  WARNING: Required tools missing!")
+            logger.warning("-" * 60)
             for tool in missing_required:
-                print(f"  • {tool.name}: {tool.purpose}")
-                print(f"    Install: {tool.install_hint.split(chr(10))[0]}")
-            print("-" * 60)
-            print()
+                logger.warning(f"  • {tool.name}: {tool.purpose}")
+                install_cmd = tool.install_hint.split('\n')[0] if '\n' in tool.install_hint else tool.install_hint
+                logger.warning(f"    Install: {install_cmd}")
+            logger.warning("-" * 60)
 
         if missing_optional:
-            print("\n⚠️  NOTE: Some archive formats will not be supported")
-            print("-" * 60)
+            logger.warning("⚠️  NOTE: Some archive formats will not be supported")
+            logger.warning("-" * 60)
             for tool in missing_optional:
-                print(f"  • {tool.name} is missing - {tool.purpose}")
-            print(f"\nSupported formats: {', '.join(self.get_available_formats())}")
-            print("Unsupported archives will be skipped during scan.")
-            print("\nTo enable all formats, install the missing tools:")
+                logger.warning(f"  • {tool.name} is missing - {tool.purpose}")
+            logger.warning(f"Supported formats: {', '.join(self.get_available_formats())}")
+            logger.warning("Unsupported archives will be skipped during scan.")
+            logger.warning("To enable all formats, install the missing tools:")
             for tool in missing_optional:
-                print(f"  {tool.install_hint.split(chr(10))[0]}")
-            print("-" * 60)
-            print()
+                install_cmd = tool.install_hint.split('\n')[0] if '\n' in tool.install_hint else tool.install_hint
+                logger.warning(f"  {install_cmd}")
+            logger.warning("-" * 60)
 
 
 def check_tools_and_warn(verbose: bool = False) -> ToolChecker:
