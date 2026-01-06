@@ -608,26 +608,26 @@ The `getGradientColors(hash)` function generates fallback cover gradient colors 
 ## Implementation Checklist
 
 ### Phase 1: Quick Wins (Low Risk)
-- [ ] Rename `calculate_yacreader_hash` → `calculate_comic_hash`
-- [ ] Remove redundant `import hashlib` in `thumbnail_generator.py`
-- [ ] Create `src/utils/hashing.py` and move hash functions
-- [ ] Create `webui/src/lib/utils/colors.js` for shared gradient logic
-- [ ] Clean up stale comments in `models.py`
-- [ ] Add `src/utils/pagination.py` and `src/utils/errors.py` stubs
-- [ ] Standardize logger initialization across `src/`
-- [ ] **Global audit/rename of all remaining "yacreader" strings in non-protocol code**
-- [ ] **Rename `.yacreaderlibrary` hidden directories to `.kottlib`**
+- [x] Rename `calculate_yacreader_hash` → `calculate_comic_hash`
+- [x] Remove redundant `import hashlib` in `thumbnail_generator.py`
+- [x] Create `src/utils/hashing.py` and move hash functions
+- [x] Create `webui/src/lib/utils/colors.js` for shared gradient logic
+- [x] Clean up stale comments in `models.py`
+- [x] Add `src/utils/pagination.py` and `src/utils/errors.py` stubs
+- [x] Standardize logger initialization across `src/`
+- [x] **Global audit/rename of all remaining "yacreader" strings in non-protocol code**
+- [x] **Rename `.yacreaderlibrary` hidden directories to `.kottlib`**
 
 ### Phase 2: Modularization (Medium Risk)
 - [x] Split `src/database/models.py` into `models/` package
-- [ ] Split `src/scanner/comic_loader.py` into `loaders/` package
+- [x] Split `src/scanner/comic_loader.py` into `loaders/` package
 - [ ] Split largest metadata scanners (nHentai, AniList) into provider packages
 - [ ] Refactor `admin/scanners/+page.svelte` into smaller components
 - [x] Create `src/utils/platform.py`
-- [ ] **Extract `browse_folder` helper functions to `_browse_helpers.py`**
+- [x] **Extract `browse_folder` helper functions to `_browse_helpers.py`**
 - [x] **Create `_item_builders.py` with shared folder/comic item builders**
 - [x] **Create `persistAndReturn()` helper in preferences store**
-- [ ] **Create `src/services/comic_info_service.py` for V1/V2 shared logic**
+- [x] **Create `src/services/comic_info_service.py` for V1/V2 shared logic**
 
 ### Phase 3: Legacy Cleanup (Higher Risk - Test Thoroughly)
 - [ ] Remove legacy config classes (after verifying migration complete)
