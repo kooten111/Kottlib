@@ -32,6 +32,13 @@ from ....database.models import Comic, ReadingProgress, Folder as FolderModel
 from ...middleware import get_current_user_id, get_request_user
 from ._shared import get_comic_display_name, series_tree_cache, get_comic_sort_key
 from ._item_builders import build_folder_item, build_comic_item
+from ._browse_helpers import (
+    parse_browse_path,
+    apply_random_sort,
+    batch_fetch_folder_metadata,
+    batch_fetch_comic_progress,
+    get_cover_hash_fallback,
+)
 
 logger = logging.getLogger(__name__)
 
