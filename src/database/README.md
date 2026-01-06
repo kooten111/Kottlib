@@ -93,8 +93,8 @@ Centralized application database location:
 
 **Linux:**
 ```
-~/.local/share/yaclib/
-├── yaclib.db               ← Single SQLite database for all libraries
+~/.local/share/kottlib/
+├── kottlib.db               ← Single SQLite database for all libraries
 └── covers/
     ├── {hash}.jpg          ← All cover thumbnails
     └── {hash}.webp
@@ -103,7 +103,7 @@ Centralized application database location:
 **macOS:**
 ```
 ~/Library/Application Support/Kottlib/
-├── yaclib.db
+├── kottlib.db
 └── covers/
     ├── {hash}.jpg
     └── {hash}.webp
@@ -112,7 +112,7 @@ Centralized application database location:
 **Windows:**
 ```
 %APPDATA%\Kottlib\
-├── yaclib.db
+├── kottlib.db
 └── covers\
     ├── {hash}.jpg
     └── {hash}.webp

@@ -88,9 +88,9 @@ python scripts/scan_library_fast.py /mnt/Comics
 ## Database Location
 
 Scanned libraries are stored in:
-- **Linux:** `~/.local/share/yaclib/yaclib.db`
-- **macOS:** `~/Library/Application Support/Kottlib/yaclib.db`
-- **Windows:** `%APPDATA%/Kottlib/yaclib.db`
+- **Linux:** `~/.local/share/kottlib/kottlib.db`
+- **macOS:** `~/Library/Application Support/Kottlib/kottlib.db`
+- **Windows:** `%APPDATA%/Kottlib/kottlib.db`
 
 Thumbnails are stored in the `covers/` subdirectory.
 

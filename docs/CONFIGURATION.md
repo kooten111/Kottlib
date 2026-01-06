@@ -66,7 +66,7 @@ All other settings are stored in the database `settings` table:
 Configuration files are searched in the following order:
 
 1. **Current Directory:** `./config.yml`
-2. **Linux:** `~/.config/yaclib/config.yml`
+2. **Linux:** `~/.config/kottlib/config.yml`
 3. **macOS:** `~/Library/Application Support/Kottlib/config.yml`
 4. **Windows:** `%APPDATA%/Kottlib/config.yml`
 
@@ -97,9 +97,9 @@ Database connection settings.
 | `path` | str | None | SQLite database path (uses platform default if None) |
 
 **Default Database Paths:**
-- Linux: `~/.local/share/yaclib/yaclib.db`
-- macOS: `~/Library/Application Support/Kottlib/yaclib.db`
-- Windows: `%LOCALAPPDATA%/Kottlib/yaclib.db`
+- Linux: `~/.local/share/kottlib/kottlib.db`
+- macOS: `~/Library/Application Support/Kottlib/kottlib.db`
+- Windows: `%LOCALAPPDATA%/Kottlib/kottlib.db`
 
 ---
 
@@ -119,7 +119,7 @@ Bootstrap settings can be overridden via environment variables:
 ```bash
 export KOTTLIB_HOST=127.0.0.1
 export KOTTLIB_PORT=8080
-export KOTTLIB_DB_PATH=/data/yaclib.db
+export KOTTLIB_DB_PATH=/data/kottlib.db
 export KOTTLIB_LOG_LEVEL=DEBUG
 ```
 
@@ -167,7 +167,7 @@ Get current configuration:
     "cors_origins": ["*"]
   },
   "database": {
-    "path": "/path/to/yaclib.db"
+    "path": "/path/to/kottlib.db"
   },
   "storage": {
     "covers_dir": null,
@@ -262,7 +262,7 @@ For Docker deployments, use environment variables for bootstrap settings:
 ```dockerfile
 ENV KOTTLIB_HOST=0.0.0.0
 ENV KOTTLIB_PORT=8081
-ENV KOTTLIB_DB_PATH=/data/yaclib.db
+ENV KOTTLIB_DB_PATH=/data/kottlib.db
 ENV KOTTLIB_LOG_LEVEL=INFO
 ```
 
@@ -272,7 +272,7 @@ Mount volumes for persistence:
 docker run \
   -v ./data:/data \
   -p 8081:8081 \
-  -e KOTTLIB_DB_PATH=/data/yaclib.db \
+  -e KOTTLIB_DB_PATH=/data/kottlib.db \
   kottlib
 ```
 
@@ -316,7 +316,7 @@ If not specified in database settings:
 **cache_dir:** `{data_dir}/cache/`
 
 Where `{data_dir}` is:
-- Linux: `~/.local/share/yaclib/`
+- Linux: `~/.local/share/kottlib/`
 - macOS: `~/Library/Application Support/Kottlib/`
 - Windows: `%LOCALAPPDATA%/Kottlib/`
 

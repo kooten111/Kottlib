@@ -1,8 +1,8 @@
-  YACReader Server API Documentation
+  Kottlib API Documentation (YACReader Protocol Compatible)
 
   Overview
 
-  YACReader Server provides two API versions:
+  Kottlib provides two API versions for YACReader mobile app compatibility:
   - V1 API: HTML template-based (legacy, used by older iOS apps)
   - V2 API: JSON-based (modern, used by current iOS/Android apps)
   - Server Version: 2.1
@@ -608,7 +608,7 @@
 
   - V1: Covers scaled by server based on device display type
   - V2: Full-resolution covers, client handles scaling
-  - Path: {libraryPath}/.yacreaderlibrary/covers/{hash}.jpg
+  - Path: {libraryPath}/.kottlib/covers/{hash}.jpg
 
   4. Page Serving
 
