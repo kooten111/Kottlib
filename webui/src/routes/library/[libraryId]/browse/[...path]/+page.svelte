@@ -21,7 +21,6 @@
     } from "lucide-svelte";
     import { browseLibrary, getContinueReading } from "$lib/api/libraries";
     import { preferencesStore } from "$lib/stores/preferences";
-    import { onMount } from "svelte";
 
     export let data;
 
@@ -132,16 +131,6 @@
             goto(url.toString(), { replaceState: true });
         }
     }
-
-    // Handle Refresh on Random (Initial Load)
-    onMount(() => {
-        const urlSort = new URL(window.location.href).searchParams.get("sort");
-        if (urlSort === "random") {
-            const url = new URL(window.location.href);
-            url.searchParams.set("seed", String(Date.now()));
-            goto(url.toString(), { replaceState: true });
-        }
-    });
 
     // Function to apply sorting - now just updates URL
     async function applySorting(newSort) {

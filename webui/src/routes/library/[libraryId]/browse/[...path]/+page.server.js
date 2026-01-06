@@ -2,6 +2,8 @@
  * Server-side data loading for library items browsing
  */
 
+import { redirect } from '@sveltejs/kit';
+
 const API_BASE_URL = process.env.API_BASE_URL || 'http://localhost:8081/v2';
 
 export async function load({ params, url: pageUrl, fetch }) {
@@ -9,6 +11,14 @@ export async function load({ params, url: pageUrl, fetch }) {
 
     const sort = pageUrl.searchParams.get('sort') || 'name';
     const seed = pageUrl.searchParams.get('seed');
+
+    // If sort is random but no seed provided, redirect with a new seed
+    // This prevents the "flash" of old order when navigating back to a shuffled view
+    if (sort === 'random' && !seed) {
+        const newUrl = new URL(pageUrl);
+        newUrl.searchParams.set('seed', String(Date.now()));
+        throw redirect(307, newUrl.pathname + newUrl.search);
+    }
 
     // Construct API URL
     const browsePath = path ? encodeURIComponent(path) : '';
