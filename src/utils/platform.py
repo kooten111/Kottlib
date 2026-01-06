@@ -21,21 +21,21 @@ def get_config_dir() -> Path:
     
     Returns:
         Path to the configuration directory based on platform:
-        - Linux: ~/.config/yaclib
+        - Linux: ~/.config/kottlib
         - macOS: ~/Library/Application Support/Kottlib
         - Windows: %APPDATA%/Kottlib
-        - Other: ~/.yaclib
+        - Other: ~/.kottlib
     """
     system = platform.system()
     
     if system == 'Linux':
-        config_dir = Path.home() / '.config' / 'yaclib'
+        config_dir = Path.home() / '.config' / 'kottlib'
     elif system == 'Darwin':  # macOS
         config_dir = Path.home() / 'Library' / 'Application Support' / 'Kottlib'
     elif system == 'Windows':
         config_dir = Path(os.environ.get('APPDATA', Path.home())) / 'Kottlib'
     else:
-        config_dir = Path.home() / '.yaclib'
+        config_dir = Path.home() / '.kottlib'
     
     return config_dir
 

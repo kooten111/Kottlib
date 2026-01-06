@@ -22,7 +22,7 @@ from src.database import Database
 @pytest.fixture(scope="session")
 def test_data_dir() -> Generator[Path, None, None]:
     """Create a temporary directory for test data"""
-    temp_dir = Path(tempfile.mkdtemp(prefix="yaclib_test_"))
+    temp_dir = Path(tempfile.mkdtemp(prefix="kottlib_test_"))
     yield temp_dir
     # Cleanup
     shutil.rmtree(temp_dir, ignore_errors=True)

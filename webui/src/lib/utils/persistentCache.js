@@ -3,7 +3,7 @@
  * Stores API responses locally to survive browser restarts
  */
 
-const DB_NAME = 'yaclib-cache';
+const DB_NAME = 'kottlib-cache';
 const DB_VERSION = 1;
 const STORE_NAME = 'api-cache';
 const MAX_AGE = 1000 * 60 * 60 * 24; // 24 hours

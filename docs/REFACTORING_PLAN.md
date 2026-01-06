@@ -38,7 +38,7 @@ All references to "YACReader" and ".yacreaderlibrary" MUST be removed or renamed
 | `src/client/kottlib. py` | Line 91 | `Client for YACReaderLibrary Server` | `Client for Kottlib Server` |
 | `webui/src/lib/components/layout/Footer.svelte` | Line 15-21 | Link to YACReader GitHub | Consider removing or updating |
 | `src/database/README.md` | Line 164-184 | `import_yacreader. py` references | Update tool name if renaming |
-| `src/database/README.md` | Various | `~/.local/share/yaclib/` paths | Renaming to `kottlib` |
+| `src/database/README.md` | Various | `~/.local/share/yaclib/` paths | ~~Renaming to `kottlib`~~ ✅ DONE |
 | **Global Search** | **All files** | `.yacreaderlibrary` | Rename to `.kottlib` or remove entirely if redundant |
 | **Global Search** | **All files** | `YACReaderLibrary` | Rename to `KottlibLibrary` or `Kottlib` |
 

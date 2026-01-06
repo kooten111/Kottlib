@@ -7,9 +7,9 @@ Kottlib uses SQLite as its primary database with SQLAlchemy 2.0 ORM for data acc
 ## Database Location
 
 The database location follows platform conventions:
-- **Linux**: `~/.local/share/yaclib/yaclib.db`
-- **macOS**: `~/Library/Application Support/Kottlib/yaclib.db`
-- **Windows**: `%LOCALAPPDATA%/Kottlib/yaclib.db`
+- **Linux**: `~/.local/share/kottlib/kottlib.db`
+- **macOS**: `~/Library/Application Support/Kottlib/kottlib.db`
+- **Windows**: `%LOCALAPPDATA%/Kottlib/kottlib.db`
 
 Can be overridden via:
 - Environment variable: `KOTTLIB_DB_PATH`
