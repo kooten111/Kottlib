@@ -9,7 +9,11 @@ import logging
 from pathlib import Path
 from typing import Optional
 
-from ..utils.platform import get_project_root, get_data_dir
+try:
+    from ..utils.platform import get_project_root, get_data_dir
+except ImportError:
+    # Fallback for running as a standalone script (e.g., init_db.py)
+    from utils.platform import get_project_root, get_data_dir
 
 
 logger = logging.getLogger(__name__)
