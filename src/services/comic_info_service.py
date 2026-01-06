@@ -68,7 +68,7 @@ class ComicMetadata:
     @property
     def is_manga(self) -> bool:
         """Check if comic should be read right-to-left."""
-        return self.comic.reading_direction == 'rtl' if hasattr(self.comic, 'reading_direction') else False
+        return getattr(self.comic, 'reading_direction', None) == 'rtl'
 
 
 def get_comic_metadata(
@@ -137,7 +137,7 @@ def get_comic_metadata(
     prev_comic_id = None
     next_comic_id = None
     if include_navigation:
-        from .database import get_sibling_comics
+        from ..database.operations import get_sibling_comics
         try:
             prev_comic_id, next_comic_id = get_sibling_comics(session, comic_id)
         except Exception as e:
