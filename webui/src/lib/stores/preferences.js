@@ -31,6 +31,14 @@ const getInitialPreferences = () => {
 function createPreferencesStore() {
 	const { subscribe, set, update } = writable(getInitialPreferences());
 
+	// Helper to persist preferences and return them
+	function persistAndReturn(newPrefs) {
+		if (browser) {
+			localStorage.setItem('libraryPreferences', JSON.stringify(newPrefs));
+		}
+		return newPrefs;
+	}
+
 	return {
 		subscribe,
 		set: (value) => {
@@ -40,37 +48,21 @@ function createPreferencesStore() {
 			set(value);
 		},
 		update: (fn) => {
-			update((current) => {
-				const newPrefs = fn(current);
-				if (browser) {
-					localStorage.setItem('libraryPreferences', JSON.stringify(newPrefs));
-				}
-				return newPrefs;
-			});
+			update((current) => persistAndReturn(fn(current)));
 		},
 		setGridCoverSize: (size) => {
-			update((current) => {
-				const newPrefs = { ...current, gridCoverSize: size };
-				if (browser) {
-					localStorage.setItem('libraryPreferences', JSON.stringify(newPrefs));
-				}
-				return newPrefs;
-			});
+			update((current) => persistAndReturn({ ...current, gridCoverSize: size }));
 		},
 		setFolderCoverSize: (size, libraryId, path = "") => {
 			update((current) => {
 				const key = `${libraryId}:${path || ''}`;
-				const newPrefs = {
+				return persistAndReturn({
 					...current,
 					folderCoverSizes: {
 						...(current.folderCoverSizes || {}),
 						[key]: size
 					}
-				};
-				if (browser) {
-					localStorage.setItem('libraryPreferences', JSON.stringify(newPrefs));
-				}
-				return newPrefs;
+				});
 			});
 		},
 		getFolderCoverSize: (libraryId, path = "") => {
@@ -84,44 +76,29 @@ function createPreferencesStore() {
 			return val;
 		},
 		setViewMode: (mode) => {
-			update((current) => {
-				const newPrefs = { ...current, viewMode: mode };
-				if (browser) {
-					localStorage.setItem('libraryPreferences', JSON.stringify(newPrefs));
-				}
-				return newPrefs;
-			});
+			update((current) => persistAndReturn({ ...current, viewMode: mode }));
 		},
 		toggleViewMode: () => {
 			update((current) => {
 				const newMode = current.viewMode === 'grid' ? 'list' : 'grid';
-				const newPrefs = { ...current, viewMode: newMode };
-				if (browser) {
-					localStorage.setItem('libraryPreferences', JSON.stringify(newPrefs));
-				}
-				return newPrefs;
+				return persistAndReturn({ ...current, viewMode: newMode });
 			});
 		},
 		setSortBy: (sortValue, libraryId = null) => {
 			update((current) => {
-				let newPrefs;
 				if (libraryId !== null) {
 					// Set sort for specific library
-					newPrefs = {
+					return persistAndReturn({
 						...current,
 						librarySortBy: {
 							...(current.librarySortBy || {}),
 							[libraryId]: sortValue
 						}
-					};
+					});
 				} else {
 					// Set global sort
-					newPrefs = { ...current, sortBy: sortValue };
+					return persistAndReturn({ ...current, sortBy: sortValue });
 				}
-				if (browser) {
-					localStorage.setItem('libraryPreferences', JSON.stringify(newPrefs));
-				}
-				return newPrefs;
 			});
 		},
 		getSortBy: (libraryId = null) => {
