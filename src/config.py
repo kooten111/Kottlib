@@ -190,7 +190,8 @@ def apply_env_overrides(config: Config) -> Config:
         value = os.getenv(env_var)
         if value:
             try:
-                setattr(getattr(config, section), field, converter(value))
+                section_obj = getattr(config, section)
+                setattr(section_obj, field, converter(value))
             except (ValueError, AttributeError) as e:
                 logger.warning(f"Invalid {env_var}: {value} - {e}")
     
