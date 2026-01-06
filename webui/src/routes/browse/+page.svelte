@@ -157,7 +157,7 @@
         loadingMore = true;
         try {
             const nextOffset = items.length;
-            const response = await browseAllLibraries(sortBy, nextOffset, limit);
+            const response = await browseAllLibraries(sortBy, nextOffset, limit, randomSeed);
             const newItems = response.items || [];
 
             if (newItems.length > 0) {
@@ -165,11 +165,15 @@
                 if (response.total !== undefined) {
                     totalItems = response.total;
                 }
-            } else {
+            }
+            
+            // Check if we've reached the end based on total count
+            if (items.length >= totalItems) {
                 hasMore = false;
             }
         } catch (err) {
             console.error("Failed to load more items:", err);
+            // Don't set hasMore to false on error - allow retry
         } finally {
             loadingMore = false;
         }
