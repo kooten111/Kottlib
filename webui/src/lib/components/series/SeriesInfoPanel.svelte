@@ -59,36 +59,9 @@
 
     $: genres = parseList(item?.genre);
     $: tags = parseList(item?.tags);
-
-    // Generate gradient colors from hash
-    function getGradientColors(hash) {
-        const colorPairs = [
-            ["#f97316", "#dc2626"],
-            ["#3b82f6", "#8b5cf6"],
-            ["#22c55e", "#14b8a6"],
-            ["#ec4899", "#f43f5e"],
-            ["#eab308", "#f97316"],
-            ["#6366f1", "#3b82f6"],
-            ["#06b6d4", "#0ea5e9"],
-            ["#a855f7", "#ec4899"],
-        ];
-        let sum = 0;
-        for (let i = 0; i < (hash || "").length; i++) sum += hash.charCodeAt(i);
-        return colorPairs[sum % colorPairs.length] || colorPairs[0];
-    }
-
-    $: gradientColors = getGradientColors(coverHash);
 </script>
 
 <div class="series-info-panel">
-    <!-- Background gradient effect -->
-    <div class="panel-background">
-        <div
-            class="gradient-blur"
-            style="background: linear-gradient(180deg, {gradientColors[0]}30, {gradientColors[1]}10);"
-        ></div>
-    </div>
-
     <div class="panel-content">
         <!-- Back button -->
         <button class="back-button" on:click={onBack}>
@@ -106,10 +79,7 @@
                         class="cover-image"
                     />
                 {:else}
-                    <div
-                        class="cover-placeholder"
-                        style="background: linear-gradient(135deg, {gradientColors[0]}, {gradientColors[1]});"
-                    >
+                    <div class="cover-placeholder">
                         <Book class="placeholder-icon" />
                     </div>
                 {/if}
@@ -282,24 +252,10 @@
         overflow-y: auto;
         scrollbar-width: thin;
         scrollbar-color: var(--color-border) transparent;
-    }
-
-    .panel-background {
-        position: absolute;
-        inset: 0;
-        z-index: 0;
-        pointer-events: none;
-    }
-
-    .gradient-blur {
-        position: absolute;
-        inset: 0;
-        opacity: 0.5;
+        background: var(--color-secondary-bg);
     }
 
     .panel-content {
-        position: relative;
-        z-index: 1;
         padding: 1rem;
         display: flex;
         flex-direction: column;
@@ -354,12 +310,13 @@
         display: flex;
         align-items: center;
         justify-content: center;
+        background: var(--color-tertiary-bg);
     }
 
     .cover-placeholder :global(.placeholder-icon) {
         width: 48px;
         height: 48px;
-        color: rgba(255, 255, 255, 0.5);
+        color: var(--color-text-muted);
     }
 
     .title-section {
