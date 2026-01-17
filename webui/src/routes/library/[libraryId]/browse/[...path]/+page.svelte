@@ -269,9 +269,15 @@
         },
         ...breadcrumbs.map((b, i) => ({
             label: b.name,
-            href: `/library/${libraryId}/browse/${b.path}`,
+            href: `/library/${libraryId}/browse/${encodePath(b.path)}`,
         })),
     ];
+
+    // Helper to encode path segments for URL (handles special chars like %, #, etc.)
+    function encodePath(path) {
+        if (!path) return '';
+        return path.split('/').map(s => encodeURIComponent(s)).join('/');
+    }
 
     function handleFolderClick(item) {
         // Navigate to subfolder
@@ -279,13 +285,7 @@
             item.path ||
             (currentPath ? `${currentPath}/${item.name}` : item.name);
 
-        // Encode each segment of the path to ensure valid URI
-        const encodedPath = rawPath
-            .split("/")
-            .map((segment) => encodeURIComponent(segment))
-            .join("/");
-
-        goto(`/library/${libraryId}/browse/${encodedPath}`);
+        goto(`/library/${libraryId}/browse/${encodePath(rawPath)}`);
     }
 
     async function loadMoreItems() {
@@ -558,7 +558,7 @@
                                                     comic={item}
                                                     {libraryId}
                                                     variant={viewMode}
-                                                    href={`/library/${libraryId}/browse/${currentPath}/_comic/${item.id}`}
+                                                    href={`/library/${libraryId}/browse/${encodePath(currentPath)}/_comic/${item.id}`}
                                                 />
                                             {/if}
                                         {/each}
@@ -796,7 +796,7 @@
                                             variant={viewMode}
                                             href={!currentPath
                                                 ? `/library/${libraryId}/browse/_comic/${item.id}`
-                                                : `/library/${libraryId}/browse/${currentPath}/_comic/${item.id}`}
+                                                : `/library/${libraryId}/browse/${encodePath(currentPath)}/_comic/${item.id}`}
                                         />
                                     {/if}
                                 {/each}
