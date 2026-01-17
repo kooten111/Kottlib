@@ -310,7 +310,7 @@
         display: flex;
         align-items: center;
         gap: 0.5rem;
-        color: var(--color-text-secondary, #a1a1aa);
+        color: var(--color-text-secondary);
         background: none;
         border: none;
         cursor: pointer;
@@ -321,7 +321,7 @@
     }
 
     .back-button:hover {
-        color: white;
+        color: var(--color-text);
     }
 
     .back-button :global(.icon) {
@@ -377,7 +377,7 @@
     .title {
         font-size: 1.25rem;
         font-weight: 700;
-        color: white;
+        color: var(--color-text);
         line-height: 1.3;
         margin: 0;
     }
@@ -387,7 +387,7 @@
         flex-direction: column;
         gap: 0.375rem;
         padding: 0.75rem;
-        background: rgba(255, 255, 255, 0.03);
+        background: var(--color-tertiary-bg);
         border-radius: 0.5rem;
     }
 
@@ -396,7 +396,7 @@
         align-items: center;
         gap: 0.5rem;
         font-size: 0.8125rem;
-        color: var(--color-text-secondary, #a1a1aa);
+        color: var(--color-text-secondary);
     }
 
     .meta-item :global(.icon) {
@@ -407,7 +407,7 @@
 
     .progress-section {
         padding: 0.75rem;
-        background: rgba(255, 255, 255, 0.03);
+        background: var(--color-tertiary-bg);
         border-radius: 0.5rem;
     }
 
@@ -419,24 +419,24 @@
     }
 
     .progress-label {
-        color: var(--color-text-secondary, #a1a1aa);
+        color: var(--color-text-secondary);
     }
 
     .progress-value {
-        color: var(--color-accent, #f97316);
+        color: var(--color-accent);
         font-weight: 500;
     }
 
     .progress-bar {
         height: 4px;
-        background: rgba(255, 255, 255, 0.1);
+        background: var(--color-border);
         border-radius: 2px;
         overflow: hidden;
     }
 
     .progress-fill {
         height: 100%;
-        background: linear-gradient(to right, #f97316, #fb923c);
+        background: var(--color-accent);
         transition: width 0.3s ease;
     }
 
@@ -452,18 +452,18 @@
         justify-content: center;
         gap: 0.375rem;
         padding: 0.5rem;
-        background: rgba(255, 255, 255, 0.05);
-        border: 1px solid rgba(255, 255, 255, 0.1);
+        background: var(--color-tertiary-bg);
+        border: 1px solid var(--color-border);
         border-radius: 0.5rem;
-        color: var(--color-text-secondary, #a1a1aa);
+        color: var(--color-text-secondary);
         font-size: 0.75rem;
         cursor: pointer;
         transition: all 0.2s;
     }
 
     .btn-action:hover {
-        background: rgba(255, 255, 255, 0.1);
-        color: white;
+        background: var(--color-border);
+        color: var(--color-text);
     }
 
     .btn-action :global(.icon) {
@@ -473,7 +473,7 @@
 
     .synopsis-section {
         padding: 0.75rem;
-        background: rgba(255, 255, 255, 0.03);
+        background: var(--color-tertiary-bg);
         border-radius: 0.5rem;
     }
 
@@ -482,14 +482,14 @@
         font-weight: 600;
         text-transform: uppercase;
         letter-spacing: 0.05em;
-        color: var(--color-text-secondary, #a1a1aa);
+        color: var(--color-text-secondary);
         margin: 0 0 0.5rem 0;
     }
 
     .synopsis-text {
         font-size: 0.8125rem;
         line-height: 1.5;
-        color: var(--color-text, #d4d4d8);
+        color: var(--color-text);
         margin: 0;
     }
 
@@ -504,7 +504,7 @@
         display: flex;
         align-items: center;
         gap: 0.25rem;
-        color: var(--color-accent, #fb923c);
+        color: var(--color-accent);
         background: none;
         border: none;
         cursor: pointer;
@@ -514,7 +514,7 @@
     }
 
     .expand-button:hover {
-        color: #fdba74;
+        color: var(--color-accent-hover);
     }
 
     .expand-button :global(.icon) {
@@ -537,15 +537,15 @@
         align-items: center;
         padding: 0.125rem 0.375rem;
         font-size: 0.6875rem;
-        color: var(--color-text-secondary, #a1a1aa);
-        background: rgba(255, 255, 255, 0.05);
+        color: var(--color-text-secondary);
+        background: var(--color-tertiary-bg);
         border-radius: 0.25rem;
     }
 
     .scanner-section {
         padding: 0.75rem;
-        background: rgba(96, 165, 250, 0.05);
-        border: 1px solid rgba(96, 165, 250, 0.1);
+        background: var(--color-tertiary-bg);
+        border: 1px solid var(--color-border);
         border-radius: 0.5rem;
         display: flex;
         flex-direction: column;
@@ -561,15 +561,15 @@
 
     .scanner-label {
         font-size: 0.75rem;
-        color: var(--color-text-secondary, #9ca3af);
+        color: var(--color-text-secondary);
     }
 
     .scanner-label.muted {
-        color: var(--color-text-muted, #6b7280);
+        color: var(--color-text-muted);
     }
 
     .scanner-label strong {
-        color: var(--color-text, #e5e7eb);
+        color: var(--color-text);
     }
 
     .confidence-badge {
@@ -577,13 +577,13 @@
         font-size: 0.6875rem;
         font-weight: 500;
         border-radius: 0.25rem;
-        background: rgba(234, 179, 8, 0.2);
-        color: #eab308;
+        background: color-mix(in srgb, var(--color-warning) 20%, transparent);
+        color: var(--color-warning);
     }
 
     .confidence-badge.high {
-        background: rgba(34, 197, 94, 0.2);
-        color: #22c55e;
+        background: color-mix(in srgb, var(--color-success) 20%, transparent);
+        color: var(--color-success);
     }
 
     .btn-scan {
@@ -598,12 +598,12 @@
         border-radius: 0.375rem;
         cursor: pointer;
         transition: all 0.2s;
-        background: rgba(96, 165, 250, 0.2);
-        color: #60a5fa;
+        background: color-mix(in srgb, var(--color-accent-blue) 20%, transparent);
+        color: var(--color-accent-blue);
     }
 
     .btn-scan:hover:not(:disabled) {
-        background: rgba(96, 165, 250, 0.3);
+        background: color-mix(in srgb, var(--color-accent-blue) 30%, transparent);
     }
 
     .btn-scan:disabled {
@@ -627,8 +627,8 @@
 
     .scan-error {
         padding: 0.5rem;
-        background: rgba(239, 68, 68, 0.2);
-        color: #ef4444;
+        background: color-mix(in srgb, var(--color-error) 20%, transparent);
+        color: var(--color-error);
         border-radius: 0.375rem;
         font-size: 0.75rem;
     }

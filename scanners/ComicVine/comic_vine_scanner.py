@@ -43,6 +43,27 @@ except ImportError:
     MatchConfidence = None
     ScannerAPIError = Exception
     ScannerConfigError = Exception
+    ScannerCapabilities = None
+    ConfigOption = None
+    ConfigType = None
+    
+    def clean_query(query: str) -> str:
+        """Fallback clean_query for standalone mode"""
+        # Remove file extension
+        cleaned = re.sub(r'\.(cbz|cbr|zip|rar|7z|pdf|epub)$', '', query, flags=re.IGNORECASE)
+        # Remove content in brackets, parentheses, and curly braces
+        max_iterations = 10
+        for _ in range(max_iterations):
+            before = cleaned
+            cleaned = re.sub(r'\[[^\]]*\]', '', cleaned)
+            cleaned = re.sub(r'\([^\)]*\)', '', cleaned)
+            cleaned = re.sub(r'\{[^\}]*\}', '', cleaned)
+            if cleaned == before:
+                break
+        cleaned = re.sub(r'\s+', ' ', cleaned)
+        cleaned = cleaned.strip()
+        cleaned = cleaned.strip(' -|_')
+        return cleaned
 
 import requests
 
@@ -234,10 +255,12 @@ if ScanResult is None:
         metadata: Dict = None
         tags: List[str] = None
         raw_response: Optional[Dict] = None
+        extra_metadata: Optional[Dict] = None
         
         def __post_init__(self):
             if self.metadata is None: self.metadata = {}
             if self.tags is None: self.tags = []
+            if self.extra_metadata is None: self.extra_metadata = {}
         
         @property
         def confidence_level(self):
@@ -246,6 +269,43 @@ if ScanResult is None:
             elif self.confidence < 0.7: return MatchConfidence.MEDIUM
             elif self.confidence < 0.9: return MatchConfidence.HIGH
             else: return MatchConfidence.EXACT
+
+if ScannerCapabilities is None:
+    @dataclass
+    class ScannerCapabilities:
+        scanner_name: str
+        provided_fields: set = None
+        primary_fields: set = None
+        description: str = ""
+        
+        def __post_init__(self):
+            if self.provided_fields is None: self.provided_fields = set()
+            if self.primary_fields is None: self.primary_fields = set()
+
+if ConfigType is None:
+    class ConfigType(Enum):
+        STRING = "string"
+        SECRET = "secret"
+        INTEGER = "integer"
+        FLOAT = "float"
+        BOOLEAN = "boolean"
+        SELECT = "select"
+
+if ConfigOption is None:
+    @dataclass
+    class ConfigOption:
+        key: str
+        type: ConfigType
+        label: str
+        description: str = ""
+        required: bool = False
+        default: Any = None
+        placeholder: str = ""
+        min_value: float = None
+        max_value: float = None
+        step: float = None
+        options: List[Dict] = None
+        advanced: bool = False
 
 if 'BaseScanner' not in globals() or globals()['BaseScanner'] is ABC:
     class BaseScanner(ABC):

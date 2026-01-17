@@ -360,6 +360,13 @@ Kottlib/
 - Comics in CBZ, CBR, or CB7 format
 - Node.js 18+ (for web UI)
 
+### System Dependencies (for CBR support)
+
+- **unrar** - Required for reading CBR (RAR) archives
+  - Arch Linux: `sudo pacman -S unrar`
+  - Debian/Ubuntu: `sudo apt install unrar`
+  - macOS: `brew install unrar`
+
 The launcher installs all Python dependencies automatically.
 
 ## License

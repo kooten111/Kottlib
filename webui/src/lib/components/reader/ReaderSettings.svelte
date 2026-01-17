@@ -257,7 +257,7 @@
 		bottom: 0;
 		width: 100%;
 		max-width: 380px;
-		background: #242424;
+		background: var(--color-secondary-bg);
 		box-shadow: -4px 0 16px rgba(0, 0, 0, 0.4);
 		display: flex;
 		flex-direction: column;
@@ -279,20 +279,20 @@
 		align-items: center;
 		justify-content: space-between;
 		padding: 1.5rem;
-		border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+		border-bottom: 1px solid var(--color-border);
 	}
 
 	.panel-header h3 {
 		margin: 0;
 		font-size: 1.25rem;
 		font-weight: 600;
-		color: #e0e0e0;
+		color: var(--color-text);
 	}
 
 	.close-btn {
 		background: none;
 		border: none;
-		color: #a0a0a0;
+		color: var(--color-text-secondary);
 		cursor: pointer;
 		padding: 0.5rem;
 		display: flex;
@@ -303,8 +303,8 @@
 	}
 
 	.close-btn:hover {
-		background: rgba(255, 255, 255, 0.1);
-		color: #e0e0e0;
+		background: var(--color-border);
+		color: var(--color-text);
 	}
 
 	.panel-content {
@@ -323,12 +323,12 @@
 		justify-content: space-between;
 		font-size: 0.875rem;
 		font-weight: 600;
-		color: #e0e0e0;
+		color: var(--color-text);
 		margin-bottom: 0.75rem;
 	}
 
 	.setting-value {
-		color: #ff6740;
+		color: var(--color-accent);
 		font-weight: 700;
 	}
 
@@ -343,7 +343,7 @@
 		align-items: center;
 		gap: 0.75rem;
 		font-size: 0.875rem;
-		color: #a0a0a0;
+		color: var(--color-text-secondary);
 		cursor: pointer;
 		padding: 0.5rem;
 		border-radius: 4px;
@@ -351,14 +351,14 @@
 	}
 
 	.radio-label:hover {
-		background: rgba(255, 255, 255, 0.05);
-		color: #e0e0e0;
+		background: var(--color-tertiary-bg);
+		color: var(--color-text);
 	}
 
 	.radio-label input[type='radio'] {
 		width: 18px;
 		height: 18px;
-		accent-color: #ff6740;
+		accent-color: var(--color-accent);
 		cursor: pointer;
 	}
 
@@ -367,7 +367,7 @@
 		align-items: center;
 		gap: 0.75rem;
 		font-size: 0.875rem;
-		color: #a0a0a0;
+		color: var(--color-text-secondary);
 		cursor: pointer;
 		padding: 0.5rem;
 		border-radius: 4px;
@@ -375,21 +375,21 @@
 	}
 
 	.checkbox-label:hover {
-		background: rgba(255, 255, 255, 0.05);
-		color: #e0e0e0;
+		background: var(--color-tertiary-bg);
+		color: var(--color-text);
 	}
 
 	.checkbox-label input[type='checkbox'] {
 		width: 18px;
 		height: 18px;
-		accent-color: #ff6740;
+		accent-color: var(--color-accent);
 		cursor: pointer;
 	}
 
 	.range-input {
 		width: 100%;
 		height: 6px;
-		background: rgba(255, 255, 255, 0.1);
+		background: var(--color-border);
 		border-radius: 3px;
 		outline: none;
 		cursor: pointer;
@@ -402,7 +402,7 @@
 		appearance: none;
 		width: 18px;
 		height: 18px;
-		background: #ff6740;
+		background: var(--color-accent);
 		border-radius: 50%;
 		cursor: pointer;
 	}
@@ -410,7 +410,7 @@
 	.range-input::-moz-range-thumb {
 		width: 18px;
 		height: 18px;
-		background: #ff6740;
+		background: var(--color-accent);
 		border-radius: 50%;
 		cursor: pointer;
 		border: none;
@@ -421,7 +421,7 @@
 		justify-content: space-between;
 		margin-top: 0.25rem;
 		font-size: 0.75rem;
-		color: #a0a0a0;
+		color: var(--color-text-secondary);
 	}
 
 	.color-options {
@@ -442,13 +442,13 @@
 	}
 
 	.color-swatch:hover {
-		border-color: #ff6740;
+		border-color: var(--color-accent);
 		transform: scale(1.1);
 	}
 
 	.color-swatch.active {
-		border-color: #ff6740;
-		box-shadow: 0 0 0 3px rgba(255, 103, 64, 0.2);
+		border-color: var(--color-accent);
+		box-shadow: 0 0 0 3px var(--color-overlay-light);
 	}
 
 	.shortcuts-help {
@@ -462,34 +462,34 @@
 		display: flex;
 		align-items: center;
 		gap: 0.75rem;
-		color: #a0a0a0;
+		color: var(--color-text-secondary);
 	}
 
 	kbd {
 		display: inline-block;
 		padding: 0.25rem 0.5rem;
-		background: rgba(255, 255, 255, 0.1);
-		border: 1px solid rgba(255, 255, 255, 0.2);
+		background: var(--color-tertiary-bg);
+		border: 1px solid var(--color-border-strong);
 		border-radius: 4px;
 		font-family: monospace;
 		font-size: 0.75rem;
-		color: #e0e0e0;
+		color: var(--color-text);
 		min-width: 2rem;
 		text-align: center;
 	}
 
 	.panel-footer {
 		padding: 1.5rem;
-		border-top: 1px solid rgba(255, 255, 255, 0.1);
+		border-top: 1px solid var(--color-border);
 	}
 
 	.reset-btn {
 		width: 100%;
 		padding: 0.75rem;
-		background: rgba(255, 255, 255, 0.05);
-		border: 1px solid rgba(255, 255, 255, 0.1);
+		background: var(--color-tertiary-bg);
+		border: 1px solid var(--color-border);
 		border-radius: 4px;
-		color: #e0e0e0;
+		color: var(--color-text);
 		font-size: 0.875rem;
 		font-weight: 600;
 		cursor: pointer;
@@ -497,9 +497,9 @@
 	}
 
 	.reset-btn:hover {
-		background: rgba(255, 255, 255, 0.1);
-		border-color: #ff6740;
-		color: #ff6740;
+		background: var(--color-border);
+		border-color: var(--color-accent);
+		color: var(--color-accent);
 	}
 
 	@media (max-width: 640px) {

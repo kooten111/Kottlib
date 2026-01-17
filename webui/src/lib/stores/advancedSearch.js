@@ -8,21 +8,24 @@
  */
 
 import { writable, get } from 'svelte/store';
+import { browser } from '$app/environment';
 
 // Search history (stored in localStorage)
 function createSearchHistory() {
     const HISTORY_KEY = 'kottlib_search_history';
     const MAX_HISTORY = 20;
 
-    // Load from localStorage
+    // Load from localStorage (only in browser)
     let initial = [];
-    try {
-        const stored = localStorage.getItem(HISTORY_KEY);
-        if (stored) {
-            initial = JSON.parse(stored);
+    if (browser) {
+        try {
+            const stored = localStorage.getItem(HISTORY_KEY);
+            if (stored) {
+                initial = JSON.parse(stored);
+            }
+        } catch (e) {
+            console.error('Failed to load search history:', e);
         }
-    } catch (e) {
-        console.error('Failed to load search history:', e);
     }
 
     const { subscribe, set, update } = writable(initial);
@@ -39,11 +42,13 @@ function createSearchHistory() {
                     ...filtered
                 ].slice(0, MAX_HISTORY);
 
-                // Save to localStorage
-                try {
-                    localStorage.setItem(HISTORY_KEY, JSON.stringify(newHistory));
-                } catch (e) {
-                    console.error('Failed to save search history:', e);
+                // Save to localStorage (only in browser)
+                if (browser) {
+                    try {
+                        localStorage.setItem(HISTORY_KEY, JSON.stringify(newHistory));
+                    } catch (e) {
+                        console.error('Failed to save search history:', e);
+                    }
                 }
 
                 return newHistory;
@@ -51,19 +56,23 @@ function createSearchHistory() {
         },
         clear: () => {
             set([]);
-            try {
-                localStorage.removeItem(HISTORY_KEY);
-            } catch (e) {
-                console.error('Failed to clear search history:', e);
+            if (browser) {
+                try {
+                    localStorage.removeItem(HISTORY_KEY);
+                } catch (e) {
+                    console.error('Failed to clear search history:', e);
+                }
             }
         },
         remove: (query) => {
             update(history => {
                 const newHistory = history.filter(h => h.query !== query);
-                try {
-                    localStorage.setItem(HISTORY_KEY, JSON.stringify(newHistory));
-                } catch (e) {
-                    console.error('Failed to save search history:', e);
+                if (browser) {
+                    try {
+                        localStorage.setItem(HISTORY_KEY, JSON.stringify(newHistory));
+                    } catch (e) {
+                        console.error('Failed to save search history:', e);
+                    }
                 }
                 return newHistory;
             });
@@ -75,15 +84,17 @@ function createSearchHistory() {
 function createSavedSearches() {
     const SAVED_KEY = 'kottlib_saved_searches';
 
-    // Load from localStorage
+    // Load from localStorage (only in browser)
     let initial = [];
-    try {
-        const stored = localStorage.getItem(SAVED_KEY);
-        if (stored) {
-            initial = JSON.parse(stored);
+    if (browser) {
+        try {
+            const stored = localStorage.getItem(SAVED_KEY);
+            if (stored) {
+                initial = JSON.parse(stored);
+            }
+        } catch (e) {
+            console.error('Failed to load saved searches:', e);
         }
-    } catch (e) {
-        console.error('Failed to load saved searches:', e);
     }
 
     const { subscribe, set, update } = writable(initial);
@@ -102,11 +113,13 @@ function createSavedSearches() {
 
                 const newSearches = [...searches, newSearch];
 
-                // Save to localStorage
-                try {
-                    localStorage.setItem(SAVED_KEY, JSON.stringify(newSearches));
-                } catch (e) {
-                    console.error('Failed to save search:', e);
+                // Save to localStorage (only in browser)
+                if (browser) {
+                    try {
+                        localStorage.setItem(SAVED_KEY, JSON.stringify(newSearches));
+                    } catch (e) {
+                        console.error('Failed to save search:', e);
+                    }
                 }
 
                 return newSearches;
@@ -115,20 +128,24 @@ function createSavedSearches() {
         remove: (id) => {
             update(searches => {
                 const newSearches = searches.filter(s => s.id !== id);
-                try {
-                    localStorage.setItem(SAVED_KEY, JSON.stringify(newSearches));
-                } catch (e) {
-                    console.error('Failed to remove saved search:', e);
+                if (browser) {
+                    try {
+                        localStorage.setItem(SAVED_KEY, JSON.stringify(newSearches));
+                    } catch (e) {
+                        console.error('Failed to remove saved search:', e);
+                    }
                 }
                 return newSearches;
             });
         },
         clear: () => {
             set([]);
-            try {
-                localStorage.removeItem(SAVED_KEY);
-            } catch (e) {
-                console.error('Failed to clear saved searches:', e);
+            if (browser) {
+                try {
+                    localStorage.removeItem(SAVED_KEY);
+                } catch (e) {
+                    console.error('Failed to clear saved searches:', e);
+                }
             }
         }
     };

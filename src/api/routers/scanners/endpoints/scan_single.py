@@ -302,11 +302,11 @@ async def scan_and_save_series(
             if result:
                 logger.info(f"[SERIES SCAN] confidence={result.confidence}, title={result.metadata.get('title')}")
             
-            # No results at all from AniList
+            # No results at all from scanner
             if not result:
                 return {
                     "success": False,
-                    "error": "No matches found on AniList",
+                    "error": f"No matches found on {scanner.source_name}",
                     "series_id": series.id,
                     "candidates": []
                 }
