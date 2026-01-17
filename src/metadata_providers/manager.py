@@ -169,10 +169,17 @@ def discover_scanners(scanners_dir: str = None) -> List[Type[BaseScanner]]:
         scanners_dir = project_root / "scanners"
     else:
         scanners_dir = Path(scanners_dir)
+        project_root = scanners_dir.parent
 
     if not scanners_dir.exists():
         print(f"Warning: Scanners directory not found: {scanners_dir}")
         return []
+
+    # Ensure project root is in sys.path so scanner modules can import
+    # from src.metadata_providers.base (required for dynamic module loading)
+    project_root_str = str(project_root.resolve())
+    if project_root_str not in sys.path:
+        sys.path.insert(0, project_root_str)
 
     discovered = []
 
