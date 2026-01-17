@@ -609,6 +609,52 @@ async def browse_folder(
                  
                  if first_comic:
                      folder_metadata["cover_hash"] = first_comic.hash
+             
+             # Look up Series record for this folder to include series metadata
+             from ....database.models import Series as SeriesModel
+             series_record = session.query(SeriesModel).filter(
+                 SeriesModel.library_id == library_id,
+                 SeriesModel.name == current_folder.name
+             ).first()
+             
+             if series_record:
+                 # Add series metadata fields for display
+                 if series_record.display_name:
+                     folder_metadata["display_name"] = series_record.display_name
+                 if series_record.description:
+                     folder_metadata["synopsis"] = series_record.description
+                 if series_record.writer:
+                     folder_metadata["writer"] = series_record.writer
+                 if series_record.artist:
+                     folder_metadata["artist"] = series_record.artist
+                 if series_record.genre:
+                     folder_metadata["genre"] = series_record.genre
+                 if series_record.tags:
+                     folder_metadata["tags"] = series_record.tags
+                 if series_record.publisher:
+                     folder_metadata["publisher"] = series_record.publisher
+                 if series_record.year_start:
+                     folder_metadata["year"] = series_record.year_start
+                 if series_record.status:
+                     folder_metadata["status"] = series_record.status
+                 if series_record.format:
+                     folder_metadata["format"] = series_record.format
+                 if series_record.chapters:
+                     folder_metadata["chapters"] = series_record.chapters
+                 if series_record.volumes:
+                     folder_metadata["volumes_count"] = series_record.volumes
+                 
+                 # Add scanner metadata
+                 if series_record.scanner_source:
+                     folder_metadata["scanner_source"] = series_record.scanner_source
+                 if series_record.scanner_source_id:
+                     folder_metadata["scanner_source_id"] = series_record.scanner_source_id
+                 if series_record.scanner_source_url:
+                     folder_metadata["scanner_source_url"] = series_record.scanner_source_url
+                 if series_record.scan_confidence is not None:
+                     folder_metadata["scan_confidence"] = series_record.scan_confidence
+                 if series_record.scanned_at:
+                     folder_metadata["scanned_at"] = series_record.scanned_at
 
         result = {
             "library": {"id": library.id, "name": library.name},

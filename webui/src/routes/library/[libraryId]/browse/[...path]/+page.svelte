@@ -19,9 +19,12 @@
         List,
         Loader2,
         SlidersHorizontal,
+        Scan,
+        RefreshCw,
     } from "lucide-svelte";
     import { browseLibrary, getContinueReading } from "$lib/api/libraries";
     import { preferencesStore } from "$lib/stores/preferences";
+    import { scanSeries } from "$lib/api/scanners";
 
     export let data;
 
@@ -52,6 +55,32 @@
     let currentOffset = 0;
     let limit = 50;
     let loadingMore = false;
+
+    // Series scanner state
+    let isScanningSeries = false;
+    let seriesScanError = null;
+
+    async function handleScanSeries(overwrite = false) {
+        if (!folder || !folder.name) return;
+        
+        try {
+            isScanningSeries = true;
+            seriesScanError = null;
+            
+            const result = await scanSeries(libraryId, folder.name, overwrite);
+            
+            if (result.success) {
+                // Reload the page to show updated metadata
+                window.location.reload();
+            } else {
+                seriesScanError = result.error || "Scan failed";
+            }
+        } catch (err) {
+            seriesScanError = err.message;
+        } finally {
+            isScanningSeries = false;
+        }
+    }
 
     // When browseData changes (navigation), reset items and fetch continue reading
     $: if (browseData) {
@@ -294,6 +323,50 @@
                     items?.[0]?.hash,
             }
           : null;
+
+    // Check if folder has series metadata to display
+    $: hasSeriesMetadata = folder && (
+        folder.synopsis ||
+        folder.writer ||
+        folder.artist ||
+        folder.genre ||
+        folder.tags ||
+        folder.publisher ||
+        folder.year ||
+        folder.scanner_source
+    );
+
+    // Transform folder/series data to comic-like structure for MetadataDisplay component
+    $: seriesAsComic = folder ? {
+        // Basic info
+        series: folder.display_name || folder.name,
+        title: folder.display_name || folder.name,
+        
+        // Metadata fields
+        description: folder.synopsis,
+        writer: folder.writer,
+        artist: folder.artist,
+        genre: folder.genre,
+        tags: folder.tags,
+        publisher: folder.publisher,
+        year: folder.year,
+        
+        // Additional series-specific fields
+        status: folder.status,
+        format: folder.format,
+        chapters: folder.chapters,
+        volumes: folder.volumes_count,
+        
+        // Scanner metadata
+        scanner_source: folder.scanner_source,
+        scanner_source_id: folder.scanner_source_id,
+        scanner_source_url: folder.scanner_source_url,
+        scan_confidence: folder.scan_confidence,
+        scanned_at: folder.scanned_at,
+        
+        // Use total_issues as a substitute for num_pages
+        num_pages: folder.total_issues,
+    } : null;
 
     // Initial setup for grid size
     $: if (isComicView) {
@@ -540,6 +613,61 @@
                         </div>
                     {/if}
 
+                    <!-- Metadata Display for Series/Folder View -->
+                    {#if !isComicView && folder && currentPath !== "" && hasSeriesMetadata}
+                        <div class="mb-8">
+                            <MetadataDisplay comic={seriesAsComic} showScannerActions={false} />
+                        </div>
+                    {/if}
+
+                    <!-- Series Scanner Actions -->
+                    {#if !isComicView && folder && currentPath !== ""}
+                        <div class="mb-8 p-4 bg-[var(--color-secondary-bg)] rounded-xl border border-[var(--color-border)]">
+                            <div class="flex items-center justify-between flex-wrap gap-4">
+                                <div class="text-sm text-[var(--color-text-secondary)]">
+                                    {#if folder.scanner_source}
+                                        <span>Scanned via <strong class="text-[var(--color-text)]">{folder.scanner_source}</strong></span>
+                                        {#if folder.scan_confidence !== null && folder.scan_confidence !== undefined}
+                                            <span class="ml-2 px-2 py-0.5 rounded text-xs {folder.scan_confidence >= 0.7 ? 'bg-green-500/20 text-green-400' : 'bg-yellow-500/20 text-yellow-400'}">
+                                                {Math.round(folder.scan_confidence * 100)}% match
+                                            </span>
+                                        {/if}
+                                    {:else}
+                                        <span>No metadata scanned yet</span>
+                                    {/if}
+                                </div>
+                                
+                                <div class="flex gap-2">
+                                    {#if folder.scanner_source}
+                                        <button
+                                            on:click={() => handleScanSeries(true)}
+                                            disabled={isScanningSeries}
+                                            class="flex items-center gap-2 px-3 py-1.5 text-sm font-medium rounded-lg transition-colors bg-blue-500/20 text-blue-400 hover:bg-blue-500/30 disabled:opacity-50 disabled:cursor-not-allowed"
+                                        >
+                                            <RefreshCw class="w-4 h-4 {isScanningSeries ? 'animate-spin' : ''}" />
+                                            {isScanningSeries ? "Rescanning..." : "Rescan"}
+                                        </button>
+                                    {:else}
+                                        <button
+                                            on:click={() => handleScanSeries(false)}
+                                            disabled={isScanningSeries}
+                                            class="flex items-center gap-2 px-3 py-1.5 text-sm font-medium rounded-lg transition-colors bg-green-500/20 text-green-400 hover:bg-green-500/30 disabled:opacity-50 disabled:cursor-not-allowed"
+                                        >
+                                            <Scan class="w-4 h-4" />
+                                            {isScanningSeries ? "Scanning..." : "Scan for Metadata"}
+                                        </button>
+                                    {/if}
+                                </div>
+                            </div>
+                            
+                            {#if seriesScanError}
+                                <div class="mt-3 p-3 bg-red-500/20 text-red-400 rounded-lg text-sm">
+                                    {seriesScanError}
+                                </div>
+                            {/if}
+                        </div>
+                    {/if}
+
                     <!-- Section Title for Comic View -->
                     {#if isComicView && hasContent}
                         <div class="flex items-center gap-2 mb-4 px-1">
@@ -587,7 +715,7 @@
                                         variant={viewMode}
                                         href={!currentPath
                                             ? `/library/${libraryId}/browse/_comic/${item.id}`
-                                            : `/comic/${libraryId}/${item.id}/read`}
+                                            : `/library/${libraryId}/browse/${currentPath}/_comic/${item.id}`}
                                     />
                                 {/if}
                             {/each}

@@ -1,6 +1,36 @@
 import { api } from './client';
 
 /**
+ * Scan a series for metadata
+ */
+export async function scanSeries(libraryId, seriesName, overwrite = false, confidenceThreshold = null) {
+	const params = new URLSearchParams({
+		library_id: libraryId.toString(),
+		series_name: seriesName,
+		overwrite: overwrite.toString()
+	});
+	
+	if (confidenceThreshold !== null) {
+		params.append('confidence_threshold', confidenceThreshold.toString());
+	}
+	
+	const response = await fetch(`/v2/scanners/scan/series?${params.toString()}`, {
+		method: 'POST',
+		credentials: 'include',
+		headers: {
+			'Content-Type': 'application/json'
+		}
+	});
+
+	if (!response.ok) {
+		const errorText = await response.text();
+		throw new Error(`Failed to scan series: ${response.statusText} - ${errorText}`);
+	}
+
+	return response.json();
+}
+
+/**
  * Scan a single comic for metadata
  */
 export async function scanComic(comicId, overwrite = false, confidenceThreshold = null) {
