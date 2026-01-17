@@ -28,12 +28,8 @@
 		comic.file_name?.replace(/\.(cbz|cbr|cb7|cbt)$/i, "") ||
 		"Untitled";
 	$: actualItemCount = itemCount || comic.itemCount || comic.item_count || 0;
-	// For standalone volumes (single-volume series), link directly to comic viewer instead of series page
-	$: cardHref =
-		href ||
-		(isStandalone
-			? `/comic/${libraryId}/${comic.id}`
-			: `/comic/${libraryId}/${comic.id}`);
+	// Always link directly to the reader
+	$: cardHref = href || `/comic/${libraryId}/${comic.id}/read`;
 </script>
 
 <a href={cardHref} class="comic-card {variant}" class:folder-card={isFolder}>

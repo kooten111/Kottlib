@@ -558,7 +558,7 @@
                                                     comic={item}
                                                     {libraryId}
                                                     variant={viewMode}
-                                                    href={`/library/${libraryId}/browse/${encodePath(currentPath)}/_comic/${item.id}`}
+                                                    href={`/comic/${libraryId}/${item.id}/read`}
                                                 />
                                             {/if}
                                         {/each}
@@ -794,9 +794,7 @@
                                             comic={item}
                                             {libraryId}
                                             variant={viewMode}
-                                            href={!currentPath
-                                                ? `/library/${libraryId}/browse/_comic/${item.id}`
-                                                : `/library/${libraryId}/browse/${encodePath(currentPath)}/_comic/${item.id}`}
+                                            href={`/comic/${libraryId}/${item.id}/read`}
                                         />
                                     {/if}
                                 {/each}
