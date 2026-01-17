@@ -28,10 +28,10 @@ from urllib.parse import urljoin, quote
 from pathlib import Path
 from dataclasses import dataclass
 try:
-    # Import from src.scanners package
-    from src.scanners.base_scanner import BaseScanner, ScanResult, ScanLevel, MatchConfidence, ScannerAPIError, ScannerError
-    from src.scanners.config_schema import ConfigOption, ConfigType
-    from src.scanners.utils import clean_query
+    # Import from src.metadata_providers package
+    from src.metadata_providers.base import BaseScanner, ScanResult, ScanLevel, MatchConfidence, ScannerAPIError, ScannerError, ScannerCapabilities
+    from src.metadata_providers.config import ConfigOption, ConfigType
+    from src.metadata_providers.utils import clean_query
 except ImportError:
     # Fallback for standalone execution
     class BaseScanner(ABC):
@@ -1247,6 +1247,29 @@ class NhentaiScanner(BaseScanner):
                 advanced=True
             ),
         ]
+
+    def get_capabilities(self) -> ScannerCapabilities:
+        """Get the metadata capabilities of this scanner"""
+        return ScannerCapabilities(
+            scanner_name=self.source_name,
+            provided_fields={
+                'title',
+                'artist',
+                'writer',  # Maps groups to writer
+                'genre',
+                'language_iso',
+                'tags',
+                'characters',
+                'page_count',
+                'web',
+            },
+            primary_fields={
+                'title',
+                'artist',
+                'tags',
+            },
+            description="Provides title, artist, tags, parody, and character information from nhentai.net"
+        )
 
 
 # ============================================================================

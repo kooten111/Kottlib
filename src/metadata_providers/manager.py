@@ -13,7 +13,7 @@ import sys
 import importlib.util
 from pathlib import Path
 
-from .base import BaseScanner, ScanResult, ScanLevel, MatchConfidence
+from .base import BaseScanner, ScanResult, ScanLevel, MatchConfidence, ScannerCapabilities
 
 
 class FallbackStrategy(Enum):
@@ -64,6 +64,8 @@ class ScannerManager:
     def __init__(self):
         # Registered scanner classes (name -> class)
         self._available_scanners: Dict[str, Type[BaseScanner]] = {}
+        # Cached capabilities (built on registration)
+        self._capabilities: Dict[str, ScannerCapabilities] = {}
 
     def register_scanner_class(self, scanner_class: Type[BaseScanner]):
         """
@@ -72,9 +74,24 @@ class ScannerManager:
         Args:
             scanner_class: Scanner class to register
         """
-        # Instantiate temporarily to get source name
+        # Instantiate temporarily to get source name and capabilities
         temp = scanner_class()
-        self._available_scanners[temp.source_name] = scanner_class
+        scanner_name = temp.source_name
+        self._available_scanners[scanner_name] = scanner_class
+        
+        # Cache capabilities
+        try:
+            capabilities = temp.get_capabilities()
+            self._capabilities[scanner_name] = capabilities
+        except Exception as e:
+            print(f"Warning: Failed to get capabilities for {scanner_name}: {e}")
+            # Create default empty capabilities
+            self._capabilities[scanner_name] = ScannerCapabilities(
+                scanner_name=scanner_name,
+                provided_fields=set(),
+                primary_fields=set(),
+                description=""
+            )
 
     def get_scanner(self, scanner_name: str, config: Optional[Dict] = None) -> BaseScanner:
         """
@@ -96,11 +113,30 @@ class ScannerManager:
         scanner_class = self._available_scanners[scanner_name]
         return scanner_class(config or {})
 
-
-
     def get_available_scanners(self) -> List[str]:
         """Get list of available scanner names"""
         return list(self._available_scanners.keys())
+
+    def get_scanner_capabilities(self, scanner_name: str) -> Optional[ScannerCapabilities]:
+        """
+        Get capabilities for a specific scanner
+        
+        Args:
+            scanner_name: Name of the scanner
+            
+        Returns:
+            ScannerCapabilities or None if scanner not found
+        """
+        return self._capabilities.get(scanner_name)
+
+    def get_all_scanner_capabilities(self) -> Dict[str, ScannerCapabilities]:
+        """
+        Get capabilities for all registered scanners
+        
+        Returns:
+            Dictionary mapping scanner names to their capabilities
+        """
+        return dict(self._capabilities)
 
 
 
@@ -122,14 +158,15 @@ def discover_scanners(scanners_dir: str = None) -> List[Type[BaseScanner]]:
     Automatically discover scanner plugins in the scanners directory
 
     Args:
-        scanners_dir: Path to scanners directory. If None, uses src/metadata_providers/providers
+        scanners_dir: Path to scanners directory. If None, uses project root/scanners
 
     Returns:
         List of discovered scanner classes
     """
     if scanners_dir is None:
-        # Use the providers subdirectory
-        scanners_dir = Path(__file__).parent / "providers"
+        # Get project root (3 levels up from src/metadata_providers)
+        project_root = Path(__file__).parent.parent.parent
+        scanners_dir = project_root / "scanners"
     else:
         scanners_dir = Path(scanners_dir)
 

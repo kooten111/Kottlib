@@ -26,8 +26,8 @@
 	<div class="settings-panel">
 		<div class="panel-header">
 			<h3>Reader Settings</h3>
-			<button class="close-btn" on:click={handleClose}>
-				<svg
+		<button class="close-btn" on:click={handleClose} aria-label="Close settings">
+			<svg
 					xmlns="http://www.w3.org/2000/svg"
 					width="20"
 					height="20"
@@ -47,8 +47,8 @@
 		<div class="panel-content">
 			<!-- Fit Mode -->
 			<div class="setting-group">
-				<label class="setting-label">Fit Mode</label>
-				<div class="radio-group">
+				<span class="setting-label">Fit Mode</span>
+				<div class="radio-group" role="radiogroup" aria-label="Fit Mode">
 					<label class="radio-label">
 						<input
 							type="radio"
@@ -84,8 +84,8 @@
 
 			<!-- Reading Mode -->
 			<div class="setting-group">
-				<label class="setting-label">Reading Mode</label>
-				<div class="radio-group">
+				<span class="setting-label">Reading Mode</span>
+				<div class="radio-group" role="radiogroup" aria-label="Reading Mode">
 					<label class="radio-label">
 						<input
 							type="radio"
@@ -121,8 +121,8 @@
 
 			<!-- Reading Direction -->
 			<div class="setting-group">
-				<label class="setting-label">Reading Direction</label>
-				<div class="radio-group">
+				<span class="setting-label">Reading Direction</span>
+				<div class="radio-group" role="radiogroup" aria-label="Reading Direction">
 					<label class="radio-label">
 						<input
 							type="radio"
@@ -148,11 +148,12 @@
 
 			<!-- Preload Pages -->
 			<div class="setting-group">
-				<label class="setting-label">
+				<label class="setting-label" for="preload-pages-input">
 					Preload Pages
 					<span class="setting-value">{$readerSettings.preloadPages}</span>
 				</label>
 				<input
+					id="preload-pages-input"
 					type="range"
 					min="0"
 					max="5"
@@ -169,8 +170,8 @@
 
 			<!-- Background Color -->
 			<div class="setting-group">
-				<label class="setting-label">Background Color</label>
-				<div class="color-options">
+				<span class="setting-label">Background Color</span>
+				<div class="color-options" role="group" aria-label="Background Color">
 					{#each ['#1a1a1a', '#000000', '#242424', '#333333', '#ffffff'] as color}
 						<button
 							class="color-swatch"
@@ -212,7 +213,7 @@
 
 			<!-- Keyboard Shortcuts Help -->
 			<div class="setting-group">
-				<label class="setting-label">Keyboard Shortcuts</label>
+				<span class="setting-label">Keyboard Shortcuts</span>
 				<div class="shortcuts-help">
 					<div class="shortcut">
 						<kbd>←</kbd><kbd>→</kbd>

@@ -77,7 +77,7 @@
 			</div>
 		{:else if showProgress && hasProgress && variant === "grid"}
 			<div class="progress-overlay">
-				<div class="progress-bar" style="width: {progress}%" />
+				<div class="progress-bar" style="width: {progress}%"></div>
 			</div>
 		{/if}
 	</div>

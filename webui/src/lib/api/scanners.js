@@ -112,3 +112,25 @@ export async function configureLibraryScanner(libraryId, config) {
 
 	return response.json();
 }
+
+/**
+ * Get scanner capabilities for a specific scanner
+ */
+export async function getScannerCapabilities(scannerName) {
+	const scanners = await getAvailableScanners();
+	return scanners.find((s) => s.name === scannerName);
+}
+
+/**
+ * Get the primary scanner capabilities for a library
+ */
+export async function getLibraryScannerCapabilities(libraryId) {
+	const configs = await getLibraryConfigs();
+	const libraryConfig = configs.find((c) => c.library_id === parseInt(libraryId));
+
+	if (libraryConfig?.primary_scanner) {
+		return getScannerCapabilities(libraryConfig.primary_scanner);
+	}
+
+	return null;
+}

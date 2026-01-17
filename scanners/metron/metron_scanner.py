@@ -31,12 +31,12 @@ from abc import ABC, abstractmethod
 from enum import Enum
 
 try:
-    # Import from src.scanners package
-    from src.scanners.base_scanner import (
+    # Import from src.metadata_providers package
+    from src.metadata_providers.base import (
         BaseScanner, ScanResult, ScanLevel, MatchConfidence,
-        ScannerAPIError, ScannerConfigError, ScannerRateLimitError
+        ScannerAPIError, ScannerConfigError, ScannerRateLimitError, ScannerCapabilities
     )
-    from src.scanners.config_schema import ConfigOption, ConfigType
+    from src.metadata_providers.config import ConfigOption, ConfigType
 except ImportError:
     # Fallback for standalone execution
     BaseScanner = ABC
@@ -590,7 +590,7 @@ class MetronScanner(BaseScanner):
     def get_config_schema(self) -> List['ConfigOption']:
         """Get declarative configuration schema for Metron scanner"""
         try:
-            from src.scanners.config_schema import ConfigOption, ConfigType
+            from src.metadata_providers.config import ConfigOption, ConfigType
         except ImportError:
             return []
 
@@ -657,6 +657,45 @@ class MetronScanner(BaseScanner):
                 advanced=True
             ),
         ]
+
+    def get_capabilities(self) -> ScannerCapabilities:
+        """Get the metadata capabilities of this scanner"""
+        return ScannerCapabilities(
+            scanner_name=self.source_name,
+            provided_fields={
+                'title',
+                'series',
+                'volume',
+                'issue_number',
+                'year',
+                'description',
+                'writer',
+                'artist',
+                'penciller',
+                'inker',
+                'colorist',
+                'letterer',
+                'cover_artist',
+                'editor',
+                'publisher',
+                'characters',
+                'teams',
+                'locations',
+                'story_arc',
+                'genre',
+                'web',
+                'page_count',
+            },
+            primary_fields={
+                'title',
+                'series',
+                'issue_number',
+                'writer',
+                'artist',
+                'publisher',
+            },
+            description="Comprehensive comic book metadata from Metron.cloud"
+        )
 
 
 # ============================================================================

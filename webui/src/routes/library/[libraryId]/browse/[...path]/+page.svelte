@@ -8,6 +8,7 @@
     import FolderCard from "$lib/components/library/FolderCard.svelte";
     import ComicCard from "$lib/components/comic/ComicCard.svelte";
     import ScannerMetadata from "$lib/components/comic/ScannerMetadata.svelte";
+    import MetadataDisplay from "$lib/components/comic/MetadataDisplay.svelte";
     import Breadcrumbs from "$lib/components/common/Breadcrumbs.svelte";
     import HorizontalCarousel from "$lib/components/common/HorizontalCarousel.svelte";
     import {
@@ -57,7 +58,9 @@
         items = initialItems;
         currentOffset = browseData.offset || 0;
         limit = browseData.limit || 50;
-        fetchContinueReading();
+        if (browser) {
+            fetchContinueReading();
+        }
     }
 
     async function fetchContinueReading() {
@@ -528,6 +531,13 @@
                                 />
                             </div>
                         {/if}
+                    {/if}
+
+                    <!-- Metadata Display for Comic View -->
+                    {#if isComicView && comic}
+                        <div class="mb-8">
+                            <MetadataDisplay {comic} showScannerActions={true} />
+                        </div>
                     {/if}
 
                     <!-- Section Title for Comic View -->

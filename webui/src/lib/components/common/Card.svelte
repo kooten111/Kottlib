@@ -9,13 +9,22 @@
 	const paddingClasses = padding ? 'p-4' : '';
 </script>
 
-<div
-	class={`${baseClasses} ${hoverClasses} ${clickableClasses} ${paddingClasses}`}
-	style="border-color: var(--color-border);"
-	on:click
-	on:keydown
-	role={clickable ? 'button' : undefined}
-	tabindex={clickable ? 0 : undefined}
->
-	<slot />
-</div>
+{#if clickable}
+	<div
+		class={`${baseClasses} ${hoverClasses} ${clickableClasses} ${paddingClasses}`}
+		style="border-color: var(--color-border);"
+		on:click
+		on:keydown
+		role="button"
+		tabindex="0"
+	>
+		<slot />
+	</div>
+{:else}
+	<div
+		class={`${baseClasses} ${hoverClasses} ${paddingClasses}`}
+		style="border-color: var(--color-border);"
+	>
+		<slot />
+	</div>
+{/if}

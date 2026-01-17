@@ -81,6 +81,22 @@ async def get_available_scanners() -> List[ScannerInfo]:
             except Exception as e:
                 logger.warning(f"Failed to inspect scanner {scanner_name}: {e}")
         
+        # Handle both old MetadataField enums and new string-based capabilities
+        provided_fields = []
+        primary_fields = []
+        if caps:
+            # Check if fields are strings (new format) or enums (old format)
+            for f in caps.provided_fields:
+                if isinstance(f, str):
+                    provided_fields.append(f)
+                else:
+                    provided_fields.append(f.value)
+            for f in caps.primary_fields:
+                if isinstance(f, str):
+                    primary_fields.append(f)
+                else:
+                    primary_fields.append(f.value)
+        
         scanners_info.append(ScannerInfo(
             name=scanner_name,
             scan_level=scan_level,
@@ -88,8 +104,8 @@ async def get_available_scanners() -> List[ScannerInfo]:
             requires_config=requires_config,
             config_keys=config_keys,
             config_schema=config_schema,
-            provided_fields=[f.value for f in caps.provided_fields] if caps else [],
-            primary_fields=[f.value for f in caps.primary_fields] if caps else []
+            provided_fields=provided_fields,
+            primary_fields=primary_fields
         ))
 
     return scanners_info

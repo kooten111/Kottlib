@@ -40,6 +40,9 @@ class APIClient {
 		const isGET = !options.method || options.method === 'GET';
 		const shouldCache = this.cacheEnabled && isGET && this.isCacheable(endpoint);
 
+		// Use custom fetch if provided, otherwise use global fetch
+		const fetchFn = options.fetch || fetch;
+
 		// Try to get from cache first (stale-while-revalidate)
 		if (shouldCache) {
 			const cached = await getCached(cacheKey);
@@ -48,7 +51,7 @@ class APIClient {
 
 				// Return cached data immediately
 				// Then fetch fresh data in background and update cache
-				this._fetchAndCache(url, cacheKey, options).catch(err => {
+				this._fetchAndCache(url, cacheKey, { ...options, fetch: fetchFn }).catch(err => {
 					console.error('[API] Background refresh failed:', err);
 				});
 
@@ -66,8 +69,11 @@ class APIClient {
 			...options
 		};
 
+		// Remove the fetch option from config as it's not a standard fetch option
+		delete config.fetch;
+
 		try {
-			const response = await fetch(url, config);
+			const response = await fetchFn(url, config);
 
 			if (!response.ok) {
 				const errorText = await response.text();
@@ -107,6 +113,9 @@ class APIClient {
 	 * Fetch and cache in background (for stale-while-revalidate)
 	 */
 	async _fetchAndCache(url, cacheKey, options) {
+		// Use custom fetch if provided, otherwise use global fetch
+		const fetchFn = options.fetch || fetch;
+
 		const config = {
 			credentials: 'include',
 			headers: {
@@ -116,8 +125,11 @@ class APIClient {
 			...options
 		};
 
+		// Remove the fetch option from config as it's not a standard fetch option
+		delete config.fetch;
+
 		try {
-			const response = await fetch(url, config);
+			const response = await fetchFn(url, config);
 
 			if (response.ok) {
 				const contentType = response.headers.get('content-type');

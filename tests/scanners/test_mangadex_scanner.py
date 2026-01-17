@@ -17,7 +17,8 @@ import os
 # Add project root to path
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
 
-from src.metadata_providers.providers.mangadex.mangadex_scanner import (
+# Import from scanners directory at project root
+from scanners.mangadex.mangadex_scanner import (
     MangaDexScanner,
     MangaDexAPI,
     normalize_title,

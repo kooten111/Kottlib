@@ -254,186 +254,36 @@ FIELD_DEFINITIONS: Dict[MetadataField, FieldDefinition] = {
 }
 
 
-@dataclass
-class ScannerCapabilities:
-    """Defines what fields a scanner can provide"""
-    scanner_name: str
-    provided_fields: Set[MetadataField] = field(default_factory=set)
-    primary_fields: Set[MetadataField] = field(default_factory=set)  # High confidence fields
-    description: str = ""
-
-    def can_provide(self, field: MetadataField) -> bool:
-        """Check if scanner can provide this field"""
-        return field in self.provided_fields
-
-    def is_primary_field(self, field: MetadataField) -> bool:
-        """Check if this is a primary/high-confidence field for this scanner"""
-        return field in self.primary_fields
-
-    def get_fields_by_category(self, category: FieldCategory) -> List[MetadataField]:
-        """Get all provided fields in a category"""
-        return [
-            field for field in self.provided_fields
-            if FIELD_DEFINITIONS.get(field) and FIELD_DEFINITIONS[field].category == category
-        ]
+def get_scanner_capabilities(scanner_name: str):
+    """
+    Get capabilities for a scanner.
+    
+    Delegates to the ScannerManager for dynamic capability lookup.
+    Falls back to None if scanner not found.
+    
+    Args:
+        scanner_name: Name of the scanner
+        
+    Returns:
+        ScannerCapabilities object or None
+    """
+    from .manager import get_manager
+    manager = get_manager()
+    return manager.get_scanner_capabilities(scanner_name)
 
 
-# Scanner capability definitions
-SCANNER_CAPABILITIES: Dict[str, ScannerCapabilities] = {
-    "nhentai": ScannerCapabilities(
-        scanner_name="nhentai",
-        provided_fields={
-            MetadataField.TITLE,
-            MetadataField.ARTIST,
-            MetadataField.GENRE,
-            MetadataField.LANGUAGE_ISO,
-            MetadataField.TAGS,
-            MetadataField.CHARACTERS,
-            MetadataField.PAGE_COUNT,
-            MetadataField.WEB_LINK,
-        },
-        primary_fields={
-            MetadataField.TITLE,
-            MetadataField.ARTIST,
-            MetadataField.TAGS,
-        },
-        description="Provides title, artist, tags, and parody information from nhentai.net"
-    ),
-
-    # Future scanners
-    "AniList": ScannerCapabilities(
-        scanner_name="AniList",
-        provided_fields={
-            MetadataField.TITLE,
-            MetadataField.SERIES,
-            MetadataField.VOLUME,
-            MetadataField.ISSUE_NUMBER,
-            MetadataField.YEAR,
-            MetadataField.DESCRIPTION,
-            MetadataField.WRITER,
-            MetadataField.ARTIST,
-            MetadataField.GENRE,
-            MetadataField.TAGS,
-            MetadataField.CHARACTERS,
-            MetadataField.FORMAT_TYPE,
-            MetadataField.WEB_LINK,
-        },
-        primary_fields={
-            MetadataField.TITLE,
-            MetadataField.SERIES,
-            MetadataField.DESCRIPTION,
-            MetadataField.WRITER,
-            MetadataField.ARTIST,
-        },
-        description="Manga and light novel metadata from AniList GraphQL API"
-    ),
-
-    "comicvine": ScannerCapabilities(
-        scanner_name="comicvine",
-        provided_fields={
-            MetadataField.TITLE,
-            MetadataField.SERIES,
-            MetadataField.VOLUME,
-            MetadataField.ISSUE_NUMBER,
-            MetadataField.YEAR,
-            MetadataField.DESCRIPTION,
-            MetadataField.WRITER,
-            MetadataField.ARTIST,
-            MetadataField.PENCILLER,
-            MetadataField.INKER,
-            MetadataField.COLORIST,
-            MetadataField.LETTERER,
-            MetadataField.COVER_ARTIST,
-            MetadataField.PUBLISHER,
-            MetadataField.CHARACTERS,
-            MetadataField.TEAMS,
-            MetadataField.LOCATIONS,
-            MetadataField.STORY_ARC,
-            MetadataField.WEB_LINK,
-        },
-        primary_fields={
-            MetadataField.TITLE,
-            MetadataField.SERIES,
-            MetadataField.ISSUE_NUMBER,
-            MetadataField.WRITER,
-            MetadataField.ARTIST,
-        },
-        description="Comprehensive comic book metadata from Comic Vine"
-    ),
-
-    "MangaDex": ScannerCapabilities(
-        scanner_name="MangaDex",
-        provided_fields={
-            MetadataField.TITLE,
-            MetadataField.SERIES,
-            MetadataField.DESCRIPTION,
-            MetadataField.WRITER,
-            MetadataField.ARTIST,
-            MetadataField.GENRE,
-            MetadataField.TAGS,
-            MetadataField.YEAR,
-            MetadataField.AGE_RATING,
-            MetadataField.LANGUAGE_ISO,
-            MetadataField.WEB_LINK,
-        },
-        primary_fields={
-            MetadataField.TITLE,
-            MetadataField.SERIES,
-            MetadataField.DESCRIPTION,
-            MetadataField.WRITER,
-            MetadataField.ARTIST,
-            MetadataField.TAGS,
-        },
-        description="Manga metadata from MangaDex.org"
-    ),
-
-    "Metron": ScannerCapabilities(
-        scanner_name="Metron",
-        provided_fields={
-            MetadataField.TITLE,
-            MetadataField.SERIES,
-            MetadataField.VOLUME,
-            MetadataField.ISSUE_NUMBER,
-            MetadataField.YEAR,
-            MetadataField.DESCRIPTION,
-            MetadataField.WRITER,
-            MetadataField.ARTIST,
-            MetadataField.PENCILLER,
-            MetadataField.INKER,
-            MetadataField.COLORIST,
-            MetadataField.LETTERER,
-            MetadataField.COVER_ARTIST,
-            MetadataField.EDITOR,
-            MetadataField.PUBLISHER,
-            MetadataField.CHARACTERS,
-            MetadataField.TEAMS,
-            MetadataField.LOCATIONS,
-            MetadataField.STORY_ARC,
-            MetadataField.GENRE,
-            MetadataField.WEB_LINK,
-            MetadataField.PAGE_COUNT,
-        },
-        primary_fields={
-            MetadataField.TITLE,
-            MetadataField.SERIES,
-            MetadataField.ISSUE_NUMBER,
-            MetadataField.WRITER,
-            MetadataField.ARTIST,
-            MetadataField.PUBLISHER,
-        },
-        description="Comprehensive comic book metadata from Metron.cloud"
-    ),
-}
-
-
-def get_scanner_capabilities(scanner_name: str) -> Optional[ScannerCapabilities]:
-    """Get capabilities for a scanner"""
-    return SCANNER_CAPABILITIES.get(scanner_name)
-
-
-def get_all_scanner_capabilities() -> Dict[str, ScannerCapabilities]:
-    """Get all scanner capabilities"""
-    return SCANNER_CAPABILITIES
+def get_all_scanner_capabilities():
+    """
+    Get capabilities for all registered scanners.
+    
+    Delegates to the ScannerManager for dynamic capability lookup.
+    
+    Returns:
+        Dictionary mapping scanner names to their capabilities
+    """
+    from .manager import get_manager
+    manager = get_manager()
+    return manager.get_all_scanner_capabilities()
 
 
 def map_scanner_metadata_to_comic(scanner_metadata: Dict[str, Any]) -> Dict[str, Any]:

@@ -12,6 +12,7 @@ from .base import (
     ScanResult,
     ScanLevel,
     MatchConfidence,
+    ScannerCapabilities,
     ScannerError,
     ScannerConfigError,
     ScannerAPIError,
@@ -43,6 +44,7 @@ __all__ = [
     'ScanResult',
     'ScanLevel',
     'MatchConfidence',
+    'ScannerCapabilities',
 
     # Exceptions
     'ScannerError',

@@ -4,7 +4,6 @@
 
 	export let itemWidth = 180; // Width of each item in pixels
 	export let gap = 24; // Gap between items in pixels
-	export let visibleItems = "auto"; // Number of items to show, 'auto' calculates based on container width
 
 	let container;
 	let scrollContainer;
@@ -143,6 +142,7 @@
 		</button>
 	{/if}
 
+	<!-- svelte-ignore a11y_no_noninteractive_element_interactions -->
 	<div
 		class="carousel-container"
 		bind:this={scrollContainer}
@@ -153,6 +153,8 @@
 		on:touchstart={handleTouchStart}
 		on:touchmove={handleTouchMove}
 		style="--item-width: {itemWidth}px; --gap: {gap}px;"
+		role="region"
+		aria-label="Scrollable carousel"
 	>
 		<slot />
 	</div>

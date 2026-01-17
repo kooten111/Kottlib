@@ -9,10 +9,22 @@ const STORE_NAME = 'api-cache';
 const MAX_AGE = 1000 * 60 * 60 * 24; // 24 hours
 
 /**
+ * Check if we're in a browser environment
+ */
+function isBrowser() {
+	return typeof window !== 'undefined' && typeof indexedDB !== 'undefined';
+}
+
+/**
  * Open IndexedDB connection
  */
 function openDB() {
 	return new Promise((resolve, reject) => {
+		if (!isBrowser()) {
+			reject(new Error('IndexedDB is not available (SSR environment)'));
+			return;
+		}
+
 		const request = indexedDB.open(DB_NAME, DB_VERSION);
 
 		request.onerror = () => reject(request.error);

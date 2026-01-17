@@ -69,7 +69,7 @@
 
 {#if show}
 <div class="reader-menu-overlay" on:click={handleOverlayClick} role="presentation">
-	<div class="reader-menu" on:click|stopPropagation role="dialog">
+	<div class="reader-menu" on:click|stopPropagation on:keydown={(e) => e.key === 'Escape' && handleClose()} role="dialog" tabindex="-1">
 		<!-- Page Navigator -->
 		<div class="menu-section">
 			<h3 class="section-title">Jump to Page</h3>

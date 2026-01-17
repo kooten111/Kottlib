@@ -173,7 +173,7 @@
 				on:input={handleSliderChange}
 				class="page-slider"
 			/>
-			<div class="progress-bar" style="width: {progress}%" />
+			<div class="progress-bar" style="width: {progress}%"></div>
 		</div>
 
 		<Button variant="ghost" size="sm" on:click={handleNext} disabled={!canGoNext}>

@@ -251,6 +251,12 @@
 	class="page-viewer zone-{mouseZone || 'none'}"
 	style="background-color: {$readerSettings.backgroundColor}"
 	on:click={handlePageClick}
+	on:keydown={(e) => {
+		if (e.key === 'Enter' || e.key === ' ') {
+			e.preventDefault();
+			dispatch('toggleMenu');
+		}
+	}}
 	on:mousemove={handleMouseMove}
 	on:mouseleave={handleMouseLeave}
 	on:touchstart={handleTouchStart}
@@ -267,7 +273,7 @@
 	>
 		{#if isLoading}
 			<div class="loading-spinner">
-				<div class="spinner" />
+				<div class="spinner"></div>
 				<p class="text-gray-400 mt-4">Loading page {pageNumber} of {totalPages}...</p>
 			</div>
 		{/if}

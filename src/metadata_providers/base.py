@@ -5,11 +5,14 @@ Defines the interface that all metadata scanners must implement.
 """
 
 from abc import ABC, abstractmethod
-from typing import List, Dict, Optional, Tuple
-from dataclasses import dataclass
+from typing import List, Dict, Optional, Tuple, Set, TYPE_CHECKING
+from dataclasses import dataclass, field
 from enum import Enum
 
 from .config import ConfigOption
+
+if TYPE_CHECKING:
+    from .schema import MetadataField, FieldCategory, FIELD_DEFINITIONS
 
 
 class ScanLevel(Enum):
@@ -26,6 +29,47 @@ class MatchConfidence(Enum):
     MEDIUM = 2  # 40-70% confidence
     HIGH = 3  # 70-90% confidence
     EXACT = 4  # 90-100% confidence
+
+
+@dataclass
+class ScannerCapabilities:
+    """
+    Defines what metadata fields a scanner can provide.
+    
+    Each scanner should return this from get_capabilities() to declare
+    what standard fields it supports.
+    """
+    scanner_name: str
+    provided_fields: Set[str] = field(default_factory=set)  # MetadataField values as strings
+    primary_fields: Set[str] = field(default_factory=set)   # High confidence fields
+    description: str = ""
+    
+    def can_provide(self, field_name: str) -> bool:
+        """Check if scanner can provide this field"""
+        return field_name in self.provided_fields
+    
+    def is_primary_field(self, field_name: str) -> bool:
+        """Check if this is a primary/high-confidence field for this scanner"""
+        return field_name in self.primary_fields
+    
+    def get_fields_by_category(self, category: str) -> List[str]:
+        """Get all provided fields in a category"""
+        from .schema import FIELD_DEFINITIONS, MetadataField
+        return [
+            f for f in self.provided_fields
+            if f in [m.value for m in MetadataField] and
+               FIELD_DEFINITIONS.get(MetadataField(f)) and 
+               FIELD_DEFINITIONS[MetadataField(f)].category.value == category
+        ]
+    
+    def to_dict(self) -> Dict:
+        """Convert to dictionary for API responses"""
+        return {
+            'scanner_name': self.scanner_name,
+            'provided_fields': list(self.provided_fields),
+            'primary_fields': list(self.primary_fields),
+            'description': self.description
+        }
 
 
 @dataclass
@@ -198,6 +242,38 @@ class BaseScanner(ABC):
             List of ConfigOption objects defining this scanner's configuration
         """
         return []
+
+    def get_capabilities(self) -> ScannerCapabilities:
+        """
+        Get the metadata capabilities of this scanner.
+        
+        Returns a ScannerCapabilities object declaring which standard
+        metadata fields this scanner can provide.
+        
+        Scanners should override this to declare their capabilities.
+        The default implementation returns empty capabilities.
+        
+        Example:
+            return ScannerCapabilities(
+                scanner_name=self.source_name,
+                provided_fields={
+                    'title', 'artist', 'genre', 'tags', 'characters'
+                },
+                primary_fields={
+                    'title', 'artist', 'tags'
+                },
+                description="Provides metadata from example.com"
+            )
+        
+        Returns:
+            ScannerCapabilities object describing this scanner's capabilities
+        """
+        return ScannerCapabilities(
+            scanner_name=self.source_name,
+            provided_fields=set(),
+            primary_fields=set(),
+            description=""
+        )
 
     def __str__(self):
         return f"{self.source_name} Scanner ({self.scan_level.value})"

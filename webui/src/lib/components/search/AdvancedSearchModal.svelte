@@ -149,8 +149,8 @@
 	}
 </script>
 
-<div class="modal-overlay" on:click={onClose}>
-	<div class="modal-content" on:click|stopPropagation>
+<div class="modal-overlay" on:click={onClose} role="presentation">
+	<div class="modal-content" on:click|stopPropagation on:keydown={(e) => e.key === 'Escape' && onClose()} role="dialog" tabindex="-1">
 		<!-- Header -->
 		<div class="modal-header">
 			<div class="header-title">
@@ -203,8 +203,9 @@
 				<div class="builder-section">
 					<!-- Query Preview -->
 					<div class="query-preview">
-						<label>Search Query</label>
+						<label for="search-query-input">Search Query</label>
 						<input
+							id="search-query-input"
 							type="text"
 							bind:value={queryText}
 							on:input={() => updateParsedQuery(queryText)}
@@ -402,8 +403,8 @@
 
 <!-- Save Dialog -->
 {#if showSaveDialog}
-	<div class="modal-overlay" on:click={() => (showSaveDialog = false)}>
-		<div class="save-dialog" on:click|stopPropagation>
+	<div class="modal-overlay" on:click={() => (showSaveDialog = false)} role="presentation">
+		<div class="save-dialog" on:click|stopPropagation on:keydown={(e) => e.key === 'Escape' && (showSaveDialog = false)} role="dialog" tabindex="-1">
 			<h3>Save Search</h3>
 			<input
 				type="text"
@@ -948,11 +949,6 @@
 		display: flex;
 		gap: 0.75rem;
 		justify-content: flex-end;
-	}
-
-	.inline {
-		display: inline;
-		vertical-align: middle;
 	}
 
 	@media (max-width: 768px) {

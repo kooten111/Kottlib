@@ -14,5 +14,5 @@
 		aria-valuenow={value}
 		aria-valuemin="0"
 		aria-valuemax={max}
-	/>
+	></div>
 </div>

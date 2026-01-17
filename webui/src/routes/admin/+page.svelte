@@ -62,7 +62,7 @@
 
 		{#if isLoading}
 			<div class="loading-container">
-				<div class="spinner" />
+				<div class="spinner"></div>
 				<p class="text-gray-400 mt-4">Loading dashboard...</p>
 			</div>
 		{:else if error}
@@ -229,13 +229,6 @@
 		margin: 0;
 	}
 
-	.content-grid {
-		display: grid;
-		grid-template-columns: repeat(auto-fit, minmax(400px, 1fr));
-		gap: 1.5rem;
-		margin-bottom: 2rem;
-	}
-
 	.section-card {
 		padding: 1.5rem;
 		background: var(--color-secondary-bg);
@@ -315,42 +308,6 @@
 		color: var(--color-text-secondary);
 	}
 
-	.activity-list {
-		display: flex;
-		flex-direction: column;
-		gap: 1rem;
-	}
-
-	.activity-item {
-		display: flex;
-		align-items: start;
-		gap: 0.75rem;
-	}
-
-	.activity-dot {
-		width: 8px;
-		height: 8px;
-		background: var(--color-accent);
-		border-radius: 50%;
-		margin-top: 0.5rem;
-	}
-
-	.activity-content {
-		flex: 1;
-	}
-
-	.activity-message {
-		font-size: 0.875rem;
-		color: var(--color-text);
-		margin: 0 0 0.25rem 0;
-	}
-
-	.activity-time {
-		font-size: 0.75rem;
-		color: var(--color-text-secondary);
-		margin: 0;
-	}
-
 	.quick-actions {
 		margin-top: 2rem;
 	}
@@ -423,7 +380,6 @@
 			font-size: 1.5rem;
 		}
 
-		.content-grid,
 		.actions-grid {
 			grid-template-columns: 1fr;
 		}

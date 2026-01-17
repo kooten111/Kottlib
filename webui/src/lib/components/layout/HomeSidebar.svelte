@@ -324,9 +324,17 @@
 	<div
 		class="resize-handle"
 		on:mousedown={startResize}
-		role="separator"
+		on:keydown={(e) => {
+			if (e.key === 'ArrowLeft') sidebarWidth = Math.max(160, sidebarWidth - 10);
+			if (e.key === 'ArrowRight') sidebarWidth = Math.min(448, sidebarWidth + 10);
+		}}
+		role="slider"
 		tabindex="0"
 		aria-label="Resize sidebar"
+		aria-orientation="horizontal"
+		aria-valuemin="160"
+		aria-valuemax="448"
+		aria-valuenow={sidebarWidth}
 	></div>
 </aside>
 

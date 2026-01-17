@@ -32,13 +32,13 @@ from abc import ABC, abstractmethod
 from enum import Enum
 
 try:
-    # Import from src.scanners package
-    from src.scanners.base_scanner import (
+    # Import from src.metadata_providers package
+    from src.metadata_providers.base import (
         BaseScanner, ScanResult, ScanLevel, MatchConfidence,
-        ScannerAPIError, ScannerRateLimitError, ScannerConfigError
+        ScannerAPIError, ScannerRateLimitError, ScannerConfigError, ScannerCapabilities
     )
-    from src.scanners.config_schema import ConfigOption, ConfigType
-    from src.scanners.utils import clean_query
+    from src.metadata_providers.config import ConfigOption, ConfigType
+    from src.metadata_providers.utils import clean_query
 except ImportError:
     # Fallback for standalone execution
     BaseScanner = ABC
@@ -836,7 +836,7 @@ class MangaDexScanner(BaseScanner):
     def get_config_schema(self) -> List['ConfigOption']:
         """Get declarative configuration schema for MangaDex scanner"""
         try:
-            from src.scanners.config_schema import ConfigOption, ConfigType
+            from src.metadata_providers.config import ConfigOption, ConfigType
         except ImportError:
             return []
 
@@ -904,6 +904,34 @@ class MangaDexScanner(BaseScanner):
                 required=False
             ),
         ]
+
+    def get_capabilities(self) -> ScannerCapabilities:
+        """Get the metadata capabilities of this scanner"""
+        return ScannerCapabilities(
+            scanner_name=self.source_name,
+            provided_fields={
+                'title',
+                'series',
+                'description',
+                'writer',
+                'artist',
+                'genre',
+                'tags',
+                'year',
+                'age_rating',
+                'language_iso',
+                'web',
+            },
+            primary_fields={
+                'title',
+                'series',
+                'description',
+                'writer',
+                'artist',
+                'tags',
+            },
+            description="Manga metadata from MangaDex.org"
+        )
 
 
 # ============================================================================
