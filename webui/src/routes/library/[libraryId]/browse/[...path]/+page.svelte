@@ -7,10 +7,10 @@
     import DetailHeader from "$lib/components/common/DetailHeader.svelte";
     import FolderCard from "$lib/components/library/FolderCard.svelte";
     import ComicCard from "$lib/components/comic/ComicCard.svelte";
-    import ScannerMetadata from "$lib/components/comic/ScannerMetadata.svelte";
     import MetadataDisplay from "$lib/components/comic/MetadataDisplay.svelte";
     import Breadcrumbs from "$lib/components/common/Breadcrumbs.svelte";
     import HorizontalCarousel from "$lib/components/common/HorizontalCarousel.svelte";
+    import SeriesInfoPanel from "$lib/components/series/SeriesInfoPanel.svelte";
     import {
         FolderOpen,
         BookOpen,
@@ -19,8 +19,6 @@
         List,
         Loader2,
         SlidersHorizontal,
-        Scan,
-        RefreshCw,
     } from "lucide-svelte";
     import { browseLibrary, getContinueReading } from "$lib/api/libraries";
     import { preferencesStore } from "$lib/stores/preferences";
@@ -349,62 +347,15 @@
         };
     }
 
-    // Determine if we should show the detail header
-    $: showDetailHeader = (!!folder && currentPath !== "") || isComicView;
-    $: headerItem = isComicView
-        ? comic
-        : folder
-          ? {
-                ...folder,
-                cover_hash:
-                    folder?.cover_hash ||
-                    items?.[0]?.cover_hash ||
-                    items?.[0]?.hash,
-            }
-          : null;
-
-    // Check if folder has series metadata to display
-    $: hasSeriesMetadata = folder && (
-        folder.synopsis ||
-        folder.writer ||
-        folder.artist ||
-        folder.genre ||
-        folder.tags ||
-        folder.publisher ||
-        folder.year ||
-        folder.scanner_source
-    );
-
-    // Transform folder/series data to comic-like structure for MetadataDisplay component
-    $: seriesAsComic = folder ? {
-        // Basic info
-        series: folder.display_name || folder.name,
-        title: folder.display_name || folder.name,
-        
-        // Metadata fields
-        description: folder.synopsis,
-        writer: folder.writer,
-        artist: folder.artist,
-        genre: folder.genre,
-        tags: folder.tags,
-        publisher: folder.publisher,
-        year: folder.year,
-        
-        // Additional series-specific fields
-        status: folder.status,
-        format: folder.format,
-        chapters: folder.chapters,
-        volumes: folder.volumes_count,
-        
-        // Scanner metadata
-        scanner_source: folder.scanner_source,
-        scanner_source_id: folder.scanner_source_id,
-        scanner_source_url: folder.scanner_source_url,
-        scan_confidence: folder.scan_confidence,
-        scanned_at: folder.scanned_at,
-        
-        // Use total_issues as a substitute for num_pages
-        num_pages: folder.total_issues,
+    // Determine if we should show the detail header (only for comic view now)
+    $: showDetailHeader = isComicView;
+    $: headerItem = isComicView ? comic : null;
+    
+    // Determine if we should show the two-column series layout
+    $: isSeriesView = !!folder && currentPath !== "" && !isComicView;
+    $: seriesItem = folder ? {
+        ...folder,
+        cover_hash: folder?.cover_hash || items?.[0]?.cover_hash || items?.[0]?.hash,
     } : null;
 
     // Initial setup for grid size
@@ -481,298 +432,390 @@
                         </div>
                     {/if}
 
-                    <!-- Detail Header (Hero) -->
-                    {#if showDetailHeader}
-                        <DetailHeader
-                            item={headerItem}
-                            {libraryId}
-                            onBack={() => history.back()}
-                            showBack={true}
-                            onStartReading={isComicView
-                                ? () => {
-                                      const page =
-                                          comic.current_page > 0
-                                              ? `?page=${comic.current_page}`
-                                              : "";
-                                      window.location.href = `/comic/${libraryId}/${comic.id}/read${page}`;
-                                  }
-                                : undefined}
-                        />
-                    {/if}
+                    <!-- TWO-COLUMN SERIES LAYOUT -->
+                    {#if isSeriesView}
+                        <div class="series-two-column">
+                            <!-- Left Column: Series Info Panel -->
+                            <aside class="series-info-sidebar">
+                                <SeriesInfoPanel
+                                    item={seriesItem}
+                                    {libraryId}
+                                    onBack={() => history.back()}
+                                    onScanSeries={(overwrite) => handleScanSeries(overwrite)}
+                                    isScanning={isScanningSeries}
+                                    scanError={seriesScanError}
+                                />
+                            </aside>
 
-                    <!-- View Controls & Stats -->
-                    {#if hasContent && !showDetailHeader}
-                        <div
-                            class="flex items-center justify-between mb-6 p-4 bg-[var(--color-secondary-bg)] rounded-xl border border-[var(--color-border)]"
-                        >
-                            <div class="flex flex-wrap gap-4">
-                                <span
-                                    class="text-[var(--color-text-secondary)] text-sm"
-                                >
-                                    {totalItems} Items
-                                </span>
-                            </div>
+                            <!-- Right Column: Issues Grid -->
+                            <div class="series-content">
+                                <!-- View Controls -->
+                                {#if hasContent}
+                                    <div class="flex items-center justify-between mb-4 p-3 bg-[var(--color-secondary-bg)] rounded-lg border border-[var(--color-border)]">
+                                        <div class="flex items-center gap-3">
+                                            <span class="text-[var(--color-text-secondary)] text-sm font-medium">
+                                                {totalItems} Issues
+                                            </span>
+                                        </div>
 
-                            <div
-                                class="flex bg-[var(--color-bg-tertiary)] rounded-lg p-1 items-center gap-1"
-                            >
-                                <!-- Custom Sort Dropdown -->
-                                <div class="relative">
-                                    <button
-                                        type="button"
-                                        on:click={() =>
-                                            (showSortDropdown =
-                                                !showSortDropdown)}
-                                        class="flex items-center gap-1 text-sm text-[var(--color-text)] py-1 px-2 hover:text-[var(--color-text-secondary)] transition-colors"
-                                    >
-                                        {sortOptions.find(
-                                            (o) => o.value === sortBy,
-                                        )?.label || "Name"}
-                                        <svg
-                                            class="w-4 h-4"
-                                            fill="none"
-                                            stroke="currentColor"
-                                            viewBox="0 0 24 24"
-                                        >
-                                            <path
-                                                stroke-linecap="round"
-                                                stroke-linejoin="round"
-                                                stroke-width="2"
-                                                d="M19 9l-7 7-7-7"
-                                            />
-                                        </svg>
-                                    </button>
-                                    {#if showSortDropdown}
-                                        <!-- svelte-ignore a11y-click-events-have-key-events -->
-                                        <!-- svelte-ignore a11y-no-static-element-interactions -->
-                                        <div
-                                            class="fixed inset-0 z-40"
-                                            on:click={() =>
-                                                (showSortDropdown = false)}
-                                        ></div>
-                                        <div
-                                            class="absolute top-full left-0 mt-1 z-50 min-w-[140px] py-1 rounded-lg shadow-lg"
-                                            style="background-color: var(--color-secondary-bg); border: 1px solid var(--color-border);"
-                                        >
-                                            {#each sortOptions as option}
+                                        <div class="flex bg-[var(--color-bg-tertiary)] rounded-lg p-1 items-center gap-1">
+                                            <!-- Sort Dropdown -->
+                                            <div class="relative">
                                                 <button
                                                     type="button"
-                                                    class="w-full text-left px-3 py-2 text-sm transition-colors {sortBy ===
-                                                    option.value
-                                                        ? 'bg-[var(--color-accent)] text-white'
-                                                        : 'text-[var(--color-text)] hover:bg-[var(--color-bg-tertiary)]'}"
-                                                    on:click={() => {
-                                                        applySorting(
-                                                            option.value,
-                                                        );
-                                                    }}
+                                                    on:click={() => (showSortDropdown = !showSortDropdown)}
+                                                    class="flex items-center gap-1 text-sm text-[var(--color-text)] py-1 px-2 hover:text-[var(--color-text-secondary)] transition-colors"
                                                 >
-                                                    {option.label}
+                                                    {sortOptions.find((o) => o.value === sortBy)?.label || "Name"}
+                                                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
+                                                    </svg>
                                                 </button>
-                                            {/each}
+                                                {#if showSortDropdown}
+                                                    <!-- svelte-ignore a11y-click-events-have-key-events -->
+                                                    <!-- svelte-ignore a11y-no-static-element-interactions -->
+                                                    <div class="fixed inset-0 z-40" on:click={() => (showSortDropdown = false)}></div>
+                                                    <div class="absolute top-full left-0 mt-1 z-50 min-w-[140px] py-1 rounded-lg shadow-lg" style="background-color: var(--color-secondary-bg); border: 1px solid var(--color-border);">
+                                                        {#each sortOptions as option}
+                                                            <button
+                                                                type="button"
+                                                                class="w-full text-left px-3 py-2 text-sm transition-colors {sortBy === option.value ? 'bg-[var(--color-accent)] text-white' : 'text-[var(--color-text)] hover:bg-[var(--color-bg-tertiary)]'}"
+                                                                on:click={() => applySorting(option.value)}
+                                                            >
+                                                                {option.label}
+                                                            </button>
+                                                        {/each}
+                                                    </div>
+                                                {/if}
+                                            </div>
+
+                                            <div class="w-px h-5 bg-[var(--color-border)] mx-1"></div>
+
+                                            <button
+                                                class="p-1.5 rounded transition-colors {showSizeSlider ? 'bg-[var(--color-accent)] text-white' : 'text-[var(--color-text-secondary)] hover:text-[var(--color-text)]'}"
+                                                on:click={() => (showSizeSlider = !showSizeSlider)}
+                                                title="Cover Size"
+                                            >
+                                                <SlidersHorizontal size={14} />
+                                            </button>
+
+                                            <div class="w-px h-5 bg-[var(--color-border)] mx-1"></div>
+
+                                            <button
+                                                class="p-1.5 rounded transition-colors {viewMode === 'grid' ? 'bg-[var(--color-accent)] text-white' : 'text-[var(--color-text-secondary)] hover:text-[var(--color-text)]'}"
+                                                on:click={() => preferencesStore.setViewMode("grid")}
+                                                title="Grid View"
+                                            >
+                                                <Grid size={14} />
+                                            </button>
+                                            <button
+                                                class="p-1.5 rounded transition-colors {viewMode === 'list' ? 'bg-[var(--color-accent)] text-white' : 'text-[var(--color-text-secondary)] hover:text-[var(--color-text)]'}"
+                                                on:click={() => preferencesStore.setViewMode("list")}
+                                                title="List View"
+                                            >
+                                                <List size={14} />
+                                            </button>
+                                        </div>
+                                    </div>
+
+                                    {#if showSizeSlider}
+                                        <div class="mb-4 p-3 bg-[var(--color-secondary-bg)] rounded-lg border border-[var(--color-border)] flex items-center gap-4">
+                                            <span class="text-xs font-medium">Size: {Math.round(gridCoverSize * 100)}%</span>
+                                            <input
+                                                type="range"
+                                                min="0.5"
+                                                max="2.0"
+                                                step="0.1"
+                                                value={gridCoverSize}
+                                                on:input={(e) => preferencesStore.setFolderCoverSize(parseFloat(e.target.value), libraryId, currentPath)}
+                                                class="flex-1 accent-[var(--color-accent)] cursor-pointer"
+                                            />
                                         </div>
                                     {/if}
-                                </div>
+                                {/if}
 
-                                <div
-                                    class="w-px h-6 bg-[var(--color-border)] mx-1"
-                                ></div>
+                                <!-- Issues Grid -->
+                                {#if !hasContent}
+                                    <div class="flex flex-col items-center justify-center py-16 text-[var(--color-text-muted)]">
+                                        <FolderOpen size={40} class="mb-3 opacity-20" />
+                                        <p class="text-sm">No issues found</p>
+                                    </div>
+                                {:else}
+                                    <div
+                                        class="grid gap-4 {viewMode === 'grid' ? 'series-issues-grid' : 'grid-cols-1'}"
+                                        style="{browser ? `--cover-size-multiplier: ${gridCoverSize};` : ''}"
+                                    >
+                                        {#each items as item (item.id + "_" + item.type)}
+                                            {#if item.type === "collection" || item.type === "series"}
+                                                <FolderCard
+                                                    {item}
+                                                    {libraryId}
+                                                    on:click={() => handleFolderClick(item)}
+                                                    {viewMode}
+                                                />
+                                            {:else if item.type === "comic"}
+                                                <ComicCard
+                                                    comic={item}
+                                                    {libraryId}
+                                                    variant={viewMode}
+                                                    href={`/library/${libraryId}/browse/${currentPath}/_comic/${item.id}`}
+                                                />
+                                            {/if}
+                                        {/each}
+                                    </div>
 
-                                <button
-                                    class="p-2 rounded transition-colors {showSizeSlider
-                                        ? 'bg-[var(--color-accent)] text-white'
-                                        : 'text-[var(--color-text-secondary)] hover:text-[var(--color-text)]'}"
-                                    on:click={() =>
-                                        (showSizeSlider = !showSizeSlider)}
-                                    title="Cover Size"
-                                >
-                                    <SlidersHorizontal size={16} />
-                                </button>
-
-                                <div
-                                    class="w-px h-6 bg-[var(--color-border)] mx-1"
-                                ></div>
-
-                                <button
-                                    class="p-2 rounded transition-colors {viewMode ===
-                                    'grid'
-                                        ? 'bg-[var(--color-accent)] text-white'
-                                        : 'text-[var(--color-text-secondary)] hover:text-[var(--color-text)]'}"
-                                    on:click={() =>
-                                        preferencesStore.setViewMode("grid")}
-                                    title="Grid View"
-                                >
-                                    <Grid size={16} />
-                                </button>
-                                <button
-                                    class="p-2 rounded transition-colors {viewMode ===
-                                    'list'
-                                        ? 'bg-[var(--color-accent)] text-white'
-                                        : 'text-[var(--color-text-secondary)] hover:text-[var(--color-text)]'}"
-                                    on:click={() =>
-                                        preferencesStore.setViewMode("list")}
-                                    title="List View"
-                                >
-                                    <List size={16} />
-                                </button>
-                            </div>
-                        </div>
-
-                        {#if showSizeSlider}
-                            <div
-                                class="mb-6 p-4 bg-[var(--color-secondary-bg)] rounded-xl border border-[var(--color-border)] flex items-center gap-4"
-                            >
-                                <span class="text-sm font-medium"
-                                    >Cover Size: {Math.round(
-                                        gridCoverSize * 100,
-                                    )}%</span
-                                >
-                                <input
-                                    type="range"
-                                    min="0.5"
-                                    max="2.0"
-                                    step="0.1"
-                                    value={gridCoverSize}
-                                    on:input={(e) =>
-                                        preferencesStore.setFolderCoverSize(
-                                            parseFloat(e.target.value),
-                                            libraryId,
-                                            currentPath,
-                                        )}
-                                    class="flex-1 accent-[var(--color-accent)] cursor-pointer"
-                                />
-                            </div>
-                        {/if}
-                    {/if}
-
-                    <!-- Metadata Display for Comic View -->
-                    {#if isComicView && comic}
-                        <div class="mb-8">
-                            <MetadataDisplay {comic} showScannerActions={true} />
-                        </div>
-                    {/if}
-
-                    <!-- Metadata Display for Series/Folder View -->
-                    {#if !isComicView && folder && currentPath !== "" && hasSeriesMetadata}
-                        <div class="mb-8">
-                            <MetadataDisplay comic={seriesAsComic} showScannerActions={false} />
-                        </div>
-                    {/if}
-
-                    <!-- Series Scanner Actions -->
-                    {#if !isComicView && folder && currentPath !== ""}
-                        <div class="mb-8 p-4 bg-[var(--color-secondary-bg)] rounded-xl border border-[var(--color-border)]">
-                            <div class="flex items-center justify-between flex-wrap gap-4">
-                                <div class="text-sm text-[var(--color-text-secondary)]">
-                                    {#if folder.scanner_source}
-                                        <span>Scanned via <strong class="text-[var(--color-text)]">{folder.scanner_source}</strong></span>
-                                        {#if folder.scan_confidence !== null && folder.scan_confidence !== undefined}
-                                            <span class="ml-2 px-2 py-0.5 rounded text-xs {folder.scan_confidence >= 0.7 ? 'bg-green-500/20 text-green-400' : 'bg-yellow-500/20 text-yellow-400'}">
-                                                {Math.round(folder.scan_confidence * 100)}% match
-                                            </span>
-                                        {/if}
-                                    {:else}
-                                        <span>No metadata scanned yet</span>
+                                    {#if hasMore}
+                                        <div use:infiniteScroll class="flex justify-center mt-6 py-6">
+                                            <div class="flex items-center gap-2 text-[var(--color-text-secondary)]">
+                                                <Loader2 size={20} class="animate-spin" />
+                                                <span class="text-sm">Loading more...</span>
+                                            </div>
+                                        </div>
                                     {/if}
-                                </div>
-                                
-                                <div class="flex gap-2">
-                                    {#if folder.scanner_source}
-                                        <button
-                                            on:click={() => handleScanSeries(true)}
-                                            disabled={isScanningSeries}
-                                            class="flex items-center gap-2 px-3 py-1.5 text-sm font-medium rounded-lg transition-colors bg-blue-500/20 text-blue-400 hover:bg-blue-500/30 disabled:opacity-50 disabled:cursor-not-allowed"
-                                        >
-                                            <RefreshCw class="w-4 h-4 {isScanningSeries ? 'animate-spin' : ''}" />
-                                            {isScanningSeries ? "Rescanning..." : "Rescan"}
-                                        </button>
-                                    {:else}
-                                        <button
-                                            on:click={() => handleScanSeries(false)}
-                                            disabled={isScanningSeries}
-                                            class="flex items-center gap-2 px-3 py-1.5 text-sm font-medium rounded-lg transition-colors bg-green-500/20 text-green-400 hover:bg-green-500/30 disabled:opacity-50 disabled:cursor-not-allowed"
-                                        >
-                                            <Scan class="w-4 h-4" />
-                                            {isScanningSeries ? "Scanning..." : "Scan for Metadata"}
-                                        </button>
-                                    {/if}
-                                </div>
+                                {/if}
                             </div>
-                            
-                            {#if seriesScanError}
-                                <div class="mt-3 p-3 bg-red-500/20 text-red-400 rounded-lg text-sm">
-                                    {seriesScanError}
-                                </div>
-                            {/if}
-                        </div>
-                    {/if}
-
-                    <!-- Section Title for Comic View -->
-                    {#if isComicView && hasContent}
-                        <div class="flex items-center gap-2 mb-4 px-1">
-                            <BookOpen
-                                class="w-5 h-5 text-[var(--color-accent)]"
-                            />
-                            <h2 class="text-xl font-bold text-white">
-                                Volumes
-                            </h2>
-                        </div>
-                    {/if}
-
-                    <!-- Content Grid -->
-                    {#if !hasContent}
-                        <div
-                            class="flex flex-col items-center justify-center py-20 text-[var(--color-text-muted)]"
-                        >
-                            <FolderOpen size={48} class="mb-4 opacity-20" />
-                            <p>This folder is empty</p>
                         </div>
                     {:else}
-                        <div
-                            class="grid gap-6 {viewMode === 'grid'
-                                ? 'grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6'
-                                : 'grid-cols-1 max-w-3xl mx-auto'}"
-                            style="{browser
-                                ? `--cover-size-multiplier: ${gridCoverSize};`
-                                : ''} grid-template-columns: {viewMode ===
-                            'grid'
-                                ? 'repeat(auto-fill, minmax(calc(160px * var(--cover-size-multiplier, 1)), 1fr))'
-                                : ''};"
-                        >
-                            {#each items as item (item.id + "_" + item.type)}
-                                {#if item.type === "collection" || item.type === "series"}
-                                    <FolderCard
-                                        {item}
-                                        {libraryId}
-                                        on:click={() => handleFolderClick(item)}
-                                        {viewMode}
-                                    />
-                                {:else if item.type === "comic"}
-                                    <ComicCard
-                                        comic={item}
-                                        {libraryId}
-                                        variant={viewMode}
-                                        href={!currentPath
-                                            ? `/library/${libraryId}/browse/_comic/${item.id}`
-                                            : `/library/${libraryId}/browse/${currentPath}/_comic/${item.id}`}
-                                    />
-                                {/if}
-                            {/each}
-                        </div>
+                        <!-- ORIGINAL LAYOUT (for library root, comic view, etc.) -->
+                        
+                        <!-- Detail Header (Hero) - Only for Comic View -->
+                        {#if showDetailHeader}
+                            <DetailHeader
+                                item={headerItem}
+                                {libraryId}
+                                onBack={() => history.back()}
+                                showBack={true}
+                                onStartReading={isComicView
+                                    ? () => {
+                                          const page =
+                                              comic.current_page > 0
+                                                  ? `?page=${comic.current_page}`
+                                                  : "";
+                                          window.location.href = `/comic/${libraryId}/${comic.id}/read${page}`;
+                                      }
+                                    : undefined}
+                            />
+                        {/if}
 
-                        <!-- Infinite Scroll Sentinel -->
-                        {#if hasMore}
+                        <!-- View Controls & Stats (for library root) -->
+                        {#if hasContent && !showDetailHeader}
                             <div
-                                use:infiniteScroll
-                                class="flex justify-center mt-8 py-8"
+                                class="flex items-center justify-between mb-6 p-4 bg-[var(--color-secondary-bg)] rounded-xl border border-[var(--color-border)]"
                             >
+                                <div class="flex flex-wrap gap-4">
+                                    <span
+                                        class="text-[var(--color-text-secondary)] text-sm"
+                                    >
+                                        {totalItems} Items
+                                    </span>
+                                </div>
+
                                 <div
-                                    class="flex items-center gap-2 text-[var(--color-text-secondary)]"
+                                    class="flex bg-[var(--color-bg-tertiary)] rounded-lg p-1 items-center gap-1"
                                 >
-                                    <Loader2 size={24} class="animate-spin" />
-                                    <span>Loading more...</span>
+                                    <!-- Custom Sort Dropdown -->
+                                    <div class="relative">
+                                        <button
+                                            type="button"
+                                            on:click={() =>
+                                                (showSortDropdown =
+                                                    !showSortDropdown)}
+                                            class="flex items-center gap-1 text-sm text-[var(--color-text)] py-1 px-2 hover:text-[var(--color-text-secondary)] transition-colors"
+                                        >
+                                            {sortOptions.find(
+                                                (o) => o.value === sortBy,
+                                            )?.label || "Name"}
+                                            <svg
+                                                class="w-4 h-4"
+                                                fill="none"
+                                                stroke="currentColor"
+                                                viewBox="0 0 24 24"
+                                            >
+                                                <path
+                                                    stroke-linecap="round"
+                                                    stroke-linejoin="round"
+                                                    stroke-width="2"
+                                                    d="M19 9l-7 7-7-7"
+                                                />
+                                            </svg>
+                                        </button>
+                                        {#if showSortDropdown}
+                                            <!-- svelte-ignore a11y-click-events-have-key-events -->
+                                            <!-- svelte-ignore a11y-no-static-element-interactions -->
+                                            <div
+                                                class="fixed inset-0 z-40"
+                                                on:click={() =>
+                                                    (showSortDropdown = false)}
+                                            ></div>
+                                            <div
+                                                class="absolute top-full left-0 mt-1 z-50 min-w-[140px] py-1 rounded-lg shadow-lg"
+                                                style="background-color: var(--color-secondary-bg); border: 1px solid var(--color-border);"
+                                            >
+                                                {#each sortOptions as option}
+                                                    <button
+                                                        type="button"
+                                                        class="w-full text-left px-3 py-2 text-sm transition-colors {sortBy ===
+                                                        option.value
+                                                            ? 'bg-[var(--color-accent)] text-white'
+                                                            : 'text-[var(--color-text)] hover:bg-[var(--color-bg-tertiary)]'}"
+                                                        on:click={() => {
+                                                            applySorting(
+                                                                option.value,
+                                                            );
+                                                        }}
+                                                    >
+                                                        {option.label}
+                                                    </button>
+                                                {/each}
+                                            </div>
+                                        {/if}
+                                    </div>
+
+                                    <div
+                                        class="w-px h-6 bg-[var(--color-border)] mx-1"
+                                    ></div>
+
+                                    <button
+                                        class="p-2 rounded transition-colors {showSizeSlider
+                                            ? 'bg-[var(--color-accent)] text-white'
+                                            : 'text-[var(--color-text-secondary)] hover:text-[var(--color-text)]'}"
+                                        on:click={() =>
+                                            (showSizeSlider = !showSizeSlider)}
+                                        title="Cover Size"
+                                    >
+                                        <SlidersHorizontal size={16} />
+                                    </button>
+
+                                    <div
+                                        class="w-px h-6 bg-[var(--color-border)] mx-1"
+                                    ></div>
+
+                                    <button
+                                        class="p-2 rounded transition-colors {viewMode ===
+                                        'grid'
+                                            ? 'bg-[var(--color-accent)] text-white'
+                                            : 'text-[var(--color-text-secondary)] hover:text-[var(--color-text)]'}"
+                                        on:click={() =>
+                                            preferencesStore.setViewMode("grid")}
+                                        title="Grid View"
+                                    >
+                                        <Grid size={16} />
+                                    </button>
+                                    <button
+                                        class="p-2 rounded transition-colors {viewMode ===
+                                        'list'
+                                            ? 'bg-[var(--color-accent)] text-white'
+                                            : 'text-[var(--color-text-secondary)] hover:text-[var(--color-text)]'}"
+                                        on:click={() =>
+                                            preferencesStore.setViewMode("list")}
+                                        title="List View"
+                                    >
+                                        <List size={16} />
+                                    </button>
                                 </div>
                             </div>
+
+                            {#if showSizeSlider}
+                                <div
+                                    class="mb-6 p-4 bg-[var(--color-secondary-bg)] rounded-xl border border-[var(--color-border)] flex items-center gap-4"
+                                >
+                                    <span class="text-sm font-medium"
+                                        >Cover Size: {Math.round(
+                                            gridCoverSize * 100,
+                                        )}%</span
+                                    >
+                                    <input
+                                        type="range"
+                                        min="0.5"
+                                        max="2.0"
+                                        step="0.1"
+                                        value={gridCoverSize}
+                                        on:input={(e) =>
+                                            preferencesStore.setFolderCoverSize(
+                                                parseFloat(e.target.value),
+                                                libraryId,
+                                                currentPath,
+                                            )}
+                                        class="flex-1 accent-[var(--color-accent)] cursor-pointer"
+                                    />
+                                </div>
+                            {/if}
+                        {/if}
+
+                        <!-- Metadata Display for Comic View -->
+                        {#if isComicView && comic}
+                            <div class="mb-8">
+                                <MetadataDisplay {comic} showScannerActions={true} />
+                            </div>
+                        {/if}
+
+                        <!-- Section Title for Comic View -->
+                        {#if isComicView && hasContent}
+                            <div class="flex items-center gap-2 mb-4 px-1">
+                                <BookOpen
+                                    class="w-5 h-5 text-[var(--color-accent)]"
+                                />
+                                <h2 class="text-xl font-bold text-white">
+                                    Volumes
+                                </h2>
+                            </div>
+                        {/if}
+
+                        <!-- Content Grid -->
+                        {#if !hasContent}
+                            <div
+                                class="flex flex-col items-center justify-center py-20 text-[var(--color-text-muted)]"
+                            >
+                                <FolderOpen size={48} class="mb-4 opacity-20" />
+                                <p>This folder is empty</p>
+                            </div>
+                        {:else}
+                            <div
+                                class="grid gap-6 {viewMode === 'grid'
+                                    ? 'grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6'
+                                    : 'grid-cols-1 max-w-3xl mx-auto'}"
+                                style="{browser
+                                    ? `--cover-size-multiplier: ${gridCoverSize};`
+                                    : ''} grid-template-columns: {viewMode ===
+                                'grid'
+                                    ? 'repeat(auto-fill, minmax(calc(160px * var(--cover-size-multiplier, 1)), 1fr))'
+                                    : ''};"
+                            >
+                                {#each items as item (item.id + "_" + item.type)}
+                                    {#if item.type === "collection" || item.type === "series"}
+                                        <FolderCard
+                                            {item}
+                                            {libraryId}
+                                            on:click={() => handleFolderClick(item)}
+                                            {viewMode}
+                                        />
+                                    {:else if item.type === "comic"}
+                                        <ComicCard
+                                            comic={item}
+                                            {libraryId}
+                                            variant={viewMode}
+                                            href={!currentPath
+                                                ? `/library/${libraryId}/browse/_comic/${item.id}`
+                                                : `/library/${libraryId}/browse/${currentPath}/_comic/${item.id}`}
+                                        />
+                                    {/if}
+                                {/each}
+                            </div>
+
+                            <!-- Infinite Scroll Sentinel -->
+                            {#if hasMore}
+                                <div
+                                    use:infiniteScroll
+                                    class="flex justify-center mt-8 py-8"
+                                >
+                                    <div
+                                        class="flex items-center gap-2 text-[var(--color-text-secondary)]"
+                                    >
+                                        <Loader2 size={24} class="animate-spin" />
+                                        <span>Loading more...</span>
+                                    </div>
+                                </div>
+                            {/if}
                         {/if}
                     {/if}
                 {:else}
@@ -949,3 +992,60 @@
         </div>
     </div>
 {/if}
+
+<style>
+    /* Two-column series layout */
+    .series-two-column {
+        display: flex;
+        gap: 1.5rem;
+        min-height: calc(100vh - 200px);
+    }
+
+    .series-info-sidebar {
+        flex-shrink: 0;
+        width: 320px;
+        position: sticky;
+        top: 0;
+        max-height: calc(100vh - 140px);
+        overflow-y: auto;
+        background: rgba(0, 0, 0, 0.2);
+        border-radius: 0.75rem;
+        border: 1px solid var(--color-border, rgba(255, 255, 255, 0.1));
+    }
+
+    .series-content {
+        flex: 1;
+        min-width: 0;
+    }
+
+    .series-issues-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(calc(140px * var(--cover-size-multiplier, 1)), 1fr));
+        gap: 1rem;
+    }
+
+    /* Responsive: stack on smaller screens */
+    @media (max-width: 1024px) {
+        .series-two-column {
+            flex-direction: column;
+        }
+
+        .series-info-sidebar {
+            width: 100%;
+            position: relative;
+            max-height: none;
+            overflow-y: visible;
+        }
+
+        .series-issues-grid {
+            grid-template-columns: repeat(auto-fill, minmax(calc(120px * var(--cover-size-multiplier, 1)), 1fr));
+        }
+    }
+
+    @media (max-width: 640px) {
+        .series-issues-grid {
+            grid-template-columns: repeat(auto-fill, minmax(calc(100px * var(--cover-size-multiplier, 1)), 1fr));
+            gap: 0.75rem;
+        }
+    }
+</style>
