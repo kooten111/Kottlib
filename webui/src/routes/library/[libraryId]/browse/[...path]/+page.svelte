@@ -24,7 +24,8 @@
     } from "lucide-svelte";
     import { browseLibrary, getContinueReading } from "$lib/api/libraries";
     import { preferencesStore } from "$lib/stores/preferences";
-    import { scanSeries } from "$lib/api/scanners";
+    import { scanSeries, applySeriesMetadata } from "$lib/api/scanners";
+    import { X, ExternalLink, Check } from "lucide-svelte";
 
     export let data;
 
@@ -59,6 +60,10 @@
     // Series scanner state
     let isScanningSeries = false;
     let seriesScanError = null;
+    let scanCandidates = [];
+    let showCandidateModal = false;
+    let isApplyingCandidate = false;
+    let selectedCandidateIndex = -1;
 
     async function handleScanSeries(overwrite = false) {
         if (!folder || !folder.name) return;
@@ -66,20 +71,54 @@
         try {
             isScanningSeries = true;
             seriesScanError = null;
+            scanCandidates = [];
             
             const result = await scanSeries(libraryId, folder.name, overwrite);
             
             if (result.success) {
                 // Reload the page to show updated metadata
                 window.location.reload();
+            } else if (result.candidates && result.candidates.length > 0) {
+                // Show candidates for manual selection
+                scanCandidates = result.candidates;
+                showCandidateModal = true;
             } else {
-                seriesScanError = result.error || "Scan failed";
+                seriesScanError = result.error || "No matches found";
             }
         } catch (err) {
             seriesScanError = err.message;
         } finally {
             isScanningSeries = false;
         }
+    }
+
+    async function handleSelectCandidate(candidate, index) {
+        if (!folder || !folder.name) return;
+        
+        try {
+            isApplyingCandidate = true;
+            selectedCandidateIndex = index;
+            
+            const result = await applySeriesMetadata(libraryId, folder.name, candidate, false);
+            
+            if (result.success) {
+                showCandidateModal = false;
+                scanCandidates = [];
+                window.location.reload();
+            } else {
+                seriesScanError = result.error || "Failed to apply metadata";
+            }
+        } catch (err) {
+            seriesScanError = err.message;
+        } finally {
+            isApplyingCandidate = false;
+            selectedCandidateIndex = -1;
+        }
+    }
+
+    function closeCandidateModal() {
+        showCandidateModal = false;
+        scanCandidates = [];
     }
 
     // When browseData changes (navigation), reset items and fetch continue reading
@@ -753,3 +792,160 @@
         </main>
     </div>
 </div>
+
+<!-- Candidate Selection Modal -->
+{#if showCandidateModal && scanCandidates.length > 0}
+    <div 
+        class="fixed inset-0 bg-black/70 backdrop-blur-sm z-50 flex items-center justify-center p-4"
+        on:click|self={closeCandidateModal}
+        on:keydown={(e) => e.key === 'Escape' && closeCandidateModal()}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="candidate-modal-title"
+    >
+        <div class="bg-[#1a1a2e] rounded-2xl shadow-2xl max-w-3xl w-full max-h-[85vh] overflow-hidden border border-white/10">
+            <!-- Modal Header -->
+            <div class="flex items-center justify-between p-5 border-b border-white/10 bg-gradient-to-r from-amber-500/10 to-orange-500/10">
+                <div>
+                    <h2 id="candidate-modal-title" class="text-xl font-bold text-white">Select Match</h2>
+                    <p class="text-sm text-amber-400/80 mt-1">
+                        No automatic match found. Choose from {scanCandidates.length} candidate{scanCandidates.length > 1 ? 's' : ''} below:
+                    </p>
+                </div>
+                <button 
+                    on:click={closeCandidateModal}
+                    class="p-2 hover:bg-white/10 rounded-lg transition-colors text-gray-400 hover:text-white"
+                    aria-label="Close modal"
+                >
+                    <X class="w-5 h-5" />
+                </button>
+            </div>
+
+            <!-- Candidates List -->
+            <div class="overflow-y-auto max-h-[calc(85vh-120px)] p-4 space-y-3">
+                {#each scanCandidates as candidate, index}
+                    <button
+                        on:click={() => handleSelectCandidate(candidate, index)}
+                        disabled={isApplyingCandidate}
+                        class="w-full text-left p-4 rounded-xl border transition-all duration-200 
+                               {selectedCandidateIndex === index 
+                                   ? 'border-green-500 bg-green-500/20' 
+                                   : 'border-white/10 bg-white/5 hover:border-amber-500/50 hover:bg-amber-500/10'}
+                               disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                        <div class="flex items-start gap-4">
+                            <!-- Confidence Badge -->
+                            <div class="flex-shrink-0">
+                                <div class="w-14 h-14 rounded-xl flex flex-col items-center justify-center
+                                           {candidate.confidence >= 0.7 
+                                               ? 'bg-green-500/20 text-green-400' 
+                                               : candidate.confidence >= 0.5 
+                                                   ? 'bg-amber-500/20 text-amber-400' 
+                                                   : 'bg-red-500/20 text-red-400'}">
+                                    <span class="text-lg font-bold">{Math.round(candidate.confidence * 100)}</span>
+                                    <span class="text-xs opacity-70">%</span>
+                                </div>
+                            </div>
+
+                            <!-- Candidate Info -->
+                            <div class="flex-1 min-w-0">
+                                <h3 class="text-white font-semibold text-lg truncate">
+                                    {candidate.title || candidate.metadata?.title || 'Unknown Title'}
+                                </h3>
+                                
+                                {#if candidate.metadata}
+                                    <div class="mt-2 flex flex-wrap gap-2 text-sm">
+                                        {#if candidate.metadata.year}
+                                            <span class="px-2 py-0.5 rounded bg-white/10 text-gray-300">
+                                                {candidate.metadata.year}
+                                            </span>
+                                        {/if}
+                                        {#if candidate.metadata.status}
+                                            <span class="px-2 py-0.5 rounded 
+                                                   {candidate.metadata.status === 'FINISHED' 
+                                                       ? 'bg-green-500/20 text-green-400' 
+                                                       : candidate.metadata.status === 'RELEASING' 
+                                                           ? 'bg-blue-500/20 text-blue-400' 
+                                                           : 'bg-gray-500/20 text-gray-400'}">
+                                                {candidate.metadata.status}
+                                            </span>
+                                        {/if}
+                                        {#if candidate.metadata.format}
+                                            <span class="px-2 py-0.5 rounded bg-purple-500/20 text-purple-400">
+                                                {candidate.metadata.format}
+                                            </span>
+                                        {/if}
+                                        {#if candidate.metadata.count}
+                                            <span class="px-2 py-0.5 rounded bg-white/10 text-gray-300">
+                                                {candidate.metadata.count} chapters
+                                            </span>
+                                        {/if}
+                                    </div>
+                                    
+                                    {#if candidate.metadata.writer || candidate.metadata.artist}
+                                        <p class="mt-2 text-sm text-gray-400 truncate">
+                                            {#if candidate.metadata.writer}
+                                                <span>By {candidate.metadata.writer}</span>
+                                            {/if}
+                                            {#if candidate.metadata.writer && candidate.metadata.artist && candidate.metadata.writer !== candidate.metadata.artist}
+                                                <span> • Art by {candidate.metadata.artist}</span>
+                                            {:else if candidate.metadata.artist && !candidate.metadata.writer}
+                                                <span>Art by {candidate.metadata.artist}</span>
+                                            {/if}
+                                        </p>
+                                    {/if}
+
+                                    {#if candidate.metadata.description}
+                                        <p class="mt-2 text-sm text-gray-500 line-clamp-2">
+                                            {candidate.metadata.description.replace(/<[^>]*>/g, '').substring(0, 150)}...
+                                        </p>
+                                    {/if}
+                                {/if}
+                            </div>
+
+                            <!-- Action -->
+                            <div class="flex-shrink-0 flex items-center">
+                                {#if selectedCandidateIndex === index && isApplyingCandidate}
+                                    <Loader2 class="w-5 h-5 animate-spin text-green-400" />
+                                {:else}
+                                    <div class="p-2 rounded-lg bg-white/5 group-hover:bg-amber-500/20 transition-colors">
+                                        <Check class="w-5 h-5 text-gray-400" />
+                                    </div>
+                                {/if}
+                            </div>
+                        </div>
+
+                        <!-- Source Link -->
+                        {#if candidate.source_url}
+                            <a 
+                                href={candidate.source_url}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                on:click|stopPropagation
+                                class="mt-3 inline-flex items-center gap-1 text-xs text-blue-400 hover:text-blue-300 transition-colors"
+                            >
+                                <ExternalLink class="w-3 h-3" />
+                                View on AniList
+                            </a>
+                        {/if}
+                    </button>
+                {/each}
+            </div>
+
+            <!-- Modal Footer -->
+            <div class="p-4 border-t border-white/10 bg-black/20">
+                <div class="flex justify-between items-center">
+                    <p class="text-xs text-gray-500">
+                        Click on a result to apply its metadata
+                    </p>
+                    <button 
+                        on:click={closeCandidateModal}
+                        class="px-4 py-2 rounded-lg bg-white/10 text-gray-300 hover:bg-white/20 transition-colors text-sm font-medium"
+                    >
+                        Cancel
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+{/if}

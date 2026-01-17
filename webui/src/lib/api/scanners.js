@@ -2,6 +2,7 @@ import { api } from './client';
 
 /**
  * Scan a series for metadata
+ * Returns { success, error?, candidates?, auto_match_threshold?, ... } 
  */
 export async function scanSeries(libraryId, seriesName, overwrite = false, confidenceThreshold = null) {
 	const params = new URLSearchParams({
@@ -25,6 +26,35 @@ export async function scanSeries(libraryId, seriesName, overwrite = false, confi
 	if (!response.ok) {
 		const errorText = await response.text();
 		throw new Error(`Failed to scan series: ${response.statusText} - ${errorText}`);
+	}
+
+	return response.json();
+}
+
+/**
+ * Apply metadata from a manually selected candidate to a series
+ */
+export async function applySeriesMetadata(libraryId, seriesName, candidate, overwrite = false) {
+	const response = await fetch('/v2/scanners/apply/series', {
+		method: 'POST',
+		credentials: 'include',
+		headers: {
+			'Content-Type': 'application/json'
+		},
+		body: JSON.stringify({
+			library_id: libraryId,
+			series_name: seriesName,
+			source_id: candidate.source_id,
+			source_url: candidate.source_url || null,
+			confidence: candidate.confidence,
+			metadata: candidate.metadata,
+			overwrite: overwrite
+		})
+	});
+
+	if (!response.ok) {
+		const errorText = await response.text();
+		throw new Error(`Failed to apply metadata: ${response.statusText} - ${errorText}`);
 	}
 
 	return response.json();

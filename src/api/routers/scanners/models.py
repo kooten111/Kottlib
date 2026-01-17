@@ -190,3 +190,14 @@ class ScanLibraryResponse(BaseModel):
     failed: int
     skipped: int
     results: List[ScanComicResponse]
+
+
+class ApplySeriesMetadataRequest(BaseModel):
+    """Request model for applying manually selected metadata to a series."""
+    library_id: int
+    series_name: str
+    source_id: str
+    source_url: Optional[str] = None
+    confidence: float = Field(0.0, ge=0.0, le=1.0)
+    metadata: Dict[str, Any] = Field(default_factory=dict)
+    overwrite: bool = Field(False, description="Overwrite existing metadata")

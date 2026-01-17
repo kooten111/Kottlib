@@ -20,6 +20,7 @@ from .models import (
     ScanComicResponse,
     ScanLibraryRequest,
     ClearMetadataRequest,
+    ApplySeriesMetadataRequest,
 )
 from .endpoints import (
     get_available_scanners,
@@ -29,6 +30,7 @@ from .endpoints import (
     scan_single,
     scan_bulk,
     scan_and_save_series,
+    apply_series_metadata,
     test_scanner,
     scan_comic,
     scan_library,
@@ -168,6 +170,29 @@ async def scan_series_endpoint(
     the metadata to the database.
     """
     return await scan_and_save_series(library_id, series_name, confidence_threshold, overwrite, request)
+
+
+@router.post("/apply/series")
+async def apply_series_metadata_endpoint(
+    apply_request: ApplySeriesMetadataRequest,
+    request: Request = None
+):
+    """
+    Apply metadata from a manually selected candidate to a series.
+    
+    This endpoint is used when the user manually selects a candidate
+    from the low-confidence results returned by the scan endpoint.
+    """
+    return await apply_series_metadata(
+        apply_request.library_id, 
+        apply_request.series_name, 
+        apply_request.source_id, 
+        apply_request.metadata, 
+        apply_request.source_url, 
+        apply_request.confidence, 
+        apply_request.overwrite, 
+        request
+    )
 
 
 @router.get("/test/{scanner_name}")

@@ -281,28 +281,60 @@ async def scan_and_save_series(
         # Get scanner instance directly with config
         scanner = manager.get_scanner(primary_scanner, config=scanner_specific_config)
         
-        kwargs = {}
+        # Determine auto-match threshold (high confidence required for automatic application)
         if confidence_threshold is not None:
-            kwargs['confidence_threshold'] = confidence_threshold
+            auto_match_threshold = confidence_threshold
         elif scanner_config:
-            kwargs['confidence_threshold'] = scanner_config.get('confidence_threshold', 0.6)
+            auto_match_threshold = scanner_config.get('confidence_threshold', 0.7)
+        else:
+            auto_match_threshold = 0.7
+        
+        # Use a very low threshold to get ALL candidates from the scanner
+        scan_kwargs = {'confidence_threshold': 0.1}
         
         # Debug logging
-        logger.info(f"[SERIES SCAN] series_name='{series_name}', scanner='{primary_scanner}', kwargs={kwargs}")
+        logger.info(f"[SERIES SCAN] series_name='{series_name}', scanner='{primary_scanner}', auto_threshold={auto_match_threshold}")
         
         try:
-            result, candidates = scanner.scan(series_name, **kwargs)
+            result, all_candidates = scanner.scan(series_name, **scan_kwargs)
             
-            logger.info(f"[SERIES SCAN] result={result is not None}, candidates={len(candidates) if candidates else 0}")
+            logger.info(f"[SERIES SCAN] result={result is not None}, candidates={len(all_candidates) if all_candidates else 0}")
             if result:
                 logger.info(f"[SERIES SCAN] confidence={result.confidence}, title={result.metadata.get('title')}")
             
+            # No results at all from AniList
             if not result:
                 return {
                     "success": False,
-                    "error": "No match found with sufficient confidence",
-                    "series_id": series.id
+                    "error": "No matches found on AniList",
+                    "series_id": series.id,
+                    "candidates": []
                 }
+            
+            # Check if best result meets auto-match threshold
+            if result.confidence < auto_match_threshold:
+                # Return candidates for manual selection
+                candidate_list = []
+                for candidate in all_candidates[:10]:  # Limit to top 10
+                    candidate_list.append({
+                        "confidence": candidate.confidence,
+                        "source_id": candidate.source_id,
+                        "source_url": candidate.source_url,
+                        "title": candidate.metadata.get('title', ''),
+                        "metadata": candidate.metadata
+                    })
+                
+                logger.info(f"[SERIES SCAN] Below threshold ({result.confidence:.2f} < {auto_match_threshold}), returning {len(candidate_list)} candidates for manual selection")
+                
+                return {
+                    "success": False,
+                    "error": f"Best match ({result.confidence*100:.0f}%) below auto-match threshold ({auto_match_threshold*100:.0f}%)",
+                    "series_id": series.id,
+                    "candidates": candidate_list,
+                    "auto_match_threshold": auto_match_threshold
+                }
+            
+            # Result passed threshold - auto-apply
             
             # Apply metadata to series
             fields_updated = []
@@ -373,6 +405,14 @@ async def scan_and_save_series(
             session.commit()
             session.refresh(series)
             
+            # Invalidate browse cache so UI gets fresh data with new metadata
+            try:
+                from src.services.library_cache import get_library_cache
+                get_library_cache(library_id).invalidate_all()
+                logger.info(f"Invalidated browse cache for library {library_id} after series scan")
+            except Exception as cache_err:
+                logger.warning(f"Failed to invalidate browse cache: {cache_err}")
+            
             return {
                 "success": True,
                 "series_id": series.id,
@@ -389,6 +429,137 @@ async def scan_and_save_series(
                 "error": str(e),
                 "series_id": series.id if series else None
             }
+
+
+async def apply_series_metadata(
+    library_id: int,
+    series_name: str,
+    source_id: str,
+    metadata: Dict[str, Any],
+    source_url: Optional[str] = None,
+    confidence: float = 0.0,
+    overwrite: bool = False,
+    request: Request = None
+) -> Dict[str, Any]:
+    """
+    Apply metadata from a manually selected candidate to a series.
+    
+    This endpoint is used when the user manually selects a candidate
+    from the low-confidence results returned by scan_and_save_series.
+    """
+    db = request.app.state.db
+    
+    with db.get_session() as session:
+        # Get library and scanner config
+        library = session.query(Library).filter(Library.id == library_id).first()
+        if not library:
+            raise HTTPException(status_code=404, detail=f"Library {library_id} not found")
+        
+        settings = library.settings or {}
+        scanner_config = settings.get('scanner', {})
+        primary_scanner = scanner_config.get('primary_scanner', 'manual')
+        
+        # Get or create series
+        series = session.query(Series).filter(
+            Series.library_id == library_id,
+            Series.name == series_name
+        ).first()
+        
+        if not series:
+            series = Series(
+                library_id=library_id,
+                name=series_name,
+                display_name=series_name,
+                created_at=int(time.time()),
+                updated_at=int(time.time())
+            )
+            session.add(series)
+            session.flush()
+        
+        # Apply metadata to series
+        fields_updated = []
+        
+        def should_update(field_value):
+            return overwrite or not field_value
+        
+        if metadata.get('title') and should_update(series.display_name):
+            series.display_name = metadata['title']
+            fields_updated.append('display_name')
+        
+        if metadata.get('description') and should_update(series.description):
+            series.description = metadata['description']
+            fields_updated.append('description')
+        
+        if metadata.get('writer') and should_update(series.writer):
+            series.writer = metadata['writer']
+            fields_updated.append('writer')
+        
+        if metadata.get('artist') and should_update(series.artist):
+            series.artist = metadata['artist']
+            fields_updated.append('artist')
+        
+        if metadata.get('genre') and should_update(series.genre):
+            series.genre = metadata['genre']
+            fields_updated.append('genre')
+        
+        if metadata.get('year') and should_update(series.year_start):
+            series.year_start = metadata['year']
+            fields_updated.append('year_start')
+        
+        if metadata.get('publisher') and should_update(series.publisher):
+            series.publisher = metadata['publisher']
+            fields_updated.append('publisher')
+        
+        if metadata.get('status') and should_update(series.status):
+            series.status = metadata['status']
+            fields_updated.append('status')
+        
+        if metadata.get('format') and should_update(series.format):
+            series.format = metadata['format']
+            fields_updated.append('format')
+        
+        if metadata.get('volume') and should_update(series.volumes):
+            series.volumes = metadata['volume']
+            fields_updated.append('volumes')
+        
+        if metadata.get('count') and should_update(series.chapters):
+            series.chapters = metadata['count']
+            fields_updated.append('chapters')
+        
+        # Handle tags
+        if metadata.get('tags') and should_update(series.tags):
+            tags = metadata['tags']
+            series.tags = ', '.join(tags) if isinstance(tags, list) else str(tags)
+            fields_updated.append('tags')
+        
+        # Store scanner metadata
+        series.scanner_source = primary_scanner
+        series.scanner_source_id = source_id
+        series.scanner_source_url = source_url
+        series.scanned_at = int(time.time())
+        series.scan_confidence = confidence
+        series.updated_at = int(time.time())
+        fields_updated.append('scanner_metadata')
+        
+        session.commit()
+        session.refresh(series)
+        
+        # Invalidate browse cache
+        try:
+            from src.services.library_cache import get_library_cache
+            get_library_cache(library_id).invalidate_all()
+            logger.info(f"Invalidated browse cache for library {library_id} after manual metadata apply")
+        except Exception as cache_err:
+            logger.warning(f"Failed to invalidate browse cache: {cache_err}")
+        
+        return {
+            "success": True,
+            "series_id": series.id,
+            "confidence": confidence,
+            "fields_updated": fields_updated,
+            "metadata": metadata,
+            "source_url": source_url
+        }
 
 
 async def test_scanner(scanner_name: str, query: str) -> Dict[str, Any]:
