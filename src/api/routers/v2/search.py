@@ -24,6 +24,7 @@ from ....database.enhanced_search import (
     get_searchable_fields,
     parse_search_query,
 )
+from ....database.models import Folder as FolderModel
 from ...middleware import get_current_user_id, get_request_user
 
 logger = logging.getLogger(__name__)
@@ -94,6 +95,17 @@ async def search_comics_v2(
 
         logger.info(f"v2 API: Found {len(series_results)} series and {len(comics_results)} comics matching '{query}'")
 
+        # Get cover hashes for series by looking up their folders
+        series_names = [s.name for s in series_results]
+        folder_covers = {}
+        if series_names:
+            folders = session.query(FolderModel.name, FolderModel.first_child_hash).filter(
+                FolderModel.library_id == library_id,
+                FolderModel.name.in_(series_names),
+                FolderModel.first_child_hash.isnot(None)
+            ).all()
+            folder_covers = {f.name: f.first_child_hash for f in folders}
+
         # Get user for reading progress
         user = get_request_user(request, session)
 
@@ -112,7 +124,8 @@ async def search_comics_v2(
                 "comic_count": series.comic_count,
                 # Helper for frontend icon/display
                 "file_name": series.name, 
-                "path": f"/series/{library_id}/{series.name}", 
+                "path": f"/series/{library_id}/{series.name}",
+                "coverHash": folder_covers.get(series.name),
             })
             
         for comic in comics_results:

@@ -8,7 +8,6 @@
 	export let isFolder = false; // New prop to indicate if this is a folder/series
 	export let itemCount = 0; // Number of items in folder
 	export let href = null; // Optional custom href for the card
-	export let isStandalone = false; // Flag for standalone comics (single volume series)
 
 	$: hash =
 		comic.hash ||

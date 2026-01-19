@@ -449,7 +449,7 @@ async def browse_folder(
                      if not cover_hash:
                          cover_comic = session.query(Comic.hash).filter(
                             Comic.library_id == library_id,
-                            Comic.path.startswith(folder.path)
+                            Comic.path.startswith(folder.path + "/")
                          ).order_by(Comic.path).first()
                          if cover_comic: cover_hash = cover_comic[0]
 
@@ -783,7 +783,7 @@ async def get_series_list(
                 if not cover_hash:
                      cover_comic = session.query(Comic.hash).filter(
                         Comic.library_id == library_id,
-                        Comic.path.startswith(folder.path)
+                        Comic.path.startswith(folder.path + "/")
                      ).order_by(Comic.path).first()
                      if cover_comic: cover_hash = cover_comic[0]
 
@@ -977,7 +977,7 @@ async def browse_all_content(
                      if not cover_hash:
                           cover_comic = session.query(Comic.hash).filter(
                              Comic.library_id == folder.library_id,
-                             Comic.path.startswith(folder.path)
+                             Comic.path.startswith(folder.path + "/")
                           ).order_by(Comic.path).first()
                           if cover_comic: cover_hash = cover_comic[0]
 
@@ -1091,7 +1091,7 @@ async def browse_all_content(
                      if not cover_hash:
                           cover_comic = session.query(Comic.hash).filter(
                              Comic.library_id == folder.library_id,
-                             Comic.path.startswith(folder.path)
+                             Comic.path.startswith(folder.path + "/")
                           ).order_by(Comic.path).first()
                           if cover_comic: cover_hash = cover_comic[0]
 

@@ -145,7 +145,7 @@
 				var libPrefs = localStorage.getItem('libraryPreferences');
 				if (libPrefs) {
 					var lp = JSON.parse(libPrefs);
-					var coverSize = lp.gridCoverSize || 1.0;
+					var coverSize = lp.gridCoverSize || 1.4;
 
 					// Check for folder-specific cover size based on URL
 					// URL format: /library/{libraryId}/browse/{path}
@@ -160,8 +160,13 @@
 					}
 
 					document.documentElement.style.setProperty('--cover-size-multiplier', coverSize);
+				} else {
+					// No preferences stored yet - use default of 1.4
+					document.documentElement.style.setProperty('--cover-size-multiplier', 1.4);
 				}
-			} catch (e) { }
+			} catch (e) {
+				document.documentElement.style.setProperty('--cover-size-multiplier', 1.4);
+			}
 
 			// Read and apply sidebar width from localStorage
 			try {

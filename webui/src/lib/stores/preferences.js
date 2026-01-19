@@ -3,7 +3,7 @@ import { browser } from '$app/environment';
 
 // Default preferences
 const defaultPreferences = {
-	gridCoverSize: 1.0, // Multiplier for grid view cover size (0.5 to 2.0)
+	gridCoverSize: 1.4, // Multiplier for grid view cover size (0.5 to 2.0)
 	folderCoverSizes: {}, // Per-folder cover size preferences: { "libraryId:path": size }
 	viewMode: 'grid', // 'grid' or 'list'
 	sortBy: 'name', // Global sort option: 'name', 'recent-read', 'progress', 'recent', 'shuffle'
@@ -70,7 +70,7 @@ function createPreferencesStore() {
 			let val = 1.0;
 			const unsubscribe = subscribe(p => {
 				const key = `${libraryId}:${path || ''}`;
-				val = p.folderCoverSizes?.[key] ?? p.gridCoverSize ?? 1.0;
+				val = p.folderCoverSizes?.[key] ?? p.gridCoverSize ?? 1.4;
 			});
 			unsubscribe();
 			return val;

@@ -238,6 +238,9 @@
     // Sync back if store changes (e.g. from other tab or component)
     $: viewMode = $preferencesStore.viewMode;
 
+    // Determine if we should show the two-column series layout (defined early for gridCoverSize default)
+    $: isSeriesView = !!folder && currentPath !== "" && !isComicView;
+
     // Reactive cover size that checks folder-specific preference first, then falls back to global
     // Uses data prop directly to ensure we always have the latest values
     $: gridCoverSize = (() => {
@@ -250,7 +253,9 @@
         if (storeSpecific !== undefined) return storeSpecific;
 
         // Fall back to global cover size from store
-        return $preferencesStore.gridCoverSize || 1.0;
+        // Default to 2.0 (200%) for series view, 1.0 for other views
+        const defaultSize = isSeriesView ? 2.0 : 1.0;
+        return $preferencesStore.gridCoverSize || defaultSize;
     })();
 
     // Update the CSS variable on documentElement when cover size changes (for client-side navigation)
@@ -351,8 +356,6 @@
     $: showDetailHeader = isComicView;
     $: headerItem = isComicView ? comic : null;
     
-    // Determine if we should show the two-column series layout
-    $: isSeriesView = !!folder && currentPath !== "" && !isComicView;
     $: seriesItem = folder ? {
         ...folder,
         cover_hash: folder?.cover_hash || items?.[0]?.cover_hash || items?.[0]?.hash,
@@ -385,7 +388,7 @@
         <main
             class="flex-1 overflow-y-auto px-4 pb-8 scrollbar-thin scrollbar-thumb-[var(--color-border)] scrollbar-track-transparent"
         >
-            <div class="max-w-7xl mx-auto w-full pt-4">
+            <div class="w-full pt-4" class:max-w-7xl={!isSeriesView} class:mx-auto={!isSeriesView}>
                 {#if error}
                     <div
                         class="flex flex-col items-center justify-center py-20"
@@ -843,6 +846,7 @@
         role="dialog"
         aria-modal="true"
         aria-labelledby="candidate-modal-title"
+        tabindex="-1"
     >
         <div class="bg-dark-bg-secondary rounded-2xl shadow-2xl max-w-3xl w-full max-h-[85vh] overflow-hidden border" style="border-color: var(--color-border);">
             <!-- Modal Header -->

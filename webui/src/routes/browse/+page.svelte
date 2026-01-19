@@ -146,7 +146,7 @@
     $: viewMode = $preferencesStore.viewMode;
 
     // Use global cover size for "All Libraries" browse
-    $: gridCoverSize = $preferencesStore.gridCoverSize || 1.0;
+    $: gridCoverSize = $preferencesStore.gridCoverSize || 1.4;
 
     // Update the CSS variable when cover size changes
     $: if (browser && gridCoverSize) {

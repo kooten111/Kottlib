@@ -150,8 +150,8 @@
 		on:mousemove={handleMouseMove}
 		on:mouseup={handleMouseUp}
 		on:mouseleave={handleMouseLeave}
-		on:touchstart={handleTouchStart}
-		on:touchmove={handleTouchMove}
+		on:touchstart|passive={handleTouchStart}
+		on:touchmove|passive={handleTouchMove}
 		style="--item-width: {itemWidth}px; --gap: {gap}px;"
 		role="region"
 		aria-label="Scrollable carousel"

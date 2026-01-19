@@ -250,7 +250,7 @@ def get_cover_hash_fallback(
     """
     cover_comic = session.query(Comic.hash).filter(
         Comic.library_id == library_id,
-        Comic.path.startswith(folder.path)
+        Comic.path.startswith(folder.path + "/")
     ).order_by(Comic.path).first()
     
     if cover_comic:

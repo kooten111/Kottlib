@@ -259,7 +259,7 @@
 	}}
 	on:mousemove={handleMouseMove}
 	on:mouseleave={handleMouseLeave}
-	on:touchstart={handleTouchStart}
+	on:touchstart|passive={handleTouchStart}
 	on:touchmove={handleTouchMove}
 	on:touchend={handleTouchEnd}
 	role="button"

@@ -215,10 +215,6 @@
 	}
 
 	function getResultCover(result) {
-		// Series normally don't have a direct cover hash in this API yet,
-		// relying on icon for now unless we add cover support later.
-		if (result.type === "series") return null;
-
 		const hash = result.hash || result.coverHash || result.first_comic_hash;
 		return hash ? getCoverUrl(result.libraryId, hash) : null;
 	}
