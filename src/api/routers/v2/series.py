@@ -226,22 +226,59 @@ async def browse_folder(
     # --------------------------------------------------------------------------
     # CACHE CHECK
     # --------------------------------------------------------------------------
+    # Note: We check scanner config first to determine per_volume_metadata,
+    # so we need to fetch library before checking cache to ensure cache key
+    # includes per_volume_metadata state. For now, skip cache check here
+    # and handle caching after we know the scanner config.
     cache_service = get_library_cache(library_id)
     cache_key = f"browse/{path}?sort={sort}&o={offset}&l={limit}" if path else f"browse/root?sort={sort}&o={offset}&l={limit}"
     
-    # Don't cache random sort or progress sort (user specific)
-    if sort != 'random' and sort != 'progress':
-        cached_data = cache_service.get_cached_response(cache_key)
-        if cached_data:
-            return JSONResponse(cached_data)
+    # Skip cache for now - we'll check it after determining per_volume_metadata
+    # This ensures cache includes the correct per_volume_metadata flag
 
     db = request.app.state.db
 
     with db.get_session() as session:
-        # Get library
-        library = get_library_by_id(session, library_id)
+        # Get library - query directly to ensure fresh data
+        from ....database.models import Library
+        library = session.query(Library).filter(Library.id == library_id).first()
         if not library:
             raise HTTPException(status_code=404, detail="Library not found")
+
+        # Check if library uses a FILE-level scanner (per-volume metadata mode)
+        # Use the exact same logic as the scanner config endpoint
+        per_volume_metadata = False
+        
+        # Get settings - handle both dict and JSON string
+        settings = library.settings
+        if settings is None:
+            settings = {}
+        elif isinstance(settings, str):
+            # If settings is a string, try to parse it as JSON
+            try:
+                import json
+                settings = json.loads(settings)
+            except:
+                settings = {}
+        
+        scanner_config = settings.get('scanner', {}) if isinstance(settings, dict) else {}
+        primary_scanner = scanner_config.get('primary_scanner') if isinstance(scanner_config, dict) else None
+        
+        # Debug logging
+        logger.info(f"Browse: Library {library_id} - settings type={type(settings)}, settings={settings}, scanner_config={scanner_config}, primary_scanner={primary_scanner}")
+        
+        if primary_scanner:
+            from ..scanners.manager import get_scanner_manager
+            try:
+                manager = get_scanner_manager()
+                scanner_class = manager._available_scanners.get(primary_scanner)
+                logger.info(f"Per-volume check: scanner={primary_scanner}, class_found={scanner_class is not None}")
+                if scanner_class:
+                    temp_scanner = scanner_class()
+                    per_volume_metadata = temp_scanner.scan_level.value == 'file'
+                    logger.info(f"Per-volume check: scan_level={temp_scanner.scan_level.value}, enabled={per_volume_metadata}")
+            except Exception as e:
+                logger.warning(f"Per-volume metadata check failed: {e}")
 
         # Find root folder
         root_folder = session.query(FolderModel).filter(
@@ -336,13 +373,90 @@ async def browse_folder(
             decoded_path = unquote(path).strip('/')
             path_parts = decoded_path.split('/') if decoded_path else []
             
-            for part in path_parts:
+            for i, part in enumerate(path_parts):
                 if not part: continue
                 child = session.query(FolderModel).filter(
                     FolderModel.parent_id == current_folder.id,
                     FolderModel.name == part
                 ).first()
                 if not child:
+                    # Check if this is a comic file (by title or filename without extension)
+                    # Only valid as the last path segment
+                    if i == len(path_parts) - 1:
+                        # Try to find comic by title first
+                        comic = session.query(Comic).filter(
+                            Comic.library_id == library_id,
+                            Comic.folder_id == current_folder.id,
+                            Comic.title == part
+                        ).first()
+                        
+                        # If not found by title, try by filename (with various extensions)
+                        if not comic:
+                            # SQLite doesn't have regexp_replace, so use OR with LIKE patterns
+                            from sqlalchemy import or_
+                            comic = session.query(Comic).filter(
+                                Comic.library_id == library_id,
+                                Comic.folder_id == current_folder.id,
+                                or_(
+                                    Comic.filename == part,  # Exact match (already without extension)
+                                    Comic.filename == part + '.cbz',
+                                    Comic.filename == part + '.cbr',
+                                    Comic.filename == part + '.cb7',
+                                    Comic.filename == part + '.cbt',
+                                    Comic.filename == part + '.CBZ',
+                                    Comic.filename == part + '.CBR',
+                                    Comic.filename == part + '.CB7',
+                                    Comic.filename == part + '.CBT',
+                                )
+                            ).first()
+                        
+                        if comic:
+                            # Get user progress
+                            user = get_request_user(request, session)
+                            progress = None
+                            if user:
+                                progress = get_reading_progress(session, user.id, comic.id)
+                            
+                            # Build comic item for the items list
+                            comic_item = build_comic_item(
+                                comic=comic,
+                                progress=progress,
+                                include_size=True,
+                                include_metadata=per_volume_metadata
+                            )
+                            
+                            # Treat single comic as "a series with one volume"
+                            # Build folder-like metadata from the comic's info
+                            folder_metadata = {
+                                "id": comic.id,  # Use comic ID since there's no real folder
+                                "name": get_comic_display_name(comic),
+                                "total_issues": 1,
+                                "cover_hash": comic.hash,
+                                # Comic metadata for the info panel
+                                "synopsis": comic.description,
+                                "writer": comic.writer,
+                                "artist": comic.penciller,
+                                "publisher": comic.publisher,
+                                "year": comic.year,
+                                "genre": comic.genre,
+                            }
+                            
+                            # Return as series-style browse response (unified view)
+                            # Include per_volume_metadata and first_comic_metadata for FILE-level scanners
+                            return JSONResponse({
+                                "library": {"id": library.id, "name": library.name},
+                                "folder": folder_metadata,
+                                "comic": None,
+                                "is_comic_view": False,
+                                "per_volume_metadata": per_volume_metadata,
+                                "first_comic_metadata": comic_item if per_volume_metadata else None,
+                                "breadcrumbs": breadcrumbs,
+                                "items": [comic_item],
+                                "total": 1,
+                                "offset": 0,
+                                "limit": 1
+                            })
+                    
                     raise HTTPException(status_code=404, detail=f"Folder not found: {part}")
                 current_folder = child
                 breadcrumbs.append({
@@ -470,7 +584,8 @@ async def browse_folder(
                      item_data = build_comic_item(
                          comic=comic,
                          progress=p,
-                         include_size=True
+                         include_size=True,
+                         include_metadata=per_volume_metadata
                      )
                      items.append(item_data)
 
@@ -586,7 +701,8 @@ async def browse_folder(
                     item_data = build_comic_item(
                         comic=comic,
                         progress=p,
-                        include_size=True
+                        include_size=True,
+                        include_metadata=per_volume_metadata
                     )
                     items.append(item_data)
 
@@ -656,6 +772,16 @@ async def browse_folder(
                  if series_record.scanned_at:
                      folder_metadata["scanned_at"] = series_record.scanned_at
 
+        # Build first comic metadata for per-volume mode
+        first_comic_metadata = None
+        if per_volume_metadata and items:
+            # Find first comic item
+            for item in items:
+                if item.get("type") == "comic":
+                    # Use the item data that already has all metadata (since include_metadata=True was passed)
+                    first_comic_metadata = item
+                    break
+
         result = {
             "library": {"id": library.id, "name": library.name},
             "folder": folder_metadata,
@@ -663,12 +789,17 @@ async def browse_folder(
             "items": items,
             "total": total_items,
             "offset": offset,
-            "limit": limit
+            "limit": limit,
+            "per_volume_metadata": per_volume_metadata,
+            "first_comic_metadata": first_comic_metadata
         }
 
         # Cache (unless sorting by progress which is per-user, or random)
         if sort != 'random' and sort != 'progress':
-            cache_service.cache_response(cache_key, result)
+            cache_service = get_library_cache(library_id)
+            cache_path = path or "root"
+            cache_params = {"sort": sort, "offset": offset, "limit": limit}
+            cache_service.cache_response(cache_path, result, cache_params)
         
         return JSONResponse(result)
 

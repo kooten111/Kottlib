@@ -21,6 +21,7 @@ from .models import (
     ScanLibraryRequest,
     ClearMetadataRequest,
     ApplySeriesMetadataRequest,
+    ApplyComicMetadataRequest,
 )
 from .endpoints import (
     get_available_scanners,
@@ -38,6 +39,7 @@ from .endpoints import (
     clear_library_scan_progress,
     clear_metadata,
 )
+from .endpoints.apply_comic import apply_comic_metadata
 
 
 router = APIRouter(prefix="/scanners", tags=["scanners"])
@@ -224,6 +226,20 @@ async def scan_comic_endpoint(
     Uses the scanner configured for the comic's library.
     """
     return await scan_comic(scan_request, background_tasks, request)
+
+
+@router.post("/apply/comic", response_model=ScanComicResponse)
+async def apply_comic_metadata_endpoint(
+    apply_request: ApplyComicMetadataRequest,
+    request: Request
+):
+    """
+    Apply metadata from a manually selected candidate to a comic.
+    
+    This endpoint is used when the user manually selects a candidate
+    from the low-confidence results returned by the scan endpoint.
+    """
+    return await apply_comic_metadata(apply_request, request)
 
 
 # ============================================================================

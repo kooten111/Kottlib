@@ -77,7 +77,8 @@ def build_comic_item(
     comic: Comic,
     progress: Optional[ReadingProgress],
     include_library_id: bool = False,
-    include_size: bool = False
+    include_size: bool = False,
+    include_metadata: bool = False
 ) -> dict:
     """
     Build standardized comic item for browse responses.
@@ -87,6 +88,7 @@ def build_comic_item(
         progress: Optional ReadingProgress record for this comic and user
         include_library_id: Whether to include library_id in response
         include_size: Whether to include file size in response
+        include_metadata: Whether to include full metadata fields (for per-volume mode)
     
     Returns:
         Dictionary representing the comic item
@@ -109,5 +111,23 @@ def build_comic_item(
     
     if include_library_id:
         item_data["library_id"] = comic.library_id
+    
+    # Add metadata fields when requested (for per-volume metadata mode)
+    if include_metadata:
+        item_data.update({
+            "synopsis": comic.description,
+            "description": comic.description,  # Alias for compatibility
+            "writer": comic.writer,
+            "artist": comic.penciller,
+            "penciller": comic.penciller,  # Alias for compatibility
+            "publisher": comic.publisher,
+            "year": comic.year,
+            "genre": comic.genre,
+            "tags": comic.tags,
+            "scanner_source": comic.scanner_source,
+            "scanner_source_id": comic.scanner_source_id,
+            "scanner_source_url": comic.scanner_source_url,
+            "scan_confidence": comic.scan_confidence,
+        })
     
     return item_data

@@ -86,6 +86,34 @@ export async function scanComic(comicId, overwrite = false, confidenceThreshold 
 }
 
 /**
+ * Apply metadata from a manually selected candidate to a comic
+ */
+export async function applyComicMetadata(comicId, candidate, overwrite = false) {
+	const response = await fetch('/v2/scanners/apply/comic', {
+		method: 'POST',
+		credentials: 'include',
+		headers: {
+			'Content-Type': 'application/json'
+		},
+		body: JSON.stringify({
+			comic_id: comicId,
+			source_id: candidate.source_id,
+			source_url: candidate.source_url || null,
+			confidence: candidate.confidence,
+			metadata: candidate.metadata,
+			overwrite: overwrite
+		})
+	});
+
+	if (!response.ok) {
+		const errorText = await response.text();
+		throw new Error(`Failed to apply metadata: ${response.statusText} - ${errorText}`);
+	}
+
+	return response.json();
+}
+
+/**
  * Scan all comics in a library
  */
 export async function scanLibrary(libraryId, overwrite = false, rescanExisting = false, confidenceThreshold = null) {

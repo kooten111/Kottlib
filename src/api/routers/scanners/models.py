@@ -181,6 +181,7 @@ class ScanComicResponse(BaseModel):
     confidence: Optional[float] = None
     fields_updated: List[str] = Field(default_factory=list)
     error: Optional[str] = None
+    candidates: Optional[List[Dict[str, Any]]] = Field(default_factory=list, description="List of candidate matches for manual selection")
 
 
 class ScanLibraryResponse(BaseModel):
@@ -196,6 +197,16 @@ class ApplySeriesMetadataRequest(BaseModel):
     """Request model for applying manually selected metadata to a series."""
     library_id: int
     series_name: str
+    source_id: str
+    source_url: Optional[str] = None
+    confidence: float = Field(0.0, ge=0.0, le=1.0)
+    metadata: Dict[str, Any] = Field(default_factory=dict)
+    overwrite: bool = Field(False, description="Overwrite existing metadata")
+
+
+class ApplyComicMetadataRequest(BaseModel):
+    """Request model for applying manually selected metadata to a comic."""
+    comic_id: int
     source_id: str
     source_url: Optional[str] = None
     confidence: float = Field(0.0, ge=0.0, le=1.0)

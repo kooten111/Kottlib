@@ -12,7 +12,7 @@ const getSavedSettings = () => {
 };
 
 const getDefaultSettings = () => ({
-	fitMode: 'fit-width', // fit-width, fit-height, original
+	fitMode: 'fit-height', // fit-width, fit-height, original
 	readingMode: 'single', // single, double, continuous
 	readingDirection: 'ltr', // ltr, rtl (manga mode)
 	preloadPages: 3, // Increased from 2 for better swipe preview experience

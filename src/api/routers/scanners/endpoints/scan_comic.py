@@ -68,18 +68,54 @@ async def scan_comic(
             
             # Scan using filename with direct scanner invocation
             scanner = manager.get_scanner(primary_scanner, config=scanner_specific_config)
-            result, _ = scanner.scan(
+            result, all_candidates = scanner.scan(
                 comic.filename,
                 confidence_threshold=threshold
             )
 
+            # No results at all from scanner
             if not result:
+                # Return candidates if available
+                candidate_list = []
+                if all_candidates:
+                    for candidate in all_candidates[:10]:  # Limit to top 10
+                        candidate_list.append({
+                            "confidence": candidate.confidence,
+                            "source_id": candidate.source_id,
+                            "source_url": candidate.source_url,
+                            "title": candidate.metadata.get('title', ''),
+                            "metadata": candidate.metadata
+                        })
+                
                 return ScanComicResponse(
                     comic_id=comic.id,
                     success=False,
-                    error="No match found with sufficient confidence"
+                    error="No match found with sufficient confidence",
+                    candidates=candidate_list
                 )
 
+            # Check if result meets threshold (scanner may return results below threshold)
+            if result.confidence < threshold:
+                # Return candidates for manual selection
+                candidate_list = []
+                for candidate in all_candidates[:10]:  # Limit to top 10
+                    candidate_list.append({
+                        "confidence": candidate.confidence,
+                        "source_id": candidate.source_id,
+                        "source_url": candidate.source_url,
+                        "title": candidate.metadata.get('title', ''),
+                        "metadata": candidate.metadata
+                    })
+                
+                return ScanComicResponse(
+                    comic_id=comic.id,
+                    success=False,
+                    error=f"Best match ({result.confidence*100:.0f}%) below confidence threshold ({threshold*100:.0f}%)",
+                    candidates=candidate_list,
+                    confidence=result.confidence
+                )
+
+            # Result passed threshold - auto-apply
             # Apply metadata
             application_result = MetadataService.apply_scan_result_to_comic(
                 session,
