@@ -99,12 +99,34 @@ async def search_comics_v2(
         series_names = [s.name for s in series_results]
         folder_covers = {}
         if series_names:
-            folders = session.query(FolderModel.name, FolderModel.first_child_hash).filter(
+            # First try to get folders with cached first_child_hash
+            folders = session.query(FolderModel.name, FolderModel.first_child_hash, FolderModel.path).filter(
                 FolderModel.library_id == library_id,
-                FolderModel.name.in_(series_names),
-                FolderModel.first_child_hash.isnot(None)
+                FolderModel.name.in_(series_names)
             ).all()
-            folder_covers = {f.name: f.first_child_hash for f in folders}
+            
+            # Build initial map and track series needing fallback lookup
+            series_needing_cover = []
+            folder_paths = {}
+            for f in folders:
+                if f.first_child_hash:
+                    folder_covers[f.name] = f.first_child_hash
+                else:
+                    series_needing_cover.append(f.name)
+                    folder_paths[f.name] = f.path
+            
+            # Fallback: Get first comic hash for series without cached cover
+            if series_needing_cover:
+                from ....database.models import Comic
+                for series_name in series_needing_cover:
+                    folder_path = folder_paths.get(series_name)
+                    if folder_path:
+                        first_comic = session.query(Comic.hash).filter(
+                            Comic.library_id == library_id,
+                            Comic.path.startswith(folder_path + "/")
+                        ).order_by(Comic.path).first()
+                        if first_comic:
+                            folder_covers[series_name] = first_comic[0]
 
         # Get user for reading progress
         user = get_request_user(request, session)
