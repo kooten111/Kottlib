@@ -2,12 +2,11 @@
  * Server-side data loading for series detail page
  */
 
-const API_BASE_URL = process.env.API_BASE_URL || 'http://localhost:8081/v2';
+import { API_ENDPOINTS } from '$lib/server/config.js';
 
 export async function load({ params, fetch }) {
     const { libraryId, seriesName } = params;
-    const encodedName = encodeURIComponent(seriesName);
-    const url = `${API_BASE_URL}/library/${libraryId}/series/${encodedName}`;
+    const url = API_ENDPOINTS.seriesDetail(libraryId, seriesName);
 
     const fs = await import('fs');
     fs.appendFileSync('/tmp/ssr_debug.log', `[SSR] Requesting: ${url}\n`);

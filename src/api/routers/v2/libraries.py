@@ -9,8 +9,9 @@ import time
 from typing import List, Optional, Dict, Any
 from pydantic import BaseModel
 
-from fastapi import APIRouter, Request, HTTPException, BackgroundTasks
+from fastapi import APIRouter, Request, Depends, HTTPException, BackgroundTasks
 from fastapi.responses import PlainTextResponse
+from sqlalchemy.orm import Session
 
 from ....database import (
     get_all_libraries,
@@ -21,6 +22,7 @@ from ....database import (
     update_library_scan_status,
     delete_library,
 )
+from ...dependencies import get_db_session
 
 # Import scanner for background tasks
 from ....scanner.threaded_scanner import ThreadedScanner
@@ -249,68 +251,62 @@ async def get_version():
 # ============================================================================
 
 @router.get("/libraries", response_model=List[LibraryInfo])
-async def list_libraries(request: Request):
+async def list_libraries(session: Session = Depends(get_db_session)):
     """
     Get all libraries with extended information
 
     Returns full library info including path, comic count, and folder count.
     For YACReader minimal format, the mobile app can filter the needed fields.
     """
-    db = request.app.state.db
+    libraries = get_all_libraries(session)
 
-    with db.get_session() as session:
-        libraries = get_all_libraries(session)
+    result = []
+    for lib in libraries:
+        # Format UUID with curly braces for YACReader compatibility
+        uuid_formatted = f"{{{lib.uuid}}}" if not lib.uuid.startswith('{') else lib.uuid
 
-        result = []
-        for lib in libraries:
-            # Format UUID with curly braces for YACReader compatibility
-            uuid_formatted = f"{{{lib.uuid}}}" if not lib.uuid.startswith('{') else lib.uuid
+        # Get library stats
+        stats = get_library_stats(session, lib.id)
 
-            # Get library stats
-            stats = get_library_stats(session, lib.id)
+        result.append(LibraryInfo(
+            id=lib.id,
+            name=lib.name,
+            uuid=uuid_formatted,
+            path=lib.path,
+            created_at=lib.created_at,
+            updated_at=lib.updated_at,
+            last_scan_at=lib.last_scan_completed,
+            scan_status=lib.scan_status,
+            scan_interval=lib.scan_interval,
+            comic_count=stats.get('comic_count', 0),
+            folder_count=stats.get('folder_count', 0),
+        ))
 
-            result.append(LibraryInfo(
-                id=lib.id,
-                name=lib.name,
-                uuid=uuid_formatted,
-                path=lib.path,
-                created_at=lib.created_at,
-                updated_at=lib.updated_at,
-                last_scan_at=lib.last_scan_completed,
-                scan_status=lib.scan_status,
-                scan_interval=lib.scan_interval,
-                comic_count=stats.get('comic_count', 0),
-                folder_count=stats.get('folder_count', 0),
-            ))
-
-        return result
+    return result
 
 
 @router.get("/library/{library_id}/info", response_model=LibraryInfo)
-async def get_library(library_id: int, request: Request):
+async def get_library(library_id: int, session: Session = Depends(get_db_session)):
     """Get library by ID"""
-    db = request.app.state.db
+    library = get_library_by_id(session, library_id)
+    if not library:
+        raise HTTPException(status_code=404, detail="Library not found")
 
-    with db.get_session() as session:
-        library = get_library_by_id(session, library_id)
-        if not library:
-            raise HTTPException(status_code=404, detail="Library not found")
+    stats = get_library_stats(session, library.id)
 
-        stats = get_library_stats(session, library.id)
-
-        return LibraryInfo(
-            id=library.id,
-            uuid=library.uuid,
-            name=library.name,
-            path=library.path,
-            created_at=library.created_at,
-            updated_at=library.updated_at,
-            last_scan_at=library.last_scan_completed,
-            scan_status=library.scan_status,
-            scan_interval=library.scan_interval,
-            comic_count=stats.get('comic_count', 0),
-            folder_count=stats.get('folder_count', 0),
-        )
+    return LibraryInfo(
+        id=library.id,
+        uuid=library.uuid,
+        name=library.name,
+        path=library.path,
+        created_at=library.created_at,
+        updated_at=library.updated_at,
+        last_scan_at=library.last_scan_completed,
+        scan_status=library.scan_status,
+        scan_interval=library.scan_interval,
+        comic_count=stats.get('comic_count', 0),
+        folder_count=stats.get('folder_count', 0),
+    )
 
 
 @router.post("/libraries", response_model=LibraryInfo)
@@ -403,24 +399,23 @@ async def update_library_details(library_id: int, request: Request, data: Update
 
 
 @router.delete("/libraries/{library_id}")
-async def remove_library(library_id: int, request: Request):
+async def remove_library(library_id: int, request: Request, session: Session = Depends(get_db_session)):
     """Delete a library"""
     db = request.app.state.db
 
     # Remove schedule first
     try:
         scheduler = get_scheduler(db)
-        scheduler.schedule_library_scan(library_id, 0) # 0 removes the job
+        scheduler.schedule_library_scan(library_id, 0)  # 0 removes the job
     except Exception as e:
         logger.warning(f"Failed to remove schedule for deleted library: {e}")
 
-    with db.get_session() as session:
-        success = delete_library(session, library_id)
-        
-        if not success:
-            raise HTTPException(status_code=404, detail="Library not found")
-            
-        return {"success": True, "message": "Library deleted"}
+    success = delete_library(session, library_id)
+
+    if not success:
+        raise HTTPException(status_code=404, detail="Library not found")
+
+    return {"success": True, "message": "Library deleted"}
 
 
 @router.post("/libraries/{library_id}/scan")
@@ -440,10 +435,8 @@ async def scan_library_manual(library_id: int, request: Request, background_task
 
 
 @router.get("/libraries/{library_id}/scan/progress")
-async def get_file_scan_progress(library_id: int, request: Request):
+async def get_file_scan_progress(library_id: int, session: Session = Depends(get_db_session)):
     """Get file scan progress for a library (checks both memory and database)"""
-    db = request.app.state.db
-
     # Check memory first (fastest and most up-to-date)
     memory_progress = _file_scan_progress.get(library_id)
 
@@ -453,18 +446,17 @@ async def get_file_scan_progress(library_id: int, request: Request):
         return memory_progress
 
     # Otherwise check database for multi-worker setups
-    with db.get_session() as session:
-        library = get_library_by_id(session, library_id)
-        if not library:
-            raise HTTPException(status_code=404, detail="Library not found")
+    library = get_library_by_id(session, library_id)
+    if not library:
+        raise HTTPException(status_code=404, detail="Library not found")
 
-        if library.settings:
-            db_progress = library.settings.get('file_scan_progress')
-            if db_progress:
-                # Cache it in memory for next time
-                _file_scan_progress[library_id] = db_progress
-                logger.debug(f"Progress from DB for library {library_id}: {db_progress['current']}/{db_progress['total']}")
-                return db_progress
+    if library.settings:
+        db_progress = library.settings.get('file_scan_progress')
+        if db_progress:
+            # Cache it in memory for next time
+            _file_scan_progress[library_id] = db_progress
+            logger.debug(f"Progress from DB for library {library_id}: {db_progress['current']}/{db_progress['total']}")
+            return db_progress
 
     # No progress found
     logger.debug(f"No progress found for library {library_id}")
@@ -477,7 +469,7 @@ async def get_file_scan_progress(library_id: int, request: Request):
 
 
 @router.delete("/libraries/{library_id}/scan/progress")
-async def clear_file_scan_progress(library_id: int, request: Request):
+async def clear_file_scan_progress(library_id: int, session: Session = Depends(get_db_session)):
     """Clear file scan progress for a library (both memory and database)"""
     # Clear from memory
     if library_id in _file_scan_progress:
@@ -488,14 +480,11 @@ async def clear_file_scan_progress(library_id: int, request: Request):
         del _progress_lock[library_id]
 
     # Clear from database
-    db = request.app.state.db
-    with db.get_session() as session:
-        library = get_library_by_id(session, library_id)
-        if library and library.settings:
-            settings = dict(library.settings)
-            if settings.pop('file_scan_progress', None) is not None:
-                library.settings = settings
-                session.add(library)
-                session.commit()
+    library = get_library_by_id(session, library_id)
+    if library and library.settings:
+        settings = dict(library.settings)
+        if settings.pop('file_scan_progress', None) is not None:
+            library.settings = settings
+            session.add(library)
 
     return {"success": True, "message": "Progress cleared"}

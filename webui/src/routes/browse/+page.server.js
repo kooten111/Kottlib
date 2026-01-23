@@ -3,30 +3,23 @@
  * This loads data from ALL libraries using the browseAllLibraries API
  */
 
-const API_BASE_URL = process.env.API_BASE_URL || 'http://localhost:8081/v2';
+import { API_ENDPOINTS, fetchSidebarData } from '$lib/server/config.js';
 
 export async function load({ url: pageUrl, fetch }) {
     const sort = pageUrl.searchParams.get('sort') || 'name';
     const seed = pageUrl.searchParams.get('seed');
 
     // Construct API URL for browsing all libraries
-    let apiUrl = `${API_BASE_URL}/libraries/browse-content?sort=${sort}&offset=0&limit=50`;
-    
+    let apiUrl = API_ENDPOINTS.browseAllLibraries(sort, 0, 50);
     if (seed) {
         apiUrl += `&seed=${seed}`;
     }
 
-    // URLs for sidebar data
-    const librariesUrl = `${API_BASE_URL}/libraries`;
-    const treeUrl = `${API_BASE_URL}/libraries/series-tree`;
-    const continueReadingUrl = `${API_BASE_URL}/reading?limit=50`;
-
     try {
-        const [browseRes, librariesRes, treeRes, continueReadingRes] = await Promise.all([
+        const [browseRes, sidebarData, continueReadingRes] = await Promise.all([
             fetch(apiUrl),
-            fetch(librariesUrl),
-            fetch(treeUrl),
-            fetch(continueReadingUrl)
+            fetchSidebarData(fetch),
+            fetch(API_ENDPOINTS.continueReading(50))
         ]);
 
         if (!browseRes.ok) {
@@ -38,14 +31,12 @@ export async function load({ url: pageUrl, fetch }) {
         }
 
         const browseData = await browseRes.json();
-        const libraries = librariesRes.ok ? await librariesRes.json() : [];
-        const seriesTree = treeRes.ok ? await treeRes.json() : [];
         const continueReading = continueReadingRes.ok ? await continueReadingRes.json() : [];
 
         return {
             browseData,
-            libraries,
-            seriesTree,
+            libraries: sidebarData.libraries,
+            seriesTree: sidebarData.seriesTree,
             continueReading
         };
 
