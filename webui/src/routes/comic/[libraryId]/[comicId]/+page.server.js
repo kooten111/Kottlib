@@ -3,23 +3,16 @@
  * Fetches comic info and sidebar data (libraries, series tree)
  */
 
-const API_BASE_URL = process.env.API_BASE_URL || 'http://localhost:8081/v2';
+import { API_ENDPOINTS, fetchSidebarData } from '$lib/server/config.js';
 
 export async function load({ params, fetch }) {
     const { libraryId, comicId } = params;
 
-    // URLs for data fetching
-    const comicUrl = `${API_BASE_URL}/library/${libraryId}/comic/${comicId}/fullinfo`;
-    const librariesUrl = `${API_BASE_URL}/libraries`;
-    const treeUrl = `${API_BASE_URL}/libraries/series-tree`;
-    const libTreeUrl = `${API_BASE_URL}/library/${libraryId}/tree`;
-
     try {
-        const [comicRes, librariesRes, treeRes, libTreeRes] = await Promise.all([
-            fetch(comicUrl),
-            fetch(librariesUrl),
-            fetch(treeUrl),
-            fetch(libTreeUrl)
+        // Fetch comic info and sidebar data in parallel
+        const [comicRes, sidebarData] = await Promise.all([
+            fetch(API_ENDPOINTS.comicFullInfo(libraryId, comicId)),
+            fetchSidebarData(fetch, libraryId)
         ]);
 
         if (!comicRes.ok) {
@@ -35,24 +28,11 @@ export async function load({ params, fetch }) {
         }
 
         const comic = await comicRes.json();
-        const libraries = librariesRes.ok ? await librariesRes.json() : [];
-        let seriesTree = treeRes.ok ? await treeRes.json() : [];
-
-        // Merge library specific tree to populate folders in sidebar
-        if (libTreeRes.ok) {
-            const libTree = await libTreeRes.json();
-            seriesTree = seriesTree.map(node => {
-                if (node.id === parseInt(libraryId)) {
-                    return { ...node, children: libTree.children || [] };
-                }
-                return node;
-            });
-        }
 
         return {
             comic,
-            libraries,
-            seriesTree,
+            libraries: sidebarData.libraries,
+            seriesTree: sidebarData.seriesTree,
             libraryId: parseInt(libraryId),
             comicId: parseInt(comicId),
             error: null
