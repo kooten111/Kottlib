@@ -3,8 +3,7 @@
  */
 
 import { redirect } from '@sveltejs/kit';
-
-const API_BASE_URL = process.env.API_BASE_URL || 'http://localhost:8081/v2';
+import { API_ENDPOINTS, fetchSidebarData } from '$lib/server/config.js';
 
 export async function load({ params, url: pageUrl, fetch }) {
     const { libraryId, path } = params;
@@ -21,24 +20,15 @@ export async function load({ params, url: pageUrl, fetch }) {
     }
 
     // Construct API URL
-    const browsePath = path ? encodeURIComponent(path) : '';
-    let apiUrl = `${API_BASE_URL}/library/${libraryId}/browse?path=${browsePath}&sort=${sort}`;
-
+    let apiUrl = API_ENDPOINTS.libraryBrowse(libraryId, path || '', sort);
     if (seed) {
         apiUrl += `&seed=${seed}`;
     }
 
-    // URLs for sidebar data
-    const librariesUrl = `${API_BASE_URL}/libraries`;
-    const treeUrl = `${API_BASE_URL}/libraries/series-tree`;
-    const libTreeUrl = `${API_BASE_URL}/library/${libraryId}/tree`;
-
     try {
-        const [browseRes, librariesRes, treeRes, libTreeRes] = await Promise.all([
+        const [browseRes, sidebarData] = await Promise.all([
             fetch(apiUrl),
-            fetch(librariesUrl),
-            fetch(treeUrl),
-            fetch(libTreeUrl)
+            fetchSidebarData(fetch, libraryId)
         ]);
 
         if (!browseRes.ok) {
@@ -50,24 +40,11 @@ export async function load({ params, url: pageUrl, fetch }) {
         }
 
         const browseData = await browseRes.json();
-        const libraries = librariesRes.ok ? await librariesRes.json() : [];
-        let seriesTree = treeRes.ok ? await treeRes.json() : [];
-
-        // Merge library specific tree to populate folders in sidebar
-        if (libTreeRes.ok) {
-            const libTree = await libTreeRes.json();
-            seriesTree = seriesTree.map(node => {
-                if (node.id === parseInt(libraryId)) {
-                    return { ...node, children: libTree.children || [] };
-                }
-                return node;
-            });
-        }
 
         return {
             browseData,
-            libraries,
-            seriesTree,
+            libraries: sidebarData.libraries,
+            seriesTree: sidebarData.seriesTree,
             libraryId: parseInt(libraryId),
             currentPath: path || ''
         };

@@ -15,6 +15,7 @@ from . import reading
 from . import search
 from . import collections
 from . import series
+from . import tree
 from . import session
 from . import admin
 from . import covers
@@ -30,6 +31,7 @@ router.include_router(reading.router, tags=["v2-reading"])
 router.include_router(search.router, tags=["v2-search"])
 router.include_router(collections.router, tags=["v2-collections"])
 router.include_router(series.router, tags=["v2-series"])
+router.include_router(tree.router, tags=["v2-tree"])
 router.include_router(session.router, tags=["v2-session"])
 router.include_router(admin.router, tags=["v2-admin"])
 router.include_router(covers.router, tags=["v2-covers"])

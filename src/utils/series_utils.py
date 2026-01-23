@@ -4,6 +4,8 @@ Series Utilities
 Helper functions for series name determination.
 """
 
+from ..constants import ROOT_FOLDER_MARKER
+
 
 def get_series_name(series_metadata: str = None, folder_name: str = None, title: str = None, filename: str = None) -> str:
     """
@@ -29,7 +31,7 @@ def get_series_name(series_metadata: str = None, folder_name: str = None, title:
         return series_metadata.strip()
 
     # Priority 2: Folder name IS the series (most common case)
-    if folder_name and folder_name != "__ROOT__":
+    if folder_name and folder_name != ROOT_FOLDER_MARKER:
         return folder_name
 
     # Priority 3: Use title from metadata
