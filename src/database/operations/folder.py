@@ -9,7 +9,11 @@ from typing import Optional, List
 
 from sqlalchemy.orm import Session
 
-from ...constants import ROOT_FOLDER_MARKER
+try:
+    from ...constants import ROOT_FOLDER_MARKER
+except ImportError:
+    # Fallback for standalone script execution
+    from constants import ROOT_FOLDER_MARKER
 from ..models import Folder, Comic
 
 

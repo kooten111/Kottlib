@@ -4,7 +4,11 @@ Series Utilities
 Helper functions for series name determination.
 """
 
-from ..constants import ROOT_FOLDER_MARKER
+try:
+    from ..constants import ROOT_FOLDER_MARKER
+except ImportError:
+    # Fallback for when utils is imported as a standalone package
+    from constants import ROOT_FOLDER_MARKER
 
 
 def get_series_name(series_metadata: str = None, folder_name: str = None, title: str = None, filename: str = None) -> str:
