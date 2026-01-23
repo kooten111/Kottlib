@@ -398,7 +398,7 @@
                 }
             },
             {
-                rootMargin: "400px", // Load next page when within 400px of bottom
+                rootMargin: "1500px", // Load next page when within 1500px of bottom for smoother infinite scroll
             },
         );
 

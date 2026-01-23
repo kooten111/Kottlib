@@ -3,7 +3,7 @@
 
 	const dispatch = createEventDispatcher();
 
-	export let threshold = 800; // Increased distance from bottom to trigger load earlier
+	export let threshold = 1500; // Increased distance from bottom to trigger load earlier for smoother infinite scroll
 	export let hasMore = true;
 	export let isLoading = false;
 
@@ -19,12 +19,12 @@
 
 				// Add debounce check - only trigger if not already loading and hasMore is true
 				if (entry.isIntersecting && hasMore && !isLoading) {
-					// Slight delay to prevent double-triggering
+					// Minimal delay to prevent double-triggering while keeping it responsive
 					setTimeout(() => {
 						if (hasMore && !isLoading) {
 							dispatch("loadMore");
 						}
-					}, 50);
+					}, 10);
 				}
 			},
 			{
