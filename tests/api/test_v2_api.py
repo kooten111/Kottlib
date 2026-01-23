@@ -340,13 +340,17 @@ class TestV2Sync:
 
     def test_sync_with_conflicts(self, test_client: TestClient, sample_comic, sample_user):
         """Test sync handles conflicts gracefully"""
+        from datetime import datetime, timezone
+
+        # Use a past timestamp to simulate a potential conflict scenario
+        past_timestamp = datetime(2020, 1, 1, tzinfo=timezone.utc).isoformat()
         sync_data = {
             "comics": [
                 {
                     "comicId": sample_comic.id,
                     "currentPage": 5,
                     "totalPages": sample_comic.num_pages,
-                    "timestamp": "2024-01-01T00:00:00Z"
+                    "timestamp": past_timestamp
                 }
             ]
         }
