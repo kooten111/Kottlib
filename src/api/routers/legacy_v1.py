@@ -15,6 +15,7 @@ from fastapi import APIRouter, Request, Response, Cookie, HTTPException, Body
 from fastapi.responses import PlainTextResponse, FileResponse
 from pydantic import BaseModel
 
+from ...constants import ROOT_FOLDER_MARKER
 from ...database import (
     get_library_by_id,
     get_comics_in_library,
@@ -153,12 +154,12 @@ async def get_folder_info(
             # If recursive, process subfolders
             if recursive:
                 for folder in folders:
-                    if folder.parent_id == fid and folder.name != "__ROOT__":
+                    if folder.parent_id == fid and folder.name != ROOT_FOLDER_MARKER:
                         add_folder_comics(folder.id, recursive=True)
 
         if is_root_request:
             # Root request - get all comics recursively from root
-            root_folder = next((f for f in folders if f.name == "__ROOT__"), None)
+            root_folder = next((f for f in folders if f.name == ROOT_FOLDER_MARKER), None)
             if root_folder:
                 add_folder_comics(root_folder.id, recursive=True)
             else:
@@ -228,7 +229,7 @@ async def get_folder_content(
         child_folders = []
         for folder in folders:
             # Skip root folder (marked with __ROOT__ name) - never show in listings
-            if folder.name == "__ROOT__":
+            if folder.name == ROOT_FOLDER_MARKER:
                 continue
 
             if is_root_request:
@@ -236,7 +237,7 @@ async def get_folder_content(
                 if folder.parent_id is not None and folder.parent_id != 1:
                     # Check if parent is a root folder
                     parent = next((f for f in folders if f.id == folder.parent_id), None)
-                    if parent and parent.name != "__ROOT__":
+                    if parent and parent.name != ROOT_FOLDER_MARKER:
                         # Parent is not root, skip this folder
                         continue
             else:
@@ -253,7 +254,7 @@ async def get_folder_content(
             # Root level - get comics in the __ROOT__ folder for this library
             # Find the root folder ID (marked with __ROOT__ name)
             from ...database.models import Comic
-            root_folder = next((f for f in folders if f.name == "__ROOT__"), None)
+            root_folder = next((f for f in folders if f.name == ROOT_FOLDER_MARKER), None)
             if root_folder:
                 # Get comics with folder_id pointing to root folder
                 comics = session.query(Comic).filter(

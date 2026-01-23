@@ -13,6 +13,7 @@ from fastapi import HTTPException
 from sqlalchemy.orm import Session
 from sqlalchemy import func, desc
 
+from ....constants import COMIC_PATH_PREFIX
 from ....database.models import (
     Folder as FolderModel,
     Comic,
@@ -53,10 +54,10 @@ def parse_browse_path(
         return current_folder, breadcrumbs, None
     
     # Check for comic path pattern: /_comic/ID
-    if '_comic/' in path:
+    if COMIC_PATH_PREFIX in path:
         decoded_path = unquote(path).strip('/')
         # Extract comic ID from path
-        parts = decoded_path.split('_comic/')
+        parts = decoded_path.split(COMIC_PATH_PREFIX)
         comic_id_str = parts[-1].split('/')[0] if parts else None
         
         # Build breadcrumbs from folder part (before _comic)

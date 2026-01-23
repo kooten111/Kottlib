@@ -9,6 +9,7 @@ from typing import Optional, List
 
 from sqlalchemy.orm import Session
 
+from ...constants import ROOT_FOLDER_MARKER
 from ..models import Folder, Comic
 
 
@@ -93,7 +94,7 @@ def get_or_create_root_folder(session: Session, library_id: int, library_path: s
         root = session.query(Folder).filter_by(
             library_id=library_id,
             parent_id=None,
-            name="__ROOT__"
+            name=ROOT_FOLDER_MARKER
         ).first()
 
         if root:
@@ -109,7 +110,7 @@ def get_or_create_root_folder(session: Session, library_id: int, library_path: s
     if root_by_path:
         # We found the folder by path!
         # Update its name to __ROOT__ if it's not already
-        if root_by_path.name != "__ROOT__":
+        if root_by_path.name != ROOT_FOLDER_MARKER:
             logger.warning(f"Found root folder by path but with name '{root_by_path.name}'. Renaming to '__ROOT__'.")
             root_by_path.name = "__ROOT__"
             session.add(root_by_path)
@@ -124,7 +125,7 @@ def get_or_create_root_folder(session: Session, library_id: int, library_path: s
         library_id=library_id,
         parent_id=None,  # Root has no parent
         path=str(Path(library_path).resolve()),
-        name="__ROOT__",  # Special marker name
+        name=ROOT_FOLDER_MARKER,  # Special marker name
         created_at=now,
         updated_at=now
     )

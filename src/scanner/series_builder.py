@@ -10,6 +10,7 @@ import logging
 import re
 import time
 
+from src.constants import ROOT_FOLDER_MARKER
 from src.database import (
     Database,
     update_library_series_tree_cache,
@@ -122,7 +123,7 @@ def build_series_tree_cache(db: Database, library_id: int) -> None:
 
         def build_folder_node(folder, depth=0, max_depth=10):
             """Build tree node for a folder recursively."""
-            if depth > max_depth or folder.name == "__ROOT__":
+            if depth > max_depth or folder.name == ROOT_FOLDER_MARKER:
                 return None
 
             # Recursively build children
@@ -192,7 +193,7 @@ def build_series_tree_cache(db: Database, library_id: int) -> None:
             }
 
         # Find root folder
-        root_folder = next((f for f in all_folders if f.name == "__ROOT__"), None)
+        root_folder = next((f for f in all_folders if f.name == ROOT_FOLDER_MARKER), None)
         if not root_folder:
             logger.warning(f"No root folder found for library {library_id}")
             return
@@ -200,7 +201,7 @@ def build_series_tree_cache(db: Database, library_id: int) -> None:
         # Get top-level folders
         top_level_folders = [
             f for f in all_folders
-            if f.parent_id == root_folder.id or (f.parent_id is None and f.name != "__ROOT__")
+            if f.parent_id == root_folder.id or (f.parent_id is None and f.name != ROOT_FOLDER_MARKER)
         ]
 
         # Build tree structure

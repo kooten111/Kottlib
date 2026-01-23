@@ -1,5 +1,8 @@
 import { api } from './client';
 
+// Root folder marker - matches the Python constant ROOT_FOLDER_MARKER
+const ROOT_FOLDER_MARKER = '__ROOT__';
+
 /**
  * Get all libraries
  */
@@ -46,8 +49,8 @@ export async function getLibrary(libraryId) {
  * Get folder contents
  */
 export async function getFolderContents(libraryId, folderId = 0) {
-	// Convert __ROOT__ to folder ID 0 (root folder convention)
-	const actualFolderId = folderId === '__ROOT__' ? 0 : folderId;
+	// Convert ROOT_FOLDER_MARKER to folder ID 0 (root folder convention)
+	const actualFolderId = folderId === ROOT_FOLDER_MARKER ? 0 : folderId;
 	return api.get(`/library/${libraryId}/folder/${actualFolderId}`);
 }
 

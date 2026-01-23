@@ -14,6 +14,7 @@ from fastapi import APIRouter, Request, HTTPException
 from fastapi.responses import JSONResponse, PlainTextResponse
 from sqlalchemy import text
 
+from ....constants import ROOT_FOLDER_MARKER
 from ....database import (
     get_library_by_id,
     get_user_by_username,
@@ -76,19 +77,19 @@ async def get_folder_v2(
             # YACReader uses parent_id=1 for top-level and reserves folder id=1 as root
             # We support both conventions for compatibility
 
-            # Skip root folder (marked with __ROOT__ name) - never show in listings
-            if folder.name == "__ROOT__":
+            # Skip root folder (marked with ROOT_FOLDER_MARKER name) - never show in listings
+            if folder.name == ROOT_FOLDER_MARKER:
                 continue
 
             is_root_request = (folder_id <= 1)  # 0 or 1 both mean root
 
             if is_root_request:
                 # Root level request - show top-level folders (parent_id=None or parent_id != self)
-                # After migration, top-level folders have parent_id pointing to __ROOT__ folder
+                # After migration, top-level folders have parent_id pointing to ROOT_FOLDER_MARKER folder
                 if folder.parent_id is not None and folder.parent_id != 1:
                     # Check if parent is a root folder
                     parent = next((f for f in folders if f.id == folder.parent_id), None)
-                    if parent and parent.name != "__ROOT__":
+                    if parent and parent.name != ROOT_FOLDER_MARKER:
                         # Parent is not root, skip this folder
                         continue
             else:
@@ -118,7 +119,7 @@ async def get_folder_v2(
                             return None
                         
                         # Get immediate subfolders
-                        subfolders = [f for f in folders if f.parent_id == parent_folder_id and f.name != "__ROOT__"]
+                        subfolders = [f for f in folders if f.parent_id == parent_folder_id and f.name != ROOT_FOLDER_MARKER]
                         
                         for subfolder in sorted(subfolders, key=lambda f: f.name):
                             # Check for comics in this subfolder
@@ -184,8 +185,8 @@ async def get_folder_v2(
         logger.info(f"v2 API: Returning {len(child_folders)} folders for folder_id={folder_id}")
 
         if is_root_request:
-            # Root folder request - get comics in the __ROOT__ folder for this library
-            root_folder = next((f for f in folders if f.name == "__ROOT__"), None)
+            # Root folder request - get comics in the ROOT_FOLDER_MARKER folder for this library
+            root_folder = next((f for f in folders if f.name == ROOT_FOLDER_MARKER), None)
             if root_folder:
                 comics_result = session.query(Comic).filter(
                     (Comic.folder_id == root_folder.id) | (Comic.folder_id == None),
@@ -373,12 +374,12 @@ async def get_folder_info_v2(
             # If recursive, process subfolders
             if recursive:
                 for folder in folders:
-                    if folder.parent_id == fid and folder.name != "__ROOT__":
+                    if folder.parent_id == fid and folder.name != ROOT_FOLDER_MARKER:
                         add_folder_comics(folder.id, recursive=True)
 
         if is_root_request:
             # Root request - get all comics recursively from root
-            root_folder = next((f for f in folders if f.name == "__ROOT__"), None)
+            root_folder = next((f for f in folders if f.name == ROOT_FOLDER_MARKER), None)
             if root_folder:
                 add_folder_comics(root_folder.id, recursive=True)
             else:
@@ -452,7 +453,7 @@ async def get_library_folders(
         ).all()
 
         # Find root folder
-        root_folder = next((f for f in all_folders if f.name == "__ROOT__"), None)
+        root_folder = next((f for f in all_folders if f.name == ROOT_FOLDER_MARKER), None)
         root_folder_id = root_folder.id if root_folder else None
 
         # Get target folders
@@ -461,7 +462,7 @@ async def get_library_folders(
             target_folders = [
                 f for f in all_folders
                 if f.parent_id == root_folder_id or
-                (f.parent_id is None and f.name != "__ROOT__")
+                (f.parent_id is None and f.name != ROOT_FOLDER_MARKER)
             ]
         else:
             # Get children of specified folder

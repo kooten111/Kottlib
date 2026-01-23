@@ -26,6 +26,7 @@ from ....database import (
 from ...middleware import get_current_user_id, get_request_user
 from ...error_handling import handle_file_operation, handle_comic_archive_errors, safe_path_exists
 from ...cover_utils import find_cover_file
+from ...response_builders import build_comic_metadata_response
 from ._shared import get_comic_display_name
 
 logger = logging.getLogger(__name__)
@@ -122,13 +123,12 @@ async def get_comic_fullinfo_v2(
             "read": is_read,
             "manga": comic.reading_direction == 'rtl' if hasattr(comic, 'reading_direction') else False,
             "file_type": 1,
-            "cover_size_ratio": comic.cover_size_ratio if comic.cover_size_ratio > 0 else 0.67,  # Use stored ratio or default comic aspect ratio (2:3)
+            "cover_size_ratio": comic.cover_size_ratio if comic.cover_size_ratio > 0 else 0.67,
             "number": 0,
             "has_been_opened": current_page > 0,
         }
 
-        # Add optional metadata fields if available
-        # Add optional metadata fields if available
+        # Add optional core fields
         if comic.title:
             response["title"] = comic.title
         if comic.series:
@@ -137,99 +137,10 @@ async def get_comic_fullinfo_v2(
             response["volume"] = str(comic.volume)
         if comic.issue_number:
             response["universal_number"] = str(comic.issue_number)
-        
-        # Description/Synopsis
-        if hasattr(comic, 'description') and comic.description:
-            response["synopsis"] = comic.description
-        elif hasattr(comic, 'synopsis') and comic.synopsis:
-            response["synopsis"] = comic.synopsis
 
-        # People
-        if hasattr(comic, 'writer') and comic.writer:
-            response["writer"] = comic.writer
-        if hasattr(comic, 'artist') and comic.artist:
-            response["artist"] = comic.artist
-        if hasattr(comic, 'penciller') and comic.penciller:
-            response["penciller"] = comic.penciller
-        if hasattr(comic, 'inker') and comic.inker:
-            response["inker"] = comic.inker
-        if hasattr(comic, 'colorist') and comic.colorist:
-            response["colorist"] = comic.colorist
-        if hasattr(comic, 'letterer') and comic.letterer:
-            response["letterer"] = comic.letterer
-        if hasattr(comic, 'cover_artist') and comic.cover_artist:
-            response["cover_artist"] = comic.cover_artist
-        if hasattr(comic, 'editor') and comic.editor:
-            response["editor"] = comic.editor
-        if hasattr(comic, 'publisher') and comic.publisher:
-            response["publisher"] = comic.publisher
-
-        # Classification
-        if hasattr(comic, 'genre') and comic.genre:
-            response["genre"] = comic.genre
-        if hasattr(comic, 'year') and comic.year:
-            response["year"] = comic.year
-        if hasattr(comic, 'language_iso') and comic.language_iso:
-            response["language_iso"] = comic.language_iso
-        if hasattr(comic, 'age_rating') and comic.age_rating:
-            response["age_rating"] = comic.age_rating
-        if hasattr(comic, 'format_type') and comic.format_type:
-            response["format"] = comic.format_type
-        if hasattr(comic, 'is_color') and comic.is_color is not None:
-            response["is_color"] = comic.is_color
-
-        # Lists
-        if hasattr(comic, 'characters') and comic.characters:
-            response["characters"] = comic.characters
-        if hasattr(comic, 'teams') and comic.teams:
-            response["teams"] = comic.teams
-        if hasattr(comic, 'locations') and comic.locations:
-            response["locations"] = comic.locations
-
-        # Series/Arc
-        if hasattr(comic, 'story_arc') and comic.story_arc:
-            response["story_arc"] = comic.story_arc
-        if hasattr(comic, 'arc_number') and comic.arc_number:
-            response["arc_number"] = comic.arc_number
-        if hasattr(comic, 'arc_count') and comic.arc_count:
-            response["arc_count"] = comic.arc_count
-        if hasattr(comic, 'alternate_series') and comic.alternate_series:
-            response["alternate_series"] = comic.alternate_series
-        if hasattr(comic, 'alternate_number') and comic.alternate_number:
-            response["alternate_number"] = comic.alternate_number
-        if hasattr(comic, 'alternate_count') and comic.alternate_count:
-            response["alternate_count"] = comic.alternate_count
-        if hasattr(comic, 'count') and comic.count:
-            response["count"] = comic.count
-
-        # Additional
-        if hasattr(comic, 'web') and comic.web:
-            response["web"] = comic.web
-        if hasattr(comic, 'notes') and comic.notes:
-            response["notes"] = comic.notes
-        if hasattr(comic, 'review') and comic.review:
-            response["review"] = comic.review
-
-        # Flexible Metadata (JSON)
-        if hasattr(comic, 'metadata_json') and comic.metadata_json:
-            try:
-                response["metadata"] = json.loads(comic.metadata_json)
-            except Exception as e:
-                logger.warning(f"[FULLINFO] Failed to parse metadata_json for comic {comic.id}: {e}")
-
-        # Add scanner metadata fields
-        if hasattr(comic, 'scanner_source') and comic.scanner_source:
-            response["scanner_source"] = comic.scanner_source
-        if hasattr(comic, 'scanner_source_id') and comic.scanner_source_id:
-            response["scanner_source_id"] = comic.scanner_source_id
-        if hasattr(comic, 'scanner_source_url') and comic.scanner_source_url:
-            response["scanner_source_url"] = comic.scanner_source_url
-        if hasattr(comic, 'scan_confidence') and comic.scan_confidence is not None:
-            response["scan_confidence"] = comic.scan_confidence
-        if hasattr(comic, 'scanned_at') and comic.scanned_at:
-            response["scanned_at"] = comic.scanned_at
-        if hasattr(comic, 'tags') and comic.tags:
-            response["tags"] = comic.tags
+        # Add all optional metadata fields using the response builder utility
+        metadata = build_comic_metadata_response(comic)
+        response.update(metadata)
 
         logger.info(f"[FULLINFO] Response built successfully: comic_id={comic.id}, num_pages={comic.num_pages}, current_page={current_page}, has_title={bool(comic.title)}, has_series={bool(comic.series)}")
         logger.debug(f"[FULLINFO] Full response keys: {list(response.keys())}")
