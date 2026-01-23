@@ -11,13 +11,8 @@ Tests cover:
 
 import pytest
 from unittest.mock import Mock, patch, MagicMock
-import sys
-import os
 
-# Add project root to path
-sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
-
-# Import from scanners directory at project root
+# Import from scanners directory at project root (pythonpath set in pytest.ini)
 from scanners.mangadex.mangadex_scanner import (
     MangaDexScanner,
     MangaDexAPI,
