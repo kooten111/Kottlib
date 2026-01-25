@@ -1,0 +1,24 @@
+# Bun configuration for Kottlib WebUI
+# See https://bun.sh/docs/cli/bunfig for all options
+
+[install]
+# Use faster installs
+auto = true
+
+# Prefer exact versions for reproducible builds
+exact = false
+
+# Install peer dependencies automatically
+peer = true
+
+[install.scopes]
+# Configure scoped package registries if needed
+# "@myorg" = "https://npm.pkg.github.com"
+
+[run]
+# Environment variables for bun run commands
+# These can be overridden by command-line or .env files
+
+[test]
+# Test configuration
+# timeout = 5000

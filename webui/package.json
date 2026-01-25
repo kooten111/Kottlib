@@ -4,12 +4,12 @@
   "description": "Modern Web UI for Kottlib",
   "type": "module",
   "scripts": {
-    "dev": "vite dev",
-    "build": "vite build",
-    "preview": "vite preview",
-    "start": "vite build && PORT=5173 HOST=0.0.0.0 node build",
-    "check": "svelte-kit sync && svelte-check --tsconfig ./jsconfig.json",
-    "check:watch": "svelte-kit sync && svelte-check --tsconfig ./jsconfig.json --watch"
+    "dev": "bun run vite dev",
+    "build": "bun run vite build",
+    "preview": "bun run vite preview",
+    "start": "bun run vite build && PORT=5173 HOST=0.0.0.0 bun build/index.js",
+    "check": "bun run svelte-kit sync && bun run svelte-check --tsconfig ./jsconfig.json",
+    "check:watch": "bun run svelte-kit sync && bun run svelte-check --tsconfig ./jsconfig.json --watch"
   },
   "keywords": [
     "yacreader",

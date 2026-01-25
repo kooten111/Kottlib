@@ -115,10 +115,10 @@ echo ""
 echo "Starting Kottlib Server..."
 echo ""
 
-# Check if Node.js is installed for Web UI
-if command -v node &> /dev/null; then
-    NODE_VERSION=$(node --version)
-    echo -e "${GREEN}✓ Node.js ${NODE_VERSION} found${NC}"
+# Check if Bun is installed for Web UI
+if command -v bun &> /dev/null; then
+    BUN_VERSION=$(bun --version)
+    echo -e "${GREEN}✓ Bun ${BUN_VERSION} found${NC}"
 
     # Check if web UI dependencies are installed
     if [ -d "webui/node_modules" ]; then
@@ -126,7 +126,7 @@ if command -v node &> /dev/null; then
     else
         echo -e "${YELLOW}Installing Web UI dependencies...${NC}"
         cd webui
-        npm install
+        bun install
         cd ..
         echo -e "${GREEN}✓ Web UI dependencies installed${NC}"
     fi
@@ -135,7 +135,7 @@ if command -v node &> /dev/null; then
     echo "Starting Web UI frontend..."
     mkdir -p logs
     cd webui
-    npm start > ../logs/webui.log 2>&1 &
+    bun start > ../logs/webui.log 2>&1 &
     WEBUI_PID=$!
     cd ..
     echo -e "${GREEN}✓ Web UI started (PID: $WEBUI_PID)${NC}"
@@ -147,11 +147,10 @@ if command -v node &> /dev/null; then
     echo "  - API docs: http://localhost:8081/docs"
     echo ""
 else
-    echo -e "${YELLOW}Warning: Node.js not found. Web UI will not start.${NC}"
-    echo "Install Node.js to use the Web UI:"
-    echo "  - Arch/Manjaro: sudo pacman -S nodejs npm"
-    echo "  - Ubuntu/Debian: sudo apt install nodejs npm"
-    echo "  - macOS: brew install node"
+    echo -e "${YELLOW}Warning: Bun not found. Web UI will not start.${NC}"
+    echo "Install Bun to use the Web UI:"
+    echo "  - curl -fsSL https://bun.sh/install | bash"
+    echo "  - Or visit: https://bun.sh/docs/installation"
     echo ""
     echo "Server will be available at:"
     echo "  - API Backend: http://localhost:8081"

@@ -326,7 +326,7 @@ Kottlib/
 │   │   │   └── series/            # Series browser
 │   │   ├── lib/           # Reusable components & stores
 │   │   └── app.html       # HTML template
-│   ├── package.json       # Node dependencies
+│   ├── package.json       # Bun dependencies
 │   └── vite.config.js     # Vite configuration
 ├── scripts/               # Utility scripts
 │   ├── kottlib.py         # Interactive Python launcher with setup wizard
@@ -358,7 +358,7 @@ Kottlib/
 - Python 3.11+
 - Linux, macOS, or Windows
 - Comics in CBZ, CBR, or CB7 format
-- Node.js 18+ (for web UI)
+- Bun (for web UI) - https://bun.sh
 
 ### System Dependencies (for CBR support)
 

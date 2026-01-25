@@ -1,6 +1,6 @@
 <script>
 	import Button from '$lib/components/common/Button.svelte';
-	import { createEventDispatcher } from 'svelte';
+	import { createEventDispatcher, onMount, onDestroy } from 'svelte';
 
 	export let currentPage = 1;
 	export let totalPages = 1;
@@ -9,9 +9,101 @@
 
 	const dispatch = createEventDispatcher();
 
+	let showTopBar = false;
+	let showBottomBar = false;
+	let controlsElement;
+	let topBarElement;
+	let bottomBarElement;
+	const HOVER_THRESHOLD = 120; // pixels from top/bottom to trigger hover
+	let hideTimeout;
+
 	$: canGoPrev = currentPage > 1;
 	$: canGoNext = currentPage < totalPages;
 	$: progress = totalPages > 0 ? (currentPage / totalPages) * 100 : 0;
+
+	function handleMouseMove(event) {
+		if (!controlsElement) return;
+
+		// Clear any pending hide timeout
+		if (hideTimeout) {
+			clearTimeout(hideTimeout);
+			hideTimeout = null;
+		}
+
+		const rect = controlsElement.getBoundingClientRect();
+		const mouseY = event.clientY;
+		const containerTop = rect.top;
+		const containerBottom = rect.bottom;
+
+		// Keep bars visible when settings are open
+		if (showSettings) {
+			showTopBar = true;
+			showBottomBar = true;
+			return;
+		}
+
+		// Check if mouse is within the container bounds
+		if (mouseY < containerTop || mouseY > containerBottom) {
+			// Mouse is outside container, hide bars after a delay
+			hideTimeout = setTimeout(() => {
+				showTopBar = false;
+				showBottomBar = false;
+			}, 300);
+			return;
+		}
+
+		// Check if hovering directly over the bars
+		const target = event.target;
+		if (topBarElement && (topBarElement.contains(target) || target.closest('.top-bar'))) {
+			showTopBar = true;
+		} else {
+			// Show top bar when mouse is near the top of the container
+			const distanceFromTop = mouseY - containerTop;
+			showTopBar = distanceFromTop < HOVER_THRESHOLD;
+		}
+
+		if (bottomBarElement && (bottomBarElement.contains(target) || target.closest('.bottom-bar'))) {
+			showBottomBar = true;
+		} else {
+			// Show bottom bar when mouse is near the bottom of the container
+			const distanceFromBottom = containerBottom - mouseY;
+			showBottomBar = distanceFromBottom < HOVER_THRESHOLD;
+		}
+	}
+
+	function handleMouseEnter() {
+		// When mouse enters the controls area, check position immediately
+		if (hideTimeout) {
+			clearTimeout(hideTimeout);
+			hideTimeout = null;
+		}
+	}
+
+	function handleMouseLeave() {
+		// Don't hide bars if settings are open
+		if (showSettings) return;
+		
+		// Hide bars when mouse leaves the controls area
+		hideTimeout = setTimeout(() => {
+			showTopBar = false;
+			showBottomBar = false;
+		}, 200);
+	}
+
+	onMount(() => {
+		if (typeof window !== 'undefined') {
+			window.addEventListener('mousemove', handleMouseMove);
+		}
+	});
+
+	onDestroy(() => {
+		if (typeof window !== 'undefined') {
+			window.removeEventListener('mousemove', handleMouseMove);
+		}
+		if (hideTimeout) {
+			clearTimeout(hideTimeout);
+		}
+	});
 
 	function handlePrevious() {
 		if (canGoPrev) {
@@ -50,9 +142,9 @@
 	}
 </script>
 
-<div class="reader-controls">
+<div class="reader-controls" bind:this={controlsElement} on:mouseenter={handleMouseEnter} on:mouseleave={handleMouseLeave}>
 	<!-- Top Bar -->
-	<div class="top-bar">
+	<div class="top-bar" class:visible={showTopBar} bind:this={topBarElement} on:mouseenter={() => { showTopBar = true; if (hideTimeout) clearTimeout(hideTimeout); }} on:mouseleave={handleMouseLeave}>
 		<div class="left">
 			<Button variant="ghost" size="sm" on:click={handleExit}>
 				<svg
@@ -146,7 +238,7 @@
 	</div>
 
 	<!-- Bottom Bar -->
-	<div class="bottom-bar">
+	<div class="bottom-bar" class:visible={showBottomBar} bind:this={bottomBarElement} on:mouseenter={() => { showBottomBar = true; if (hideTimeout) clearTimeout(hideTimeout); }} on:mouseleave={handleMouseLeave}>
 		<Button variant="ghost" size="sm" on:click={handlePrevious} disabled={!canGoPrev}>
 			<svg
 				xmlns="http://www.w3.org/2000/svg"
@@ -217,7 +309,16 @@
 		padding: 1rem 1.5rem;
 		background: linear-gradient(to bottom, rgba(0, 0, 0, 0.8), transparent);
 		pointer-events: all;
-		transition: opacity 0.3s ease;
+		opacity: 0;
+		transform: translateY(-100%);
+		transition: opacity 0.3s ease, transform 0.3s ease;
+	}
+
+	.top-bar.visible,
+	.bottom-bar.visible {
+		opacity: 1;
+		transform: translateY(0);
+		pointer-events: all;
 	}
 
 	.top-bar {
@@ -228,6 +329,11 @@
 		bottom: 0;
 		background: linear-gradient(to top, rgba(0, 0, 0, 0.8), transparent);
 		gap: 1rem;
+		transform: translateY(100%);
+	}
+
+	.bottom-bar.visible {
+		transform: translateY(0);
 	}
 
 	.top-bar .left,

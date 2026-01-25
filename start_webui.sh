@@ -26,19 +26,18 @@ GREEN='\033[0;32m'
 YELLOW='\033[1;33m'
 NC='\033[0m' # No Color
 
-# Check if Node.js is installed
-echo "Checking Node.js installation..."
-if ! command -v node &> /dev/null; then
-    echo -e "${RED}Error: Node.js is not installed!${NC}"
-    echo "Please install Node.js:"
-    echo "  - Arch/Manjaro: sudo pacman -S nodejs npm"
-    echo "  - Ubuntu/Debian: sudo apt install nodejs npm"
-    echo "  - macOS: brew install node"
+# Check if Bun is installed
+echo "Checking Bun installation..."
+if ! command -v bun &> /dev/null; then
+    echo -e "${RED}Error: Bun is not installed!${NC}"
+    echo "Please install Bun:"
+    echo "  - curl -fsSL https://bun.sh/install | bash"
+    echo "  - Or visit: https://bun.sh/docs/installation"
     exit 1
 fi
 
-NODE_VERSION=$(node --version)
-echo -e "${GREEN}✓ Node.js ${NODE_VERSION} found${NC}"
+BUN_VERSION=$(bun --version)
+echo -e "${GREEN}✓ Bun ${BUN_VERSION} found${NC}"
 
 # Check if webui directory exists
 if [ ! -d "webui" ]; then
@@ -52,7 +51,7 @@ cd webui
 if [ ! -d "node_modules" ]; then
     echo ""
     echo -e "${YELLOW}Installing Web UI dependencies...${NC}"
-    npm install
+    bun install
     echo -e "${GREEN}✓ Dependencies installed${NC}"
 else
     echo -e "${GREEN}✓ Dependencies found${NC}"
@@ -72,4 +71,4 @@ echo "Press Ctrl+C to stop the Web UI"
 echo ""
 
 # Start Web UI
-npm start
+bun start

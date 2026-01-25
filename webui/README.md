@@ -46,18 +46,18 @@ Then visit: **http://localhost:5173**
 ### Manual Setup
 
 #### Prerequisites
-- Node.js v18+ and npm
+- Bun (https://bun.sh)
 - Backend API running on port 8081
 
 #### Installation
 ```bash
 cd webui
-npm install
+bun install
 ```
 
 #### Development
 ```bash
-npm run dev
+bun run dev
 ```
 
 Open [http://localhost:5173](http://localhost:5173) in your browser.
@@ -67,8 +67,8 @@ The API proxy is configured to forward `/v2/*` requests to `http://localhost:808
 ### Build for Production
 
 ```bash
-npm run build
-npm run preview
+bun run build
+bun run preview
 ```
 
 ## Project Structure
