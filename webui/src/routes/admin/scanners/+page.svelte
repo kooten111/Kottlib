@@ -623,11 +623,11 @@
 			</p>
 			<div class="space-y-4">
 				<div>
-					<label
+					<span
 						class="block text-sm font-medium text-dark-text mb-3"
 					>
 						Select Library
-					</label>
+					</span>
 					<div class="grid gap-3 md:grid-cols-2 lg:grid-cols-3">
 						{#each libraryConfigs as config}
 							<button
@@ -701,22 +701,23 @@
 							/>
 							<span>Rescan already scanned comics</span>
 						</label>
-						<div>
-							<label class="block text-sm text-dark-text mb-1">
-								Custom confidence threshold (optional, 0-1)
-							</label>
-							<input
-								type="number"
-								min="0"
-								max="1"
-								step="0.1"
-								bind:value={
-									libraryScanOptions.confidenceThreshold
-								}
-								placeholder="Use library default"
-								class="w-full border border-gray-700 bg-dark-bg-tertiary text-dark-text rounded-lg px-3 py-2 focus:border-accent-orange focus:ring-2 focus:ring-accent-orange focus:ring-offset-2 focus:ring-offset-dark-bg transition-all"
-							/>
-						</div>
+					<div>
+						<label for="confidence-threshold" class="block text-sm text-dark-text mb-1">
+							Custom confidence threshold (optional, 0-1)
+						</label>
+						<input
+							id="confidence-threshold"
+							type="number"
+							min="0"
+							max="1"
+							step="0.1"
+							bind:value={
+								libraryScanOptions.confidenceThreshold
+							}
+							placeholder="Use library default"
+							class="w-full border border-gray-700 bg-dark-bg-tertiary text-dark-text rounded-lg px-3 py-2 focus:border-accent-orange focus:ring-2 focus:ring-accent-orange focus:ring-offset-2 focus:ring-offset-dark-bg transition-all"
+						/>
+					</div>
 					</div>
 				</div>
 

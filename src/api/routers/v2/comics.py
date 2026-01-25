@@ -80,6 +80,34 @@ async def get_comic_fullinfo_v2(
 
         logger.info(f"[FULLINFO] Comic found: filename={comic.filename}, path={comic.path}, num_pages={comic.num_pages}, hash={comic.hash[:12]}...")
 
+        # Fix missing page count: if num_pages is 0, open archive to get actual count
+        if comic.num_pages == 0:
+            logger.warning(f"[FULLINFO] Comic has num_pages=0, attempting to detect actual page count from archive")
+            comic_path = Path(comic.path)
+            
+            # Import here to avoid circular imports
+            from ....scanner import open_comic
+            
+            try:
+                if comic_path.exists():
+                    with open_comic(comic_path) as archive:
+                        if archive is not None:
+                            actual_page_count = archive.page_count
+                            if actual_page_count > 0:
+                                logger.info(f"[FULLINFO] Detected {actual_page_count} pages in archive, updating database")
+                                comic.num_pages = actual_page_count
+                                session.commit()
+                                logger.info(f"[FULLINFO] Updated comic.num_pages to {actual_page_count}")
+                            else:
+                                logger.warning(f"[FULLINFO] Archive opened but page_count is 0, keeping database value")
+                        else:
+                            logger.error(f"[FULLINFO] Failed to open comic archive: {comic_path}")
+                else:
+                    logger.error(f"[FULLINFO] Comic file does not exist: {comic_path}")
+            except Exception as e:
+                logger.error(f"[FULLINFO] Error opening archive to detect page count: {e}", exc_info=True)
+                # Continue with num_pages=0 rather than failing the request
+
         # Get reading progress
         current_page = 0
         is_read = False

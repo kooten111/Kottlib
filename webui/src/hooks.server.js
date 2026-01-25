@@ -6,7 +6,9 @@ export async function handle({ event, resolve }) {
     // We strictly proxy paths starting with /v2/ or /api/
     // This allows the backend to handle all data requests
     if (url.pathname.startsWith('/v2/') || url.pathname.startsWith('/api/')) {
-        const targetUrl = `http://localhost:8081${url.pathname}${url.search}`;
+        // Use environment variable for backend URL, fallback to localhost for development
+        const backendUrl = process.env.BACKEND_URL || 'http://localhost:8081';
+        const targetUrl = `${backendUrl}${url.pathname}${url.search}`;
 
         try {
             // Forward the request to the backend
@@ -36,6 +38,9 @@ export async function handle({ event, resolve }) {
 
                 // Strip content-encoding (because Node decompressed it)
                 if (key === 'content-encoding') continue;
+
+                // Strip transfer-encoding (Node.js handles this automatically)
+                if (key === 'transfer-encoding') continue;
 
                 // Strip content-length ONLY if the body was decompressed
                 // (The original length refers to the compressed size, which is wrong for the decompressed stream we are sending)

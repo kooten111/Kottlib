@@ -33,7 +33,7 @@
 			role="button"
 			tabindex="0"
 			aria-label="Close modal"
-		/>
+		></div>
 
 		<!-- Modal Content -->
 		<div class="relative bg-dark-bg-secondary rounded-card shadow-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto border-2 border-gray-700"

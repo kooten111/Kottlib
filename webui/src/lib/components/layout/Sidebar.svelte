@@ -81,9 +81,13 @@
 		<div
 			class="resize-handle"
 			on:mousedown={startResize}
-			role="separator"
+			role="slider"
 			tabindex="0"
 			aria-label="Resize sidebar"
+			aria-orientation="horizontal"
+			aria-valuemin="160"
+			aria-valuemax="448"
+			aria-valuenow={sidebarWidth}
 		></div>
 	</aside>
 
@@ -96,7 +100,7 @@
 			role="button"
 			tabindex="0"
 			aria-label="Close sidebar"
-		/>
+		></div>
 	{/if}
 </div>
 

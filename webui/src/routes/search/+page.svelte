@@ -326,11 +326,11 @@
 				{/if}
 
 				<!-- Loading State -->
-				{#if isLoading}
-					<div class="loading-container">
-						<div class="spinner" />
-						<p class="text-gray-400 mt-4">Searching...</p>
-					</div>
+			{#if isLoading}
+				<div class="loading-container">
+					<div class="spinner"></div>
+					<p class="text-gray-400 mt-4">Searching...</p>
+				</div>
 				{:else if error}
 					<!-- Error State -->
 					<div class="error-container">

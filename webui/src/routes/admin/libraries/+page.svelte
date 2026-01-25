@@ -561,10 +561,11 @@
                 {/if}
 
                 <div>
-                    <label class="block text-sm font-medium text-dark-text mb-2"
+                    <label for="library-name" class="block text-sm font-medium text-dark-text mb-2"
                         >Library Name</label
                     >
                     <input
+                        id="library-name"
                         type="text"
                         bind:value={formData.name}
                         placeholder="e.g., Comics, Manga"
@@ -573,10 +574,11 @@
                 </div>
 
                 <div>
-                    <label class="block text-sm font-medium text-dark-text mb-2"
+                    <label for="folder-path" class="block text-sm font-medium text-dark-text mb-2"
                         >Folder Path</label
                     >
                     <input
+                        id="folder-path"
                         type="text"
                         bind:value={formData.path}
                         placeholder="/path/to/your/comics"
@@ -588,10 +590,11 @@
                 </div>
 
                 <div>
-                    <label class="block text-sm font-medium text-dark-text mb-2"
+                    <label for="scan-interval" class="block text-sm font-medium text-dark-text mb-2"
                         >Scan Interval (minutes)</label
                     >
                     <input
+                        id="scan-interval"
                         type="number"
                         min="0"
                         bind:value={formData.scan_interval}
@@ -628,9 +631,9 @@
                 <div class="pt-4 border-t border-gray-700">
                     <div class="flex items-center justify-between mb-3">
                         <div>
-                            <label class="block text-sm font-medium text-dark-text">
+                            <span class="block text-sm font-medium text-dark-text">
                                 Default Reader Settings
-                            </label>
+                            </span>
                             <p class="text-xs text-dark-text-secondary mt-0.5">
                                 Configure default reader settings for this library
                             </p>
@@ -658,9 +661,9 @@
                         <div class="space-y-3 bg-dark-bg-tertiary/50 rounded-lg p-4">
                             <!-- Fit Mode -->
                             <div>
-                                <label class="block text-xs font-medium text-dark-text mb-1.5">
+                                <span class="block text-xs font-medium text-dark-text mb-1.5">
                                     Fit Mode
-                                </label>
+                                </span>
                                 <div class="flex gap-2">
                                     {#each ['fit-width', 'fit-height', 'original'] as mode}
                                         <button
@@ -678,9 +681,9 @@
 
                             <!-- Reading Mode -->
                             <div>
-                                <label class="block text-xs font-medium text-dark-text mb-1.5">
+                                <span class="block text-xs font-medium text-dark-text mb-1.5">
                                     Reading Mode
-                                </label>
+                                </span>
                                 <div class="flex gap-2">
                                     {#each ['single', 'double', 'continuous'] as mode}
                                         <button
@@ -698,9 +701,9 @@
 
                             <!-- Reading Direction -->
                             <div>
-                                <label class="block text-xs font-medium text-dark-text mb-1.5">
+                                <span class="block text-xs font-medium text-dark-text mb-1.5">
                                     Reading Direction
-                                </label>
+                                </span>
                                 <div class="flex gap-2">
                                     {#each [{value: 'ltr', label: 'Left to Right'}, {value: 'rtl', label: 'Right to Left (Manga)'}] as option}
                                         <button
@@ -718,10 +721,11 @@
 
                             <!-- Preload Pages -->
                             <div>
-                                <label class="block text-xs font-medium text-dark-text mb-1.5">
+                                <label for="preload-pages" class="block text-xs font-medium text-dark-text mb-1.5">
                                     Preload Pages: {formData.reader_defaults.preloadPages}
                                 </label>
                                 <input
+                                    id="preload-pages"
                                     type="range"
                                     min="0"
                                     max="5"
@@ -734,9 +738,9 @@
 
                             <!-- Background Color -->
                             <div>
-                                <label class="block text-xs font-medium text-dark-text mb-1.5">
+                                <span class="block text-xs font-medium text-dark-text mb-1.5">
                                     Background Color
-                                </label>
+                                </span>
                                 <div class="flex gap-2">
                                     {#each ['#1a1a1a', '#000000', '#242424', '#333333', '#ffffff'] as color}
                                         <button

@@ -231,9 +231,9 @@
 						on:click={saveConfig}
 						disabled={isSaving}
 					>
-						{#if isSaving}
-							<div class="spinner-small" />
-							Saving...
+					{#if isSaving}
+						<div class="spinner-small"></div>
+						Saving...
 						{:else}
 							<Save class="w-4 h-4" />
 							Save Changes
@@ -259,7 +259,7 @@
 
 		{#if isLoading}
 			<div class="loading-container">
-				<div class="spinner" />
+				<div class="spinner"></div>
 				<p class="text-gray-400 mt-4">Loading settings...</p>
 			</div>
 		{:else if config}
@@ -360,16 +360,16 @@
 									</p>
 								</div>
 
-								<div class="form-group full-width">
-									<div class="form-group-header">
-										<label>CORS Origins</label>
-										<button
-											class="btn-sm"
-											on:click={addCorsOrigin}
-										>
-											<span class="text-lg">+</span> Add Origin
-										</button>
-									</div>
+							<div class="form-group full-width">
+								<div class="form-group-header">
+									<span class="form-label">CORS Origins</span>
+									<button
+										class="btn-sm"
+										on:click={addCorsOrigin}
+									>
+										<span class="text-lg">+</span> Add Origin
+									</button>
+								</div>
 									<div class="cors-list">
 										{#each config.server.cors_origins as origin, index}
 											<div class="cors-item">
@@ -1098,6 +1098,12 @@
 	}
 
 	.form-group label {
+		font-size: 0.875rem;
+		font-weight: 500;
+		color: var(--color-text);
+	}
+
+	.form-label {
 		font-size: 0.875rem;
 		font-weight: 500;
 		color: var(--color-text);

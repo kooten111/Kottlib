@@ -119,7 +119,7 @@
 		<!-- Content -->
 		{#if isLoading}
 			<div class="loading-container">
-				<div class="spinner" />
+				<div class="spinner"></div>
 				<p class="text-gray-400 mt-4">Loading favorites...</p>
 			</div>
 		{:else if error}

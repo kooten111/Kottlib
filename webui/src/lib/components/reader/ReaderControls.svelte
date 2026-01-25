@@ -142,9 +142,9 @@
 	}
 </script>
 
-<div class="reader-controls" bind:this={controlsElement} on:mouseenter={handleMouseEnter} on:mouseleave={handleMouseLeave}>
+<div class="reader-controls" bind:this={controlsElement} on:mouseenter={handleMouseEnter} on:mouseleave={handleMouseLeave} role="region" aria-label="Reader controls">
 	<!-- Top Bar -->
-	<div class="top-bar" class:visible={showTopBar} bind:this={topBarElement} on:mouseenter={() => { showTopBar = true; if (hideTimeout) clearTimeout(hideTimeout); }} on:mouseleave={handleMouseLeave}>
+	<div class="top-bar" class:visible={showTopBar} bind:this={topBarElement} on:mouseenter={() => { showTopBar = true; if (hideTimeout) clearTimeout(hideTimeout); }} on:mouseleave={handleMouseLeave} role="toolbar" aria-label="Reader top toolbar" tabindex="0">
 		<div class="left">
 			<Button variant="ghost" size="sm" on:click={handleExit}>
 				<svg
@@ -238,7 +238,7 @@
 	</div>
 
 	<!-- Bottom Bar -->
-	<div class="bottom-bar" class:visible={showBottomBar} bind:this={bottomBarElement} on:mouseenter={() => { showBottomBar = true; if (hideTimeout) clearTimeout(hideTimeout); }} on:mouseleave={handleMouseLeave}>
+	<div class="bottom-bar" class:visible={showBottomBar} bind:this={bottomBarElement} on:mouseenter={() => { showBottomBar = true; if (hideTimeout) clearTimeout(hideTimeout); }} on:mouseleave={handleMouseLeave} role="toolbar" aria-label="Reader bottom toolbar" tabindex="0">
 		<Button variant="ghost" size="sm" on:click={handlePrevious} disabled={!canGoPrev}>
 			<svg
 				xmlns="http://www.w3.org/2000/svg"

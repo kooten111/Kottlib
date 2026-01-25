@@ -77,7 +77,7 @@
 		<div class="infinite-scroll-sentinel">
 			{#if isLoading}
 				<div class="loading-spinner">
-					<div class="spinner" />
+					<div class="spinner"></div>
 					<p class="loading-text">Loading more...</p>
 				</div>
 			{/if}

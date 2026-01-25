@@ -12,7 +12,9 @@
 	export let prevPageSrc = '';
 	// Continuous scroll mode props
 	export let allPages = new Map(); // Map<pageNumber, imageUrl>
+	// svelte-ignore export_let_unused - Reserved for future use
 	export let libraryId = null;
+	// svelte-ignore export_let_unused - Reserved for future use
 	export let comicId = null;
 	export let onPageChange = null; // Callback function for page changes
 	export let onPrefetchPage = null; // Callback function to prefetch a page

@@ -12,10 +12,10 @@
 	style="width: {width}px; height: {height}px;"
 	aria-label="Loading..."
 >
-	<div class="skeleton-image" />
+	<div class="skeleton-image"></div>
 	<div class="skeleton-content">
-		<div class="skeleton-title" />
-		<div class="skeleton-subtitle" />
+		<div class="skeleton-title"></div>
+		<div class="skeleton-subtitle"></div>
 	</div>
 </div>
 
