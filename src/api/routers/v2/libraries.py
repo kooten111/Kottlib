@@ -212,6 +212,7 @@ class LibraryInfo(BaseModel):
     comic_count: int = 0
     folder_count: int = 0
     exclude_from_webui: bool = False
+    settings: Optional[Dict[str, Any]] = None
 
 
 class CreateLibraryRequest(BaseModel):
@@ -284,6 +285,7 @@ async def list_libraries(session: Session = Depends(get_db_session)):
             comic_count=stats.get('comic_count', 0),
             folder_count=stats.get('folder_count', 0),
             exclude_from_webui=bool(lib.exclude_from_webui or False),
+            settings=lib.settings,
         ))
 
     return result
@@ -311,6 +313,7 @@ async def get_library(library_id: int, session: Session = Depends(get_db_session
         comic_count=stats.get('comic_count', 0),
         folder_count=stats.get('folder_count', 0),
         exclude_from_webui=bool(library.exclude_from_webui or False),
+        settings=library.settings,
     )
 
 
@@ -357,8 +360,10 @@ async def add_library(
             last_scan_at=library.last_scan_completed,
             scan_status="scanning",  # Optimistically set status
             scan_interval=data.scan_interval,
+            comic_count=stats.get('comic_count', 0),
             folder_count=stats.get('folder_count', 0),
             exclude_from_webui=data.exclude_from_webui,
+            settings=library.settings,
         )
 
 
@@ -404,6 +409,7 @@ async def update_library_details(library_id: int, request: Request, data: Update
             comic_count=stats.get('comic_count', 0),
             folder_count=stats.get('folder_count', 0),
             exclude_from_webui=bool(library.exclude_from_webui or False),
+            settings=library.settings,
         )
 
 

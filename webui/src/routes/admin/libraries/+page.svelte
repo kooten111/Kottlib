@@ -33,7 +33,9 @@
         name: "",
         path: "",
         scan_interval: 0,
+        reader_defaults: null,
     };
+    let showReaderSettings = false;
     let isSaving = false;
     let saveError = null;
     let scanningLibraries = new Set(); // Set of library IDs currently scanning
@@ -89,7 +91,9 @@
             path: "",
             scan_interval: 0,
             exclude_from_webui: false,
+            reader_defaults: null,
         };
+        showReaderSettings = false;
         saveError = null;
         showModal = true;
     }
@@ -97,12 +101,18 @@
     function openEditModal(library) {
         modalMode = "edit";
         editingLibrary = library;
+        // Create a deep copy of reader_defaults if it exists
+        const readerDefaults = library.settings?.reader_defaults 
+            ? { ...library.settings.reader_defaults }
+            : null;
         formData = {
             name: library.name,
             path: library.path,
             scan_interval: library.scan_interval || 0,
             exclude_from_webui: library.exclude_from_webui || false,
+            reader_defaults: readerDefaults,
         };
+        showReaderSettings = !!readerDefaults;
         saveError = null;
         showModal = true;
     }
@@ -123,15 +133,38 @@
             isSaving = true;
             saveError = null;
 
+            // Prepare data for API
+            const submitData = {
+                name: formData.name,
+                path: formData.path,
+                scan_interval: formData.scan_interval,
+                exclude_from_webui: formData.exclude_from_webui,
+            };
+
+            // Include reader defaults in settings if they exist
+            if (formData.reader_defaults) {
+                // Preserve existing settings and merge in reader_defaults
+                if (modalMode === "edit" && editingLibrary?.settings) {
+                    submitData.settings = { ...editingLibrary.settings };
+                } else {
+                    submitData.settings = {};
+                }
+                submitData.settings.reader_defaults = { ...formData.reader_defaults };
+            } else if (modalMode === "edit" && editingLibrary?.settings) {
+                // Preserve existing settings but remove reader_defaults if cleared
+                submitData.settings = { ...editingLibrary.settings };
+                delete submitData.settings.reader_defaults;
+            }
+
             if (modalMode === "create") {
-                const newLibrary = await createLibrary(formData);
+                const newLibrary = await createLibrary(submitData);
 
                 // Auto-start progress monitoring for new library
                 scanningLibraries.add(newLibrary.id);
                 scanningLibraries = scanningLibraries; // Trigger reactivity
                 startProgressMonitoring(newLibrary.id);
             } else {
-                await updateLibrary(editingLibrary.id, formData);
+                await updateLibrary(editingLibrary.id, submitData);
             }
 
             await loadLibraries();
@@ -142,6 +175,40 @@
         } finally {
             isSaving = false;
         }
+    }
+
+    // Default reader settings
+    const defaultReaderSettings = {
+        fitMode: 'fit-height',
+        readingMode: 'single',
+        readingDirection: 'ltr',
+        preloadPages: 3,
+        backgroundColor: '#1a1a1a',
+        autoHideControls: true,
+        autoHideDelay: 3000
+    };
+
+    function initializeReaderDefaults() {
+        if (!formData.reader_defaults) {
+            formData.reader_defaults = { ...defaultReaderSettings };
+        }
+        showReaderSettings = true;
+    }
+
+    function clearReaderDefaults() {
+        formData.reader_defaults = null;
+        showReaderSettings = false;
+    }
+
+    function updateReaderDefault(key, value) {
+        if (!formData.reader_defaults) {
+            formData.reader_defaults = { ...defaultReaderSettings };
+        }
+        // Create a new object to trigger reactivity
+        formData.reader_defaults = {
+            ...formData.reader_defaults,
+            [key]: value
+        };
     }
 
     async function handleDelete(library) {
@@ -555,6 +622,170 @@
                             (OPDS)
                         </span>
                     </label>
+                </div>
+
+                <!-- Reader Settings Section -->
+                <div class="pt-4 border-t border-gray-700">
+                    <div class="flex items-center justify-between mb-3">
+                        <div>
+                            <label class="block text-sm font-medium text-dark-text">
+                                Default Reader Settings
+                            </label>
+                            <p class="text-xs text-dark-text-secondary mt-0.5">
+                                Configure default reader settings for this library
+                            </p>
+                        </div>
+                        {#if !showReaderSettings}
+                            <button
+                                type="button"
+                                on:click={initializeReaderDefaults}
+                                class="px-3 py-1.5 text-xs bg-dark-bg-tertiary border border-gray-700 rounded-lg text-dark-text hover:bg-gray-700 transition-colors"
+                            >
+                                Configure
+                            </button>
+                        {:else}
+                            <button
+                                type="button"
+                                on:click={clearReaderDefaults}
+                                class="px-3 py-1.5 text-xs bg-red-950/50 border border-red-900/50 rounded-lg text-red-200 hover:bg-red-900/50 transition-colors"
+                            >
+                                Clear
+                            </button>
+                        {/if}
+                    </div>
+
+                    {#if showReaderSettings && formData.reader_defaults}
+                        <div class="space-y-3 bg-dark-bg-tertiary/50 rounded-lg p-4">
+                            <!-- Fit Mode -->
+                            <div>
+                                <label class="block text-xs font-medium text-dark-text mb-1.5">
+                                    Fit Mode
+                                </label>
+                                <div class="flex gap-2">
+                                    {#each ['fit-width', 'fit-height', 'original'] as mode}
+                                        <button
+                                            type="button"
+                                            on:click={() => updateReaderDefault('fitMode', mode)}
+                                            class="px-3 py-1.5 text-xs rounded border transition-colors {formData.reader_defaults.fitMode === mode
+                                                ? 'bg-accent-orange border-accent-orange text-white'
+                                                : 'bg-dark-bg-secondary border-gray-700 text-dark-text-secondary hover:border-gray-600'}"
+                                        >
+                                            {mode === 'fit-width' ? 'Fit Width' : mode === 'fit-height' ? 'Fit Height' : 'Original'}
+                                        </button>
+                                    {/each}
+                                </div>
+                            </div>
+
+                            <!-- Reading Mode -->
+                            <div>
+                                <label class="block text-xs font-medium text-dark-text mb-1.5">
+                                    Reading Mode
+                                </label>
+                                <div class="flex gap-2">
+                                    {#each ['single', 'double', 'continuous'] as mode}
+                                        <button
+                                            type="button"
+                                            on:click={() => updateReaderDefault('readingMode', mode)}
+                                            class="px-3 py-1.5 text-xs rounded border transition-colors {formData.reader_defaults.readingMode === mode
+                                                ? 'bg-accent-orange border-accent-orange text-white'
+                                                : 'bg-dark-bg-secondary border-gray-700 text-dark-text-secondary hover:border-gray-600'}"
+                                        >
+                                            {mode === 'single' ? 'Single' : mode === 'double' ? 'Double' : 'Continuous'}
+                                        </button>
+                                    {/each}
+                                </div>
+                            </div>
+
+                            <!-- Reading Direction -->
+                            <div>
+                                <label class="block text-xs font-medium text-dark-text mb-1.5">
+                                    Reading Direction
+                                </label>
+                                <div class="flex gap-2">
+                                    {#each [{value: 'ltr', label: 'Left to Right'}, {value: 'rtl', label: 'Right to Left (Manga)'}] as option}
+                                        <button
+                                            type="button"
+                                            on:click={() => updateReaderDefault('readingDirection', option.value)}
+                                            class="px-3 py-1.5 text-xs rounded border transition-colors {formData.reader_defaults.readingDirection === option.value
+                                                ? 'bg-accent-orange border-accent-orange text-white'
+                                                : 'bg-dark-bg-secondary border-gray-700 text-dark-text-secondary hover:border-gray-600'}"
+                                        >
+                                            {option.label}
+                                        </button>
+                                    {/each}
+                                </div>
+                            </div>
+
+                            <!-- Preload Pages -->
+                            <div>
+                                <label class="block text-xs font-medium text-dark-text mb-1.5">
+                                    Preload Pages: {formData.reader_defaults.preloadPages}
+                                </label>
+                                <input
+                                    type="range"
+                                    min="0"
+                                    max="5"
+                                    step="1"
+                                    value={formData.reader_defaults.preloadPages}
+                                    on:input={(e) => updateReaderDefault('preloadPages', parseInt(e.target.value))}
+                                    class="w-full"
+                                />
+                            </div>
+
+                            <!-- Background Color -->
+                            <div>
+                                <label class="block text-xs font-medium text-dark-text mb-1.5">
+                                    Background Color
+                                </label>
+                                <div class="flex gap-2">
+                                    {#each ['#1a1a1a', '#000000', '#242424', '#333333', '#ffffff'] as color}
+                                        <button
+                                            type="button"
+                                            on:click={() => updateReaderDefault('backgroundColor', color)}
+                                            class="w-8 h-8 rounded border-2 transition-all {formData.reader_defaults.backgroundColor === color
+                                                ? 'border-accent-orange scale-110'
+                                                : 'border-gray-700 hover:border-gray-600'}"
+                                            style="background-color: {color}"
+                                        >
+                                            {#if formData.reader_defaults.backgroundColor === color}
+                                                <svg
+                                                    xmlns="http://www.w3.org/2000/svg"
+                                                    width="16"
+                                                    height="16"
+                                                    viewBox="0 0 24 24"
+                                                    fill="none"
+                                                    stroke={color === '#ffffff' ? '#000000' : '#ffffff'}
+                                                    stroke-width="3"
+                                                    stroke-linecap="round"
+                                                    stroke-linejoin="round"
+                                                    class="mx-auto"
+                                                >
+                                                    <polyline points="20 6 9 17 4 12" />
+                                                </svg>
+                                            {/if}
+                                        </button>
+                                    {/each}
+                                </div>
+                            </div>
+
+                            <!-- Auto-hide Controls -->
+                            <div class="flex items-center gap-2">
+                                <input
+                                    type="checkbox"
+                                    id="autoHideControls"
+                                    checked={formData.reader_defaults.autoHideControls}
+                                    on:change={(e) => updateReaderDefault('autoHideControls', e.target.checked)}
+                                    class="w-4 h-4 rounded border-gray-700 bg-dark-bg-secondary text-accent-orange focus:ring-accent-orange"
+                                />
+                                <label
+                                    for="autoHideControls"
+                                    class="text-xs text-dark-text cursor-pointer"
+                                >
+                                    Auto-hide Controls
+                                </label>
+                            </div>
+                        </div>
+                    {/if}
                 </div>
             </div>
 

@@ -58,6 +58,9 @@
 	// Load comic data
 	onMount(async () => {
 		try {
+			// Load library-specific reader settings
+			await readerSettings.loadForLibrary(libraryId);
+
 			comic = await getComic(libraryId, comicId);
 			totalPages = comic.num_pages || comic.numPages || 0;
 
@@ -73,8 +76,13 @@
 				currentPage = 1;
 			}
 
-			// Load initial page
+					// Load initial page
 			await loadPage(currentPage);
+
+			// If continuous mode, load initial pages around current page
+			if ($readerSettings.readingMode === 'continuous') {
+				await loadInitialPages();
+			}
 
 			// Setup keyboard shortcuts
 			if (typeof document !== "undefined") {
@@ -190,19 +198,117 @@
 		}
 	}
 
-	// Save reading progress (debounced)
+	// Load initial pages for continuous scroll mode (around current page)
+	async function loadInitialPages() {
+		if (totalPages === 0) return;
+
+		const preloadCount = $readerSettings.preloadPages || 3;
+		const isRTL = $readerSettings.readingDirection === "rtl";
+		
+		// Load current page and nearby pages
+		const pagesToLoad = [];
+		
+		// Always load current page
+		if (!preloadedPages.has(currentPage)) {
+			pagesToLoad.push(currentPage);
+		}
+		
+		// Load pages ahead and behind
+		for (let i = 1; i <= preloadCount * 2; i++) {
+			// Pages ahead (in reading direction)
+			const aheadPage = isRTL ? currentPage - i : currentPage + i;
+			if (aheadPage >= 1 && aheadPage <= totalPages && !preloadedPages.has(aheadPage)) {
+				pagesToLoad.push(aheadPage);
+			}
+			
+			// Pages behind
+			const behindPage = isRTL ? currentPage + i : currentPage - i;
+			if (behindPage >= 1 && behindPage <= totalPages && !preloadedPages.has(behindPage)) {
+				pagesToLoad.push(behindPage);
+			}
+		}
+		
+		// Load pages in parallel (but limit concurrent requests)
+		const batchSize = 5;
+		for (let i = 0; i < pagesToLoad.length; i += batchSize) {
+			const batch = pagesToLoad.slice(i, i + batchSize);
+			await Promise.all(batch.map(pageNum => preloadPage(pageNum)));
+			// Force reactivity update after each batch
+			preloadedPages = preloadedPages;
+		}
+	}
+
+	// Handle page change from continuous scroll
+	function handleContinuousPageChange(newPage) {
+		if (newPage !== currentPage && newPage >= 1 && newPage <= totalPages) {
+			currentPage = newPage;
+			// Save progress in background without blocking
+			saveProgress(newPage);
+		}
+	}
+
+	// Handle prefetch request from PageViewer
+	async function handlePrefetchPage(pageNum) {
+		if (pageNum < 1 || pageNum > totalPages || preloadedPages.has(pageNum)) {
+			return; // Already loaded or invalid
+		}
+
+		// Prefetch the page in the background
+		preloadPage(pageNum);
+	}
+
+	// Watch for reading mode changes
+	$: if ($readerSettings.readingMode === 'continuous' && totalPages > 0) {
+		// Load initial pages around current page when switching to continuous mode
+		loadInitialPages();
+	}
+
+	// Save reading progress (debounced and non-blocking)
 	let progressTimeout;
+	let lastSavedPage = 0;
+	let pendingSave = null;
 	function saveProgress(pageNum) {
+		// Don't save if it's the same page we just saved
+		if (pageNum === lastSavedPage) {
+			return;
+		}
+
+		// Cancel any pending save
 		if (progressTimeout) {
 			clearTimeout(progressTimeout);
+			progressTimeout = null;
 		}
-		progressTimeout = setTimeout(async () => {
-			try {
-				await updateReadingProgress(libraryId, comicId, pageNum);
-			} catch (error) {
-				console.error("Failed to save progress:", error);
+		if (pendingSave && typeof cancelIdleCallback !== 'undefined') {
+			cancelIdleCallback(pendingSave);
+			pendingSave = null;
+		}
+
+		// Use longer debounce and make it truly non-blocking
+		progressTimeout = setTimeout(() => {
+			lastSavedPage = pageNum;
+			progressTimeout = null;
+			
+			// Use requestIdleCallback if available for truly non-blocking saves
+			if (typeof requestIdleCallback !== 'undefined') {
+				pendingSave = requestIdleCallback(() => {
+					// Fire and forget - don't await
+					updateReadingProgress(libraryId, comicId, pageNum).catch(error => {
+						// Silently fail - don't log to console during scrolling
+						if (error.message && !error.message.includes('Failed to save progress')) {
+							console.error("Failed to save progress:", error);
+						}
+					});
+					pendingSave = null;
+				}, { timeout: 3000 });
+			} else {
+				// Fallback: use setTimeout with 0 delay to make it async
+				setTimeout(() => {
+					updateReadingProgress(libraryId, comicId, pageNum).catch(error => {
+						// Silently fail
+					});
+				}, 0);
 			}
-		}, 1000);
+		}, 3000); // Save every 3 seconds max, and only when page changes
 	}
 
 	// Navigate to previous page
@@ -211,7 +317,15 @@
 		const newPage = isRTL ? currentPage + 1 : currentPage - 1;
 		if (newPage >= 1 && newPage <= totalPages) {
 			currentPage = newPage;
-			loadPage(currentPage);
+			if ($readerSettings.readingMode === 'continuous') {
+				// In continuous mode, ensure page is loaded
+				// The PageViewer will detect the page change and scroll
+				if (!preloadedPages.has(newPage)) {
+					preloadPage(newPage);
+				}
+			} else {
+				loadPage(currentPage);
+			}
 		}
 	}
 
@@ -221,7 +335,15 @@
 		const newPage = isRTL ? currentPage - 1 : currentPage + 1;
 		if (newPage >= 1 && newPage <= totalPages) {
 			currentPage = newPage;
-			loadPage(currentPage);
+			if ($readerSettings.readingMode === 'continuous') {
+				// In continuous mode, ensure page is loaded
+				// The PageViewer will detect the page change and scroll
+				if (!preloadedPages.has(newPage)) {
+					preloadPage(newPage);
+				}
+			} else {
+				loadPage(currentPage);
+			}
 		}
 	}
 
@@ -229,7 +351,15 @@
 	function goToPage(pageNum) {
 		if (pageNum >= 1 && pageNum <= totalPages && pageNum !== currentPage) {
 			currentPage = pageNum;
-			loadPage(currentPage);
+			if ($readerSettings.readingMode === 'continuous') {
+				// In continuous mode, ensure page is loaded
+				// The PageViewer will detect the page change and scroll
+				if (!preloadedPages.has(pageNum)) {
+					preloadPage(pageNum);
+				}
+			} else {
+				loadPage(currentPage);
+			}
 		}
 	}
 
@@ -438,6 +568,11 @@
 		bind:isLoading
 		{nextPageSrc}
 		{prevPageSrc}
+		allPages={preloadedPages}
+		{libraryId}
+		{comicId}
+		onPageChange={handleContinuousPageChange}
+		onPrefetchPage={handlePrefetchPage}
 		on:navigate={handleNavigate}
 		on:toggleMenu={handleToggleMenu}
 	/>
@@ -457,7 +592,7 @@
 		/>
 	{/if}
 
-	<ReaderSettings show={showSettings} on:close={handleCloseSettings} />
+	<ReaderSettings show={showSettings} libraryId={libraryId} on:close={handleCloseSettings} />
 
 	<ReaderMenu
 		bind:show={showReaderMenu}

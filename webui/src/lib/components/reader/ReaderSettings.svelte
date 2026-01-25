@@ -3,6 +3,7 @@
 	import { createEventDispatcher } from 'svelte';
 
 	export let show = false;
+	export let libraryId = null;
 
 	const dispatch = createEventDispatcher();
 
@@ -25,7 +26,12 @@
 {#if show}
 	<div class="settings-panel">
 		<div class="panel-header">
-			<h3>Reader Settings</h3>
+			<div>
+				<h3>Reader Settings</h3>
+				{#if libraryId}
+					<p class="library-indicator">Library-specific defaults active</p>
+				{/if}
+			</div>
 		<button class="close-btn" on:click={handleClose} aria-label="Close settings">
 			<svg
 					xmlns="http://www.w3.org/2000/svg"
@@ -287,6 +293,13 @@
 		font-size: 1.25rem;
 		font-weight: 600;
 		color: var(--color-text);
+	}
+
+	.library-indicator {
+		margin: 0.25rem 0 0 0;
+		font-size: 0.75rem;
+		color: var(--color-accent);
+		font-weight: 500;
 	}
 
 	.close-btn {

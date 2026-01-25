@@ -10,6 +10,16 @@
 	export let isLoading = false;
 	export let nextPageSrc = '';
 	export let prevPageSrc = '';
+	// Continuous scroll mode props
+	export let allPages = new Map(); // Map<pageNumber, imageUrl>
+	export let libraryId = null;
+	export let comicId = null;
+	export let onPageChange = null; // Callback function for page changes
+	export let onPrefetchPage = null; // Callback function to prefetch a page
+	
+	// Watch for changes to allPages Map to trigger reactivity
+	$: allPagesSize = allPages.size;
+	$: allPagesKeys = Array.from(allPages.keys());
 
 	let container;
 	let img;
@@ -18,6 +28,16 @@
 	let imageLoaded = false;
 	let imageError = false;
 	let mouseZone = null; // 'left', 'center', 'right', or null
+
+	// Continuous scroll mode state
+	let continuousScrollContainer;
+	let pageElements = {}; // Object<pageNumber, HTMLElement>
+	let scrollTimeout;
+	let isScrolling = false;
+	let scrollListenerAdded = false;
+	let intersectionObserver = null;
+	const PREFETCH_AHEAD = 3; // Number of pages to prefetch ahead
+	const PREFETCH_BEHIND = 1; // Number of pages to keep loaded behind
 
 	// Touch/swipe state
 	let touchStartX = 0;
@@ -33,6 +53,8 @@
 	const TRANSITION_DURATION_MS = 300; // duration of swipe animations in milliseconds
 
 	$: fitClass = getFitClass($readerSettings.fitMode);
+	$: isContinuousMode = $readerSettings.readingMode === 'continuous';
+	$: isRTL = $readerSettings.readingDirection === 'rtl';
 
 	function getFitClass(fitMode) {
 		switch (fitMode) {
@@ -227,6 +249,99 @@
 
 	$: adjacentPagePosition = swipeOffset > 0 ? 'left: 0;' : 'right: 0;';
 
+	// Continuous scroll mode functions
+	function handleContinuousScroll() {
+		if (!continuousScrollContainer || !isContinuousMode) return;
+
+		// Mark that user is manually scrolling
+		isUserScrolling = true;
+		isScrolling = true;
+		
+		if (scrollTimeout) {
+			clearTimeout(scrollTimeout);
+		}
+		if (userScrollTimeout) {
+			clearTimeout(userScrollTimeout);
+		}
+
+		// Debounce page change detection - update during scroll but not too frequently
+		scrollTimeout = setTimeout(() => {
+			updateCurrentPageFromScroll();
+			isScrolling = false;
+		}, 200); // Update every 200ms while scrolling
+
+		// Reset user scrolling flag after scroll stops
+		userScrollTimeout = setTimeout(() => {
+			isUserScrolling = false;
+		}, 300);
+	}
+
+	function updateCurrentPageFromScroll() {
+		if (!continuousScrollContainer || !isContinuousMode) return;
+
+		const scrollTop = continuousScrollContainer.scrollTop;
+		const containerHeight = continuousScrollContainer.clientHeight;
+		const viewportCenter = scrollTop + containerHeight / 2;
+
+		// Find which page is currently in the center of the viewport
+		let currentPage = 1;
+		let minDistance = Infinity;
+
+		// Get page order based on reading direction
+		const pageOrder = isRTL 
+			? Array.from({ length: totalPages }, (_, i) => totalPages - i)
+			: Array.from({ length: totalPages }, (_, i) => i + 1);
+
+		for (const pageNum of pageOrder) {
+			const element = pageElements[pageNum];
+			if (!element) continue;
+
+			const rect = element.getBoundingClientRect();
+			const containerRect = continuousScrollContainer.getBoundingClientRect();
+			const elementTop = rect.top - containerRect.top + scrollTop;
+			const elementBottom = elementTop + rect.height;
+			const elementCenter = (elementTop + elementBottom) / 2;
+
+			const distance = Math.abs(viewportCenter - elementCenter);
+			if (distance < minDistance) {
+				minDistance = distance;
+				currentPage = pageNum;
+			}
+		}
+
+		// Only update if page actually changed (not just small scroll movements)
+		if (currentPage !== pageNumber && onPageChange) {
+			lastScrollTrackedPage = currentPage; // Track that this came from scroll
+			onPageChange(currentPage);
+		}
+	}
+
+	function scrollToPage(pageNum) {
+		if (!continuousScrollContainer || !isContinuousMode) return;
+
+		const element = pageElements[pageNum];
+		if (!element) {
+			// If element not ready, try again after a short delay
+			setTimeout(() => scrollToPage(pageNum), 100);
+			return;
+		}
+
+		const containerRect = continuousScrollContainer.getBoundingClientRect();
+		const elementRect = element.getBoundingClientRect();
+		const scrollTop = continuousScrollContainer.scrollTop;
+		const elementTop = elementRect.top - containerRect.top + scrollTop;
+
+		// Scroll to center the page in the viewport
+		const targetScroll = elementTop - (containerRect.height / 2) + (elementRect.height / 2);
+		
+		// Use instant scroll (no animation) to avoid interfering with user scrolling
+		continuousScrollContainer.scrollTo({
+			top: Math.max(0, targetScroll),
+			behavior: 'auto' // Instant scroll, no animation
+		});
+	}
+
+
 	onMount(() => {
 		// Observe container resize
 		const resizeObserver = new ResizeObserver((entries) => {
@@ -242,10 +357,167 @@
 
 		return () => {
 			resizeObserver.disconnect();
+			if (continuousScrollContainer && scrollListenerAdded) {
+				continuousScrollContainer.removeEventListener('scroll', handleContinuousScroll);
+				scrollListenerAdded = false;
+			}
+			if (intersectionObserver) {
+				intersectionObserver.disconnect();
+				intersectionObserver = null;
+			}
+			if (scrollTimeout) {
+				clearTimeout(scrollTimeout);
+			}
+			if (userScrollTimeout) {
+				clearTimeout(userScrollTimeout);
+			}
 		};
 	});
+
+	// Setup intersection observer for prefetching
+	function setupIntersectionObserver() {
+		if (!isContinuousMode || !continuousScrollContainer || intersectionObserver) return;
+
+		// Create intersection observer to detect pages coming into view
+		intersectionObserver = new IntersectionObserver(
+			(entries) => {
+				for (const entry of entries) {
+					const pageNum = parseInt(entry.target.dataset.page);
+					if (!pageNum) continue;
+
+					// If page is intersecting (visible or near viewport), prefetch nearby pages
+					if (entry.isIntersecting || entry.intersectionRatio > 0) {
+						prefetchNearbyPages(pageNum);
+					}
+				}
+			},
+			{
+				root: continuousScrollContainer,
+				rootMargin: '200% 0px', // Prefetch when page is 2 viewport heights away
+				threshold: [0, 0.1, 0.5, 1.0]
+			}
+		);
+
+		// Observe all page elements
+		Object.values(pageElements).forEach((element) => {
+			if (element) {
+				intersectionObserver.observe(element);
+			}
+		});
+	}
+
+	// Prefetch pages near the given page number
+	function prefetchNearbyPages(currentPage) {
+		if (!onPrefetchPage || !totalPages) return;
+
+		const isRTL = $readerSettings.readingDirection === 'rtl';
+		const prefetchCount = $readerSettings.preloadPages || PREFETCH_AHEAD;
+
+		// Determine which pages to prefetch based on reading direction
+		for (let i = 1; i <= prefetchCount; i++) {
+			// Pages ahead (in reading direction)
+			const aheadPage = isRTL ? currentPage - i : currentPage + i;
+			if (aheadPage >= 1 && aheadPage <= totalPages && !allPages.has(aheadPage)) {
+				onPrefetchPage(aheadPage);
+			}
+
+			// Pages behind (in reading direction) - keep a few loaded
+			if (i <= PREFETCH_BEHIND) {
+				const behindPage = isRTL ? currentPage + i : currentPage - i;
+				if (behindPage >= 1 && behindPage <= totalPages && !allPages.has(behindPage)) {
+					onPrefetchPage(behindPage);
+				}
+			}
+		}
+	}
+
+	// Watch for page elements to setup intersection observer
+	$: if (isContinuousMode && Object.keys(pageElements).length > 0 && continuousScrollContainer) {
+		// Setup observer after a short delay to ensure DOM is ready
+		setTimeout(() => {
+			setupIntersectionObserver();
+		}, 100);
+	}
+
+	// Watch for continuous mode activation to setup scroll listener and initial scroll
+	$: if (isContinuousMode && continuousScrollContainer && !scrollListenerAdded) {
+		// Setup scroll listener with passive option for better performance
+		continuousScrollContainer.addEventListener('scroll', handleContinuousScroll, { passive: true });
+		scrollListenerAdded = true;
+	}
+
+	// Track if user is manually scrolling to prevent auto-scroll interference
+	let isUserScrolling = false;
+	let userScrollTimeout;
+	
+	// Flag to prevent auto-scroll when page number changes from scroll tracking
+	let lastScrollTrackedPage = 0;
+
+	// Prefetch pages when scroll position changes
+	$: if (isContinuousMode && pageNumber && onPrefetchPage) {
+		prefetchNearbyPages(pageNumber);
+	}
+	
+	// Only scroll to page if it's NOT from scroll tracking (i.e., from keyboard navigation)
+	// We detect this by checking if the page number changed but we didn't just track it from scroll
+	$: if (isContinuousMode && pageNumber && continuousScrollContainer && pageNumber !== lastScrollTrackedPage && !isUserScrolling) {
+		// This is likely from keyboard navigation, so scroll to it
+		requestAnimationFrame(() => {
+			setTimeout(() => {
+				scrollToPage(pageNumber);
+				lastScrollTrackedPage = 0; // Reset after scrolling
+			}, 50);
+		});
+	}
 </script>
 
+{#if isContinuousMode}
+	<!-- Continuous Scroll Mode -->
+	<div
+		bind:this={continuousScrollContainer}
+		class="continuous-scroll-container"
+		style="background-color: {$readerSettings.backgroundColor}"
+	>
+		<div class="continuous-pages">
+			{#each (isRTL 
+				? Array.from({ length: totalPages }, (_, i) => totalPages - i)
+				: Array.from({ length: totalPages }, (_, i) => i + 1)
+			) as pageNum}
+				{@const pageUrl = allPages.get(pageNum)}
+				<div
+					bind:this={pageElements[pageNum]}
+					class="continuous-page"
+					data-page={pageNum}
+				>
+					{#if pageUrl}
+						<img
+							src={pageUrl}
+							alt="Page {pageNum}"
+							class="page-image {fitClass}"
+							loading="lazy"
+							on:load={() => {
+								// Update pageElements map when image loads
+								if (continuousScrollContainer) {
+									updateCurrentPageFromScroll();
+								}
+								// Setup intersection observer if not already done
+								if (intersectionObserver && pageElements[pageNum]) {
+									intersectionObserver.observe(pageElements[pageNum]);
+								}
+							}}
+						/>
+					{:else}
+						<div class="loading-placeholder">
+							<div class="spinner"></div>
+							<p>Loading page {pageNum}...</p>
+						</div>
+					{/if}
+				</div>
+			{/each}
+		</div>
+	</div>
+{:else}
+	<!-- Single/Double Page Mode -->
 <div
 	bind:this={container}
 	class="page-viewer zone-{mouseZone || 'none'}"
@@ -343,6 +615,7 @@
 		</div>
 	{/if}
 </div>
+{/if}
 
 <style>
 	.page-viewer {
@@ -382,6 +655,7 @@
 
 	.page-container.transitioning {
 		/* Duration matches TRANSITION_DURATION_MS constant (300ms) */
+		/* Smooth swipe animations for single/double page modes */
 		transition: transform 0.3s ease-out;
 	}
 
@@ -399,6 +673,7 @@
 
 	.adjacent-page.transitioning {
 		/* Duration matches TRANSITION_DURATION_MS constant (300ms) */
+		/* Smooth swipe animations for single/double page modes */
 		transition: transform 0.3s ease-out;
 	}
 
@@ -485,5 +760,82 @@
 		color: red;
 		font-size: 24px;
 		background: rgba(255, 0, 0, 0.1);
+	}
+
+	/* Continuous Scroll Mode Styles */
+	.continuous-scroll-container {
+		width: 100%;
+		height: 100%;
+		overflow-y: auto;
+		overflow-x: hidden;
+		position: relative;
+		/* No scroll animations in continuous mode - instant scrolling only */
+		scroll-behavior: auto;
+		-webkit-overflow-scrolling: touch;
+		overscroll-behavior: contain;
+		will-change: scroll-position;
+	}
+
+	.continuous-pages {
+		display: flex;
+		flex-direction: column;
+		align-items: center;
+		gap: 0;
+		padding: 0;
+		width: 100%;
+	}
+
+	.continuous-page {
+		width: 100%;
+		display: flex;
+		justify-content: center;
+		align-items: flex-start;
+		padding: 0;
+		margin: 0;
+	}
+
+	.continuous-page .page-image {
+		display: block;
+		width: 100%;
+		height: auto;
+		object-fit: contain;
+		user-select: none;
+		-webkit-user-drag: none;
+		margin: 0;
+		padding: 0;
+	}
+
+	.continuous-page .page-image.fit-width {
+		width: 100%;
+		height: auto;
+		max-height: none;
+	}
+
+	.continuous-page .page-image.fit-height {
+		width: auto;
+		max-width: 100%;
+		height: auto;
+	}
+
+	.continuous-page .page-image.original {
+		max-width: 100%;
+		width: auto;
+		height: auto;
+	}
+
+	.loading-placeholder {
+		display: flex;
+		flex-direction: column;
+		align-items: center;
+		justify-content: center;
+		min-height: 50vh;
+		width: 100%;
+		color: var(--color-text-secondary);
+		padding: 2rem;
+	}
+
+	.loading-placeholder p {
+		margin-top: 1rem;
+		font-size: 0.875rem;
 	}
 </style>
