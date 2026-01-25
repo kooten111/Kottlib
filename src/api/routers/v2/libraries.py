@@ -211,6 +211,7 @@ class LibraryInfo(BaseModel):
     scan_interval: int = 0
     comic_count: int = 0
     folder_count: int = 0
+    exclude_from_webui: bool = False
 
 
 class CreateLibraryRequest(BaseModel):
@@ -219,6 +220,7 @@ class CreateLibraryRequest(BaseModel):
     path: str
     settings: Optional[Dict[str, Any]] = None
     scan_interval: int = 0
+    exclude_from_webui: bool = False
 
 
 class UpdateLibraryRequest(BaseModel):
@@ -227,6 +229,7 @@ class UpdateLibraryRequest(BaseModel):
     path: Optional[str] = None
     settings: Optional[Dict[str, Any]] = None
     scan_interval: Optional[int] = None
+    exclude_from_webui: Optional[bool] = None
 
 
 # ============================================================================
@@ -280,6 +283,7 @@ async def list_libraries(session: Session = Depends(get_db_session)):
             scan_interval=lib.scan_interval,
             comic_count=stats.get('comic_count', 0),
             folder_count=stats.get('folder_count', 0),
+            exclude_from_webui=bool(lib.exclude_from_webui or False),
         ))
 
     return result
@@ -306,6 +310,7 @@ async def get_library(library_id: int, session: Session = Depends(get_db_session
         scan_interval=library.scan_interval,
         comic_count=stats.get('comic_count', 0),
         folder_count=stats.get('folder_count', 0),
+        exclude_from_webui=bool(library.exclude_from_webui or False),
     )
 
 
@@ -323,7 +328,8 @@ async def add_library(
             session,
             name=data.name,
             path=data.path,
-            settings=data.settings
+            settings=data.settings,
+            exclude_from_webui=data.exclude_from_webui
         )
         
         # Update scan interval if provided
@@ -352,6 +358,7 @@ async def add_library(
             scan_status="scanning",  # Optimistically set status
             scan_interval=data.scan_interval,
             folder_count=stats.get('folder_count', 0),
+            exclude_from_webui=data.exclude_from_webui,
         )
 
 
@@ -367,7 +374,8 @@ async def update_library_details(library_id: int, request: Request, data: Update
             name=data.name,
             path=data.path,
             settings=data.settings,
-            scan_interval=data.scan_interval
+            scan_interval=data.scan_interval,
+            exclude_from_webui=data.exclude_from_webui
         )
         
         if not library:
@@ -395,6 +403,7 @@ async def update_library_details(library_id: int, request: Request, data: Update
             scan_interval=library.scan_interval,
             comic_count=stats.get('comic_count', 0),
             folder_count=stats.get('folder_count', 0),
+            exclude_from_webui=bool(library.exclude_from_webui or False),
         )
 
 

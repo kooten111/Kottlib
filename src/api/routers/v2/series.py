@@ -840,8 +840,10 @@ async def browse_all_content(
         # We need mapping of root_folder_id -> library_id
         
         # Get all root folders
-        root_folders = session.query(FolderModel).filter(
-            FolderModel.name == ROOT_FOLDER_MARKER
+        # Get all root folders, filtering out libraries hidden from WebUI
+        root_folders = session.query(FolderModel).join(Library).filter(
+            FolderModel.name == ROOT_FOLDER_MARKER,
+            (Library.exclude_from_webui == 0) | (Library.exclude_from_webui == None)
         ).all()
         
         if not root_folders:

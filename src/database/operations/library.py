@@ -20,7 +20,8 @@ def create_library(
     session: Session,
     name: str,
     path: str,
-    settings: Optional[dict] = None
+    settings: Optional[dict] = None,
+    exclude_from_webui: bool = False
 ) -> Library:
     """Create a new library."""
     now = int(time.time())
@@ -33,7 +34,8 @@ def create_library(
         updated_at=now,
         scan_status='pending',
         settings=settings or {},
-        scan_interval=0
+        scan_interval=0,
+        exclude_from_webui=1 if exclude_from_webui else 0
     )
 
     session.add(library)
@@ -65,7 +67,8 @@ def update_library(
     name: Optional[str] = None,
     path: Optional[str] = None,
     settings: Optional[dict] = None,
-    scan_interval: Optional[int] = None
+    scan_interval: Optional[int] = None,
+    exclude_from_webui: Optional[bool] = None
 ) -> Optional[Library]:
     """Update library details."""
     library = get_library_by_id(session, library_id)
@@ -91,6 +94,9 @@ def update_library(
     
     if scan_interval is not None:
         library.scan_interval = scan_interval
+
+    if exclude_from_webui is not None:
+        library.exclude_from_webui = 1 if exclude_from_webui else 0
 
     library.updated_at = int(time.time())
     session.flush()

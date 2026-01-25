@@ -135,7 +135,7 @@ if command -v node &> /dev/null; then
     echo "Starting Web UI frontend..."
     mkdir -p logs
     cd webui
-    npm run dev > ../logs/webui.log 2>&1 &
+    npm start > ../logs/webui.log 2>&1 &
     WEBUI_PID=$!
     cd ..
     echo -e "${GREEN}✓ Web UI started (PID: $WEBUI_PID)${NC}"

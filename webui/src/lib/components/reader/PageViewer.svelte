@@ -260,7 +260,7 @@
 	on:mousemove={handleMouseMove}
 	on:mouseleave={handleMouseLeave}
 	on:touchstart|passive={handleTouchStart}
-	on:touchmove={handleTouchMove}
+	on:touchmove|nonpassive={handleTouchMove}
 	on:touchend={handleTouchEnd}
 	role="button"
 	tabindex="0"

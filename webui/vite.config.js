@@ -36,20 +36,13 @@ export default defineConfig({
 	server: {
 		host: '0.0.0.0', // Listen on all network interfaces
 		port: 5173,
-		allowedHosts: true, // Allow all hosts
+		allowedHosts: ['kottlib.kooten.dev', 'localhost'],
 		headers: {
-			'Permissions-Policy': 'interest-cohort=()'
+			// 'Permissions-Policy': 'browsing-topics=()' // Removed as it causes errors
 		},
-		proxy: {
-			'/api': {
-				target: 'http://localhost:8081',
-				changeOrigin: true
-			},
-			'/v2': {
-				target: 'http://localhost:8081',
-				changeOrigin: true
-			}
-		}
+		// Proxy handled by hooks.server.js in production
+		// proxy: {},
+		hmr: false // Disable HMR to prevent WebSocket errors behind proxy (requires manual refresh)
 	},
 	optimizeDeps: {
 		// Pre-bundle dependencies for faster dev server startup

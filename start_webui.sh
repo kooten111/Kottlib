@@ -72,4 +72,4 @@ echo "Press Ctrl+C to stop the Web UI"
 echo ""
 
 # Start Web UI
-npm run dev
+npm start

@@ -15,6 +15,7 @@ from sqlalchemy import text
 
 from ....database import (
     get_library_by_id,
+    get_all_libraries,
     get_comic_by_id,
     get_user_by_username,
     get_user_by_id,
@@ -619,6 +620,32 @@ async def get_cover_v2(
                 "Vary": "Accept-Encoding"
             }
         )
+
+    # Fallback: Search in other libraries for the same hash
+    # This handles cases where items from 'Browse All' might carry the wrong library_id context
+    # or if files were moved but hashes persist.
+    logger.debug(f"[COVER] Cover not found in primary library {library_name}, searching others: hash={hash_value}")
+    
+    with db.get_session() as session:
+        all_libs = get_all_libraries(session)
+        for lib in all_libs:
+            if lib.id == library_id: 
+                continue # Already checked
+                
+            # Check this library
+            fallback_result = find_cover_file(hash_value, lib.name, try_webp=True)
+            if fallback_result:
+                cover_file, media_type = fallback_result
+                logger.info(f"[COVER] Found cover in fallback library: {lib.name} for hash {hash_value}")
+                
+                return FileResponse(
+                    cover_file,
+                    media_type=media_type,
+                    headers={
+                        "Cache-Control": "public, max-age=604800",
+                        "Vary": "Accept-Encoding"
+                    }
+                )
 
     # Cover not found
     logger.error(f"[COVER] Cover not found: library_id={library_id}, cover_path={cover_path}, hash={hash_value}")

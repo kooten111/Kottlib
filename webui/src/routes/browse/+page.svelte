@@ -73,22 +73,12 @@
     afterNavigate(() => {
         const urlSort = $page.url.searchParams.get("sort");
         const storeSort = $preferencesStore.sortBy;
-        console.log(
-            "[DEBUG] afterNavigate - urlSort:",
-            urlSort,
-            "storeSort:",
-            storeSort,
-        );
 
         if (!urlSort && storeSort && storeSort !== "name") {
             const newUrl = new URL($page.url);
             newUrl.searchParams.set("sort", storeSort);
             if (storeSort === "random")
                 newUrl.searchParams.set("seed", String(Date.now()));
-            console.log(
-                "[DEBUG] afterNavigate - redirecting to:",
-                newUrl.toString(),
-            );
             goto(newUrl.toString(), {
                 replaceState: true,
                 invalidateAll: true,
@@ -99,12 +89,10 @@
     // onMount handles the "refresh on random" case
     onMount(() => {
         const urlSort = new URL(window.location.href).searchParams.get("sort");
-        console.log("[DEBUG] onMount - urlSort:", urlSort);
 
         if (urlSort === "random") {
             const newUrl = new URL(window.location.href);
             newUrl.searchParams.set("seed", String(Date.now()));
-            console.log("[DEBUG] onMount - reseeding to:", newUrl.toString());
             goto(newUrl.toString(), {
                 replaceState: true,
                 invalidateAll: true,
@@ -114,7 +102,6 @@
 
     // Function to apply sorting - updates URL
     async function applySorting(newSort) {
-        console.log("[DEBUG] applySorting called with:", newSort);
         // Save preference
         if (newSort) {
             preferencesStore.setSortBy(newSort);
@@ -128,12 +115,10 @@
         if (targetSort === "random") {
             const seed = String(Date.now());
             url.searchParams.set("seed", seed);
-            console.log("[DEBUG] applySorting - random seed:", seed);
         } else {
             url.searchParams.delete("seed");
         }
 
-        console.log("[DEBUG] applySorting - navigating to:", url.toString());
         goto(url.toString(), { noScroll: true, invalidateAll: true });
         showSortDropdown = false;
     }

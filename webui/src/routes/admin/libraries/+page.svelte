@@ -84,7 +84,12 @@
     function openCreateModal() {
         modalMode = "create";
         editingLibrary = null;
-        formData = { name: "", path: "", scan_interval: 0 };
+        formData = {
+            name: "",
+            path: "",
+            scan_interval: 0,
+            exclude_from_webui: false,
+        };
         saveError = null;
         showModal = true;
     }
@@ -96,6 +101,7 @@
             name: library.name,
             path: library.path,
             scan_interval: library.scan_interval || 0,
+            exclude_from_webui: library.exclude_from_webui || false,
         };
         saveError = null;
         showModal = true;
@@ -323,9 +329,17 @@
                                 </div>
                                 <div class="flex-1">
                                     <h3
-                                        class="text-xl font-semibold text-dark-text"
+                                        class="text-xl font-semibold text-dark-text flex items-center gap-2"
                                     >
                                         {library.name}
+                                        {#if library.exclude_from_webui}
+                                            <span
+                                                class="px-2 py-0.5 rounded-full bg-dark-bg-tertiary text-xs text-dark-text-secondary border border-gray-700 font-normal flex items-center gap-1"
+                                                title="Hidden from WebUI"
+                                            >
+                                                Hidden
+                                            </span>
+                                        {/if}
                                     </h3>
                                     <p
                                         class="text-dark-text-secondary font-mono text-sm mt-1"
@@ -520,6 +534,27 @@
                     <p class="mt-1 text-xs text-dark-text-secondary">
                         Set to 0 to disable periodic scanning
                     </p>
+                </div>
+
+                <div class="flex items-center gap-3 pt-2">
+                    <input
+                        type="checkbox"
+                        id="exclude_from_webui"
+                        bind:checked={formData.exclude_from_webui}
+                        class="w-5 h-5 rounded border-gray-700 bg-dark-bg-tertiary text-accent-orange focus:ring-accent-orange"
+                    />
+                    <label
+                        for="exclude_from_webui"
+                        class="text-sm font-medium text-dark-text cursor-pointer"
+                    >
+                        Hide from WebUI
+                        <span
+                            class="block text-xs text-dark-text-secondary font-normal mt-0.5"
+                        >
+                            Library will still be accessible via Mobile API
+                            (OPDS)
+                        </span>
+                    </label>
                 </div>
             </div>
 

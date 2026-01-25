@@ -31,7 +31,22 @@ export async function load({ url: pageUrl, fetch }) {
         }
 
         const browseData = await browseRes.json();
-        const continueReading = continueReadingRes.ok ? await continueReadingRes.json() : [];
+        let continueReading = continueReadingRes.ok ? await continueReadingRes.json() : [];
+
+        // Filter out continue reading items from hidden libraries
+        if (sidebarData.libraries && continueReading.length > 0) {
+            const hiddenLibraryIds = new Set(
+                sidebarData.libraries
+                    .filter(lib => lib.exclude_from_webui)
+                    .map(lib => String(lib.id))
+            );
+
+            if (hiddenLibraryIds.size > 0) {
+                continueReading = continueReading.filter(item =>
+                    !hiddenLibraryIds.has(String(item.library_id))
+                );
+            }
+        }
 
         return {
             browseData,

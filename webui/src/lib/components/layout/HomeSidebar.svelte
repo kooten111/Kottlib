@@ -57,6 +57,8 @@
 	export let currentFilter = null;
 	export let currentView = "home"; // 'home', 'favorites', 'continue'
 
+	$: visibleLibraries = libraries.filter((lib) => !lib.exclude_from_webui);
+
 	// Derived state for folders
 	// Use libraryId from both "library" and "folder" filter types
 	$: selectedLibraryId =
@@ -233,7 +235,7 @@
 					</button>
 				</div>
 
-				{#each libraries as lib}
+				{#each visibleLibraries as lib}
 					<div class="sidebar-item-container w-full">
 						<button
 							class="sidebar-item w-full"
@@ -325,8 +327,10 @@
 		class="resize-handle"
 		on:mousedown={startResize}
 		on:keydown={(e) => {
-			if (e.key === 'ArrowLeft') sidebarWidth = Math.max(160, sidebarWidth - 10);
-			if (e.key === 'ArrowRight') sidebarWidth = Math.min(448, sidebarWidth + 10);
+			if (e.key === "ArrowLeft")
+				sidebarWidth = Math.max(160, sidebarWidth - 10);
+			if (e.key === "ArrowRight")
+				sidebarWidth = Math.min(448, sidebarWidth + 10);
 		}}
 		role="slider"
 		tabindex="0"
