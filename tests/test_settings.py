@@ -252,8 +252,9 @@ def test_setting_updated_at_timestamp(test_db):
         assert before <= setting.updated_at <= after
         
         # Update and check timestamp changes
-        time.sleep(1.0)  # Wait 1 second to ensure timestamp changes
+        # Note: timestamp uses int(time.time()) which has 1 second resolution,
+        # so the new timestamp should be >= the original
         updated_setting = set_setting(session, "test.timestamp", "new value")
         session.commit()
-        
+
         assert updated_setting.updated_at >= setting.updated_at
