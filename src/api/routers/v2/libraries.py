@@ -42,6 +42,10 @@ router = APIRouter()
 # In-memory progress tracking for file system scans
 _file_scan_progress: Dict[int, Dict[str, Any]] = {}
 _progress_lock = {}  # Lock per library_id
+_active_scans: set = set()  # Set of library_ids with active scans
+
+# Stale progress detection: progress older than this is considered abandoned
+STALE_PROGRESS_TIMEOUT_SECONDS = 3600  # 1 hour
 
 def update_file_scan_progress(library_id: int, processed: int, total: int, message: str = "", db=None):
     """Update file scan progress in memory and database (thread-safe)"""
@@ -112,6 +116,9 @@ def update_file_scan_progress(library_id: int, processed: int, total: int, messa
 
 def scan_library_background(library_id: int, request: Request):
     """Background task to scan a library"""
+    # Register this scan as active
+    _active_scans.add(library_id)
+    
     try:
         db = request.app.state.db
 
@@ -174,8 +181,11 @@ def scan_library_background(library_id: int, request: Request):
         logger.error(f"Background scan failed for library {library_id}: {e}", exc_info=True)
 
         # Mark scan as failed
-        with db.get_session() as session:
-            update_library_scan_status(session, library_id, status="error")
+        try:
+            with db.get_session() as session:
+                update_library_scan_status(session, library_id, status="error")
+        except Exception:
+            pass  # Don't fail if we can't update status
 
         _file_scan_progress[library_id] = {
             "current": 0,
@@ -185,6 +195,10 @@ def scan_library_background(library_id: int, request: Request):
             "error": str(e),
             "timestamp": time.time()
         }
+    
+    finally:
+        # Always unregister the scan, even on crash
+        _active_scans.discard(library_id)
 
 
 # ============================================================================
@@ -452,13 +466,60 @@ async def scan_library_manual(library_id: int, request: Request, background_task
 @router.get("/libraries/{library_id}/scan/progress")
 async def get_file_scan_progress(library_id: int, session: Session = Depends(get_db_session)):
     """Get file scan progress for a library (checks both memory and database)"""
+    
+    def is_progress_stale(progress: Dict[str, Any]) -> bool:
+        """Check if progress data is stale (old timestamp and no active scan)"""
+        if not progress.get('in_progress', False):
+            return False  # Not in progress, not stale
+        
+        # If there's an active scan running, it's not stale
+        if library_id in _active_scans:
+            return False
+        
+        # Check timestamp - if older than threshold, it's stale
+        timestamp = progress.get('timestamp', 0)
+        age = time.time() - timestamp
+        if age > STALE_PROGRESS_TIMEOUT_SECONDS:
+            logger.warning(
+                f"Detected stale progress for library {library_id}: "
+                f"age={age:.0f}s, threshold={STALE_PROGRESS_TIMEOUT_SECONDS}s"
+            )
+            return True
+        
+        return False
+    
+    def clear_stale_progress(progress_source: str):
+        """Clear stale progress from memory and optionally from database"""
+        logger.info(f"Auto-clearing stale progress for library {library_id} (source: {progress_source})")
+        
+        # Clear from memory
+        if library_id in _file_scan_progress:
+            del _file_scan_progress[library_id]
+        
+        # Clear from database if that was the source
+        if progress_source == 'database':
+            try:
+                library = get_library_by_id(session, library_id)
+                if library and library.settings:
+                    settings = dict(library.settings)
+                    if 'file_scan_progress' in settings:
+                        settings.pop('file_scan_progress', None)
+                        library.settings = settings
+                        session.add(library)
+                        session.commit()
+            except Exception as e:
+                logger.error(f"Failed to clear stale progress from database: {e}")
+    
     # Check memory first (fastest and most up-to-date)
     memory_progress = _file_scan_progress.get(library_id)
 
-    # If we have memory progress, return it immediately
+    # If we have memory progress, check if it's stale
     if memory_progress:
-        logger.debug(f"Progress for library {library_id}: {memory_progress['current']}/{memory_progress['total']} - {memory_progress['message']}")
-        return memory_progress
+        if is_progress_stale(memory_progress):
+            clear_stale_progress('memory')
+        else:
+            logger.debug(f"Progress for library {library_id}: {memory_progress['current']}/{memory_progress['total']} - {memory_progress['message']}")
+            return memory_progress
 
     # Otherwise check database for multi-worker setups
     library = get_library_by_id(session, library_id)
@@ -468,10 +529,14 @@ async def get_file_scan_progress(library_id: int, session: Session = Depends(get
     if library.settings:
         db_progress = library.settings.get('file_scan_progress')
         if db_progress:
-            # Cache it in memory for next time
-            _file_scan_progress[library_id] = db_progress
-            logger.debug(f"Progress from DB for library {library_id}: {db_progress['current']}/{db_progress['total']}")
-            return db_progress
+            # Check if database progress is stale
+            if is_progress_stale(db_progress):
+                clear_stale_progress('database')
+            else:
+                # Cache it in memory for next time
+                _file_scan_progress[library_id] = db_progress
+                logger.debug(f"Progress from DB for library {library_id}: {db_progress['current']}/{db_progress['total']}")
+                return db_progress
 
     # No progress found
     logger.debug(f"No progress found for library {library_id}")
@@ -493,6 +558,9 @@ async def clear_file_scan_progress(library_id: int, session: Session = Depends(g
     # Clean up lock
     if library_id in _progress_lock:
         del _progress_lock[library_id]
+    
+    # Clean up active scans tracking
+    _active_scans.discard(library_id)
 
     # Clear from database
     library = get_library_by_id(session, library_id)
