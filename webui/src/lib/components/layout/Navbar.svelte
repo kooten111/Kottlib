@@ -27,11 +27,11 @@
 </script>
 
 <nav class="bg-dark-bg-secondary border-b border-gray-700 sticky top-0 z-50">
-	<div class="container mx-auto px-4 max-w-content">
-		<div class="flex items-center justify-between h-16">
+	<div class="px-4">
+		<div class="flex items-center justify-between h-16 gap-4">
 			<!-- Hamburger Menu Button (Mobile only) -->
 			<button
-				class="lg:hidden p-2 rounded-button hover:bg-dark-bg-tertiary transition-colors focus-ring mr-2"
+				class="lg:hidden p-2 rounded-button hover:bg-dark-bg-tertiary transition-colors focus-ring"
 				on:click={() => uiStore.toggleSidebar()}
 				aria-label="Toggle sidebar menu"
 			>
@@ -39,7 +39,7 @@
 			</button>
 
 			<!-- Logo and Brand -->
-			<div class="flex items-center space-x-8">
+			<div class="flex items-center">
 				<a
 					href="/"
 					class="flex items-center space-x-2 hover:opacity-80 transition-opacity"
@@ -54,7 +54,7 @@
 			</div>
 
 			<!-- Search Bar -->
-			<div class="flex-1 max-w-md mx-8 hidden lg:flex">
+			<div class="flex-1 max-w-md hidden lg:flex">
 				<SearchAutocomplete
 					placeholder="Search comics and libraries..."
 				/>

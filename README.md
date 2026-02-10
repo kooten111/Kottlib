@@ -1,15 +1,14 @@
 # Kottlib
 
-**Modern comic library server with one-command setup.**
+**Comic library server and webui.**
 
-- 100% compatible with YACReader mobile apps
-- Zero configuration required
-- Just run `./scripts/kottlib.py`
+- Compatible with YACReader mobile apps
+- Just run `./start.sh`
 
 ```bash
 git clone https://github.com/kooten111/Kottlib.git
 cd Kottlib
-./scripts/kottlib.py
+./start.sh
 ```
 
 Done!
@@ -23,35 +22,43 @@ Done!
 ## What is Kottlib?
 
 A comic library server written in Python that:
-- Maintains 100% backward compatibility with YACReader mobile apps
-- Provides a modern API and web interface
+- Maintains backward compatibility with YACReader mobile apps
+- Provides an API and web interface
+
+## Screenshots
+
+### Gallery View
+![Gallery View](docs/screenshots/gallery_view.webp)
+
+### Comic Reader
+![Comic Reader](docs/screenshots/comic_view.webp)
 
 ## Features
 
-### Core Features (Complete)
+### Core Features
 
 - **Comic Formats** - CBZ, CBR, CB7 support with automatic format detection
-- **Multi-threaded Scanning** - Fast library indexing with parallel processing
+- **Multi-threaded Scanning** - Library indexing with parallel processing
 - **Dual Thumbnails** - JPEG (mobile) + WebP (web) for optimal performance
 - **Database Layer** - SQLAlchemy ORM with extended YACReader schema
-- **FastAPI Server** - Production-ready async API server
-- **YACReader API** - 100% compatible with YACReader mobile apps (v1 & v2)
-- **Modern API** - RESTful JSON endpoints with OpenAPI documentation
+- **FastAPI Server** - Async API server
+- **YACReader API** - Compatible with YACReader mobile apps (v1 & v2)
+- **API** - RESTful JSON endpoints with OpenAPI documentation
 - **One-Command Setup** - Interactive launcher for easy installation
 
-### Web Interface (Complete)
+### Web Interface
 
-- **Modern UI** - Fast, responsive SvelteKit interface
+- **Web UI** - Responsive SvelteKit interface
 - **Comic Reader** - Full-featured reader with keyboard shortcuts
 - **Library Browser** - Grid/list views with folder navigation
 - **Continue Reading** - Track and resume reading progress across devices
 - **Favorites** - Mark and manage favorite comics
 - **Advanced Search** - Full-text search with autocomplete, filters, and previews
 - **Admin Dashboard** - Server stats and library management
-- **Dark Theme** - Beautiful dark-first design
+- **Dark Theme** - Dark-first design
 - **Responsive** - Works on desktop, tablet, and mobile
 
-### Metadata Scanner System (Complete)
+### Metadata Scanner System
 
 - **Pluggable Architecture** - Easy to add new metadata sources
 - **Multiple Scanners** - nhentai, AniList, MangaDex, Comic Vine, Metron
@@ -60,7 +67,7 @@ A comic library server written in Python that:
 - **Fallback Support** - Automatic fallback to secondary sources
 - **API Integration** - RESTful endpoints for scanner management
 
-### Reading Progress & Social (Complete)
+### Reading Progress & Social
 
 - **Reading Progress** - Per-user, per-comic progress tracking
 - **Continue Reading** - Quick access to in-progress comics
@@ -78,16 +85,14 @@ git clone https://github.com/kooten111/Kottlib.git
 cd Kottlib
 
 # 2. Run
-./scripts/kottlib.py
+./start.sh
 ```
 
 The launcher will:
-1. Check Python 3.11+
+1. Set up virtual environment
 2. Install dependencies (if needed)
-3. Guide you through setup
-4. Help configure libraries
-5. Scan comics (optional)
-6. Start the server
+3. Initialize database
+4. Start backend API and web UI
 
 For detailed API documentation, start the server and visit:
 - **Interactive API Docs**: <http://localhost:8081/docs> (Swagger UI - test endpoints)
@@ -95,50 +100,46 @@ For detailed API documentation, start the server and visit:
 
 ### After First Run
 
-Three simple launchers are provided:
-
-**Option 1: Start Everything (Recommended)**
+**Start Everything (Recommended)**
 
 ```bash
 ./start.sh
 ```
 
-Starts both backend API and Web UI. Perfect for regular use.
+Starts both backend API and Web UI.
 
-**Option 2: Start Components Separately**
+**Start Components Separately (for development)**
 
 ```bash
-# Backend only (for headless servers or development)
+# Backend only
 ./start_backend.sh
 
-# Web UI only (in another terminal, assumes backend is running)
+# Web UI only (in another terminal, needs backend running)
 ./start_webui.sh
 ```
 
 This gives you:
 - Backend API on port 8081
-- Web UI on port 5173 (if using `start.sh` or `start_webui.sh`)
+- Web UI on port 5173
 - Automatic dependency installation and database setup
 
 Your configuration is saved in `config.yml`.
 
-**Alternative Launchers:**
-- `./scripts/kottlib.py` - Interactive Python launcher with setup wizard
-- `./scripts/kottlib-cli.py` - CLI management tool (see CLI Tool section below)
-- `./run_server.sh` - Legacy launcher (same as `start.sh`)
+**Other Tools:**
+- `./scripts/kottlib-cli.py` - CLI management tool
 
 **Quick Library Scanning:**
 ```bash
-./scan.sh /path/to/library              # Quick scan with defaults
-./scan.sh /path/to/library --workers 8  # Fast scan with more workers
-./scan.sh --help                        # Show all scanning options
+./scan.sh /path/to/library              # Scan with defaults
+./scan.sh /path/to/library --workers 8  # Scan with more workers
+./scan.sh --help                        # Show all options
 ```
 
 ## Usage Examples
 
 ### Connect YACReader Mobile App
 
-1. Start server: `./scripts/kottlib.py`
+1. Start server: `./start.sh`
 2. In YACReader mobile app, add server: `http://<your-ip>:8081`
 3. Browse your libraries!
 
@@ -181,11 +182,7 @@ with KottlibClient("http://192.168.1.5:8081") as client:
 
 ## Configuration
 
-### Simple: Use the Launcher
-
-The interactive launcher (`./scripts/kottlib.py`) handles everything on first run.
-
-### Advanced: Edit Config File
+### Edit Config File
 
 After first run, edit `config.yml`:
 
@@ -253,8 +250,7 @@ Kottlib/
 ├── start.sh               # Start everything (backend + web UI)
 ├── start_backend.sh       # Start backend API only
 ├── start_webui.sh         # Start web UI only
-├── scan.sh                # Quick library scanner
-├── run_server.sh          # Legacy launcher (same as start.sh)
+├── scan.sh                # Library scanner
 ├── config.yml             # Your config (created on first run)
 ├── config.example.yml     # Example configuration
 ├── src/
@@ -329,7 +325,6 @@ Kottlib/
 │   ├── package.json       # Bun dependencies
 │   └── vite.config.js     # Vite configuration
 ├── scripts/               # Utility scripts
-│   ├── kottlib.py         # Interactive Python launcher with setup wizard
 │   ├── kottlib-cli.py     # CLI management tool
 │   ├── scan_library.py    # Library scanning
 │   ├── diagnose_missing_data.py   # Debug tools
@@ -386,10 +381,8 @@ MIT License - See LICENSE file for details.
 
 ---
 
-Get started in seconds:
+Get started:
 
 ```bash
-./scripts/kottlib.py
+./start.sh
 ```
-
-That's it!

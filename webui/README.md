@@ -34,7 +34,7 @@ Modern, responsive web interface for Kottlib comic library server.
 
 From the project root, run:
 ```bash
-./run_server.sh
+./start.sh
 ```
 
 This automatically starts:

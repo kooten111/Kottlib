@@ -84,10 +84,11 @@
 				await loadInitialPages();
 			}
 
-			// Setup keyboard shortcuts
+			// Setup keyboard shortcuts and beforeunload handler
 			if (typeof document !== "undefined") {
 				document.addEventListener("keydown", handleKeyPress);
 				document.addEventListener("mousemove", handleMouseMove);
+				document.addEventListener("beforeunload", handleBeforeUnload);
 			}
 		} catch (error) {
 			console.error("Failed to load comic:", error);
@@ -95,9 +96,13 @@
 	});
 
 	onDestroy(() => {
+		// Save progress immediately before cleanup
+		saveFinalProgress();
+		
 		if (typeof document !== "undefined") {
 			document.removeEventListener("keydown", handleKeyPress);
 			document.removeEventListener("mousemove", handleMouseMove);
+			document.removeEventListener("beforeunload", handleBeforeUnload);
 		}
 		if (controlsTimeout) {
 			clearTimeout(controlsTimeout);
@@ -267,6 +272,7 @@
 	let progressTimeout;
 	let lastSavedPage = 0;
 	let pendingSave = null;
+	
 	function saveProgress(pageNum) {
 		// Don't save if it's the same page we just saved
 		if (pageNum === lastSavedPage) {
@@ -283,7 +289,7 @@
 			pendingSave = null;
 		}
 
-		// Use longer debounce and make it truly non-blocking
+		// Use shorter debounce (1 second instead of 3) for more responsive updates
 		progressTimeout = setTimeout(() => {
 			lastSavedPage = pageNum;
 			progressTimeout = null;
@@ -299,7 +305,7 @@
 						}
 					});
 					pendingSave = null;
-				}, { timeout: 3000 });
+				}, { timeout: 1500 });
 			} else {
 				// Fallback: use setTimeout with 0 delay to make it async
 				setTimeout(() => {
@@ -308,7 +314,50 @@
 					});
 				}, 0);
 			}
-		}, 3000); // Save every 3 seconds max, and only when page changes
+		}, 1000); // Save every 1 second max, and only when page changes
+	}
+	
+	// Save final progress immediately (for beforeunload and onDestroy)
+	function saveFinalProgress() {
+		// Cancel any pending debounced save
+		if (progressTimeout) {
+			clearTimeout(progressTimeout);
+			progressTimeout = null;
+		}
+		if (pendingSave && typeof cancelIdleCallback !== 'undefined') {
+			cancelIdleCallback(pendingSave);
+			pendingSave = null;
+		}
+		
+		// Save immediately if page has changed since last save
+		if (currentPage !== lastSavedPage && currentPage > 0) {
+			lastSavedPage = currentPage;
+			// Use sendBeacon for reliability during page unload, fallback to sync fetch
+			const data = `currentPage:${Math.max(0, currentPage - 1)}`;
+			const url = `/v2/library/${libraryId}/comic/${comicId}/update`;
+			
+			if (navigator.sendBeacon) {
+				// sendBeacon is more reliable during page unload
+				const blob = new Blob([data], { type: 'text/plain' });
+				navigator.sendBeacon(url, blob);
+			} else {
+				// Fallback to synchronous fetch (less reliable but better than nothing)
+				fetch(url, {
+					method: 'POST',
+					credentials: 'include',
+					headers: { 'Content-Type': 'text/plain' },
+					body: data,
+					keepalive: true
+				}).catch(() => {
+					// Ignore errors during unload
+				});
+			}
+		}
+	}
+	
+	// Handle page unload to save final progress
+	function handleBeforeUnload(event) {
+		saveFinalProgress();
 	}
 
 	// Navigate to previous page
@@ -442,6 +491,8 @@
 					event.preventDefault();
 					const percent = parseInt(event.key) / 10;
 					const targetPage = Math.floor(totalPages * percent);
+		// Save progress immediately before exiting
+		saveFinalProgress();
 					goToPage(Math.max(1, targetPage));
 				}
 				break;
