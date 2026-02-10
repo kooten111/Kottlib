@@ -452,11 +452,7 @@
         <main
             class="flex-1 overflow-y-auto px-4 pb-8 scrollbar-thin scrollbar-thumb-[var(--color-border)] scrollbar-track-transparent"
         >
-            <div
-                class="w-full pt-4"
-                class:max-w-7xl={!isSeriesView}
-                class:mx-auto={!isSeriesView}
-            >
+            <div class="w-full pt-4">
                 {#if error}
                     <div
                         class="flex flex-col items-center justify-center py-20"

@@ -2,7 +2,7 @@
  * Base API client for Kottlib with persistent caching
  */
 
-import { getCached, setCached } from '$lib/utils/persistentCache';
+import { getCached, setCached, clearCachePattern } from '$lib/utils/persistentCache';
 
 class APIError extends Error {
 	constructor(message, status, response) {
@@ -185,7 +185,6 @@ class APIClient {
 	 * Invalidate cache for related endpoints after mutations
 	 */
 	async _invalidateRelatedCache(endpoint) {
-		const { clearCachePattern } = await import('$lib/utils/persistentCache');
 
 		// If library was modified, clear library-related caches
 		if (endpoint.includes('/libraries')) {
