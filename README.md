@@ -2,7 +2,8 @@
 
 **Comic library server and webui.**
 
-- Compatible with YACReader mobile apps
+- Run your own server compatible with YACReader mobile app
+- A webreader to access and manage your library in your browser
 - Just run `./start.sh`
 
 ```bash
@@ -21,9 +22,10 @@ Done!
 
 ## What is Kottlib?
 
-A comic library server written in Python that:
-- Maintains backward compatibility with YACReader mobile apps
+A comic reader and library server written in Python that:
 - Provides an API and web interface
+- Maintains backward compatibility with YACReader mobile apps
+
 
 ## Screenshots
 
@@ -37,14 +39,16 @@ A comic library server written in Python that:
 
 ### Core Features
 
-- **Comic Formats** - CBZ, CBR, CB7 support with automatic format detection
-- **Multi-threaded Scanning** - Library indexing with parallel processing
-- **Dual Thumbnails** - JPEG (mobile) + WebP (web) for optimal performance
 - **Database Layer** - SQLAlchemy ORM with extended YACReader schema
 - **FastAPI Server** - Async API server
 - **YACReader API** - Compatible with YACReader mobile apps (v1 & v2)
 - **API** - RESTful JSON endpoints with OpenAPI documentation
 - **One-Command Setup** - Interactive launcher for easy installation
+- **Multi-library Support** - Multiple comic libraries with separate configurations
+- **Reading Progress** - Per-user, per-comic progress tracking
+- **Continue Reading** - Quick access to in-progress comics
+- **Favorites** - Mark comics as favorites
+
 
 ### Web Interface
 
@@ -53,10 +57,7 @@ A comic library server written in Python that:
 - **Library Browser** - Grid/list views with folder navigation
 - **Continue Reading** - Track and resume reading progress across devices
 - **Favorites** - Mark and manage favorite comics
-- **Advanced Search** - Full-text search with autocomplete, filters, and previews
 - **Admin Dashboard** - Server stats and library management
-- **Dark Theme** - Dark-first design
-- **Responsive** - Works on desktop, tablet, and mobile
 
 ### Metadata Scanner System
 
@@ -67,13 +68,6 @@ A comic library server written in Python that:
 - **Fallback Support** - Automatic fallback to secondary sources
 - **API Integration** - RESTful endpoints for scanner management
 
-### Reading Progress & Social
-
-- **Reading Progress** - Per-user, per-comic progress tracking
-- **Continue Reading** - Quick access to in-progress comics
-- **Favorites** - Mark comics as favorites
-- **Session Management** - Multi-user support with device tracking
-- **Multi-library Support** - Multiple comic libraries with separate configurations
 
 ## Quick Start
 
@@ -133,51 +127,6 @@ Your configuration is saved in `config.yml`.
 ./scan.sh /path/to/library              # Scan with defaults
 ./scan.sh /path/to/library --workers 8  # Scan with more workers
 ./scan.sh --help                        # Show all options
-```
-
-## Usage Examples
-
-### Connect YACReader Mobile App
-
-1. Start server: `./start.sh`
-2. In YACReader mobile app, add server: `http://<your-ip>:8081`
-3. Browse your libraries!
-
-### Access API
-
-Visit the auto-generated, interactive API documentation:
-- **<http://localhost:8081/docs>** - Test endpoints, view request/response schemas
-- **<http://localhost:8081/redoc>** - Clean, searchable API reference
-
-**Quick Reference:**
-
-REST Endpoints (Modern JSON API):
-
-- `GET /api/v1/libraries` - List all libraries
-- `GET /api/v1/libraries/{id}` - Get library details
-- `POST /api/v1/libraries` - Create library
-
-Legacy Endpoints (mobile apps):
-
-- `GET /library/` - List libraries
-- `GET /library/{lib_id}/folder/{folder_id}` - Browse folder
-- `GET /library/{lib_id}/comic/{comic_id}` - Get comic info
-- `GET /library/{lib_id}/comic/{comic_id}/page/{num}` - Get page
-
-### Use Python Client
-
-A Python client library is available at `src/client/kottlib.py`:
-
-```python
-from src.client.kottlib import KottlibClient
-
-with KottlibClient("http://192.168.1.5:8081") as client:
-    metadata = client.open_comic(library_id=2, comic_id=188)
-    print(f"Pages: {metadata.num_pages}")
-
-    page = client.get_page(2, 188, 0)
-    with open('page.jpg', 'wb') as f:
-        f.write(page)
 ```
 
 ## Configuration
@@ -351,8 +300,6 @@ Kottlib/
 ## Requirements
 
 - Python 3.11+
-- Linux, macOS, or Windows
-- Comics in CBZ, CBR, or CB7 format
 - Bun (for web UI) - https://bun.sh
 
 ### System Dependencies (for CBR support)
