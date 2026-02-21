@@ -77,11 +77,20 @@ async def get_favorites(request: Request):
             if comic:
                 result.append({
                     "id": comic.id,
+                    "type": "comic",
+                    "library_id": fav.library_id,
                     "libraryId": fav.library_id,
+                    "title": get_comic_display_name(comic),
                     "name": get_comic_display_name(comic),
+                    "file_name": comic.filename,
                     "fileName": comic.filename,
-                    "path": comic.path,
-                    "createdAt": fav.created_at if hasattr(fav, 'created_at') else int(time.time())
+                    "hash": comic.hash,
+                    "num_pages": comic.num_pages or 0,
+                    "current_page": 0,
+                    "series": comic.series,
+                    "year": comic.year,
+                    "createdAt": fav.created_at if hasattr(fav, "created_at") else int(time.time()),
+                    "favoriteDate": fav.created_at if hasattr(fav, "created_at") else int(time.time()),
                 })
 
         return JSONResponse(result)

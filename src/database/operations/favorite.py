@@ -4,7 +4,7 @@ Favorites database operations.
 
 import time
 import logging
-from typing import List
+from typing import List, Optional
 
 from sqlalchemy.orm import Session
 
@@ -75,24 +75,22 @@ def remove_favorite(session: Session, user_id: int, comic_id: int) -> bool:
     return False
 
 
-def get_user_favorites(session: Session, user_id: int, library_id: int) -> List[Comic]:
+def get_user_favorites(session: Session, user_id: int, library_id: Optional[int] = None) -> List[Favorite]:
     """
-    Get all favorite comics for a user in a library.
+    Get all favorites for a user, optionally filtered by library.
 
     Args:
         session: Database session
         user_id: User ID
-        library_id: Library ID
+        library_id: Optional library ID to filter
 
     Returns:
-        List of Comic objects
+        List of Favorite objects
     """
-    favorites = session.query(Comic).join(Favorite).filter(
-        Favorite.user_id == user_id,
-        Favorite.library_id == library_id
-    ).order_by(Favorite.created_at.desc()).all()
-
-    return favorites
+    query = session.query(Favorite).filter(Favorite.user_id == user_id)
+    if library_id is not None:
+        query = query.filter(Favorite.library_id == library_id)
+    return query.order_by(Favorite.created_at.desc()).all()
 
 
 def is_favorite(session: Session, user_id: int, comic_id: int) -> bool:

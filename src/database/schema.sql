@@ -242,6 +242,25 @@ CREATE INDEX idx_reading_progress_user_last_read ON reading_progress(user_id, la
 
 
 -- ============================================================================
+-- FAVORITES
+-- ============================================================================
+
+CREATE TABLE IF NOT EXISTS favorites (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    user_id INTEGER NOT NULL DEFAULT 1,
+    library_id INTEGER NOT NULL,
+    comic_id INTEGER NOT NULL,
+    created_at INTEGER NOT NULL,
+
+    FOREIGN KEY (comic_id) REFERENCES comics(id) ON DELETE CASCADE,
+    UNIQUE(user_id, comic_id)
+);
+
+CREATE INDEX IF NOT EXISTS idx_favorites_user ON favorites(user_id);
+CREATE INDEX IF NOT EXISTS idx_favorites_comic ON favorites(comic_id);
+
+
+-- ============================================================================
 -- SERIES (Auto-detected groupings)
 -- ============================================================================
 
@@ -476,4 +495,4 @@ CREATE TABLE schema_version (
 );
 
 INSERT INTO schema_version (version, applied_at)
-VALUES (2, strftime('%s', 'now'));
+VALUES (3, strftime('%s', 'now'));

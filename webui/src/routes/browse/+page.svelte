@@ -12,12 +12,14 @@
     import {
         FolderOpen,
         BookOpen,
+        Heart,
         Grid,
         List,
         Loader2,
         SlidersHorizontal,
     } from "lucide-svelte";
     import { browseAllLibraries } from "$lib/api/libraries";
+    import { getFavorites } from "$lib/api/favorites";
     import { preferencesStore } from "$lib/stores/preferences";
 
     export let data;
@@ -40,6 +42,31 @@
     let prefetching = false;
     let prefetchedPage = null;
     let prefetchedOffset = null;
+
+    // Sidebar view state
+    let currentView = "home"; // 'home' | 'favorites' | 'continue'
+    let sidebarFavorites = [];
+    let loadingFavorites = false;
+
+    async function loadFavorites() {
+        if (loadingFavorites) return;
+        loadingFavorites = true;
+        try {
+            sidebarFavorites = (await getFavorites()) || [];
+        } catch (e) {
+            console.error("Failed to load favorites:", e);
+            sidebarFavorites = [];
+        } finally {
+            loadingFavorites = false;
+        }
+    }
+
+    function handleViewChange(e) {
+        currentView = e.detail;
+        if (e.detail === "favorites" && sidebarFavorites.length === 0) {
+            loadFavorites();
+        }
+    }
 
     // When browseData changes (navigation), reset items
     $: if (browseData) {
@@ -279,7 +306,8 @@
             {libraries}
             {seriesTree}
             {currentFilter}
-            currentView="home"
+            currentView={currentView}
+            on:viewChange={handleViewChange}
         />
 
         <!-- Main Content -->
@@ -287,6 +315,71 @@
             class="flex-1 overflow-y-auto px-4 pb-8 scrollbar-thin scrollbar-thumb-[var(--color-border)] scrollbar-track-transparent"
         >
             <div class="w-full pt-4">
+                {#if currentView === "favorites"}
+                    <!-- ─── Favorites Panel ─── -->
+                    <div class="flex items-center gap-3 mb-6 px-1">
+                        <Heart class="w-6 h-6 text-[var(--color-accent)]" fill="currentColor" />
+                        <h2 class="text-2xl font-bold">Favorites</h2>
+                    </div>
+                    {#if loadingFavorites}
+                        <div class="flex flex-col items-center justify-center py-20">
+                            <div class="w-10 h-10 border-4 border-[var(--color-border)] border-t-[var(--color-accent)] rounded-full animate-spin"></div>
+                            <p class="mt-4 text-[var(--color-text-muted)]">Loading favorites...</p>
+                        </div>
+                    {:else if sidebarFavorites.length > 0}
+                        <div
+                            class="grid gap-6 grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6"
+                            style="grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));"
+                        >
+                            {#each sidebarFavorites as fav (fav.id)}
+                                <ComicCard
+                                    comic={fav}
+                                    libraryId={fav.libraryId || fav.library_id}
+                                    variant="grid"
+                                    href={`/comic/${fav.libraryId || fav.library_id}/${fav.id}/read`}
+                                />
+                            {/each}
+                        </div>
+                    {:else}
+                        <div class="flex flex-col items-center justify-center py-20 text-[var(--color-text-muted)]">
+                            <Heart size={48} class="mb-4 opacity-20" />
+                            <p>No favorites yet</p>
+                            <p class="text-sm mt-2 opacity-60">Use the heart icon on a comic to add it here</p>
+                        </div>
+                    {/if}
+
+                {:else if currentView === "continue"}
+                    <!-- ─── Continue Reading Panel ─── -->
+                    <div class="flex items-center gap-3 mb-6 px-1">
+                        <BookOpen class="w-6 h-6 text-[var(--color-accent)]" />
+                        <h2 class="text-2xl font-bold">Continue Reading</h2>
+                    </div>
+                    {#if continueReadingItems.length > 0}
+                        <p class="text-sm text-[var(--color-text-muted)] mb-6">{continueReadingItems.length} comics in progress</p>
+                        <div
+                            class="grid gap-6 grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6"
+                            style="grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));"
+                        >
+                            {#each continueReadingItems as item (item.id)}
+                                <ComicCard
+                                    comic={item}
+                                    libraryId={item.library_id}
+                                    variant="grid"
+                                    showProgress={true}
+                                    href={`/comic/${item.library_id}/${item.id}/read`}
+                                />
+                            {/each}
+                        </div>
+                    {:else}
+                        <div class="flex flex-col items-center justify-center py-20 text-[var(--color-text-muted)]">
+                            <BookOpen size={48} class="mb-4 opacity-20" />
+                            <p>No comics in progress</p>
+                            <p class="text-sm mt-2 opacity-60">Start reading a comic to see it here</p>
+                        </div>
+                    {/if}
+
+                {:else}
+                    <!-- ─── Normal Browse View ─── -->
                 {#if error}
                     <div
                         class="flex flex-col items-center justify-center py-20"
@@ -542,6 +635,7 @@
                             Loading content...
                         </p>
                     </div>
+                {/if}
                 {/if}
             </div>
         </main>

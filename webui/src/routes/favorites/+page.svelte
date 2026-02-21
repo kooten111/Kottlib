@@ -2,11 +2,9 @@
 	import { onMount } from 'svelte';
 	import Navbar from '$lib/components/layout/Navbar.svelte';
 	import ComicCard from '$lib/components/comic/ComicCard.svelte';
-	import { getLibraries } from '$lib/api/libraries';
 	import { getFavorites } from '$lib/api/favorites';
-	import { Heart, Grid, List, SortAsc } from 'lucide-svelte';
+	import { Heart, Grid, List } from 'lucide-svelte';
 
-	let libraries = [];
 	let favorites = [];
 	let isLoading = true;
 	let error = null;
@@ -21,22 +19,8 @@
 		try {
 			isLoading = true;
 			error = null;
-
-			// Load libraries first
-			libraries = await getLibraries();
-
-			// Load favorites from all libraries
-			const favResults = await Promise.all(
-				libraries.map((lib) =>
-					getFavorites(lib.id)
-						.then((comics) => comics.map((comic) => ({ ...comic, libraryId: lib.id })))
-						.catch(() => [])
-				)
-			);
-
-			favorites = favResults.flat();
-			favorites = sortFavorites(favorites, sortBy);
-
+			const raw = await getFavorites();
+			favorites = sortFavorites(raw || [], sortBy);
 			isLoading = false;
 		} catch (err) {
 			console.error('Failed to load favorites:', err);
@@ -49,9 +33,9 @@
 		const sorted = [...favList];
 		switch (sortType) {
 			case 'recent':
-				return sorted.sort((a, b) => (b.favoriteDate || 0) - (a.favoriteDate || 0));
+				return sorted.sort((a, b) => (b.favoriteDate || b.createdAt || 0) - (a.favoriteDate || a.createdAt || 0));
 			case 'title':
-				return sorted.sort((a, b) => (a.title || '').localeCompare(b.title || ''));
+				return sorted.sort((a, b) => (a.title || a.name || '').localeCompare(b.title || b.name || ''));
 			case 'series':
 				return sorted.sort((a, b) => (a.series || '').localeCompare(b.series || ''));
 			case 'year':
@@ -130,7 +114,7 @@
 		{:else if sortedFavorites.length > 0}
 			<div class="comics-{viewMode}">
 				{#each sortedFavorites as comic}
-					<ComicCard {comic} libraryId={comic.libraryId} variant={viewMode} />
+					<ComicCard {comic} libraryId={comic.libraryId || comic.library_id} variant={viewMode} href={`/comic/${comic.libraryId || comic.library_id}/${comic.id}/read`} />
 				{/each}
 			</div>
 		{:else}

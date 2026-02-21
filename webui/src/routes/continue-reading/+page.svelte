@@ -40,10 +40,12 @@
 	// Helper function to filter in-progress comics
 	function filterInProgressComics(comics) {
 		return comics.filter(
-			(comic) =>
-				comic &&
-				comic.currentPage > 0 &&
-				comic.currentPage < comic.numPages,
+			(comic) => {
+				if (!comic) return false;
+				const cur = comic.current_page ?? comic.currentPage ?? 0;
+				const total = comic.num_pages ?? comic.numPages ?? 1;
+				return cur > 0 && cur < total;
+			},
 		);
 	}
 

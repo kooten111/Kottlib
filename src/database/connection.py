@@ -145,6 +145,26 @@ class Database:
                     conn.commit()
                     logger.info("Migration complete: source_url column added")
 
+                # Migration 3: Create favorites table if missing (was only in schema_v3.sql)
+                result = conn.execute(text("SELECT name FROM sqlite_master WHERE type='table' AND name='favorites'")).fetchone()
+                if not result:
+                    logger.info("Running migration: Creating favorites table")
+                    conn.execute(text("""
+                        CREATE TABLE favorites (
+                            id INTEGER PRIMARY KEY AUTOINCREMENT,
+                            user_id INTEGER NOT NULL DEFAULT 1,
+                            library_id INTEGER NOT NULL,
+                            comic_id INTEGER NOT NULL,
+                            created_at INTEGER NOT NULL,
+                            FOREIGN KEY (comic_id) REFERENCES comics(id) ON DELETE CASCADE,
+                            UNIQUE(user_id, comic_id)
+                        )
+                    """))
+                    conn.execute(text("CREATE INDEX idx_favorites_user ON favorites(user_id)"))
+                    conn.execute(text("CREATE INDEX idx_favorites_comic ON favorites(comic_id)"))
+                    conn.commit()
+                    logger.info("Migration complete: favorites table created")
+
         except Exception as e:
             logger.error(f"Error running migrations: {e}")
             # Don't fail startup if migrations fail - the app might still work

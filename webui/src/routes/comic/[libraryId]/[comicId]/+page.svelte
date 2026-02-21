@@ -31,10 +31,10 @@
 			favoriteLoading = true;
 
 			if (isFavorite) {
-				await removeFavorite(libraryId, comicId);
+				await removeFavorite(comicId);
 				isFavorite = false;
 			} else {
-				await addFavorite(libraryId, comicId);
+				await addFavorite(comicId);
 				isFavorite = true;
 			}
 
@@ -65,6 +65,12 @@
 		libraryId,
 		comicId,
 	};
+
+	function handleViewChange(e) {
+		const view = e.detail;
+		if (view === "favorites") goto("/favorites");
+		else if (view === "continue") goto("/continue-reading");
+	}
 
 	// Prepare item for DetailHeader (mimic series structure)
 	$: itemForHeader = comic
@@ -129,6 +135,7 @@
 			{seriesTree}
 			{currentFilter}
 			currentView="home"
+			on:viewChange={handleViewChange}
 		/>
 
 		<!-- Main Content -->

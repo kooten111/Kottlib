@@ -23,6 +23,12 @@
     import { browseLibrary, getContinueReading } from "$lib/api/libraries";
     import { preferencesStore } from "$lib/stores/preferences";
     import { scanSeries, applySeriesMetadata } from "$lib/api/scanners";
+
+    function handleViewChange(e) {
+        const view = e.detail;
+        if (view === "favorites") goto("/favorites");
+        else if (view === "continue") goto("/continue-reading");
+    }
     import { X, ExternalLink, Check } from "lucide-svelte";
 
     export let data;
@@ -490,6 +496,7 @@
             {seriesTree}
             {currentFilter}
             currentView="home"
+            on:viewChange={handleViewChange}
         />
 
         <!-- Main Content -->

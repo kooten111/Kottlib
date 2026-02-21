@@ -1,22 +1,22 @@
 import { api } from './client';
 
 /**
- * Get all favorites for a library
+ * Get all favorites for the current user (all libraries)
  */
-export async function getFavorites(libraryId) {
-	return api.get(`/library/${libraryId}/favs`);
+export async function getFavorites() {
+	return api.get('/v2/favs');
 }
 
 /**
  * Add comic to favorites
  */
-export async function addFavorite(libraryId, comicId) {
-	return api.post(`/library/${libraryId}/comic/${comicId}/fav`);
+export async function addFavorite(comicId) {
+	return api.post(`/v2/fav/${comicId}`);
 }
 
 /**
  * Remove comic from favorites
  */
-export async function removeFavorite(libraryId, comicId) {
-	return api.delete(`/library/${libraryId}/comic/${comicId}/fav`);
+export async function removeFavorite(comicId) {
+	return api.delete(`/v2/fav/${comicId}`);
 }
