@@ -180,7 +180,6 @@ For advanced users:
 - [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) - System architecture
 - [docs/SCANNERS.md](docs/SCANNERS.md) - Scanner system documentation
 - [docs/SERVICES.md](docs/SERVICES.md) - Service layer guide
-- [docs/ROADMAP.md](docs/ROADMAP.md) - Future development plans
 - [docs/SEARCH.md](docs/SEARCH.md) - Search functionality guide
 - [docs/CONFIGURATION.md](docs/CONFIGURATION.md) - Configuration options and reference
 
@@ -296,7 +295,6 @@ Kottlib/
 │   ├── ARCHITECTURE.md        # System architecture
 │   ├── SCANNERS.md            # Scanner system guide
 │   ├── SERVICES.md            # Service layer documentation
-│   ├── ROADMAP.md             # Future development plans
 │   └── SEARCH.md              # Search functionality guide
 └── data/                  # Runtime data (created on first run, gitignored)
     ├── main.db            # SQLite database
