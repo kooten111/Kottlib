@@ -133,7 +133,7 @@ Your configuration is saved in `config.yml`.
 
 ### Edit Config File
 
-After first run, edit `config.yml`:
+After first run, edit `config.yml` for bootstrap settings:
 
 ```yaml
 server:
@@ -141,21 +141,13 @@ server:
   port: 8081
   log_level: "info"
 
-libraries:
-  - name: "Comics"
-    path: "/mnt/Comics"
-    auto_scan: true
-    settings:
-      default_reading_direction: "ltr"
-
-  - name: "Manga"
-    path: "/mnt/Manga"
-    auto_scan: true
-    settings:
-      default_reading_direction: "rtl"
+database:
+  path: null  # null = auto-detect platform default
 ```
 
-See `config.example.yml` for all available configuration options.
+Libraries are managed via the WebUI or API — not in config.yml.
+
+See [docs/CONFIGURATION.md](docs/CONFIGURATION.md) for all available configuration options.
 
 ### CLI Tool
 
@@ -190,7 +182,7 @@ For advanced users:
 - [docs/SERVICES.md](docs/SERVICES.md) - Service layer guide
 - [docs/ROADMAP.md](docs/ROADMAP.md) - Future development plans
 - [docs/SEARCH.md](docs/SEARCH.md) - Search functionality guide
-- `config.example.yml` - Configuration options and examples
+- [docs/CONFIGURATION.md](docs/CONFIGURATION.md) - Configuration options and reference
 
 ## Project Structure
 
@@ -201,7 +193,6 @@ Kottlib/
 ├── start_webui.sh         # Start web UI only
 ├── scan.sh                # Library scanner
 ├── config.yml             # Your config (created on first run)
-├── config.example.yml     # Example configuration
 ├── src/
 │   ├── api/               # FastAPI server
 │   │   ├── main.py        # Application entry point
@@ -209,17 +200,18 @@ Kottlib/
 │   │   └── routers/       # API route handlers
 │   │       ├── legacy_v1.py      # YACReader v1 API (text format)
 │   │       ├── libraries.py      # Modern library management
-│   │       ├── scanners.py       # Metadata scanner API
+│   │       ├── covers.py         # Cover serving endpoints
 │   │       ├── user_interactions.py  # Favorites, progress
+│   │       ├── scanners/         # Metadata scanner API (package)
+│   │       │   ├── router.py, manager.py, models.py
+│   │       │   ├── endpoints/    # Individual endpoint modules
+│   │       │   └── tasks/        # Background scan tasks
 │   │       └── v2/               # YACReader v2 API (JSON format)
-│   │           ├── comics.py
-│   │           ├── collections.py
-│   │           ├── folders.py
-│   │           ├── libraries.py
-│   │           ├── reading.py
-│   │           ├── search.py
-│   │           ├── series.py
-│   │           └── session.py
+│   │           ├── comics.py, collections.py, folders.py
+│   │           ├── libraries.py, reading.py, search.py
+│   │           ├── series.py, session.py, covers.py
+│   │           ├── admin.py, tree.py
+│   │           └── _browse_helpers.py, _item_builders.py, _shared.py
 │   ├── database/          # Database layer
 │   │   ├── models/        # SQLAlchemy models (modular)
 │   │   ├── operations/    # CRUD operations
@@ -231,30 +223,36 @@ Kottlib/
 │   │   ├── comic_processor.py     # Comic processing
 │   │   ├── thumbnail_generator.py # JPEG + WebP thumbnails
 │   │   └── threaded_scanner.py    # Multi-threaded scanner
-│   ├── metadata_providers/ # Metadata scanner system
-│   │   ├── base.py                # Scanner interface
-│   │   ├── manager.py             # Scanner registry
+│   ├── metadata_providers/ # Metadata scanner framework
+│   │   ├── base.py                # Scanner interface (BaseScanner)
+│   │   ├── manager.py             # Scanner registry & discovery
 │   │   ├── schema.py              # Field mapping
-│   │   └── providers/             # Scanner implementations
-│   │       ├── nhentai/
-│   │       ├── anilist/
-│   │       ├── mangadex/
-│   │       ├── comicvine/
-│   │       └── metron/
+│   │   ├── config.py              # Configuration options
+│   │   ├── utils.py               # Utilities
+│   │   └── demo.py                # Demo scanner
 │   ├── services/          # Business logic layer
+│   │   ├── metadata_service.py    # Metadata application
 │   │   ├── cover_service.py       # Cover generation/retrieval
 │   │   ├── comic_info_service.py  # Shared V1/V2 comic info
-│   │   ├── metadata_service.py    # Metadata application
 │   │   ├── library_service.py     # Library management
-│   │   └── scan_service.py        # Scan orchestration
+│   │   ├── library_cache.py       # Browse response caching
+│   │   ├── scan_service.py        # Scan orchestration
+│   │   ├── search_service.py      # FTS and advanced search
+│   │   ├── reading_service.py     # Progress, favorites, labels
+│   │   ├── config_sync.py         # Config file ↔ database sync
+│   │   ├── scheduler.py           # APScheduler integration
+│   │   └── mangadex_client.py     # MangaDex API client
 │   ├── client/            # Python client library
 │   │   └── kottlib.py     # API client for programmatic access
 │   ├── utils/             # Utilities
-│   │   ├── platform.py    # Platform-specific paths
+│   │   ├── errors.py      # Error types
 │   │   ├── hashing.py     # Hash functions
-│   │   └── pagination.py  # Pagination helpers
+│   │   ├── pagination.py  # Pagination helpers
+│   │   ├── platform.py    # Platform-specific paths
+│   │   ├── series_utils.py # Series detection
+│   │   └── sorting.py     # Natural sort
 │   └── config.py          # Configuration management
-├── scanners/              # Scanner plugins (legacy location, still supported)
+├── scanners/              # Scanner plugins (auto-discovered)
 │   ├── AniList/           # AniList scanner plugin
 │   ├── ComicVine/         # Comic Vine scanner plugin
 │   ├── mangadex/          # MangaDex scanner plugin
@@ -264,12 +262,21 @@ Kottlib/
 │   ├── src/
 │   │   ├── routes/        # Page routes
 │   │   │   ├── admin/             # Admin dashboard
-│   │   │   ├── comic/             # Comic reader
+│   │   │   ├── browse/            # Global browse
+│   │   │   ├── comic/[libraryId]/[comicId]/  # Comic detail & reader
+│   │   │   ├── library/[libraryId]/browse/   # Library browser
+│   │   │   ├── series/[libraryId]/[seriesName]/  # Series browser
 │   │   │   ├── continue-reading/  # Continue reading list
 │   │   │   ├── favorites/         # Favorites
-│   │   │   ├── search/            # Search interface
-│   │   │   └── series/            # Series browser
+│   │   │   └── search/            # Search interface
 │   │   ├── lib/           # Reusable components & stores
+│   │   │   ├── api/               # API client modules
+│   │   │   ├── components/        # Reusable UI components
+│   │   │   ├── stores/            # Svelte stores
+│   │   │   ├── themes/            # 16 built-in themes
+│   │   │   ├── actions/           # Svelte actions
+│   │   │   ├── server/            # Server-side utilities
+│   │   │   └── utils/             # Helper functions
 │   │   └── app.html       # HTML template
 │   ├── package.json       # Bun dependencies
 │   └── vite.config.js     # Vite configuration

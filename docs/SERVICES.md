@@ -2,7 +2,23 @@
 
 ## Overview
 
-The `src/services/` directory contains business logic services that handle metadata application, scheduling, and external API integration.
+The `src/services/` directory contains business logic services that handle metadata application, scheduling, external API integration, and core application operations.
+
+### Service Overview
+
+| Service | Location | Purpose |
+|---------|----------|---------|
+| MetadataService | `metadata_service.py` | Apply scanner results to comics |
+| SchedulerService | `scheduler.py` | APScheduler-based periodic library scans |
+| MangaDexClient | `mangadex_client.py` | MangaDex API client for covers |
+| ComicInfoService | `comic_info_service.py` | Shared v1/v2 comic metadata retrieval |
+| ConfigSync | `config_sync.py` | Config file ↔ database synchronization |
+| CoverService | `cover_service.py` | Cover generation, retrieval, external fetch |
+| LibraryCacheService | `library_cache.py` | File-based browse response caching |
+| LibraryService | `library_service.py` | Library CRUD with statistics |
+| ReadingService | `reading_service.py` | Progress, favorites, labels, reading lists |
+| ScanService | `scan_service.py` | Metadata scan orchestration |
+| SearchService | `search_service.py` | FTS and advanced search |
 
 ## MetadataService
 
@@ -69,7 +85,7 @@ def apply_scan_result_to_comic(
 **Example:**
 ```python
 from src.services.metadata_service import MetadataService
-from src.scanners.base_scanner import ScanResult
+from src.metadata_providers.base import ScanResult
 
 result = MetadataService.apply_scan_result_to_comic(
     session=db_session,
@@ -513,6 +529,107 @@ def get_mangadex_client() -> MangaDexClient
 ```
 
 Returns singleton MangaDexClient instance.
+
+---
+
+## ComicInfoService
+
+**Location:** `src/services/comic_info_service.py`
+
+Provides shared logic for retrieving comic metadata used by both v1 and v2 API routers. Reduces duplication between `legacy_v1.py` and `v2/comics.py`.
+
+### ComicMetadata
+
+Container dataclass holding all data needed by both API versions:
+- `comic` — Comic ORM object
+- `library` — Library ORM object
+- `progress` — Optional ReadingProgress
+- `relative_path` — Path relative to library root
+- `prev_comic_id` / `next_comic_id` — Navigation IDs
+
+---
+
+## ConfigSync
+
+**Location:** `src/services/config_sync.py`
+
+Manages synchronization between the minimal bootstrap `config.yml` and the database settings table. Handles legacy config migration on first startup (moving libraries from config file to database).
+
+---
+
+## CoverService
+
+**Location:** `src/services/cover_service.py`
+
+Cover generation and retrieval operations:
+- Get covers for comics (from cache or archive)
+- Fetch external covers from providers (MangaDex, etc.)
+- Set custom covers
+- Generate dual-format thumbnails (JPEG + WebP)
+
+---
+
+## LibraryCacheService
+
+**Location:** `src/services/library_cache.py`
+
+File-based caching for library browse responses. Caches separate JSON files per browse path/query combination under `data/cache/{library_id}/browse/`. Keys are MD5 hashes of path + query parameters.
+
+**Methods:**
+- `get_cached_response(path, params)` — Retrieve cached JSON if available
+- `set_cached_response(path, params, data)` — Store response JSON
+- `invalidate(path)` — Invalidate cache for a specific path
+- `invalidate_all()` — Clear all cache for the library
+
+---
+
+## LibraryService
+
+**Location:** `src/services/library_service.py`
+
+High-level library operations:
+- `create_library_with_stats()` — Create library and return with statistics
+- `get_library_info()` — Retrieve library with computed stats
+- `update_library_details()` — Update library properties
+- `delete_library_with_cleanup()` — Delete library and clean up covers/cache
+- `get_all_libraries_with_stats()` — List all libraries with statistics
+
+---
+
+## ReadingService
+
+**Location:** `src/services/reading_service.py`
+
+Reading progress and user interaction operations:
+- `update_reading_progress()` — Track reading position per user/comic
+- Favorites management (add/remove/list)
+- Labels management (create/assign/remove)
+- Reading lists management (create/add items/reorder)
+
+---
+
+## ScanService
+
+**Location:** `src/services/scan_service.py`
+
+Orchestrates metadata scanning operations:
+- `scan_single_comic()` — Scan one comic with a metadata scanner
+- Series-level scanning
+- Library-wide scanning
+- Progress tracking and result aggregation
+
+Uses `MetadataService` internally to apply scan results.
+
+---
+
+## SearchService
+
+**Location:** `src/services/search_service.py`
+
+Search logic including:
+- `search_comics()` — Basic search using query string
+- Full-text search via FTS5 index
+- Advanced search with field-specific filters and pagination
 
 ---
 

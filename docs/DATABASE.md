@@ -34,6 +34,7 @@ Primary table for comic library definitions.
 | `last_scan_completed` | Integer | No | null | Unix timestamp of last scan completion |
 | `scanner_type` | String | No | 'comic' | Library type identifier |
 | `settings` | JSON | No | null | Library-specific settings (scanner config, etc.) |
+| `exclude_from_webui` | Boolean | No | false | Hide library from WebUI (Integer: 0=false, 1=true) |
 | `scan_interval` | Integer | No | 0 | Auto-scan interval in minutes (0 = disabled) |
 | `cached_series_tree` | Text | No | null | Pre-built folder/comic tree as JSON |
 | `tree_cache_updated_at` | Integer | No | null | When tree cache was last updated |
@@ -491,6 +492,20 @@ Junction table for reading lists ↔ comics.
 
 ---
 
+### 15. Setting
+
+Key-value store for runtime settings.
+
+| Field | Type | Required | Default | Description |
+|-------|------|----------|---------|-------------|
+| `key` | String | PK | - | Setting key (e.g., `features.legacy_api`) |
+| `value` | String | No | null | Setting value (stored as string) |
+| `value_type` | String | No | null | Value type hint: string, bool, int, float, json |
+| `description` | String | No | null | Human-readable description |
+| `updated_at` | Integer | No | null | Last modified timestamp |
+
+---
+
 ## Entity Relationship Diagram
 
 ```mermaid
@@ -527,6 +542,7 @@ erDiagram
         string path UK
         string scan_status
         json settings
+        boolean exclude_from_webui
         int scan_interval
         text cached_series_tree
     }
@@ -636,6 +652,14 @@ erDiagram
         int comic_id FK
         int position
     }
+
+    Setting {
+        string key PK
+        string value
+        string value_type
+        string description
+        int updated_at
+    }
 ```
 
 ## Index Summary
@@ -664,19 +688,31 @@ The database defines **50+ performance indexes** across all tables:
 
 ## Database Functions
 
-Located in `src/database/database.py`:
+### Connection Layer
+
+Located in `src/database/connection.py`:
 
 | Function | Purpose |
-|----------|---------|
+|----------|--------|
 | `get_default_db_path()` | Get platform-appropriate database path |
 | `Database(path, echo)` | Database connection manager class |
 | `Database.get_session()` | Context manager for sessions |
-| `create_library(...)` | Create new library |
-| `get_all_libraries(session)` | List all libraries |
-| `get_library_by_id(session, id)` | Get library by ID |
-| `create_comic(...)` | Create comic record |
-| `get_comic_by_id(session, id)` | Get comic by ID |
-| `get_comic_by_hash(session, hash, library_id)` | Find by hash |
-| `search_comics(session, library_id, query)` | Basic search |
-| `update_reading_progress(...)` | Update user progress |
-| `get_continue_reading(session, user_id, limit)` | Get continue reading list |
+
+### Operations Layer
+
+Database operations are organized into focused modules in `src/database/operations/`:
+
+| Module | Purpose |
+|--------|--------|
+| `comic.py` | Comic CRUD, search, hash lookups |
+| `cover.py` | Cover creation and retrieval |
+| `favorite.py` | User favorites management |
+| `folder.py` | Folder hierarchy operations |
+| `label.py` | Label and comic-label management |
+| `library.py` | Library CRUD, stats, tree cache |
+| `progress.py` | Reading progress tracking |
+| `reading_list.py` | Reading list management |
+| `session.py` | User session management |
+| `setting.py` | Settings key-value store |
+| `stats.py` | Library and global statistics |
+| `user.py` | User account management |

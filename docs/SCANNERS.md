@@ -116,7 +116,11 @@ The metadata scanner framework is located in `src/metadata_providers/` (formerly
 | `base.py` | Abstract scanner interface and data classes |
 | `manager.py` | Scanner registry and instantiation |
 | `schema.py` | Field mapping between scanners and database |
-| `providers/` | Individual scanner implementations |
+| `config.py` | Configuration option definitions |
+| `utils.py` | Utility functions (clean_query, etc.) |
+| `demo.py` | Demo scanner for testing |
+
+> **Note:** `src/scanners/` (plural) still exists as a deprecated compatibility shim that re-exports from `src/metadata_providers/`. New code should import from `src.metadata_providers` directly.
 
 ### Core Concepts
 
@@ -167,7 +171,7 @@ class ScanResult:
 
 #### nhentai Scanner
 - **Level:** FILE (per-file)
-- **Path:** `src/metadata_providers/providers/nhentai/`
+- **Path:** `scanners/nhentai/`
 - **Best for:** Doujinshi with structured filenames
 - **Features:**
   - Extracts event codes (C101, Kemoket, etc.)
@@ -177,7 +181,7 @@ class ScanResult:
 
 #### AniList Scanner
 - **Level:** SERIES
-- **Path:** `src/metadata_providers/providers/anilist/`
+- **Path:** `scanners/AniList/`
 - **Best for:** Manga series
 - **Features:**
   - GraphQL API integration
@@ -187,7 +191,7 @@ class ScanResult:
 
 #### MangaDex Scanner
 - **Level:** SERIES
-- **Path:** `src/metadata_providers/providers/mangadex/`
+- **Path:** `scanners/mangadex/`
 - **Best for:** Manga with MangaDex presence
 - **Features:**
   - REST API v5 integration
@@ -197,7 +201,7 @@ class ScanResult:
 
 #### Comic Vine Scanner
 - **Level:** SERIES
-- **Path:** `src/metadata_providers/providers/comicvine/`
+- **Path:** `scanners/ComicVine/`
 - **Best for:** Western comics
 - **Requirements:** API key
 - **Features:**
@@ -208,7 +212,7 @@ class ScanResult:
 
 #### Metron Scanner
 - **Level:** SERIES
-- **Path:** `src/metadata_providers/providers/metron/`
+- **Path:** `scanners/metron/`
 - **Best for:** Western comics
 - **Requirements:** Username and password
 - **Features:**
@@ -282,7 +286,7 @@ POST /v2/scanners/scan
 
 ### Creating Custom Scanners
 
-You can add new metadata scanners by creating a plugin in `src/metadata_providers/providers/`:
+You can add new metadata scanners by creating a plugin in the top-level `scanners/` directory:
 
 #### 1. Create Scanner Class
 
@@ -334,7 +338,9 @@ class MyScanner(BaseScanner):
 
 #### 2. Register Scanner
 
-Add your scanner to the manager in `src/metadata_providers/__init__.py`:
+Scanners placed in the top-level `scanners/` directory are discovered automatically by the `ScannerManager`. The file must follow the naming pattern `*_scanner.py` or `scanner.py`.
+
+Alternatively, register manually in `src/metadata_providers/__init__.py`:
 
 ```python
 from .providers.mysource.my_scanner import MyScanner
@@ -348,11 +354,10 @@ def init_default_scanners():
 
 #### 3. Add Provider-Specific Documentation
 
-Create a README in your scanner's directory: `src/metadata_providers/providers/mysource/README.md`
+Create a README in your scanner's directory: `scanners/mysource/README.md`
 
 See existing scanner READMEs for examples:
 - `scanners/AniList/README.md`
-- `src/metadata_providers/providers/mangadex/README.md`
 
 ### Configuration
 

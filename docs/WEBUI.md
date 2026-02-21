@@ -13,7 +13,7 @@ The SvelteKit frontend provides a modern web interface for browsing and reading 
 | State Management | Svelte Stores | Native |
 | Data Fetching | TanStack Query | 5.x |
 | Build Tool | Vite | 5.x |
-| Package Manager | npm/pnpm | - |
+| Package Manager | Bun | - |
 
 ---
 
@@ -27,22 +27,40 @@ webui/
 │   │   ├── +page.svelte        # Home page
 │   │   ├── +page.server.js     # SSR data loading
 │   │   ├── admin/              # Admin pages
-│   │   ├── comic/              # Comic reader
-│   │   ├── continue-reading/   # Continue reading list
-│   │   ├── favorites/          # User favorites
-│   │   ├── search/             # Search interface
-│   │   └── series/             # Series browser
+│   │   │   ├── +page.svelte         # Admin dashboard
+│   │   │   ├── libraries/+page.svelte
+│   │   │   ├── scanners/+page.svelte
+│   │   │   └── settings/+page.svelte
+│   │   ├── browse/             # Global browse
+│   │   │   └── +page.server.js
+│   │   ├── comic/[libraryId]/[comicId]/
+│   │   │   ├── +page.svelte         # Comic detail
+│   │   │   ├── +page.server.js
+│   │   │   └── read/+page.svelte    # Comic reader
+│   │   ├── library/[libraryId]/browse/[...path]/
+│   │   │   ├── +page.svelte         # Library folder browser
+│   │   │   └── +page.server.js
+│   │   ├── series/[libraryId]/[seriesName]/
+│   │   │   ├── +page.svelte         # Series detail
+│   │   │   └── +page.server.js
+│   │   ├── continue-reading/+page.svelte
+│   │   ├── favorites/+page.svelte
+│   │   └── search/+page.svelte
 │   ├── lib/
 │   │   ├── api/               # API client modules
 │   │   ├── components/        # Reusable components
 │   │   ├── stores/            # Svelte stores
-│   │   ├── themes/            # Theme configuration
+│   │   ├── themes/            # Theme definitions (16 themes)
+│   │   ├── actions/           # Svelte actions (tooltip, etc.)
+│   │   ├── server/            # Server-side utilities
 │   │   └── utils/             # Helper functions
 │   └── app.html               # HTML template
 ├── static/                     # Static assets
+├── bunfig.toml                 # Bun configuration
 ├── package.json
 ├── svelte.config.js
 ├── tailwind.config.js
+├── postcss.config.js
 └── vite.config.js
 ```
 
@@ -50,21 +68,81 @@ webui/
 
 ## Routes (`src/routes/`)
 
-### `/` - Home/Library Browser
+### `/` — Home
 
 **Files:**
-- `+page.svelte` - Main library view
-- `+page.server.js` - Server-side data fetching
+- `+page.svelte` — Main landing / library overview
+- `+page.server.js` — Server-side data fetching
 
 **Features:**
 - Library selection
-- Folder navigation
-- Comic grid/list view
-- Sorting options
+- Continue Reading and Favorites panels
+- Sidebar with library tree navigation
 
 ---
 
-### `/admin/` - Admin Dashboard
+### `/browse/` — Global Browse
+
+**Files:** `browse/+page.server.js`
+
+---
+
+### `/library/[libraryId]/browse/[...path]/` — Library Browser
+
+**Files:**
+- `+page.svelte` — Library folder browser
+- `+page.server.js` — SSR data loading
+
+**Features:**
+- Folder navigation with breadcrumbs
+- Comic grid view
+- Series grouping
+- Sidebar tree navigation
+- Inline Favorites and Continue Reading panels
+
+**Route Parameters:**
+- `libraryId` — Library ID
+- `...path` — Nested folder path (catch-all)
+
+---
+
+### `/comic/[libraryId]/[comicId]/` — Comic Detail
+
+**Files:**
+- `+page.svelte` — Comic detail page
+- `+page.server.js` — SSR data loading
+
+**Features:**
+- Full metadata display
+- Cover art
+- Add/remove favorites
+- Reading progress
+- Scanner metadata display
+- Navigate to reader
+
+**Route Parameters:**
+- `libraryId` — Library ID
+- `comicId` — Comic ID
+
+---
+
+### `/comic/[libraryId]/[comicId]/read/` — Comic Reader
+
+**Files:** `read/+page.svelte`
+
+**Features:**
+- Full-page reading experience
+- Page navigation (arrow keys, swipe, click)
+- Reading direction toggle (LTR/RTL)
+- Double-page reading mode
+- Fit modes (width, height, original)
+- Progress tracking (auto-save)
+- Bookmarks
+- Align to top on page load (fit-width/original modes)
+
+---
+
+### `/admin/` — Admin Dashboard
 
 **File:** `admin/+page.svelte`
 
@@ -74,9 +152,9 @@ webui/
 
 ---
 
-### `/admin/libraries` - Library Management
+### `/admin/libraries` — Library Management
 
-**Files:** `admin/libraries/+page.svelte`
+**File:** `admin/libraries/+page.svelte`
 
 **Features:**
 - Create/edit/delete libraries
@@ -86,12 +164,12 @@ webui/
 
 ---
 
-### `/admin/scanners` - Scanner Configuration
+### `/admin/scanners` — Scanner Configuration
 
-**Files:** `admin/scanners/+page.svelte`
+**File:** `admin/scanners/+page.svelte`
 
 **Features:**
-- View available scanners
+- View available metadata scanners
 - Configure scanner per library
 - Set credentials (API keys)
 - Adjust confidence thresholds
@@ -100,576 +178,227 @@ webui/
 
 ---
 
-### `/admin/settings` - Server Settings
+### `/admin/settings` — Server Settings
 
-**Files:** `admin/settings/+page.svelte`
+**File:** `admin/settings/+page.svelte`
 
 **Features:**
 - General server settings
 - Feature flags
 - Database configuration
+- Search index maintenance (initialize, rebuild, status)
 
 ---
 
-### `/comic/[id]` - Comic Reader
+### `/continue-reading/` — Continue Reading
 
-**Files:** `comic/[id]/+page.svelte`
-
-**Features:**
-- Full-page reading experience
-- Page navigation (arrow keys, swipe)
-- Reading direction toggle (LTR/RTL)
-- Progress tracking (auto-save)
-- Bookmarks
-- Fit modes (width, height, original)
-- Page thumbnails
-
-**Route Parameter:** `id` - Comic ID
-
----
-
-### `/continue-reading/` - Continue Reading List
-
-**Files:** `continue-reading/+page.svelte`
+**File:** `continue-reading/+page.svelte`
 
 **Features:**
-- Resume from last position
+- Resume from last reading position
 - Progress indicators
-- Remove from list
 
 ---
 
-### `/favorites/` - User Favorites
+### `/favorites/` — Favorites
 
-**Files:** `favorites/+page.svelte`
+**File:** `favorites/+page.svelte`
 
 **Features:**
 - Favorited comics grid
-- Add/remove favorites
 - Filter by library
 
 ---
 
-### `/search/` - Search Interface
+### `/search/` — Search
 
-**Files:** `search/+page.svelte`
+**File:** `search/+page.svelte`
 
 **Features:**
 - Global search
-- Advanced search with filters
+- Advanced search with field-specific filters
 - Search history
 - Saved searches
 
 ---
 
-### `/series/[name]` - Series Browser
+### `/series/[libraryId]/[seriesName]/` — Series Detail
 
-**Files:** `series/[name]/+page.svelte`
+**Files:**
+- `+page.svelte` — Series browser
+- `+page.server.js` — SSR data loading
 
 **Features:**
-- Series metadata display
-- Volume listing
+- Series metadata display (via `SeriesInfoPanel`)
+- Volume listing with covers
 - Reading progress per volume
-- Cover art
 
-**Route Parameter:** `name` - URL-encoded series name
+**Route Parameters:**
+- `libraryId` — Library ID
+- `seriesName` — URL-encoded series name
 
 ---
 
 ## Components (`src/lib/components/`)
 
-### Layout Components
+### Layout Components (`layout/`)
 
-**`layout/`**
-- `Navbar.svelte` - Top navigation bar
-- `Sidebar.svelte` - Side navigation (mobile)
-- `Footer.svelte` - Page footer
+| Component | Purpose |
+|-----------|---------|
+| `Navbar.svelte` | Top navigation bar |
+| `Sidebar.svelte` | Side navigation (mobile) |
+| `HomeSidebar.svelte` | Home page sidebar with library tree and folders |
+| `Footer.svelte` | Page footer |
+| `LibraryTree.svelte` | Hierarchical library tree in sidebar |
+| `SeriesTree.svelte` | Series tree navigation |
+| `SeriesTreeNode.svelte` | Individual series tree node |
+| `TreeNode.svelte` | Generic tree node component |
 
-### Common Components
+### Common Components (`common/`)
 
-**`common/`**
-- `Button.svelte` - Styled button
-- `Card.svelte` - Content card
-- `Input.svelte` - Form input
-- `Modal.svelte` - Modal dialog
-- `Spinner.svelte` - Loading indicator
-- `Toast.svelte` - Notification toast
+| Component | Purpose |
+|-----------|---------|
+| `BackButton.svelte` | Navigation back button |
+| `Breadcrumbs.svelte` | Breadcrumb navigation |
+| `Button.svelte` | Styled button |
+| `Card.svelte` | Content card |
+| `ConfigInput.svelte` | Configuration input for admin panels |
+| `DetailHeader.svelte` | Detail page header |
+| `GenreTag.svelte` | Genre/tag pill |
+| `HorizontalCarousel.svelte` | Horizontal scrolling carousel |
+| `InfiniteScroll.svelte` | Infinite scroll loader |
+| `Input.svelte` | Form input |
+| `Modal.svelte` | Modal dialog |
+| `ProgressBar.svelte` | Progress indicator bar |
+| `SearchAutocomplete.svelte` | Search with autocomplete dropdown |
+| `SkeletonCard.svelte` | Loading skeleton placeholder |
+| `StarRating.svelte` | Star rating display |
 
-### Comic Components
+### Comic Components (`comic/`)
 
-**`comic/`**
-- `ComicCard.svelte` - Comic cover card with metadata
-- `ComicGrid.svelte` - Grid layout for comics
-- `ComicList.svelte` - List layout for comics
+| Component | Purpose |
+|-----------|---------|
+| `ComicCard.svelte` | Comic cover card with metadata |
+| `LibraryCard.svelte` | Library overview card |
+| `MetadataDisplay.svelte` | Full metadata display panel |
+| `ScannerMetadata.svelte` | Scanner-specific metadata display |
 
-### Library Components
+### Library Components (`library/`)
 
-**`library/`**
-- `LibrarySelector.svelte` - Library dropdown
-- `FolderBreadcrumb.svelte` - Navigation breadcrumb
-- `FolderTree.svelte` - Hierarchical folder view
+| Component | Purpose |
+|-----------|---------|
+| `CollectionCard.svelte` | Collection card display |
+| `FolderCard.svelte` | Folder navigation card |
+| `LibraryScannerPanel.svelte` | Scanner configuration for library |
+| `SeriesCard.svelte` | Series card display |
 
-### Reader Components
+### Reader Components (`reader/`)
 
-**`reader/`**
-- `PageDisplay.svelte` - Current page display
-- `PageNav.svelte` - Page navigation controls
-- `ThumbnailStrip.svelte` - Page thumbnails
-- `ReaderToolbar.svelte` - Reader controls
+| Component | Purpose |
+|-----------|---------|
+| `PageViewer.svelte` | Page display with fit modes and double-page support |
+| `ReaderControls.svelte` | Page navigation controls |
+| `ReaderMenu.svelte` | Reader settings menu overlay |
+| `ReaderSettings.svelte` | Reader preferences panel |
 
-### Search Components
+### Search Components (`search/`)
 
-**`search/`**
-- `SearchBar.svelte` - Search input
-- `SearchResults.svelte` - Results display
-- `AdvancedFilters.svelte` - Filter controls
+| Component | Purpose |
+|-----------|---------|
+| `AdvancedSearchModal.svelte` | Visual query builder with history and saved searches |
 
-### Settings Components
+### Series Components (`series/`)
 
-**`settings/`**
-- `ThemeToggle.svelte` - Dark/light mode
-- `SettingsForm.svelte` - Settings editor
+| Component | Purpose |
+|-----------|---------|
+| `SeriesInfoPanel.svelte` | Series metadata and statistics panel |
+
+### Settings Components (`settings/`)
+
+| Component | Purpose |
+|-----------|---------|
+| `ThemeSelector.svelte` | Theme selection with 16 theme options |
+
+---
+
+## Themes (`src/lib/themes/`)
+
+The WebUI ships with 16 built-in themes:
+
+| Theme | File |
+|-------|------|
+| Argonaut | `argonaut.js` |
+| Catppuccin Frappé | `catppuccin-frappe.js` |
+| Catppuccin Latte | `catppuccin-latte.js` |
+| Catppuccin Macchiato | `catppuccin-macchiato.js` |
+| Catppuccin Mocha | `catppuccin-mocha.js` |
+| Dracula | `dracula.js` |
+| Gruvbox Dark | `gruvbox-dark.js` |
+| Gruvbox Light | `gruvbox-light.js` |
+| Kottlib Original | `kottlib-original.js` |
+| Nord | `nord.js` |
+| One Dark | `one-dark.js` |
+| Solarized Dark | `solarized-dark.js` |
+| Solarized Light | `solarized-light.js` |
+| Tokyo Night | `tokyo-night.js` |
+| Zinc Dark | `zinc-dark.js` |
+
+Theme selection is managed via the `ThemeSelector` component and persisted in `localStorage`.
 
 ---
 
 ## API Client (`src/lib/api/`)
 
-### client.js
-
-Base API client with fetch wrapper.
-
-```javascript
-// Base URL detection
-const API_BASE = typeof window !== 'undefined' 
-    ? window.location.origin 
-    : 'http://localhost:8081';
-
-// Fetch wrapper with error handling
-export async function apiRequest(endpoint, options = {}) {
-    const response = await fetch(`${API_BASE}${endpoint}`, {
-        headers: {
-            'Content-Type': 'application/json',
-            ...options.headers
-        },
-        ...options
-    });
-    
-    if (!response.ok) {
-        throw new Error(`API error: ${response.status}`);
-    }
-    
-    return response.json();
-}
-```
-
----
-
-### libraries.js
-
-Library API calls.
-
-```javascript
-export async function getLibraries() {
-    return apiRequest('/v2/libraries');
-}
-
-export async function getLibrary(id) {
-    return apiRequest(`/v2/library/${id}/info`);
-}
-
-export async function createLibrary(data) {
-    return apiRequest('/v2/libraries', {
-        method: 'POST',
-        body: JSON.stringify(data)
-    });
-}
-
-export async function scanLibrary(id) {
-    return apiRequest(`/v2/libraries/${id}/scan`, {
-        method: 'POST'
-    });
-}
-
-export async function getScanProgress(id) {
-    return apiRequest(`/v2/libraries/${id}/scan/progress`);
-}
-```
-
----
-
-### comics.js
-
-Comic API calls.
-
-```javascript
-export async function getComic(libraryId, comicId) {
-    return apiRequest(`/v2/library/${libraryId}/comic/${comicId}/remote`);
-}
-
-export async function getComicPage(libraryId, comicId, pageNum) {
-    return `${API_BASE}/library/${libraryId}/comic/${comicId}/page/${pageNum}`;
-}
-
-export async function getCoverUrl(hash, format = 'webp') {
-    return `${API_BASE}/v2/cover/${hash}?format=${format}`;
-}
-
-export async function updateProgress(libraryId, comicId, page) {
-    return apiRequest(`/library/${libraryId}/comic/${comicId}/setCurrentPage`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-        body: `page=${page}`
-    });
-}
-```
-
----
-
-### config.js
-
-Configuration API calls.
-
-```javascript
-export async function getConfig() {
-    return apiRequest('/api/v2/config');
-}
-
-export async function updateConfig(config) {
-    return apiRequest('/api/v2/config', {
-        method: 'PUT',
-        body: JSON.stringify(config)
-    });
-}
-```
-
----
-
-### search.js
-
-Search API calls.
-
-```javascript
-export async function search(libraryId, query) {
-    return apiRequest(`/v2/library/${libraryId}/search?q=${encodeURIComponent(query)}`);
-}
-
-export async function advancedSearch(libraryId, query, limit = 100, offset = 0) {
-    return apiRequest(`/v2/library/${libraryId}/search/advanced`, {
-        method: 'POST',
-        body: JSON.stringify({ query, limit, offset })
-    });
-}
-
-export async function getSearchFields(libraryId) {
-    return apiRequest(`/v2/library/${libraryId}/search/fields`);
-}
-```
-
----
-
-### scanners.js
-
-Scanner API calls.
-
-```javascript
-export async function getAvailableScanners() {
-    return apiRequest('/v2/scanners/available');
-}
-
-export async function getLibraryScannerConfigs() {
-    return apiRequest('/v2/scanners/libraries');
-}
-
-export async function configureLibraryScanner(libraryId, config) {
-    return apiRequest(`/v2/scanners/libraries/${libraryId}/configure`, {
-        method: 'PUT',
-        body: JSON.stringify(config)
-    });
-}
-
-export async function scanLibraryMetadata(libraryId, options = {}) {
-    return apiRequest('/v2/scanners/scan/library', {
-        method: 'POST',
-        body: JSON.stringify({
-            library_id: libraryId,
-            ...options
-        })
-    });
-}
-
-export async function getScannerProgress(libraryId) {
-    return apiRequest(`/v2/scanners/scan/library/${libraryId}/progress`);
-}
-```
-
----
-
-### favorites.js
-
-Favorites API calls.
-
-```javascript
-export async function getFavorites() {
-    return apiRequest('/api/v2/favorites');
-}
-
-export async function addFavorite(libraryId, comicId) {
-    return apiRequest('/api/v2/favorites', {
-        method: 'POST',
-        body: JSON.stringify({ library_id: libraryId, comic_id: comicId })
-    });
-}
-
-export async function removeFavorite(id) {
-    return apiRequest(`/api/v2/favorites/${id}`, {
-        method: 'DELETE'
-    });
-}
-```
+| Module | Purpose |
+|--------|---------|
+| `client.js` | Base fetch wrapper with error handling |
+| `comics.js` | Comic CRUD, page URLs, progress updates |
+| `config.js` | Server configuration API |
+| `favorites.js` | Favorites add/remove/list |
+| `libraries.js` | Library listing, scanning, progress |
+| `scanners.js` | Scanner management and metadata scans |
+| `search.js` | Search, advanced search, field discovery |
 
 ---
 
 ## Stores (`src/lib/stores/`)
 
-### theme.js
-
-Theme management with localStorage persistence.
-
-```javascript
-import { writable } from 'svelte/store';
-import { browser } from '$app/environment';
-
-const STORAGE_KEY = 'kottlib-theme';
-
-function createThemeStore() {
-    // Load from localStorage
-    const stored = browser ? localStorage.getItem(STORAGE_KEY) : null;
-    const initial = stored || 'system';
-    
-    const { subscribe, set, update } = writable(initial);
-    
-    return {
-        subscribe,
-        set: (value) => {
-            set(value);
-            if (browser) {
-                localStorage.setItem(STORAGE_KEY, value);
-                applyTheme(value);
-            }
-        },
-        toggle: () => {
-            update(current => {
-                const next = current === 'dark' ? 'light' : 'dark';
-                if (browser) {
-                    localStorage.setItem(STORAGE_KEY, next);
-                    applyTheme(next);
-                }
-                return next;
-            });
-        }
-    };
-}
-
-function applyTheme(theme) {
-    if (theme === 'dark' || 
-        (theme === 'system' && window.matchMedia('(prefers-color-scheme: dark)').matches)) {
-        document.documentElement.classList.add('dark');
-    } else {
-        document.documentElement.classList.remove('dark');
-    }
-}
-
-export const theme = createThemeStore();
-```
+| Store | Purpose |
+|-------|---------|
+| `theme.js` | Theme management with localStorage persistence |
+| `library.js` | Current library/folder state, library list |
+| `reader.js` | Reader settings (fit mode, direction, preload) |
+| `search.js` | Search query and results state |
+| `advancedSearch.js` | Advanced search with history and saved searches |
+| `preferences.js` | User preferences (grid size, sort, view mode) |
+| `user.js` | User session state |
+| `ui.js` | UI state (sidebar visibility, view toggles) |
 
 ---
 
-### library.js
+## Utils (`src/lib/utils/`)
 
-Current library state.
-
-```javascript
-import { writable, derived } from 'svelte/store';
-
-export const currentLibrary = writable(null);
-export const currentFolder = writable(null);
-export const libraries = writable([]);
-
-export const currentLibraryName = derived(
-    [currentLibrary, libraries],
-    ([$currentLibrary, $libraries]) => {
-        if (!$currentLibrary) return null;
-        const lib = $libraries.find(l => l.id === $currentLibrary);
-        return lib?.name;
-    }
-);
-```
+| Module | Purpose |
+|--------|---------|
+| `cacheWarmer.js` | Pre-fetch and warm caches for faster navigation |
+| `colors.js` | Color utilities for theme support |
+| `persistentCache.js` | Persistent client-side cache layer |
 
 ---
 
-### reader.js
+## Actions (`src/lib/actions/`)
 
-Reader state and preferences.
-
-```javascript
-import { writable } from 'svelte/store';
-
-export const readerSettings = writable({
-    fitMode: 'width',      // width, height, original
-    direction: 'ltr',      // ltr, rtl
-    continuous: false,     // Continuous scroll
-    preloadPages: 2        // Pages to preload
-});
-
-export const currentPage = writable(0);
-export const totalPages = writable(0);
-```
+| Action | Purpose |
+|--------|---------|
+| `tooltip.js` | Tooltip action for hover tooltips on elements |
 
 ---
 
-### search.js
+## Server Utilities (`src/lib/server/`)
 
-Search state and history.
-
-```javascript
-import { writable } from 'svelte/store';
-
-export const searchQuery = writable('');
-export const searchResults = writable([]);
-export const isSearching = writable(false);
-```
-
----
-
-### advancedSearch.js
-
-Advanced search with localStorage persistence.
-
-```javascript
-import { writable } from 'svelte/store';
-import { browser } from '$app/environment';
-
-const HISTORY_KEY = 'kottlib-search-history';
-const SAVED_KEY = 'kottlib-saved-searches';
-
-function createHistoryStore() {
-    const stored = browser ? JSON.parse(localStorage.getItem(HISTORY_KEY) || '[]') : [];
-    const { subscribe, set, update } = writable(stored);
-    
-    return {
-        subscribe,
-        add: (query) => {
-            update(history => {
-                const filtered = history.filter(q => q !== query);
-                const updated = [query, ...filtered].slice(0, 20);
-                if (browser) {
-                    localStorage.setItem(HISTORY_KEY, JSON.stringify(updated));
-                }
-                return updated;
-            });
-        },
-        clear: () => {
-            set([]);
-            if (browser) {
-                localStorage.removeItem(HISTORY_KEY);
-            }
-        }
-    };
-}
-
-export const searchHistory = createHistoryStore();
-
-function createSavedSearchesStore() {
-    const stored = browser ? JSON.parse(localStorage.getItem(SAVED_KEY) || '[]') : [];
-    const { subscribe, set, update } = writable(stored);
-    
-    return {
-        subscribe,
-        save: (name, query) => {
-            update(saved => {
-                const updated = [...saved, { name, query, createdAt: Date.now() }];
-                if (browser) {
-                    localStorage.setItem(SAVED_KEY, JSON.stringify(updated));
-                }
-                return updated;
-            });
-        },
-        remove: (name) => {
-            update(saved => {
-                const updated = saved.filter(s => s.name !== name);
-                if (browser) {
-                    localStorage.setItem(SAVED_KEY, JSON.stringify(updated));
-                }
-                return updated;
-            });
-        }
-    };
-}
-
-export const savedSearches = createSavedSearchesStore();
-```
-
----
-
-### preferences.js
-
-User preferences.
-
-```javascript
-import { writable } from 'svelte/store';
-import { browser } from '$app/environment';
-
-const PREFS_KEY = 'kottlib-preferences';
-
-const defaults = {
-    gridSize: 'medium',    // small, medium, large
-    sortOrder: 'name',     // name, date, progress
-    viewMode: 'grid',      // grid, list
-    showFilters: false
-};
-
-function createPreferencesStore() {
-    const stored = browser ? JSON.parse(localStorage.getItem(PREFS_KEY) || 'null') : null;
-    const initial = { ...defaults, ...stored };
-    
-    const { subscribe, set, update } = writable(initial);
-    
-    return {
-        subscribe,
-        set: (value) => {
-            const merged = { ...defaults, ...value };
-            set(merged);
-            if (browser) {
-                localStorage.setItem(PREFS_KEY, JSON.stringify(merged));
-            }
-        },
-        update: (updater) => {
-            update(current => {
-                const updated = updater(current);
-                if (browser) {
-                    localStorage.setItem(PREFS_KEY, JSON.stringify(updated));
-                }
-                return updated;
-            });
-        }
-    };
-}
-
-export const preferences = createPreferencesStore();
-```
-
----
-
-### user.js
-
-User session state.
-
-```javascript
-import { writable } from 'svelte/store';
-
-export const currentUser = writable(null);
-export const isAuthenticated = writable(false);
-```
+| Module | Purpose |
+|--------|---------|
+| `config.js` | Server-side configuration utilities |
 
 ---
 
@@ -682,7 +411,7 @@ Component-local using Svelte's reactive declarations.
 <script>
     let isOpen = false;
     let selectedItem = null;
-    
+
     $: hasSelection = selectedItem !== null;
 </script>
 ```
@@ -717,8 +446,8 @@ const librariesQuery = createQuery({
 
 ```bash
 cd webui
-npm install
-npm run dev
+bun install
+bun run dev
 ```
 
 ### Environment Variables
@@ -730,13 +459,13 @@ VITE_API_URL=http://localhost:8081  # Backend URL (optional)
 ### Build
 
 ```bash
-npm run build
-npm run preview  # Preview production build
+bun run build
+bun run preview  # Preview production build
 ```
 
 ### Linting
 
 ```bash
-npm run lint
-npm run format
+bun run lint
+bun run format
 ```

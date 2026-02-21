@@ -30,6 +30,14 @@ graph TB
             MetadataService[Metadata Service]
             SchedulerService[Scheduler Service]
             MangaDexClient[MangaDex Client]
+            LibraryService[Library Service]
+            CoverService[Cover Service]
+            ReadingService[Reading Service]
+            ScanService[Scan Service]
+            SearchService[Search Service]
+            ComicInfoService[Comic Info Service]
+            ConfigSync[Config Sync]
+            LibraryCache[Library Cache]
         end
         
         subgraph "Scanner"
@@ -202,10 +210,17 @@ Kottlib/
 │   │   ├── middleware/          # Request middleware (session, CORS)
 │   │   └── routers/             # API endpoint definitions
 │   │       ├── legacy_v1.py     # YACReader v1 compatible API
-│   │       ├── scanners.py      # Metadata scanner endpoints
 │   │       ├── libraries.py     # Modern library CRUD
 │   │       ├── user_interactions.py  # Favorites, progress
 │   │       ├── config.py        # Server configuration API
+│   │       ├── covers.py        # Cover serving endpoints
+│   │       ├── scanners/        # Metadata scanner endpoints (package)
+│   │       │   ├── router.py    # Main router
+│   │       │   ├── manager.py   # Scanner manager integration
+│   │       │   ├── models.py    # Request/response models
+│   │       │   ├── progress.py  # Scan progress tracking
+│   │       │   ├── endpoints/   # Individual endpoint modules
+│   │       │   └── tasks/       # Background scan tasks
 │   │       └── v2/              # JSON-format v2 API
 │   │           ├── libraries.py
 │   │           ├── folders.py
@@ -216,28 +231,77 @@ Kottlib/
 │   │           ├── covers.py
 │   │           ├── collections.py
 │   │           ├── session.py
-│   │           └── admin.py
+│   │           ├── admin.py
+│   │           ├── tree.py      # Library tree endpoints
+│   │           ├── _browse_helpers.py  # Browse utilities
+│   │           ├── _item_builders.py   # Response builders
+│   │           └── _shared.py          # Shared utilities
 │   ├── database/                # Database layer
-│   │   ├── models.py           # SQLAlchemy ORM models (14 tables)
-│   │   ├── database.py         # Database connection and utilities
+│   │   ├── connection.py       # Database connection manager
 │   │   ├── enhanced_search.py  # FTS search implementation
+│   │   ├── search_index.py     # FTS5 index management
+│   │   ├── paths.py            # Path utilities
+│   │   ├── models/             # SQLAlchemy ORM models (15 tables)
+│   │   │   ├── base.py         # Declarative base
+│   │   │   ├── library.py      # Library, Folder
+│   │   │   ├── comic.py        # Comic, Cover
+│   │   │   ├── series.py       # Series
+│   │   │   ├── user.py         # User, Session
+│   │   │   ├── reading.py      # ReadingProgress
+│   │   │   ├── reading_list.py # ReadingList, ReadingListItem
+│   │   │   ├── collection.py   # Collection
+│   │   │   └── setting.py      # Setting
+│   │   ├── operations/         # CRUD operations (12 modules)
+│   │   │   ├── comic.py, cover.py, favorite.py, folder.py
+│   │   │   ├── label.py, library.py, progress.py
+│   │   │   ├── reading_list.py, session.py, setting.py
+│   │   │   └── stats.py, user.py
 │   │   └── migrations/         # Database migration scripts
-│   ├── scanner/                 # Library scanning
+│   ├── scanner/                 # Library file scanning
+│   │   ├── base.py             # ScanResult dataclass
 │   │   ├── comic_loader.py     # Archive extraction (CBZ/CBR/CB7)
+│   │   ├── comic_processor.py  # Single comic processing
+│   │   ├── file_discovery.py   # File discovery functions
+│   │   ├── folder_manager.py   # Folder creation/management
+│   │   ├── series_builder.py   # Series table rebuilding
+│   │   ├── structure_classifier.py # Library structure classification
 │   │   ├── threaded_scanner.py # Multi-threaded scanner
 │   │   ├── thumbnail_generator.py # Cover generation
-│   │   └── tool_check.py       # External tool verification
-│   ├── scanners/                # Metadata scanner framework
-│   │   ├── base_scanner.py     # Abstract scanner interface
-│   │   ├── scanner_manager.py  # Scanner registry and discovery
-│   │   ├── config_schema.py    # Configuration option definitions
-│   │   └── metadata_schema.py  # Field mapping definitions
+│   │   ├── cleanup.py          # Orphan cleanup
+│   │   ├── tool_check.py       # External tool verification
+│   │   └── loaders/            # Format-specific archive loaders
+│   │       ├── base.py, zip.py, rar.py, sevenzip.py, utils.py
+│   ├── metadata_providers/       # Metadata scanner framework (v2)
+│   │   ├── base.py             # Abstract scanner interface (BaseScanner)
+│   │   ├── manager.py          # Scanner registry and discovery
+│   │   ├── schema.py           # Field mapping definitions
+│   │   ├── config.py           # Configuration option definitions
+│   │   ├── utils.py            # Utilities (clean_query, etc.)
+│   │   └── demo.py             # Demo scanner for testing
+│   ├── scanners/                # Deprecated compatibility shim
+│   │   └── (re-exports from metadata_providers)
 │   ├── services/                # Business logic services
 │   │   ├── metadata_service.py # Apply scanner results to comics
 │   │   ├── scheduler.py        # APScheduler integration
-│   │   └── mangadex_client.py  # MangaDex API client
+│   │   ├── mangadex_client.py  # MangaDex API client
+│   │   ├── comic_info_service.py # Shared v1/v2 comic metadata
+│   │   ├── config_sync.py      # Config file ↔ database sync
+│   │   ├── cover_service.py    # Cover generation/retrieval
+│   │   ├── library_cache.py    # File-based browse cache
+│   │   ├── library_service.py  # Library CRUD with stats
+│   │   ├── reading_service.py  # Progress, favorites, labels
+│   │   ├── scan_service.py     # Scan orchestration
+│   │   └── search_service.py   # FTS and advanced search
 │   ├── covers/                  # Cover provider framework
-│   │   └── base_provider.py    # Abstract cover provider
+│   │   ├── base_provider.py    # Abstract cover provider
+│   │   └── provider_manager.py # Cover provider management
+│   ├── utils/                   # Utilities
+│   │   ├── errors.py           # Error types
+│   │   ├── hashing.py          # Hash functions
+│   │   ├── pagination.py       # Pagination helpers
+│   │   ├── platform.py         # Platform-specific paths
+│   │   ├── series_utils.py     # Series detection
+│   │   └── sorting.py          # Natural sort
 │   ├── config.py               # Configuration management
 │   └── init_db.py              # Database initialization script
 ├── scanners/                    # Plugin metadata scanners
@@ -256,8 +320,10 @@ Kottlib/
 │   │   ├── routes/             # Page routes
 │   │   │   ├── +page.svelte    # Home/Library browser
 │   │   │   ├── admin/          # Admin dashboard
-│   │   │   ├── comic/          # Comic reader
-│   │   │   ├── series/         # Series browser
+│   │   │   ├── browse/         # Global browse
+│   │   │   ├── comic/[libraryId]/[comicId]/  # Comic detail & reader
+│   │   │   ├── library/[libraryId]/browse/   # Library browser
+│   │   │   ├── series/[libraryId]/[seriesName]/  # Series browser
 │   │   │   ├── search/         # Search interface
 │   │   │   ├── favorites/      # User favorites
 │   │   │   └── continue-reading/
@@ -265,13 +331,15 @@ Kottlib/
 │   │       ├── api/            # API client modules
 │   │       ├── components/     # Reusable UI components
 │   │       ├── stores/         # Svelte stores
+│   │       ├── themes/         # Theme definitions (16 themes)
+│   │       ├── actions/        # Svelte actions (tooltip, etc.)
+│   │       ├── server/         # Server-side utilities
 │   │       └── utils/          # Helper functions
 │   ├── static/                 # Static assets
 │   └── package.json
 ├── tests/                       # Test suite
 ├── docs/                        # Documentation
 ├── scripts/                     # Utility scripts
-├── config.example.yml          # Example configuration
 ├── requirements.txt            # Python dependencies
 ├── start.sh                    # Full stack startup script
 ├── start_backend.sh            # Backend only startup

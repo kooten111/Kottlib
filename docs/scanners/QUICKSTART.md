@@ -4,7 +4,7 @@
 
 No installation needed - just ensure dependencies are available:
 ```bash
-cd /mnt/Black/Apps/KottLib
+cd /path/to/kottlib
 pip install requests  # Already installed
 ```
 
@@ -181,8 +181,8 @@ content_tags = get_tags_by_type(result, 'tag')
 Run the demo to verify everything works:
 
 ```bash
-cd /mnt/Black/Apps/KottLib/Kottlib
-python3 scanners/demo_scanners.py
+cd /path/to/kottlib
+python3 src/metadata_providers/demo.py
 ```
 
 ## Troubleshooting
@@ -204,7 +204,7 @@ python3 scanners/demo_scanners.py
 
 Make sure you're in the right directory:
 ```bash
-cd /mnt/Black/Apps/KottLib/Kottlib
+cd /path/to/kottlib
 python3 -c "from scanners import NhentaiScanner; print('OK')"
 ```
 

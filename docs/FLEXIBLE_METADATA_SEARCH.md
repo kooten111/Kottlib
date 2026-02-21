@@ -493,7 +493,7 @@ POST /api/v2/admin/migrate/search-indexes
 - `webui/src/lib/api/search.js` - Search API client (enhanced)
 
 **Modified:**
-- `src/database/models.py` - Added indexes
+- `src/database/models/comic.py` - Added indexes
 - `src/api/routers/v2/search.py` - Enhanced with new endpoints
 - `webui/src/lib/components/common/SearchAutocomplete.svelte` - Integrated advanced search
 - `webui/src/routes/admin/settings/+page.svelte` - Added maintenance tab

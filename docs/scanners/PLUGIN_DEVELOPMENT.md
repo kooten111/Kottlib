@@ -4,7 +4,9 @@ This guide explains how to create a pluggable metadata scanner for Kottlib.
 
 ## Overview
 
-The scanner system uses a plugin architecture where scanner implementations are discovered automatically from the `/scanners/` directory at the project root. Each scanner is a Python module that extends the `BaseScanner` class from the core framework in `/src/scanners/`.
+The scanner system uses a plugin architecture where scanner implementations are discovered automatically from the `/scanners/` directory at the project root. Each scanner is a Python module that extends the `BaseScanner` class from the core framework in `/src/metadata_providers/`.
+
+> **Note:** `/src/scanners/` still exists as a deprecated compatibility shim. Imports from either path will work, but new code should use `from src.metadata_providers...`.
 
 ## Directory Structure
 
@@ -24,12 +26,16 @@ Scanners are **pluggable plugins** located in the `/scanners/` directory (at pro
 ├── metron/                         # Existing: Metron scanner
 └── nhentai/                        # Existing: nhentai scanner
 
-/src/scanners/                      # Core framework (do not modify)
-├── base_scanner.py                 # Base classes: BaseScanner, ScanResult, ScanLevel
-├── scanner_manager.py              # Discovery and registration
-├── config_schema.py                # ConfigOption, ConfigType for UI configuration
-├── metadata_schema.py              # Metadata schema definitions
-└── utils.py                        # Utility functions (clean_query, etc.)
+/src/metadata_providers/              # Core framework (canonical location)
+├── base.py                 # Base classes: BaseScanner, ScanResult, ScanLevel
+├── manager.py              # Discovery and registration
+├── config.py               # ConfigOption, ConfigType for UI configuration
+├── schema.py               # Metadata schema definitions
+├── utils.py                # Utility functions (clean_query, etc.)
+└── demo.py                 # Demo scanner for testing
+
+/src/scanners/                        # Deprecated shim (re-exports from metadata_providers)
+└── __init__.py              # Backward-compatible re-exports
 ```
 
 ### File Naming Convention
@@ -59,13 +65,13 @@ Brief description of what this scanner does and what API it uses.
 from typing import List, Tuple, Optional, Dict
 
 try:
-    # Import from src.scanners package
-    from src.scanners.base_scanner import (
+    # Import from src.metadata_providers package (preferred)
+    from src.metadata_providers.base import (
         BaseScanner, ScanResult, ScanLevel, MatchConfidence,
         ScannerAPIError, ScannerRateLimitError, ScannerConfigError
     )
-    from src.scanners.config_schema import ConfigOption, ConfigType
-    from src.scanners.utils import clean_query
+    from src.metadata_providers.config import ConfigOption, ConfigType
+    from src.metadata_providers.utils import clean_query
 except ImportError:
     # Fallback for standalone execution
     from abc import ABC
@@ -167,7 +173,7 @@ class MyScanner(BaseScanner):
         input controls based on option types.
         """
         try:
-            from src.scanners.config_schema import ConfigOption, ConfigType
+            from src.metadata_providers.config import ConfigOption, ConfigType
         except ImportError:
             return []
         
@@ -220,7 +226,7 @@ def source_name(self) -> str:
 Defines what level the scanner operates at:
 
 ```python
-from src.scanners.base_scanner import ScanLevel
+from src.metadata_providers.base import ScanLevel
 
 @property
 def scan_level(self) -> ScanLevel:
@@ -274,7 +280,7 @@ def get_config_schema(self) -> List[ConfigOption]:
 The `ScanResult` dataclass holds scan results:
 
 ```python
-from src.scanners.base_scanner import ScanResult
+from src.metadata_providers.base import ScanResult
 
 result = ScanResult(
     confidence=0.95,                    # Match confidence (0.0 to 1.0)
@@ -342,7 +348,7 @@ ConfigOption(
 
 Scanners are automatically discovered when the application starts:
 
-1. The `discover_scanners()` function in `/src/scanners/scanner_manager.py` scans `/scanners/`
+1. The `discover_scanners()` function in `/src/metadata_providers/manager.py` scans `/scanners/`
 2. It looks for directories containing `*_scanner.py` or `scanner.py` files
 3. It loads these modules and finds classes that extend `BaseScanner`
 4. Found scanners are registered with the `ScannerManager`
@@ -352,7 +358,7 @@ Scanners are automatically discovered when the application starts:
 Once discovered, your scanner can be used:
 
 ```python
-from src.scanners.scanner_manager import get_manager, init_default_scanners
+from src.metadata_providers.manager import get_manager, init_default_scanners
 
 # Initialize all scanners
 manager = init_default_scanners()
@@ -391,7 +397,7 @@ class MyScanner(BaseScanner):
 Use the provided exception classes:
 
 ```python
-from src.scanners.base_scanner import (
+from src.metadata_providers.base import (
     ScannerError,           # Base exception
     ScannerConfigError,     # Configuration problems
     ScannerAPIError,        # API communication issues
@@ -469,8 +475,8 @@ Here's a minimal working scanner template:
 from typing import List, Tuple, Optional, Dict
 
 try:
-    from src.scanners.base_scanner import BaseScanner, ScanResult, ScanLevel
-    from src.scanners.config_schema import ConfigOption, ConfigType
+    from src.metadata_providers.base import BaseScanner, ScanResult, ScanLevel
+    from src.metadata_providers.config import ConfigOption, ConfigType
 except ImportError:
     from abc import ABC
     BaseScanner = ABC
@@ -519,7 +525,7 @@ if __name__ == "__main__":
 
 2. **Integration Test**: Test with the framework:
    ```python
-   from src.scanners.scanner_manager import init_default_scanners
+   from src.metadata_providers.manager import init_default_scanners
    
    manager = init_default_scanners()
    print(f"Available scanners: {manager.get_available_scanners()}")
@@ -530,14 +536,14 @@ if __name__ == "__main__":
 
 3. **Demo Script**: Use the provided demo:
    ```bash
-   python src/scanners/demo_scanners.py
+   python src/metadata_providers/demo.py
    ```
 
 ## See Also
 
-- `/src/scanners/base_scanner.py` - Base classes and interfaces
-- `/src/scanners/config_schema.py` - Configuration schema types
+- `/src/metadata_providers/base.py` - Base classes and interfaces
+- `/src/metadata_providers/config.py` - Configuration schema types
 - `/scanners/AniList/anilist_scanner.py` - Complete example (GraphQL API)
 - `/scanners/metron/metron_scanner.py` - Complete example (REST API with auth)
 - `/docs/scanners/README.md` - Scanner system overview
-- `/docs/METADATA_SCANNERS.md` - Framework documentation
+- `/docs/SCANNERS.md` - Framework documentation

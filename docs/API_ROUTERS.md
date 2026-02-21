@@ -505,9 +505,9 @@ Parse and explain a search query.
 
 ---
 
-### Series
+### Tree
 
-**File:** `src/api/routers/v2/series.py`
+**File:** `src/api/routers/v2/tree.py`
 
 #### GET /v2/library/{library_id}/tree
 
@@ -539,6 +539,10 @@ Get hierarchical folder tree.
 Get tree of all libraries with cached folder structure.
 
 ---
+
+### Series
+
+**File:** `src/api/routers/v2/series.py`
 
 #### GET /v2/library/{library_id}/series
 
@@ -637,6 +641,26 @@ Administrative operations.
 
 ---
 
+### Internal Helpers
+
+The v2 API uses shared internal modules (prefixed with `_`):
+
+| Module | Purpose |
+|--------|---------|
+| `_browse_helpers.py` | Browse page data assembly and pagination |
+| `_item_builders.py` | Response object builders for comics, folders, series |
+| `_shared.py` | Shared utilities, dependency injection, common types |
+
+---
+
+## Top-Level Covers Router
+
+**File:** `src/api/routers/covers.py`
+
+Serves cover images by hash, used by both v1 and v2 APIs.
+
+---
+
 ## Modern API v1 (`/api/v1/*`)
 
 **File:** `src/api/routers/libraries.py`
@@ -695,7 +719,15 @@ Update configuration.
 
 ## Scanners API (`/v2/scanners/*`)
 
-**File:** `src/api/routers/scanners.py`
+**Package:** `src/api/routers/scanners/`
+
+The scanners API is organized as a package with the following modules:
+- `router.py` — Main router definition
+- `manager.py` — Scanner manager integration
+- `models.py` — Request/response Pydantic models
+- `progress.py` — Scan progress tracking
+- `endpoints/` — Individual endpoint modules (`available.py`, `configure.py`, `scan_comic.py`, `scan_library.py`, `scan_single.py`, `apply_comic.py`, `metadata.py`)
+- `tasks/` — Background scan task management
 
 ### Scanner Management
 

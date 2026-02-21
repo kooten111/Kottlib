@@ -67,8 +67,9 @@ Configuration files are searched in the following order:
 
 1. **Current Directory:** `./config.yml`
 2. **Linux:** `~/.config/kottlib/config.yml`
-3. **macOS:** `~/Library/Application Support/Kottlib/config.yml`
-4. **Windows:** `%APPDATA%/Kottlib/config.yml`
+3. **Linux (system):** `/etc/kottlib/config.yml`
+4. **macOS:** `~/Library/Application Support/Kottlib/config.yml`
+5. **Windows:** `%APPDATA%/Kottlib/config.yml`
 
 If no config file exists, a default one is created on first run.
 
@@ -95,6 +96,7 @@ Database connection settings.
 | Field | Type | Default | Description |
 |-------|------|---------|-------------|
 | `path` | str | None | SQLite database path (uses platform default if None) |
+| `echo` | bool | False | Log all SQL queries to stdout (debugging only) |
 
 **Default Database Paths:**
 - Linux: `~/.local/share/kottlib/kottlib.db`
