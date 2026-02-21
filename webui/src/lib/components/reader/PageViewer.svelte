@@ -30,6 +30,17 @@
 	let imageLoaded = false;
 	let imageError = false;
 	let mouseZone = null; // 'left', 'center', 'right', or null
+	let canPanImage = false;
+	let isMousePanning = false;
+	let hasMousePanned = false;
+	let panStartX = 0;
+	let panStartY = 0;
+	let panStartPanX = 0;
+	let panStartPanY = 0;
+	let panX = 0;
+	let panY = 0;
+	let maxPanX = 0;
+	let maxPanY = 0;
 
 	// Continuous scroll mode state
 	let continuousScrollContainer;
@@ -75,6 +86,7 @@
 		imageLoaded = true;
 		isLoading = false;
 		imageError = false;
+		requestAnimationFrame(updatePanAvailability);
 	}
 
 	function handleImageError() {
@@ -88,10 +100,50 @@
 		imageLoaded = false;
 		imageError = false;
 		isLoading = true;
+		canPanImage = false;
+		panX = 0;
+		panY = 0;
+	}
+
+	function updatePanAvailability() {
+		if (!container || !img || isContinuousMode || !imageLoaded) {
+			canPanImage = false;
+			maxPanX = 0;
+			maxPanY = 0;
+			panX = 0;
+			panY = 0;
+			return;
+		}
+
+		// Use offsetWidth/Height which report the element's layout size
+		// even when clipped by overflow:hidden on the parent
+		const overflowX = img.offsetWidth - container.clientWidth;
+		const overflowY = img.offsetHeight - container.clientHeight;
+
+		maxPanX = Math.max(0, overflowX);
+		maxPanY = Math.max(0, overflowY);
+		canPanImage = maxPanX > 1 || maxPanY > 1;
+
+		if (!canPanImage) {
+			panX = 0;
+			panY = 0;
+		} else {
+			clampPan();
+		}
+	}
+
+	function clampPan() {
+		panX = Math.max(-maxPanX / 2, Math.min(maxPanX / 2, panX));
+		panY = Math.max(-maxPanY / 2, Math.min(maxPanY / 2, panY));
 	}
 
 	// Handle click navigation with three zones
 	function handlePageClick(e) {
+		if (hasMousePanned) {
+			e.preventDefault();
+			return;
+		}
+
 		const { clientX } = e;
 		const { left, width } = container.getBoundingClientRect();
 		const clickPosition = (clientX - left) / width;
@@ -113,6 +165,25 @@
 
 	// Update mouse zone for cursor styling
 	function handleMouseMove(e) {
+		if (canPanImage && isMousePanning) {
+			const deltaX = e.clientX - panStartX;
+			const deltaY = e.clientY - panStartY;
+
+			if (!hasMousePanned && (Math.abs(deltaX) > 2 || Math.abs(deltaY) > 2)) {
+				hasMousePanned = true;
+			}
+
+			panX = panStartPanX + deltaX;
+			panY = panStartPanY + deltaY;
+			clampPan();
+			return;
+		}
+
+		if (canPanImage) {
+			mouseZone = null;
+			return;
+		}
+
 		const { clientX } = e;
 		const { left, width } = container.getBoundingClientRect();
 		const mousePosition = (clientX - left) / width;
@@ -130,7 +201,30 @@
 	}
 
 	function handleMouseLeave() {
+		if (isMousePanning) {
+			handleMouseUp();
+		}
 		mouseZone = null;
+	}
+
+	function handleMouseDown(e) {
+		if (!canPanImage || e.button !== 0) return;
+
+		isMousePanning = true;
+		hasMousePanned = false;
+		panStartX = e.clientX;
+		panStartY = e.clientY;
+		panStartPanX = panX;
+		panStartPanY = panY;
+	}
+
+	function handleMouseUp() {
+		if (!isMousePanning) return;
+
+		isMousePanning = false;
+		setTimeout(() => {
+			hasMousePanned = false;
+		}, 0);
 	}
 
 	// Get effective container width with fallback
@@ -139,7 +233,28 @@
 	}
 
 	// Touch event handlers
+	function handleWheel(e) {
+		if (!canPanImage) return;
+
+		e.preventDefault();
+		panX -= e.deltaX;
+		panY -= e.deltaY;
+		clampPan();
+	}
+
 	function handleTouchStart(e) {
+		if (canPanImage) {
+			if (e.touches.length === 1) {
+				isMousePanning = true;
+				hasMousePanned = false;
+				panStartX = e.touches[0].clientX;
+				panStartY = e.touches[0].clientY;
+				panStartPanX = panX;
+				panStartPanY = panY;
+			}
+			return;
+		}
+
 		// Only handle single touch
 		if (e.touches.length !== 1) return;
 
@@ -152,6 +267,23 @@
 	}
 
 	function handleTouchMove(e) {
+		if (canPanImage && isMousePanning) {
+			if (e.touches.length !== 1) return;
+			const deltaX = e.touches[0].clientX - panStartX;
+			const deltaY = e.touches[0].clientY - panStartY;
+
+			if (!hasMousePanned && (Math.abs(deltaX) > 2 || Math.abs(deltaY) > 2)) {
+				hasMousePanned = true;
+			}
+
+			panX = panStartPanX + deltaX;
+			panY = panStartPanY + deltaY;
+			clampPan();
+			e.preventDefault();
+			return;
+		}
+		if (canPanImage) return;
+
 		if (e.touches.length !== 1) return;
 
 		touchCurrentX = e.touches[0].clientX;
@@ -174,6 +306,14 @@
 	}
 
 	function handleTouchEnd(e) {
+		if (canPanImage) {
+			if (isMousePanning) {
+				isMousePanning = false;
+				setTimeout(() => { hasMousePanned = false; }, 0);
+			}
+			return;
+		}
+
 		if (!isSwiping) {
 			// If no swipe was detected, this is a tap - handle as click
 			if (e.changedTouches.length === 1) {
@@ -350,6 +490,7 @@
 			for (let entry of entries) {
 				containerWidth = entry.contentRect.width;
 				containerHeight = entry.contentRect.height;
+				requestAnimationFrame(updatePanAvailability);
 			}
 		});
 
@@ -459,6 +600,17 @@
 	$: if (isContinuousMode && pageNumber && onPrefetchPage) {
 		prefetchNearbyPages(pageNumber);
 	}
+
+	$: if (!isContinuousMode && container && imageLoaded && imageSrc && $readerSettings.fitMode) {
+		// Reset pan when fit mode changes
+		panX = 0;
+		panY = 0;
+		requestAnimationFrame(updatePanAvailability);
+	}
+
+	$: if (canPanImage && mouseZone !== null) {
+		mouseZone = null;
+	}
 	
 	// Only scroll to page if it's NOT from scroll tracking (i.e., from keyboard navigation)
 	// We detect this by checking if the page number changed but we didn't just track it from scroll
@@ -523,6 +675,7 @@
 <div
 	bind:this={container}
 	class="page-viewer zone-{mouseZone || 'none'}"
+	class:pannable={canPanImage}
 	style="background-color: {$readerSettings.backgroundColor}"
 	on:click={handlePageClick}
 	on:keydown={(e) => {
@@ -532,7 +685,10 @@
 		}
 	}}
 	on:mousemove={handleMouseMove}
+	on:mousedown={handleMouseDown}
+	on:mouseup={handleMouseUp}
 	on:mouseleave={handleMouseLeave}
+	on:wheel|nonpassive={handleWheel}
 	on:touchstart|passive={handleTouchStart}
 	on:touchmove|nonpassive={handleTouchMove}
 	on:touchend={handleTouchEnd}
@@ -581,6 +737,7 @@
 				alt="Page {pageNumber}"
 				class="page-image {fitClass}"
 				class:hidden={!imageLoaded}
+				style={canPanImage ? `transform: translate(${panX}px, ${panY}px)` : ''}
 				on:load={handleImageLoad}
 				on:error={handleImageError}
 			/>
@@ -630,6 +787,14 @@
 		position: relative;
 		cursor: default;
 		touch-action: pan-y; /* Allow vertical scrolling but not horizontal */
+	}
+
+	.page-viewer.pannable {
+		cursor: grab;
+	}
+
+	.page-viewer.pannable:active {
+		cursor: grabbing;
 	}
 
 	/* Cursor styles for navigation zones */
