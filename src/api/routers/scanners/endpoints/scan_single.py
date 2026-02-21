@@ -409,6 +409,7 @@ async def scan_and_save_series(
             try:
                 from src.services.library_cache import get_library_cache
                 get_library_cache(library_id).invalidate_all()
+                get_library_cache(0).invalidate_all()
                 logger.info(f"Invalidated browse cache for library {library_id} after series scan")
             except Exception as cache_err:
                 logger.warning(f"Failed to invalidate browse cache: {cache_err}")
@@ -548,6 +549,7 @@ async def apply_series_metadata(
         try:
             from src.services.library_cache import get_library_cache
             get_library_cache(library_id).invalidate_all()
+            get_library_cache(0).invalidate_all()
             logger.info(f"Invalidated browse cache for library {library_id} after manual metadata apply")
         except Exception as cache_err:
             logger.warning(f"Failed to invalidate browse cache: {cache_err}")

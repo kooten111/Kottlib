@@ -225,6 +225,7 @@ class ThreadedScanner:
         try:
             from ..services.library_cache import get_library_cache
             get_library_cache(self.library_id).invalidate_all()
+            get_library_cache(0).invalidate_all()
         except Exception as e:
             logger.error(f"Failed to invalidate browse cache: {e}")
 

@@ -60,6 +60,13 @@ async def apply_comic_metadata(
             primary_scanner,
             overwrite=apply_request.overwrite
         )
+
+        try:
+            from src.services.library_cache import get_library_cache
+            get_library_cache(comic.library_id).invalidate_all()
+            get_library_cache(0).invalidate_all()
+        except Exception as cache_err:
+            logger.warning(f"Failed to invalidate browse cache after comic metadata apply: {cache_err}")
         
         return ScanComicResponse(
             comic_id=comic.id,

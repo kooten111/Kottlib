@@ -54,6 +54,9 @@
     let currentOffset = 0;
     let limit = 50;
     let loadingMore = false;
+    let prefetching = false;
+    let prefetchedPage = null;
+    let prefetchedOffset = null;
 
     // Series scanner state
     let isScanningSeries = false;
@@ -155,6 +158,13 @@
         items = initialItems;
         currentOffset = browseData.offset || 0;
         limit = browseData.limit || 50;
+        prefetchedPage = null;
+        prefetchedOffset = null;
+        if (browser) {
+            queueMicrotask(() => {
+                prefetchNextPage();
+            });
+        }
         if (browser) {
             fetchContinueReading();
         }
@@ -352,25 +362,54 @@
         };
     }
 
+    async function fetchBrowsePage(offset) {
+        const pathArg = currentPath || "";
+        return browseLibrary(
+            libraryId,
+            pathArg,
+            sortBy,
+            offset,
+            limit,
+            randomSeed,
+        );
+    }
+
+    async function prefetchNextPage() {
+        if (prefetching || loadingMore || !hasMore) return;
+
+        const nextOffset = items.length;
+        if (prefetchedOffset === nextOffset) return;
+
+        prefetching = true;
+        try {
+            const response = await fetchBrowsePage(nextOffset);
+            if ((response.items || []).length > 0) {
+                prefetchedPage = response;
+                prefetchedOffset = nextOffset;
+            }
+        } catch (err) {
+            console.error("Failed to prefetch next library page:", err);
+        } finally {
+            prefetching = false;
+        }
+    }
+
     async function loadMoreItems() {
         if (loadingMore || !hasMore) return;
 
         loadingMore = true;
         try {
             const nextOffset = items.length; // Use current length as new offset
-            // Determine path from URL or params
-            // If at root, path is empty string/undefined
-            // browseLibrary handles it.
-            const pathArg = currentPath || "";
+            let response;
 
-            const response = await browseLibrary(
-                libraryId,
-                pathArg,
-                sortBy,
-                nextOffset,
-                limit,
-                randomSeed,
-            );
+            if (prefetchedPage && prefetchedOffset === nextOffset) {
+                response = prefetchedPage;
+                prefetchedPage = null;
+                prefetchedOffset = null;
+            } else {
+                response = await fetchBrowsePage(nextOffset);
+            }
+
             const newItems = response.items || [];
 
             if (newItems.length > 0) {
@@ -387,6 +426,11 @@
             console.error("Failed to load more items:", err);
         } finally {
             loadingMore = false;
+            if (browser) {
+                queueMicrotask(() => {
+                    prefetchNextPage();
+                });
+            }
         }
     }
 

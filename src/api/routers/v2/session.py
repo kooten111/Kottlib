@@ -94,6 +94,7 @@ async def sync_session_v2(request: Request, yacread_session: Optional[str] = Coo
         # Update reading progress for each line
         synced_count = 0
         server_updates = []  # Comics that are more recent on server
+        touched_library_ids = set()
 
         for line in lines:
             line = line.strip()
@@ -176,12 +177,22 @@ async def sync_session_v2(request: Request, yacread_session: Optional[str] = Coo
                         total_pages=total_pages
                     )
                     synced_count += 1
+                    touched_library_ids.add(library_id)
 
             except Exception as e:
                 logger.error(f"v2 Sync: Error parsing line '{line[:100]}': {e}")
                 continue
 
         logger.info(f"v2 Sync: Updated {synced_count} comics for user {user.username}")
+
+        if touched_library_ids:
+            try:
+                from ....services.library_cache import get_library_cache
+                for lib_id in touched_library_ids:
+                    get_library_cache(lib_id).invalidate_all()
+                get_library_cache(0).invalidate_all()
+            except Exception as cache_err:
+                logger.warning(f"Failed to invalidate browse cache after sync: {cache_err}")
 
         # Return array of comics that are more recent on server (empty for now)
         return JSONResponse(server_updates)

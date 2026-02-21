@@ -13,6 +13,8 @@ Note: Tree navigation endpoints moved to tree.py
 import logging
 import re
 import json
+from time import perf_counter
+from copy import deepcopy
 from typing import Optional
 from pathlib import Path
 from urllib.parse import unquote
@@ -47,6 +49,90 @@ logger = logging.getLogger(__name__)
 router = APIRouter()
 
 
+def _cache_safe_copy(data: dict) -> dict:
+    """Return a deep-copied response with reading-progress fields stripped."""
+    cache_data = deepcopy(data)
+    items = cache_data.get("items", [])
+    for item in items:
+        if item.get("type") == "comic":
+            item["progress_percent"] = 0
+            item["is_completed"] = False
+            item["current_page"] = 0
+
+    comic = cache_data.get("comic")
+    if isinstance(comic, dict):
+        comic["progress_percent"] = 0
+        comic["is_completed"] = False
+        comic["current_page"] = 0
+
+    first_comic_metadata = cache_data.get("first_comic_metadata")
+    if isinstance(first_comic_metadata, dict):
+        first_comic_metadata["progress_percent"] = 0
+        first_comic_metadata["is_completed"] = False
+        first_comic_metadata["current_page"] = 0
+
+    return cache_data
+
+
+def _apply_progress_overlay(data: dict, session, user) -> dict:
+    """Overlay per-user reading progress onto a browse response payload."""
+    if not user:
+        return data
+
+    response = deepcopy(data)
+    comic_ids = [item["id"] for item in response.get("items", []) if item.get("type") == "comic"]
+
+    comic_obj = response.get("comic")
+    if isinstance(comic_obj, dict) and comic_obj.get("id"):
+        comic_ids.append(comic_obj["id"])
+
+    if not comic_ids:
+        return response
+
+    progress_records = session.query(ReadingProgress).filter(
+        ReadingProgress.user_id == user.id,
+        ReadingProgress.comic_id.in_(comic_ids)
+    ).all()
+    progress_map = {p.comic_id: p for p in progress_records}
+
+    for item in response.get("items", []):
+        if item.get("type") != "comic":
+            continue
+        progress = progress_map.get(item.get("id"))
+        item["progress_percent"] = progress.progress_percent if progress else 0
+        item["is_completed"] = progress.is_completed if progress else False
+        item["current_page"] = progress.current_page if progress else 0
+
+    if isinstance(comic_obj, dict):
+        progress = progress_map.get(comic_obj.get("id"))
+        comic_obj["progress_percent"] = progress.progress_percent if progress else 0
+        comic_obj["is_completed"] = progress.is_completed if progress else False
+        comic_obj["current_page"] = progress.current_page if progress else 0
+
+    first_comic_metadata = response.get("first_comic_metadata")
+    if isinstance(first_comic_metadata, dict):
+        progress = progress_map.get(first_comic_metadata.get("id"))
+        first_comic_metadata["progress_percent"] = progress.progress_percent if progress else 0
+        first_comic_metadata["is_completed"] = progress.is_completed if progress else False
+        first_comic_metadata["current_page"] = progress.current_page if progress else 0
+
+    return response
+
+
+def _timed_browse_response(payload: dict, endpoint: str, cache_status: str, started_at: float) -> JSONResponse:
+    """Build a JSON response with browse timing + cache status headers."""
+    elapsed_ms = int((perf_counter() - started_at) * 1000)
+    logger.info(f"[BROWSE] endpoint={endpoint} cache={cache_status} duration_ms={elapsed_ms}")
+    return JSONResponse(
+        payload,
+        headers={
+            "X-Browse-Cache": cache_status,
+            "X-Browse-Endpoint": endpoint,
+            "X-Browse-Time-Ms": str(elapsed_ms),
+        }
+    )
+
+
 # ============================================================================
 # Unified Folder Browsing
 # ============================================================================
@@ -69,6 +155,7 @@ async def browse_folder(
     from ....services.library_cache import get_library_cache
     from ....database.models import Series
     import random
+    started_at = perf_counter()
 
     # --------------------------------------------------------------------------
     # CACHE CHECK
@@ -78,7 +165,6 @@ async def browse_folder(
     # includes per_volume_metadata state. For now, skip cache check here
     # and handle caching after we know the scanner config.
     cache_service = get_library_cache(library_id)
-    cache_key = f"browse/{path}?sort={sort}&o={offset}&l={limit}" if path else f"browse/root?sort={sort}&o={offset}&l={limit}"
     
     # Skip cache for now - we'll check it after determining per_volume_metadata
     # This ensures cache includes the correct per_volume_metadata flag
@@ -126,6 +212,22 @@ async def browse_folder(
                     logger.info(f"Per-volume check: scan_level={temp_scanner.scan_level.value}, enabled={per_volume_metadata}")
             except Exception as e:
                 logger.warning(f"Per-volume metadata check failed: {e}")
+
+        user = get_request_user(request, session)
+
+        # Cache read (safe for non-random/non-progress sort)
+        cache_path = path or "root"
+        cache_params = {
+            "sort": sort,
+            "offset": offset,
+            "limit": limit,
+            "per_volume_metadata": int(per_volume_metadata),
+        }
+        if sort not in ('random', 'progress'):
+            cached_data = cache_service.get_cached_response(cache_path, cache_params)
+            if cached_data:
+                response = _apply_progress_overlay(cached_data, session, user)
+                return _timed_browse_response(response, "library", "hit", started_at)
 
         # Find root folder
         root_folder = session.query(FolderModel).filter(
@@ -202,7 +304,7 @@ async def browse_folder(
                     }
                     
                     # Return comic as single-item browse response
-                    return JSONResponse({
+                    return _timed_browse_response({
                         "library": {"id": library.id, "name": library.name},
                         "folder": None,
                         "comic": comic_item,
@@ -212,7 +314,7 @@ async def browse_folder(
                         "total": 1,
                         "offset": 0,
                         "limit": 1
-                    })
+                    }, "library", "bypass", started_at)
                 else:
                     raise HTTPException(status_code=404, detail="Comic not found")
         
@@ -290,7 +392,7 @@ async def browse_folder(
                             
                             # Return as series-style browse response (unified view)
                             # Include per_volume_metadata and first_comic_metadata for FILE-level scanners
-                            return JSONResponse({
+                            return _timed_browse_response({
                                 "library": {"id": library.id, "name": library.name},
                                 "folder": folder_metadata,
                                 "comic": None,
@@ -302,7 +404,7 @@ async def browse_folder(
                                 "total": 1,
                                 "offset": 0,
                                 "limit": 1
-                            })
+                            }, "library", "bypass", started_at)
                     
                     raise HTTPException(status_code=404, detail=f"Folder not found: {part}")
                 current_folder = child
@@ -642,13 +744,14 @@ async def browse_folder(
         }
 
         # Cache (unless sorting by progress which is per-user, or random)
+        response_result = _apply_progress_overlay(result, session, user)
+
         if sort != 'random' and sort != 'progress':
             cache_service = get_library_cache(library_id)
-            cache_path = path or "root"
-            cache_params = {"sort": sort, "offset": offset, "limit": limit}
-            cache_service.cache_response(cache_path, result, cache_params)
-        
-        return JSONResponse(result)
+            cache_service.cache_response(cache_path, _cache_safe_copy(result), cache_params)
+
+        cache_status = "bypass" if sort in ('random', 'progress') else "miss"
+        return _timed_browse_response(response_result, "library", cache_status, started_at)
 
 # ============================================================================
 # Series Browsing
@@ -832,10 +935,22 @@ async def browse_all_content(
     """
     from sqlalchemy import func, desc, or_
     from ....database.models import Series, Library
+    from ....services.library_cache import get_library_cache
+    started_at = perf_counter()
 
     db = request.app.state.db
 
     with db.get_session() as session:
+        user = get_request_user(request, session)
+        cache_service = get_library_cache(0)
+        cache_path = "browse/all"
+        cache_params = {"sort": sort, "offset": offset, "limit": limit}
+        if sort not in ('random', 'progress'):
+            cached_data = cache_service.get_cached_response(cache_path, cache_params)
+            if cached_data:
+                response = _apply_progress_overlay(cached_data, session, user)
+                return _timed_browse_response(response, "all-libraries", "hit", started_at)
+
         # 1. Get all libraries and their root folders
         # We need mapping of root_folder_id -> library_id
         
@@ -847,12 +962,12 @@ async def browse_all_content(
         ).all()
         
         if not root_folders:
-            return JSONResponse({
+            return _timed_browse_response({
                 "items": [],
                 "total": 0,
                 "offset": offset,
                 "limit": limit
-            })
+            }, "all-libraries", "miss", started_at)
             
         root_ids = [f.id for f in root_folders]
         
@@ -1113,12 +1228,20 @@ async def browse_all_content(
                      )
                      items.append(item_data)
 
-        return JSONResponse({
+        result = {
             "items": items,
             "total": total_items,
             "offset": offset,
             "limit": limit
-        })
+        }
+
+        response_result = _apply_progress_overlay(result, session, user)
+
+        if sort not in ('random', 'progress'):
+            cache_service.cache_response(cache_path, _cache_safe_copy(result), cache_params)
+
+        cache_status = "bypass" if sort in ('random', 'progress') else "miss"
+        return _timed_browse_response(response_result, "all-libraries", cache_status, started_at)
 
 
 

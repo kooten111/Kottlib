@@ -44,6 +44,7 @@ async def clear_metadata(
 
         comics = query.all()
         cleared_count = 0
+        affected_library_ids = {comic.library_id for comic in comics}
 
         for comic in comics:
             if clear_request.clear_scanner_info:
@@ -98,6 +99,14 @@ async def clear_metadata(
             cleared_count += 1
 
         session.commit()
+
+        try:
+            from src.services.library_cache import get_library_cache
+            for lib_id in affected_library_ids:
+                get_library_cache(lib_id).invalidate_all()
+            get_library_cache(0).invalidate_all()
+        except Exception as cache_err:
+            logger.warning(f"Failed to invalidate browse cache after metadata clear: {cache_err}")
 
         return {
             "success": True,

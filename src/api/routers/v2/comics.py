@@ -585,6 +585,13 @@ async def update_comic_progress_v2(
             total_pages
         )
 
+        try:
+            from ....services.library_cache import get_library_cache
+            get_library_cache(library_id).invalidate_all()
+            get_library_cache(0).invalidate_all()
+        except Exception as cache_err:
+            logger.warning(f"Failed to invalidate browse cache after progress update: {cache_err}")
+
         # Return success response
         return JSONResponse({
             "success": True,

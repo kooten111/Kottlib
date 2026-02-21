@@ -112,6 +112,62 @@ async def lifespan(app: FastAPI):
             logger.info("Scheduler schedules loaded")
         except Exception as e:
             logger.error(f"Failed to load scheduler schedules: {e}", exc_info=True)
+
+        # 3. Warm browse cache (first page) for faster initial navigation
+        try:
+            from ..database import get_all_libraries
+            from .routers.v2.series import browse_all_content, browse_folder
+
+            logger.info("Warming browse cache for all libraries...")
+
+            def build_internal_request(path: str) -> Request:
+                return Request({
+                    "type": "http",
+                    "http_version": "1.1",
+                    "method": "GET",
+                    "scheme": "http",
+                    "path": path,
+                    "raw_path": path.encode("utf-8"),
+                    "query_string": b"",
+                    "headers": [],
+                    "client": ("127.0.0.1", 0),
+                    "server": (config.server.host, config.server.port),
+                    "app": app,
+                    "state": {},
+                })
+
+            # Warm "all libraries" browse root
+            await browse_all_content(
+                request=build_internal_request("/v2/libraries/browse-content"),
+                sort="name",
+                offset=0,
+                limit=50,
+                seed=None,
+            )
+
+            # Warm each library browse root
+            with db.get_session() as session:
+                libraries = get_all_libraries(session)
+
+            warmed = 0
+            for lib in libraries:
+                try:
+                    await browse_folder(
+                        library_id=lib.id,
+                        request=build_internal_request(f"/v2/library/{lib.id}/browse"),
+                        path=None,
+                        sort="name",
+                        offset=0,
+                        limit=50,
+                        seed=None,
+                    )
+                    warmed += 1
+                except Exception as warm_err:
+                    logger.warning(f"Browse warm-up failed for library {lib.id}: {warm_err}")
+
+            logger.info(f"Browse cache warm-up complete (libraries warmed: {warmed})")
+        except Exception as e:
+            logger.error(f"Failed to warm browse cache: {e}", exc_info=True)
             
         logger.info("Background startup tasks complete")
 
