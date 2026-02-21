@@ -170,6 +170,24 @@ class Comic(Base):
         Index('idx_comics_library_year', 'library_id', 'year'),
     )
 
+    @property
+    def file_hash(self) -> str:
+        """Backward-compatible alias for hash."""
+        return self.hash
+
+    @file_hash.setter
+    def file_hash(self, value: str) -> None:
+        self.hash = value
+
+    @property
+    def summary(self) -> Optional[str]:
+        """Backward-compatible alias for description."""
+        return self.description
+
+    @summary.setter
+    def summary(self, value: Optional[str]) -> None:
+        self.description = value
+
 
 class Cover(Base):
     __tablename__ = 'covers'

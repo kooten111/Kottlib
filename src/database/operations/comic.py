@@ -38,6 +38,9 @@ def create_comic(
     """Create a new comic entry."""
     now = int(time.time())
 
+    if "summary" in metadata and "description" not in metadata:
+        metadata["description"] = metadata.pop("summary")
+
     # Get IMMEDIATE parent folder name for series
     # The folder containing the comic IS the series
     # Example: "Batman/Night of Owls/Batman Vol 1.cbz"
@@ -167,7 +170,12 @@ def get_comics_in_folder_simple(session: Session, folder_id: int) -> List[Comic]
     return session.query(Comic).filter_by(folder_id=folder_id).all()
 
 
-def search_comics(session: Session, library_id: int, query_str: str) -> List[Comic]:
+def search_comics(
+    session: Session,
+    library_id: int,
+    query_str: Optional[str] = None,
+    query: Optional[str] = None,
+) -> List[Comic]:
     """
     Search for comics in a library by metadata.
 
@@ -186,10 +194,14 @@ def search_comics(session: Session, library_id: int, query_str: str) -> List[Com
         session: Database session
         library_id: ID of the library to search in
         query_str: Search query string (case-insensitive)
+        query: Backward-compatible alias for query_str
 
     Returns:
         List of matching comics, ordered by relevance (title/series matches first)
     """
+    if query_str is None:
+        query_str = query
+
     if not query_str or not query_str.strip():
         return []
 

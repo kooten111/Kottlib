@@ -737,11 +737,13 @@ class MangaDexScanner(BaseScanner):
 
             # Content info
             'age_rating': attributes.get('contentRating', ''),  # Mapped from contentRating
+            'content_rating': attributes.get('contentRating', ''),  # Backward-compatible alias
             'language_iso': attributes.get('originalLanguage', ''),  # Mapped from originalLanguage
+            'original_language': attributes.get('originalLanguage', ''),  # Backward-compatible alias
             'latest_chapter': attributes.get('lastChapter', ''),
 
             # External links
-            # 'external_links': external_links, # Moved to extra_metadata
+            'external_links': external_links,
 
             # MangaDex specific - for cover provider
             'mangadex_id': manga_id,

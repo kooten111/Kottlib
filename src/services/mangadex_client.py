@@ -67,13 +67,14 @@ class MangaDexClient:
         self.session.headers.update({
             'User-Agent': 'Kottlib-Enhanced/1.0'
         })
+        self.rate_limit_delay = RATE_LIMIT_DELAY
         self._last_request_time = 0
 
     def _rate_limit(self):
         """Enforce rate limiting between requests"""
         elapsed = time.time() - self._last_request_time
-        if elapsed < RATE_LIMIT_DELAY:
-            time.sleep(RATE_LIMIT_DELAY - elapsed)
+        if elapsed < self.rate_limit_delay:
+            time.sleep(self.rate_limit_delay - elapsed)
         self._last_request_time = time.time()
 
     def _make_request(self, endpoint: str, params: Optional[Dict] = None) -> Optional[Dict]:

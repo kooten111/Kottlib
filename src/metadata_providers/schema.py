@@ -294,11 +294,15 @@ def map_scanner_metadata_to_comic(scanner_metadata: Dict[str, Any]) -> Dict[str,
     """
     comic_data = {}
 
+    normalized_metadata = dict(scanner_metadata)
+    if "summary" in normalized_metadata and "description" not in normalized_metadata:
+        normalized_metadata["description"] = normalized_metadata["summary"]
+
     for field_enum, definition in FIELD_DEFINITIONS.items():
         field_name = field_enum.value
 
-        if field_name in scanner_metadata and definition.db_column:
-            value = scanner_metadata[field_name]
+        if field_name in normalized_metadata and definition.db_column:
+            value = normalized_metadata[field_name]
 
             # Handle list fields
             if definition.is_list and isinstance(value, list):
