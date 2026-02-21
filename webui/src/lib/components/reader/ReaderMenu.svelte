@@ -45,9 +45,11 @@
 
 	function cycleFitMode() {
 		const modes = ['fit-width', 'fit-height', 'original'];
-		const currentIndex = modes.indexOf($readerSettings.fitMode);
-		const nextIndex = (currentIndex + 1) % modes.length;
-		readerSettings.update(s => ({ ...s, fitMode: modes[nextIndex] }));
+		readerSettings.update((settings) => {
+			const currentIndex = modes.indexOf(settings.fitMode);
+			const nextIndex = (currentIndex + 1) % modes.length;
+			return { ...settings, fitMode: modes[nextIndex] };
+		});
 	}
 
 	function toggleReadingDirection() {
@@ -57,14 +59,16 @@
 		}));
 	}
 
-	function getFitModeLabel() {
-		switch ($readerSettings.fitMode) {
+	function getFitModeLabel(fitMode) {
+		switch (fitMode) {
 			case 'fit-width': return 'Fit Width';
 			case 'fit-height': return 'Fit Height';
 			case 'original': return 'Original Size';
 			default: return 'Fit Width';
 		}
 	}
+
+	$: fitModeLabel = getFitModeLabel($readerSettings.fitMode);
 </script>
 
 {#if show}
@@ -125,7 +129,7 @@
 						<rect x="3" y="3" width="18" height="18" rx="2" ry="2"/>
 						<line x1="9" y1="3" x2="9" y2="21"/>
 					</svg>
-					<span>{getFitModeLabel()}</span>
+					<span>{fitModeLabel}</span>
 				</button>
 				<button class="setting-button" on:click={toggleReadingDirection} type="button">
 					<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
