@@ -95,6 +95,8 @@
 		imageLoaded = false;
 	}
 
+	let justLoadedPage = false;
+
 	// Reset state when image source changes
 	$: if (imageSrc) {
 		imageLoaded = false;
@@ -103,6 +105,7 @@
 		canPanImage = false;
 		panX = 0;
 		panY = 0;
+		justLoadedPage = true;
 	}
 
 	function updatePanAvailability() {
@@ -127,8 +130,17 @@
 		if (!canPanImage) {
 			panX = 0;
 			panY = 0;
+			justLoadedPage = false;
 		} else {
 			clampPan();
+			// On fresh page load, align to top for fit-width and original modes
+			if (justLoadedPage && maxPanY > 1) {
+				const fm = $readerSettings.fitMode;
+				if (fm === 'fit-width' || fm === 'original') {
+					panY = maxPanY / 2;
+				}
+			}
+			justLoadedPage = false;
 		}
 	}
 
