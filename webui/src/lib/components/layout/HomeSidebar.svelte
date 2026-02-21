@@ -253,7 +253,7 @@
 		</div>
 
 		<!-- FOLDERS SECTION -->
-		<div class="sidebar-section flex-1">
+		<div class="sidebar-section flex-1 folders-section">
 			<div class="section-header">
 				<span
 					class="text-xs font-bold text-gray-500 uppercase tracking-wider"
@@ -264,7 +264,7 @@
 				</div>
 			</div>
 
-			<div class="section-content">
+			<div class="section-content folders-content">
 				{#if selectedLibraryId}
 					{#if folderNodes.length > 0}
 						{#each folderNodes as node (node.id)}
@@ -358,10 +358,24 @@
 
 	.sidebar-content {
 		flex: 1;
-		overflow-y: auto;
+		overflow: hidden;
 		overflow-x: hidden;
 		display: flex;
 		flex-direction: column;
+		min-height: 0;
+	}
+
+	.folders-section {
+		display: flex;
+		flex-direction: column;
+		min-height: 0;
+	}
+
+	.folders-content {
+		flex: 1;
+		min-height: 0;
+		overflow-y: auto;
+		overflow-x: hidden;
 	}
 
 	/* Mobile drawer styles */
@@ -379,6 +393,21 @@
 
 		.sidebar.sidebar-open {
 			transform: translateX(0);
+		}
+
+		.sidebar-content {
+			overflow-y: auto;
+		}
+
+		.folders-section {
+			display: block;
+			min-height: auto;
+		}
+
+		.folders-content {
+			flex: initial;
+			min-height: auto;
+			overflow: visible;
 		}
 	}
 
