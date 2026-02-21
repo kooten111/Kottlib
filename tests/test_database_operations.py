@@ -17,6 +17,7 @@ from src.database import (
     get_comic_by_hash,
     get_comics_in_library,
     search_comics,
+    get_sibling_comics,
 )
 from src.database.models import Library, Comic
 
@@ -232,6 +233,53 @@ class TestComicOperations:
             assert comic.publisher == "Test Publisher"
             assert comic.writer == "Test Writer"
             assert comic.summary == "A test comic with full metadata"
+
+    def test_get_sibling_comics_natural_order(self, test_db, sample_library, sample_folder, test_data_dir):
+        """Test sibling navigation uses natural filename ordering."""
+        import time
+
+        filenames = ["10.cbz", "2.cbz", "1.cbz"]
+        created = []
+
+        with test_db.get_session() as session:
+            for index, filename in enumerate(filenames):
+                comic_path = test_data_dir / "library1" / filename
+                comic_path.write_bytes(b"DUMMY_CBZ_DATA")
+
+                comic = Comic(
+                    library_id=sample_library.id,
+                    folder_id=sample_folder.id,
+                    path=str(comic_path),
+                    filename=filename,
+                    hash=f"natural_hash_{index}",
+                    file_size=14,
+                    file_modified_at=int(time.time()),
+                    format="cbz",
+                    num_pages=10,
+                    title=f"Natural {filename}",
+                    created_at=int(time.time()),
+                    updated_at=int(time.time()),
+                )
+                session.add(comic)
+                created.append(comic)
+
+            session.commit()
+            for comic in created:
+                session.refresh(comic)
+
+            comic_by_name = {comic.filename: comic for comic in created}
+
+            prev_id, next_id = get_sibling_comics(session, comic_by_name["2.cbz"].id)
+            assert prev_id == comic_by_name["1.cbz"].id
+            assert next_id == comic_by_name["10.cbz"].id
+
+            prev_id, next_id = get_sibling_comics(session, comic_by_name["1.cbz"].id)
+            assert prev_id is None
+            assert next_id == comic_by_name["2.cbz"].id
+
+            prev_id, next_id = get_sibling_comics(session, comic_by_name["10.cbz"].id)
+            assert prev_id == comic_by_name["2.cbz"].id
+            assert next_id is None
 
 
 class TestComicUpdate:

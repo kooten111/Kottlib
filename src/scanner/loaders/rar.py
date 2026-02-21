@@ -11,6 +11,7 @@ import logging
 
 from .base import ComicArchive
 from .utils import IMAGE_EXTENSIONS
+from ...utils.sorting import natural_filename_sort_key
 
 logger = logging.getLogger(__name__)
 
@@ -56,7 +57,7 @@ class CBRArchive(ComicArchive):
         
         pages = []
 
-        for idx, info in enumerate(sorted(self.archive.infolist(), key=lambda x: x.filename)):
+        for idx, info in enumerate(sorted(self.archive.infolist(), key=lambda x: natural_filename_sort_key(x.filename))):
             # Skip directories
             if info.is_dir():
                 continue

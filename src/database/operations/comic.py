@@ -15,8 +15,10 @@ from ..models import Comic, Series as SeriesModel
 # Import series utilities
 try:
     from ...utils.series_utils import get_series_name_from_comic
+    from ...utils.sorting import natural_filename_sort_key
 except ImportError:
     from utils.series_utils import get_series_name_from_comic
+    from utils.sorting import natural_filename_sort_key
 
 
 logger = logging.getLogger(__name__)
@@ -305,20 +307,21 @@ def get_sibling_comics(session: Session, comic_id: int) -> tuple[Optional[int], 
     Get the previous and next comic IDs in the same folder.
     Returns (previous_comic_id, next_comic_id)
 
-    Comics are ordered alphabetically by filename within the folder.
-    This matches YACReader's navigation behavior.
+    Comics are ordered by natural filename order within the folder.
+    This keeps numeric names in intuitive order (1, 2, 10).
     """
     comic = get_comic_by_id(session, comic_id)
     if not comic:
         return (None, None)
 
-    # Get all comics in the same folder, ordered by filename
+    # Get all comics in the same folder, then apply natural filename sort.
+    # This ensures 1, 2, 10 ordering instead of 1, 10, 2.
     comics = (
         session.query(Comic)
         .filter_by(folder_id=comic.folder_id)
-        .order_by(Comic.filename)
         .all()
     )
+    comics.sort(key=lambda item: natural_filename_sort_key(item.filename or ""))
 
     # Find current comic's position
     current_index = None

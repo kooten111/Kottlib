@@ -15,6 +15,7 @@ import shutil
 
 from .base import ComicArchive
 from .utils import IMAGE_EXTENSIONS
+from ...utils.sorting import natural_filename_sort_key
 
 logger = logging.getLogger(__name__)
 
@@ -102,7 +103,7 @@ class CB7Archive(ComicArchive):
         pages = []
 
         # Get all files - list() returns FileInfo objects directly
-        for info in sorted(self.archive.list(), key=lambda x: x.filename):
+        for info in sorted(self.archive.list(), key=lambda x: natural_filename_sort_key(x.filename)):
             # Skip directories
             if info.is_directory:
                 continue
@@ -123,6 +124,10 @@ class CB7Archive(ComicArchive):
 
             if page.is_image:
                 pages.append(page)
+
+        pages.sort(key=lambda page: natural_filename_sort_key(page.filename))
+        for index, page in enumerate(pages):
+            page.index = index
 
         return pages
 
@@ -232,6 +237,10 @@ class SevenZipCliArchive(ComicArchive):
             # Process last entry
             if current_file:
                 self._process_file_entry(current_file, pages)
+
+            pages.sort(key=lambda page: natural_filename_sort_key(page.filename))
+            for index, page in enumerate(pages):
+                page.index = index
                 
         except subprocess.CalledProcessError as e:
             logger.error(f"7z list failed: {e.stderr}")

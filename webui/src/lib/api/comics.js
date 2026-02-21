@@ -27,7 +27,9 @@ export async function getComicInfo(libraryId, comicId) {
 export async function getComicPage(libraryId, comicId, page) {
 	// Convert 1-based page to 0-based index for API
 	const pageIndex = Math.max(0, page - 1);
-	return api.getBlob(`/library/${libraryId}/comic/${comicId}/page/${pageIndex}/remote`);
+	return api.getBlob(`/library/${libraryId}/comic/${comicId}/page/${pageIndex}/remote`, {
+		cache: 'no-store'
+	});
 }
 
 /**

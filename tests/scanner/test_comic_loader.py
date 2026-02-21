@@ -196,6 +196,20 @@ class TestCBZArchive:
             assert all(page.is_image for page in pages)
             assert pages[0].index == 0
             assert pages[1].index == 1
+
+    def test_cbz_natural_page_ordering(self, test_data_dir):
+        """Test CBZ pages are ordered naturally (1, 2, 10)."""
+        cbz_path = test_data_dir / "natural_order.cbz"
+
+        with zipfile.ZipFile(cbz_path, 'w') as zf:
+            zf.writestr("10.jpg", b"page-10")
+            zf.writestr("2.jpg", b"page-2")
+            zf.writestr("1.jpg", b"page-1")
+
+        with CBZArchive(cbz_path) as archive:
+            page_names = [Path(page.filename).name for page in archive.pages]
+
+            assert page_names == ["1.jpg", "2.jpg", "10.jpg"]
     
     def test_cbz_get_page_data(self, cbz_file):
         """Test getting page data from CBZ"""

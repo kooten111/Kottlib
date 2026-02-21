@@ -198,8 +198,11 @@ class APIClient {
 		}
 	}
 
-	async getBlob(endpoint) {
-		return this.request(endpoint, { responseType: 'blob' });
+	async getBlob(endpoint, options = {}) {
+		return this.request(endpoint, {
+			...options,
+			responseType: 'blob'
+		});
 	}
 }
 
