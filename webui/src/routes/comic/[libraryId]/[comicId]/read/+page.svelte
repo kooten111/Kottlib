@@ -28,8 +28,12 @@
 	let showControls = true;
 	let controlsTimeout;
 	let currentPageImage = "";
+	let secondPageImage = "";
 	let preloadedPages = new Map();
 	let showReaderMenu = false;
+
+	// Reactive helpers
+	$: isDoubleMode = $readerSettings.readingMode === 'double';
 
 	// Get adjacent page sources for swipe transitions
 	$: nextPageSrc = getAdjacentPageSrc("next");
@@ -37,12 +41,13 @@
 
 	function getAdjacentPageSrc(direction) {
 		const isRTL = $readerSettings.readingDirection === "rtl";
+		const step = isDoubleMode ? 2 : 1;
 		let targetPage;
 
 		if (direction === "next") {
-			targetPage = isRTL ? currentPage - 1 : currentPage + 1;
+			targetPage = isRTL ? currentPage - step : currentPage + step;
 		} else {
-			targetPage = isRTL ? currentPage + 1 : currentPage - 1;
+			targetPage = isRTL ? currentPage + step : currentPage - step;
 		}
 
 		if (
@@ -127,6 +132,29 @@
 				currentPageImage = url;
 				preloadedPages.set(pageNum, url);
 				isLoading = false;
+			}
+
+			// Load the paired second page in double-page mode
+			if (isDoubleMode) {
+				const secondPageNum = pageNum + 1;
+				if (secondPageNum >= 1 && secondPageNum <= totalPages) {
+					if (preloadedPages.has(secondPageNum)) {
+						secondPageImage = preloadedPages.get(secondPageNum);
+					} else {
+						try {
+							const blob2 = await getComicPage(libraryId, comicId, secondPageNum);
+							const url2 = URL.createObjectURL(blob2);
+							preloadedPages.set(secondPageNum, url2);
+							secondPageImage = url2;
+						} catch (e) {
+							secondPageImage = '';
+						}
+					}
+				} else {
+					secondPageImage = ''; // Last page of odd-length comic
+				}
+			} else {
+				secondPageImage = '';
 			}
 
 			// Preload adjacent pages
@@ -268,6 +296,23 @@
 		loadInitialPages();
 	}
 
+	// When switching to double-page mode, snap current page to an odd page (spread start)
+	// and reload to ensure the second page is also fetched.
+	// Isolate currentPage/totalPages inside a function so this block only re-runs
+	// when readingMode itself changes, not on every page turn.
+	$: if ($readerSettings.readingMode === 'double') {
+		handleDoubleModeActivation();
+	}
+
+	function handleDoubleModeActivation() {
+		if (totalPages <= 0 || currentPage <= 0) return;
+		const snapped = currentPage % 2 === 0 ? Math.max(1, currentPage - 1) : currentPage;
+		if (snapped !== currentPage) {
+			currentPage = snapped;
+		}
+		loadPage(currentPage);
+	}
+
 	// Save reading progress (debounced and non-blocking)
 	let progressTimeout;
 	let lastSavedPage = 0;
@@ -363,14 +408,14 @@
 	// Navigate to previous page
 	function goToPreviousPage() {
 		const isRTL = $readerSettings.readingDirection === "rtl";
-		const newPage = isRTL ? currentPage + 1 : currentPage - 1;
-		if (newPage >= 1 && newPage <= totalPages) {
-			currentPage = newPage;
+		const step = isDoubleMode ? 2 : 1;
+		const newPage = isRTL ? currentPage + step : currentPage - step;
+		const clampedPage = Math.max(1, Math.min(totalPages, newPage));
+		if (clampedPage !== currentPage) {
+			currentPage = clampedPage;
 			if ($readerSettings.readingMode === 'continuous') {
-				// In continuous mode, ensure page is loaded
-				// The PageViewer will detect the page change and scroll
-				if (!preloadedPages.has(newPage)) {
-					preloadPage(newPage);
+				if (!preloadedPages.has(clampedPage)) {
+					preloadPage(clampedPage);
 				}
 			} else {
 				loadPage(currentPage);
@@ -381,14 +426,14 @@
 	// Navigate to next page
 	function goToNextPage() {
 		const isRTL = $readerSettings.readingDirection === "rtl";
-		const newPage = isRTL ? currentPage - 1 : currentPage + 1;
-		if (newPage >= 1 && newPage <= totalPages) {
-			currentPage = newPage;
+		const step = isDoubleMode ? 2 : 1;
+		const newPage = isRTL ? currentPage - step : currentPage + step;
+		const clampedPage = Math.max(1, Math.min(totalPages, newPage));
+		if (clampedPage !== currentPage) {
+			currentPage = clampedPage;
 			if ($readerSettings.readingMode === 'continuous') {
-				// In continuous mode, ensure page is loaded
-				// The PageViewer will detect the page change and scroll
-				if (!preloadedPages.has(newPage)) {
-					preloadPage(newPage);
+				if (!preloadedPages.has(clampedPage)) {
+					preloadPage(clampedPage);
 				}
 			} else {
 				loadPage(currentPage);
@@ -398,11 +443,13 @@
 
 	// Jump to specific page
 	function goToPage(pageNum) {
+		// In double-page mode, snap to the nearest spread start (odd page)
+		if (isDoubleMode && pageNum % 2 === 0) {
+			pageNum = Math.max(1, pageNum - 1);
+		}
 		if (pageNum >= 1 && pageNum <= totalPages && pageNum !== currentPage) {
 			currentPage = pageNum;
 			if ($readerSettings.readingMode === 'continuous') {
-				// In continuous mode, ensure page is loaded
-				// The PageViewer will detect the page change and scroll
 				if (!preloadedPages.has(pageNum)) {
 					preloadPage(pageNum);
 				}
@@ -614,6 +661,7 @@
 <div class="reader-container" class:fullscreen={isFullscreen}>
 	<PageViewer
 		imageSrc={currentPageImage}
+		secondPageSrc={secondPageImage}
 		pageNumber={currentPage}
 		{totalPages}
 		bind:isLoading

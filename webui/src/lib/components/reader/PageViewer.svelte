@@ -16,6 +16,7 @@
 	export let libraryId = null;
 	// svelte-ignore export_let_unused - Reserved for future use
 	export let comicId = null;
+	export let secondPageSrc = ''; // Second page for double-page spread mode
 	export let onPageChange = null; // Callback function for page changes
 	export let onPrefetchPage = null; // Callback function to prefetch a page
 	
@@ -67,6 +68,7 @@
 
 	$: fitClass = getFitClass($readerSettings.fitMode);
 	$: isContinuousMode = $readerSettings.readingMode === 'continuous';
+	$: isDoubleMode = $readerSettings.readingMode === 'double';
 	$: isRTL = $readerSettings.readingDirection === 'rtl';
 
 	function getFitClass(fitMode) {
@@ -96,6 +98,7 @@
 	}
 
 	let justLoadedPage = false;
+	let secondImageLoaded = false;
 
 	// Reset state when image source changes
 	$: if (imageSrc) {
@@ -108,8 +111,13 @@
 		justLoadedPage = true;
 	}
 
+	// Reset second page state when second page source changes
+	$: if (secondPageSrc !== undefined) {
+		secondImageLoaded = false;
+	}
+
 	function updatePanAvailability() {
-		if (!container || !img || isContinuousMode || !imageLoaded) {
+		if (!container || !img || isContinuousMode || isDoubleMode || !imageLoaded) {
 			canPanImage = false;
 			maxPanX = 0;
 			maxPanY = 0;
@@ -742,17 +750,47 @@
 			</div>
 		{/if}
 
-		{#if imageSrc}
-			<img
-				bind:this={img}
-				src={imageSrc}
-				alt="Page {pageNumber}"
-				class="page-image {fitClass}"
-				class:hidden={!imageLoaded}
-				style={canPanImage ? `transform: translate(${panX}px, ${panY}px)` : ''}
-				on:load={handleImageLoad}
-				on:error={handleImageError}
-			/>
+		{#if isDoubleMode}
+			<!-- Double Page Spread -->
+			<div class="double-page-spread" class:rtl={isRTL}>
+				<!-- In RTL, page order is visually reversed via flex-direction in CSS -->
+				<div class="double-page-slot">
+					{#if imageSrc}
+						<img
+							src={imageSrc}
+							alt="Page {pageNumber}"
+							class="double-page-image"
+							class:hidden={!imageLoaded}
+							on:load={() => { imageLoaded = true; isLoading = false; }}
+							on:error={handleImageError}
+						/>
+					{/if}
+				</div>
+				<div class="double-page-slot">
+					{#if secondPageSrc}
+						<img
+							src={secondPageSrc}
+							alt="Page {pageNumber + 1}"
+							class="double-page-image"
+							class:hidden={!secondImageLoaded}
+							on:load={() => { secondImageLoaded = true; }}
+						/>
+					{/if}
+				</div>
+			</div>
+		{:else}
+			{#if imageSrc}
+				<img
+					bind:this={img}
+					src={imageSrc}
+					alt="Page {pageNumber}"
+					class="page-image {fitClass}"
+					class:hidden={!imageLoaded}
+					style={canPanImage ? `transform: translate(${panX}px, ${panY}px)` : ''}
+					on:load={handleImageLoad}
+					on:error={handleImageError}
+				/>
+			{/if}
 		{/if}
 	</div>
 
@@ -1016,5 +1054,46 @@
 	.loading-placeholder p {
 		margin-top: 1rem;
 		font-size: 0.875rem;
+	}
+
+	/* ── Double-page spread ── */
+	.double-page-spread {
+		display: flex;
+		flex-direction: row;
+		align-items: center;
+		justify-content: center;
+		width: 100%;
+		height: 100%;
+		gap: 0;
+	}
+
+	/* In RTL mode the right page (lower page number) comes first visually */
+	.double-page-spread.rtl {
+		flex-direction: row-reverse;
+	}
+
+	.double-page-slot {
+		flex: 1 1 50%;
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		height: 100%;
+		min-width: 0; /* allow flex shrink below content size */
+		overflow: hidden;
+	}
+
+	.double-page-image {
+		max-width: 100%;
+		max-height: 100%;
+		width: auto;
+		height: 100%;
+		object-fit: contain;
+		display: block;
+		user-select: none;
+		-webkit-user-drag: none;
+	}
+
+	.double-page-image.hidden {
+		visibility: hidden;
 	}
 </style>
