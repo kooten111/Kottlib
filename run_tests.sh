@@ -1,7 +1,7 @@
 #!/bin/bash
 # Test runner script for Kottlib
 
-set -e  # Exit on error
+set -euo pipefail  # Exit on error, unset vars, pipe failures
 
 # Colors for output
 RED='\033[0;31m'
@@ -21,7 +21,7 @@ echo -e "${BLUE}========================================${NC}"
 echo ""
 
 # Check if virtual environment is activated
-if [[ -z "$VIRTUAL_ENV" ]]; then
+if [[ -z "${VIRTUAL_ENV:-}" ]]; then
     echo -e "${YELLOW}Warning: Virtual environment not activated${NC}"
     echo -e "Attempting to activate venv..."
     if [[ -f "venv/bin/activate" ]]; then
@@ -42,52 +42,53 @@ fi
 
 # Parse command line arguments
 TEST_TYPE="${1:-all}"
-PYTEST_ARGS="${@:2}"
+PYTEST_ARGS=("${@:2}")
 
-# Run tests based on type
+# Run tests based on type (disable errexit so we can capture the exit code)
+set +e
 case "$TEST_TYPE" in
     all)
         echo -e "${GREEN}Running all tests...${NC}"
-        pytest -v $PYTEST_ARGS
+        pytest -v "${PYTEST_ARGS[@]}"
         ;;
     v1|mobile)
         echo -e "${GREEN}Running v1 API (mobile) tests...${NC}"
-        pytest tests/api/test_v1_api.py -v $PYTEST_ARGS
+        pytest tests/api/test_v1_api.py -v "${PYTEST_ARGS[@]}"
         ;;
     v2|webui)
         echo -e "${GREEN}Running v2 API (webui) tests...${NC}"
-        pytest tests/api/test_v2_api.py -v $PYTEST_ARGS
+        pytest tests/api/test_v2_api.py -v "${PYTEST_ARGS[@]}"
         ;;
     integration|int)
         echo -e "${GREEN}Running integration tests...${NC}"
-        pytest tests/api/test_integration.py -v $PYTEST_ARGS
+        pytest tests/api/test_integration.py -v "${PYTEST_ARGS[@]}"
         ;;
     quick)
         echo -e "${GREEN}Running quick test suite (excluding slow tests)...${NC}"
-        pytest -v -m "not slow" $PYTEST_ARGS
+        pytest -v -m "not slow" "${PYTEST_ARGS[@]}"
         ;;
     coverage|cov)
         echo -e "${GREEN}Running tests with coverage report...${NC}"
-        if ! command -v pytest-cov &> /dev/null; then
-            pip install pytest-cov
+        if ! python3 -c "import pytest_cov" 2>/dev/null; then
+            pip install --quiet pytest-cov
         fi
-        pytest --cov=src --cov-report=html --cov-report=term -v $PYTEST_ARGS
+        pytest --cov=src --cov-report=html --cov-report=term -v "${PYTEST_ARGS[@]}"
         echo ""
         echo -e "${GREEN}Coverage report generated in htmlcov/index.html${NC}"
         ;;
     parallel)
         echo -e "${GREEN}Running tests in parallel...${NC}"
-        if ! command -v pytest-xdist &> /dev/null; then
-            pip install pytest-xdist
+        if ! python3 -c "import xdist" 2>/dev/null; then
+            pip install --quiet pytest-xdist
         fi
-        pytest -n auto -v $PYTEST_ARGS
+        pytest -n auto -v "${PYTEST_ARGS[@]}"
         ;;
     watch)
         echo -e "${GREEN}Running tests in watch mode...${NC}"
-        if ! command -v pytest-watch &> /dev/null; then
-            pip install pytest-watch
+        if ! python3 -c "import ptw" 2>/dev/null; then
+            pip install --quiet pytest-watch
         fi
-        ptw -- -v $PYTEST_ARGS
+        ptw -- -v "${PYTEST_ARGS[@]}"
         ;;
     help|--help|-h)
         echo "Usage: ./run_tests.sh [test_type] [pytest_args]"
@@ -117,9 +118,10 @@ case "$TEST_TYPE" in
         exit 1
         ;;
 esac
+TEST_EXIT=$?
+set -e
 
-# Check exit code
-if [ $? -eq 0 ]; then
+if [ "$TEST_EXIT" -eq 0 ]; then
     echo ""
     echo -e "${GREEN}========================================${NC}"
     echo -e "${GREEN}  ✓ All tests passed!${NC}"
@@ -129,5 +131,5 @@ else
     echo -e "${RED}========================================${NC}"
     echo -e "${RED}  ✗ Some tests failed${NC}"
     echo -e "${RED}========================================${NC}"
-    exit 1
+    exit "$TEST_EXIT"
 fi

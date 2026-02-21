@@ -10,10 +10,15 @@
 #   ./scan.sh --help                         # Show all options
 #
 
-set -e
+set -euo pipefail
 
 # Get script directory
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+
+# Activate virtual environment if available
+if [ -f "$SCRIPT_DIR/venv/bin/activate" ]; then
+    source "$SCRIPT_DIR/venv/bin/activate"
+fi
 
 # Forward all arguments to the scanner script
 exec python3 "$SCRIPT_DIR/scripts/scan_library.py" "$@"

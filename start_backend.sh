@@ -6,7 +6,7 @@
 # Usage: ./start_backend.sh
 #
 
-set -e  # Exit on error
+set -euo pipefail  # Exit on error, unset vars, pipe failures
 
 echo "=================================================="
 echo "       Kottlib - Backend API"
@@ -76,14 +76,14 @@ echo "Checking dependencies..."
 MISSING_DEPS=0
 
 # Check for key dependencies
-for package in fastapi uvicorn pillow; do
+for package in fastapi uvicorn PIL; do
     if ! python3 -c "import $package" 2>/dev/null; then
         MISSING_DEPS=1
         break
     fi
 done
 
-if [ $MISSING_DEPS -eq 1 ]; then
+if [ "$MISSING_DEPS" -eq 1 ]; then
     echo -e "${YELLOW}Installing/updating dependencies...${NC}"
     venv/bin/pip install -r requirements.txt
     echo -e "${GREEN}✓ Dependencies installed${NC}"
@@ -102,7 +102,7 @@ if [ ! -f "config.yml" ]; then
         echo ""
         echo -e "${YELLOW}Please edit config.yml with your library paths before starting.${NC}"
         echo "Press Enter to continue or Ctrl+C to exit and edit config first..."
-        read
+        read -r
     else
         echo -e "${YELLOW}Warning: No config file found. Server will use defaults.${NC}"
     fi
