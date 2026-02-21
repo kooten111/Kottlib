@@ -2,6 +2,8 @@
 Library and Folder models.
 """
 
+import time
+import uuid
 from typing import Optional, List
 from sqlalchemy import (
     Integer, String, Text, JSON,
@@ -16,11 +18,11 @@ class Library(Base):
     __tablename__ = 'libraries'
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
-    uuid: Mapped[str] = mapped_column(String, unique=True, nullable=False)
+    uuid: Mapped[str] = mapped_column(String, unique=True, nullable=False, default=lambda: str(uuid.uuid4()))
     name: Mapped[str] = mapped_column(String, nullable=False)
     path: Mapped[str] = mapped_column(String, unique=True, nullable=False)
-    created_at: Mapped[int] = mapped_column(Integer, nullable=False)
-    updated_at: Mapped[int] = mapped_column(Integer, nullable=False)
+    created_at: Mapped[int] = mapped_column(Integer, nullable=False, default=lambda: int(time.time()))
+    updated_at: Mapped[int] = mapped_column(Integer, nullable=False, default=lambda: int(time.time()))
 
     scan_status: Mapped[str] = mapped_column(String, default='pending')
     last_scan_started: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)

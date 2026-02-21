@@ -66,6 +66,10 @@ async def get_folder_v2(
 
         logger.debug(f"v2 API: Found {len(folders)} total folders in library {library_id}")
         child_folders = []
+        requested_folder = next((f for f in folders if f.id == folder_id), None)
+        is_root_request = folder_id <= 1 and (
+            requested_folder is None or requested_folder.name == ROOT_FOLDER_MARKER
+        )
 
         for folder in folders:
             # YACReader convention (from source code db_helper.cpp:1540):
@@ -80,8 +84,6 @@ async def get_folder_v2(
             # Skip root folder (marked with ROOT_FOLDER_MARKER name) - never show in listings
             if folder.name == ROOT_FOLDER_MARKER:
                 continue
-
-            is_root_request = (folder_id <= 1)  # 0 or 1 both mean root
 
             if is_root_request:
                 # Root level request - show top-level folders (parent_id=None or parent_id != self)

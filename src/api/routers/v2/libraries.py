@@ -306,6 +306,7 @@ async def list_libraries(session: Session = Depends(get_db_session)):
 
 
 @router.get("/library/{library_id}/info", response_model=LibraryInfo)
+@router.get("/library/{library_id}", response_model=LibraryInfo)
 async def get_library(library_id: int, session: Session = Depends(get_db_session)):
     """Get library by ID"""
     library = get_library_by_id(session, library_id)

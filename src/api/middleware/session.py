@@ -6,6 +6,7 @@ Sessions are tracked via the 'yacread_session' cookie.
 """
 
 import logging
+import time
 from typing import Optional
 from fastapi import Request, Response
 from starlette.middleware.base import BaseHTTPMiddleware
@@ -19,6 +20,7 @@ from ...database import (
     get_user_by_username,
     get_user_by_id,
 )
+from ...database.models import User
 from ...constants import DEFAULT_USER
 
 logger = logging.getLogger(__name__)
@@ -235,4 +237,19 @@ def get_request_user(request: Request, session):
     user_id = get_current_user_id(request)
     if user_id:
         return get_user_by_id(session, user_id)
-    return get_user_by_username(session, DEFAULT_USER)
+
+    user = get_user_by_username(session, DEFAULT_USER)
+    if user:
+        return user
+
+    user = User(
+        username=DEFAULT_USER,
+        password_hash='changeme',
+        is_admin=True,
+        is_active=True,
+        created_at=int(time.time())
+    )
+    session.add(user)
+    session.flush()
+    logger.info("Auto-created default admin user for request compatibility")
+    return user

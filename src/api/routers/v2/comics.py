@@ -415,6 +415,7 @@ async def get_comic_page_v2_nonremote(
 
 
 @router.get("/library/{library_id}/comic/{comic_id}/page/{page_num}/remote")
+@router.get("/library/{library_id}/comic/{comic_id}/remote/page/{page_num}")
 @handle_comic_archive_errors("Failed to extract comic page")
 async def get_comic_page_v2_remote(
     library_id: int,
@@ -453,12 +454,19 @@ async def get_comic_page_v2_remote(
         from ....scanner import open_comic
 
         # Open comic archive
+        if page_num < 0:
+            raise HTTPException(status_code=404, detail="Page not found")
+
         comic_path = Path(comic.path)
         logger.debug(f"[PAGE] Opening comic archive: {comic_path}")
         logger.debug(f"[PAGE] Archive exists: {comic_path.exists()}, is_file: {comic_path.is_file()}")
 
         try:
-            with open_comic(comic_path) as archive:
+            archive_obj = open_comic(comic_path)
+            if archive_obj is None:
+                raise HTTPException(status_code=404, detail="Page not found")
+
+            with archive_obj as archive:
                 if archive is None:
                     logger.error(f"[PAGE] Failed to open comic archive: {comic_path}")
                     raise HTTPException(status_code=500, detail="Failed to open comic")
@@ -599,6 +607,101 @@ async def update_comic_progress_v2(
             "total_pages": progress.total_pages,
             "progress_percent": progress.progress_percent,
             "is_completed": progress.is_completed
+        })
+
+
+@router.get("/library/{library_id}/comic/{comic_id}/progress")
+async def get_comic_progress_v2(
+    library_id: int,
+    comic_id: int,
+    request: Request
+):
+    """Get reading progress for a comic (v2 JSON compatibility endpoint)."""
+    db = request.app.state.db
+
+    with db.get_session() as session:
+        library = get_library_by_id(session, library_id)
+        if not library:
+            raise HTTPException(status_code=404, detail="Library not found")
+
+        comic = get_comic_by_id(session, comic_id)
+        if not comic:
+            raise HTTPException(status_code=404, detail="Comic not found")
+
+        user = get_request_user(request, session)
+        if not user:
+            raise HTTPException(status_code=404, detail="User not found")
+
+        progress = get_reading_progress(session, user.id, comic_id)
+        if not progress:
+            raise HTTPException(status_code=404, detail="Reading progress not found")
+
+        return JSONResponse({
+            "current_page": progress.current_page,
+            "total_pages": progress.total_pages,
+            "progress_percent": progress.progress_percent,
+            "is_completed": progress.is_completed,
+            "last_read_at": progress.last_read_at,
+        })
+
+
+@router.post("/library/{library_id}/comic/{comic_id}/progress")
+async def update_comic_progress_v2_json(
+    library_id: int,
+    comic_id: int,
+    request: Request
+):
+    """Update reading progress from JSON payload for compatibility with tests/clients."""
+    try:
+        payload = await request.json()
+    except Exception:
+        raise HTTPException(status_code=422, detail="Invalid JSON body")
+
+    if not isinstance(payload, dict):
+        raise HTTPException(status_code=422, detail="Invalid JSON body")
+
+    if "current_page" not in payload:
+        raise HTTPException(status_code=422, detail="current_page is required")
+
+    try:
+        current_page = int(payload.get("current_page"))
+    except (TypeError, ValueError):
+        raise HTTPException(status_code=422, detail="current_page must be an integer")
+
+    db = request.app.state.db
+    with db.get_session() as session:
+        library = get_library_by_id(session, library_id)
+        if not library:
+            raise HTTPException(status_code=404, detail="Library not found")
+
+        comic = get_comic_by_id(session, comic_id)
+        if not comic:
+            raise HTTPException(status_code=404, detail="Comic not found")
+
+        user = get_request_user(request, session)
+        if not user:
+            raise HTTPException(status_code=404, detail="User not found")
+
+        total_pages = payload.get("total_pages") or comic.num_pages
+        try:
+            total_pages = int(total_pages)
+        except (TypeError, ValueError):
+            total_pages = comic.num_pages
+
+        progress = update_reading_progress(
+            session,
+            user.id,
+            comic_id,
+            current_page,
+            total_pages
+        )
+
+        return JSONResponse({
+            "success": True,
+            "current_page": progress.current_page,
+            "total_pages": progress.total_pages,
+            "progress_percent": progress.progress_percent,
+            "is_completed": progress.is_completed,
         })
 
 

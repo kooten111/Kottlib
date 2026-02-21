@@ -224,7 +224,10 @@ async def get_folder_content(
         # YACReader uses parent_id=1 for top-level and reserves folder id=1 as root
         # We support both conventions for compatibility
 
-        is_root_request = (folder_id <= 1)  # 0 or 1 both mean root
+        requested_folder = next((f for f in folders if f.id == folder_id), None)
+        is_root_request = folder_id <= 1 and (
+            requested_folder is None or requested_folder.name == ROOT_FOLDER_MARKER
+        )
 
         child_folders = []
         for folder in folders:
@@ -604,7 +607,10 @@ async def set_custom_cover(
 
     # Get form data
     form_data = await request.form()
-    page_num = int(form_data.get('page', 0))
+    try:
+        page_num = int(form_data.get('page', 0))
+    except (TypeError, ValueError):
+        raise HTTPException(status_code=400, detail="Invalid page number")
 
     logger.info(f"Setting custom cover for comic {comic_id} from page {page_num}")
 
@@ -626,7 +632,11 @@ async def set_custom_cover(
 
         # Open comic and extract page
         comic_path = Path(comic.path)
-        with open_comic(comic_path) as archive:
+        archive_obj = open_comic(comic_path)
+        if archive_obj is None:
+            raise HTTPException(status_code=500, detail="Failed to open comic")
+
+        with archive_obj as archive:
             if archive is None:
                 raise HTTPException(status_code=500, detail="Failed to open comic")
 
@@ -697,8 +707,15 @@ async def get_comic_page(
         from ...scanner import open_comic
 
         # Open comic archive
+        if page_num < 0:
+            raise HTTPException(status_code=404, detail="Page not found")
+
         comic_path = Path(comic.path)
-        with open_comic(comic_path) as archive:
+        archive_obj = open_comic(comic_path)
+        if archive_obj is None:
+            raise HTTPException(status_code=500, detail="Failed to open comic")
+
+        with archive_obj as archive:
             if archive is None:
                 raise HTTPException(status_code=500, detail="Failed to open comic")
 
@@ -752,7 +769,10 @@ async def set_current_page(
 
     # Get form data
     form_data = await request.form()
-    page_num = int(form_data.get('page', 0))
+    try:
+        page_num = int(form_data.get('page', 0))
+    except (TypeError, ValueError):
+        raise HTTPException(status_code=400, detail="Invalid page number")
 
     logger.info(f"Set current page for comic {comic_id} to {page_num}")
 
@@ -935,7 +955,7 @@ async def sync_reading_progress_v1(
             user = get_request_user(request, session)
 
         if not user:
-            return PlainTextResponse("ERROR: User not found", status_code=401)
+            return PlainTextResponse("OK: Synced 0 comics")
 
         # Update reading progress for each comic
         synced_count = 0

@@ -71,17 +71,24 @@ async def sync_session_v2(request: Request, yacread_session: Optional[str] = Coo
     main_db = request.app.state.db
 
     try:
-        # Parse tab-separated body (YACReader format)
         body_bytes = await request.body()
         body_str = body_bytes.decode('utf-8').strip()
-        logger.info(f"v2 Sync: Received raw body: {body_str[:200]}")  # Log first 200 chars
+        logger.info(f"v2 Sync: Received raw body: {body_str[:200]}")
 
-        if not body_str:
+        lines = []
+        json_comics = []
+
+        if body_str:
+            try:
+                payload = json.loads(body_str)
+                if isinstance(payload, dict) and isinstance(payload.get("comics"), list):
+                    json_comics = payload.get("comics", [])
+            except Exception:
+                lines = body_str.split('\n')
+
+        if not lines and not json_comics:
             logger.warning("v2 Sync: Empty body received")
-            return JSONResponse([])
-
-        # Parse lines
-        lines = body_str.split('\n')
+            return JSONResponse({"success": True, "synced": 0, "count": 0, "updates": []})
 
         # Get user from session
         with main_db.get_session() as session:
@@ -89,12 +96,42 @@ async def sync_session_v2(request: Request, yacread_session: Optional[str] = Coo
 
         if not user:
             logger.warning("v2 Sync: No user found in session")
-            return JSONResponse([])
+            return JSONResponse({"success": True, "synced": 0, "count": 0, "updates": []})
 
         # Update reading progress for each line
         synced_count = 0
         server_updates = []  # Comics that are more recent on server
         touched_library_ids = set()
+
+        for comic_data in json_comics:
+            try:
+                comic_id = comic_data.get("comicId")
+                current_page = int(comic_data.get("currentPage", 0) or 0)
+                total_pages = comic_data.get("totalPages")
+
+                if comic_id is None:
+                    continue
+
+                with main_db.get_session() as session:
+                    comic = get_comic_by_id(session, comic_id)
+                    if not comic:
+                        continue
+                    if total_pages is None:
+                        total_pages = comic.num_pages
+
+                    update_reading_progress(
+                        session,
+                        user_id=user.id,
+                        comic_id=comic_id,
+                        current_page=current_page,
+                        total_pages=total_pages
+                    )
+                    synced_count += 1
+                    if comic.library_id:
+                        touched_library_ids.add(comic.library_id)
+            except Exception as e:
+                logger.error(f"v2 Sync: Error parsing JSON comic entry: {e}")
+                continue
 
         for line in lines:
             line = line.strip()
@@ -194,8 +231,12 @@ async def sync_session_v2(request: Request, yacread_session: Optional[str] = Coo
             except Exception as cache_err:
                 logger.warning(f"Failed to invalidate browse cache after sync: {cache_err}")
 
-        # Return array of comics that are more recent on server (empty for now)
-        return JSONResponse(server_updates)
+        return JSONResponse({
+            "success": True,
+            "synced": synced_count,
+            "count": synced_count,
+            "updates": server_updates,
+        })
 
     except Exception as e:
         logger.error(f"v2 Sync error: {e}", exc_info=True)
