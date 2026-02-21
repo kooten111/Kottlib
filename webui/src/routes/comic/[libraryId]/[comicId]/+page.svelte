@@ -66,12 +66,6 @@
 		comicId,
 	};
 
-	function handleViewChange(e) {
-		const view = e.detail;
-		if (view === "favorites") goto("/favorites");
-		else if (view === "continue") goto("/continue-reading");
-	}
-
 	// Prepare item for DetailHeader (mimic series structure)
 	$: itemForHeader = comic
 		? {
@@ -134,8 +128,6 @@
 			{libraries}
 			{seriesTree}
 			{currentFilter}
-			currentView="home"
-			on:viewChange={handleViewChange}
 		/>
 
 		<!-- Main Content -->

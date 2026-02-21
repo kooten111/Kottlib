@@ -1,5 +1,4 @@
 <script>
-	import { createEventDispatcher } from "svelte";
 	import {
 		Library,
 		FolderOpen,
@@ -13,11 +12,10 @@
 	import SeriesTreeNode from "./SeriesTreeNode.svelte";
 	import { treeExpandedNodes } from "$stores/library";
 	import { uiStore } from "$stores/ui";
+	import { page } from "$app/stores";
 
 	import { goto } from "$app/navigation";
 	import { browser } from "$app/environment";
-
-	const dispatch = createEventDispatcher();
 
 	// Resize state - read from localStorage synchronously to prevent FOUC
 	let sidebarWidth = browser
@@ -55,7 +53,13 @@
 	export let libraries = [];
 	export let seriesTree = [];
 	export let currentFilter = null;
-	export let currentView = "home"; // 'home', 'favorites', 'continue'
+
+	// Derive current view from URL path
+	$: currentView = $page.url.pathname.startsWith('/favorites')
+		? 'favorites'
+		: $page.url.pathname.startsWith('/continue-reading')
+			? 'continue'
+			: 'home';
 
 	$: visibleLibraries = libraries.filter((lib) => !lib.exclude_from_webui);
 
@@ -111,11 +115,27 @@
 	}
 
 	function handleAllLibrariesClick() {
-		goto("/");
+		goto("/library/all/browse");
 	}
 
 	function handleViewChange(view) {
-		dispatch("viewChange", view);
+		if (view === 'favorites') {
+			goto('/favorites');
+		} else if (view === 'continue') {
+			goto('/continue-reading');
+		}
+	}
+
+	function handleSelect(event) {
+		// Forward selection to parent - navigate via goto
+		const { node } = event.detail;
+		if (node.type === "folder" && node.libraryId) {
+			const encodedPath = node.path
+				? node.path.split('/').map(s => encodeURIComponent(s)).join('/')
+				: '';
+			goto(`/library/${node.libraryId}/browse/${encodedPath}`);
+			closeSidebarOnMobile();
+		}
 	}
 
 	// Forward events from SeriesTreeNode
@@ -140,25 +160,7 @@
 		});
 	}
 
-	function handleSelect(event) {
-		// Forward selection to parent
-		const { node } = event.detail;
-		if (node.type === "folder") {
-			dispatch("filter", {
-				type: "folder",
-				libraryId: node.libraryId,
-				folderId: node.folderId,
-				folderName: node.name,
-			});
-		} else if (node.type === "comic") {
-			dispatch("filter", {
-				type: "comic",
-				libraryId: node.libraryId,
-				comicId: node.id,
-				comicName: node.name,
-			});
-		}
-	}
+
 
 	$: isExpanded = (nodeId) => $treeExpandedNodes.has(nodeId);
 

@@ -20,18 +20,16 @@
         Loader2,
         SlidersHorizontal,
     } from "lucide-svelte";
-    import { browseLibrary, getContinueReading } from "$lib/api/libraries";
+    import { browseLibrary, browseAllLibraries, getContinueReading } from "$lib/api/libraries";
     import { preferencesStore } from "$lib/stores/preferences";
     import { scanSeries, applySeriesMetadata } from "$lib/api/scanners";
 
-    function handleViewChange(e) {
-        const view = e.detail;
-        if (view === "favorites") goto("/favorites");
-        else if (view === "continue") goto("/continue-reading");
-    }
     import { X, ExternalLink, Check } from "lucide-svelte";
 
     export let data;
+
+    // Determine if we're in "all libraries" mode
+    $: isAllLibraries = data.libraryId === 'all';
 
     $: browseData = data.browseData;
     $: libraryId = data.libraryId;
@@ -42,18 +40,20 @@
     $: libraries = data.libraries || [];
     $: seriesTree = data.seriesTree || [];
 
+    // Continue reading (server-loaded for all-libraries, client-fetched for single library)
+    $: serverContinueReading = data.continueReading || [];
+    let clientContinueReading = [];
+    let loadingContinueReading = false;
+    $: continueReadingItems = isAllLibraries ? serverContinueReading : clientContinueReading;
+
     $: folder = browseData?.folder;
     $: comic = browseData?.comic;
-    $: isComicView = browseData?.is_comic_view;
+    $: isComicView = !isAllLibraries && browseData?.is_comic_view;
     $: library = browseData?.library;
     $: breadcrumbs = browseData?.breadcrumbs || [];
     // Unified Items List (Pagination Support)
     $: initialItems = browseData?.items || [];
     $: totalItems = browseData?.total || 0;
-
-    // Continue Reading Data
-    let continueReadingItems = [];
-    let loadingContinueReading = false;
 
     // Local state for items to support appending (infinite scroll)
     let items = [];
@@ -171,24 +171,25 @@
                 prefetchNextPage();
             });
         }
-        if (browser) {
+        // Only fetch continue reading client-side for single-library mode
+        if (browser && !isAllLibraries) {
             fetchContinueReading();
         }
     }
 
     async function fetchContinueReading() {
         // Only fetch reading list at root of library
-        if (currentPath === "") {
+        if (currentPath === "" && !isAllLibraries) {
             loadingContinueReading = true;
             try {
-                continueReadingItems = await getContinueReading(libraryId);
+                clientContinueReading = await getContinueReading(libraryId);
             } catch (e) {
                 console.error("Failed to fetch continue reading:", e);
             } finally {
                 loadingContinueReading = false;
             }
         } else {
-            continueReadingItems = [];
+            clientContinueReading = [];
         }
     }
 
@@ -196,7 +197,9 @@
     $: hasContent = items.length > 0;
 
     // Construct currentFilter for sidebar highlighting
-    $: currentFilter = folder
+    $: currentFilter = isAllLibraries
+        ? { type: "all" }
+        : folder
         ? {
               type: "folder",
               libraryId,
@@ -206,13 +209,14 @@
         : { type: "library", libraryId, libraryName: library?.name };
 
     // Initial setup for preferences
-    // Initial setup for preferences
-    // Derive sortBy from URL or fall back to store (but ideally URL drives everything)
-    // We use a reactive statement to keep it in sync with URL
-    $: sortBy =
-        $page.url.searchParams.get("sort") ||
-        $preferencesStore.librarySortBy?.[libraryId] ||
-        "name";
+    // Derive sortBy from URL or fall back to store
+    $: sortBy = isAllLibraries
+        ? ($page.url.searchParams.get("sort") ||
+           $preferencesStore.sortBy ||
+           "name")
+        : ($page.url.searchParams.get("sort") ||
+           $preferencesStore.librarySortBy?.[libraryId] ||
+           "name");
 
     let showSizeSlider = false;
     let showSortDropdown = false;
@@ -232,10 +236,11 @@
     // Reactive: Check sort when libraryId changes (handles navigation between libraries)
     $: if (browser && libraryId) {
         const urlSort = $page.url.searchParams.get("sort");
-        const storeSort = $preferencesStore.librarySortBy?.[libraryId];
+        const storeSort = isAllLibraries
+            ? $preferencesStore.sortBy
+            : $preferencesStore.librarySortBy?.[libraryId];
 
         // Only apply if URL is missing sort but store has one
-        // And ensure we are at the root of the library (optional, depending on requirements, but safe)
         if (!urlSort && storeSort && storeSort !== "name") {
             const url = new URL(window.location.href);
             url.searchParams.set("sort", storeSort);
@@ -250,9 +255,13 @@
 
     // Function to apply sorting - now just updates URL
     async function applySorting(newSort) {
-        // Save preference
+        // Save preference (global for all-libraries, per-library otherwise)
         if (newSort) {
-            preferencesStore.setSortBy(newSort, libraryId);
+            if (isAllLibraries) {
+                preferencesStore.setSortBy(newSort);
+            } else {
+                preferencesStore.setSortBy(newSort, libraryId);
+            }
         }
 
         const targetSort = newSort || sortBy;
@@ -286,21 +295,22 @@
     $: viewMode = $preferencesStore.viewMode;
 
     // Determine if we should show the two-column series layout (defined early for gridCoverSize default)
-    $: isSeriesView = !!folder && currentPath !== "" && !isComicView;
+    $: isSeriesView = !isAllLibraries && !!folder && currentPath !== "" && !isComicView;
 
     // Reactive cover size that checks folder-specific preference first, then falls back to global
-    // Uses data prop directly to ensure we always have the latest values
     $: gridCoverSize = (() => {
+        if (isAllLibraries) {
+            return $preferencesStore.gridCoverSize || 1.4;
+        }
         const libId = data.libraryId;
         const path = data.currentPath || "";
         const key = `${libId}:${path}`;
 
-        // Check if store has folder-specific value (this updates when user changes slider)
+        // Check if store has folder-specific value
         const storeSpecific = $preferencesStore.folderCoverSizes?.[key];
         if (storeSpecific !== undefined) return storeSpecific;
 
         // Fall back to global cover size from store
-        // Default to 2.0 (200%) for series view, 1.0 for other views
         const defaultSize = isSeriesView ? 2.0 : 1.0;
         return $preferencesStore.gridCoverSize || defaultSize;
     })();
@@ -314,16 +324,18 @@
     }
 
     // Compute breadcrumb items for the component
-    $: breadcrumbItems = [
-        {
-            label: library?.name || "Library",
-            href: `/library/${libraryId}/browse`,
-        },
-        ...breadcrumbs.map((b, i) => ({
-            label: b.name,
-            href: `/library/${libraryId}/browse/${encodePath(b.path)}`,
-        })),
-    ];
+    $: breadcrumbItems = isAllLibraries
+        ? [{ label: "All Libraries", href: "/library/all/browse" }]
+        : [
+            {
+                label: library?.name || "Library",
+                href: `/library/${libraryId}/browse`,
+            },
+            ...breadcrumbs.map((b, i) => ({
+                label: b.name,
+                href: `/library/${libraryId}/browse/${encodePath(b.path)}`,
+            })),
+        ];
 
     // Helper to encode path segments for URL (handles special chars like %, #, etc.)
     function encodePath(path) {
@@ -335,12 +347,24 @@
     }
 
     function handleFolderClick(item) {
-        // Navigate to subfolder
-        const rawPath =
-            item.path ||
-            (currentPath ? `${currentPath}/${item.name}` : item.name);
-
-        goto(`/library/${libraryId}/browse/${encodePath(rawPath)}`);
+        if (isAllLibraries) {
+            // In all-libraries mode, navigate to the specific library
+            const itemLibraryId = item.library_id;
+            if (item.type === "collection" || item.type === "series") {
+                const path = item.path || item.name;
+                const encodedPath = path
+                    .split("/")
+                    .map((segment) => encodeURIComponent(segment))
+                    .join("/");
+                goto(`/library/${itemLibraryId}/browse/${encodedPath}`);
+            }
+        } else {
+            // Navigate to subfolder within same library
+            const rawPath =
+                item.path ||
+                (currentPath ? `${currentPath}/${item.name}` : item.name);
+            goto(`/library/${libraryId}/browse/${encodePath(rawPath)}`);
+        }
     }
 
     function handleComicSelect(item) {
@@ -369,6 +393,9 @@
     }
 
     async function fetchBrowsePage(offset) {
+        if (isAllLibraries) {
+            return browseAllLibraries(sortBy, offset, limit, randomSeed);
+        }
         const pathArg = currentPath || "";
         return browseLibrary(
             libraryId,
@@ -495,8 +522,6 @@
             {libraries}
             {seriesTree}
             {currentFilter}
-            currentView="home"
-            on:viewChange={handleViewChange}
         />
 
         <!-- Main Content -->
@@ -512,9 +537,9 @@
                             {error}
                         </p>
                         <a
-                            href="/library/{libraryId}/browse"
+                            href={isAllLibraries ? "/library/all/browse" : `/library/${libraryId}/browse`}
                             class="px-4 py-2 bg-[var(--color-bg-secondary)] rounded hover:bg-[var(--color-bg-tertiary)] transition"
-                            >Return to Library Root</a
+                            >{isAllLibraries ? "Reload" : "Return to Library Root"}</a
                         >
                     </div>
                 {:else if browseData}
@@ -523,8 +548,8 @@
                         <Breadcrumbs items={breadcrumbItems} />
                     </div>
 
-                    <!-- Continue Reading (Only at root) -->
-                    {#if currentPath === "" && continueReadingItems.length > 0}
+                    <!-- Continue Reading (at root for both modes) -->
+                    {#if (isAllLibraries || currentPath === "") && continueReadingItems.length > 0}
                         <div class="mb-10">
                             <div class="flex items-center gap-2 mb-4 px-1">
                                 <BookOpen
@@ -540,9 +565,9 @@
                                     <div class="w-[160px] flex-none">
                                         <ComicCard
                                             comic={item}
-                                            {libraryId}
+                                            libraryId={item.library_id || libraryId}
                                             variant="grid"
-                                            href={`/comic/${libraryId}/${item.id}/read`}
+                                            href={`/comic/${item.library_id || libraryId}/${item.id}/read`}
                                         />
                                     </div>
                                 {/each}
@@ -966,12 +991,17 @@
                                         max="2.0"
                                         step="0.1"
                                         value={gridCoverSize}
-                                        on:input={(e) =>
-                                            preferencesStore.setFolderCoverSize(
-                                                parseFloat(e.target.value),
-                                                libraryId,
-                                                currentPath,
-                                            )}
+                                        on:input={(e) => {
+                                            if (isAllLibraries) {
+                                                preferencesStore.setGridCoverSize(parseFloat(e.target.value));
+                                            } else {
+                                                preferencesStore.setFolderCoverSize(
+                                                    parseFloat(e.target.value),
+                                                    libraryId,
+                                                    currentPath,
+                                                );
+                                            }
+                                        }}
                                         class="flex-1 accent-[var(--color-accent)] cursor-pointer"
                                     />
                                 </div>
@@ -1006,7 +1036,7 @@
                                 class="flex flex-col items-center justify-center py-20 text-[var(--color-text-muted)]"
                             >
                                 <FolderOpen size={48} class="mb-4 opacity-20" />
-                                <p>This folder is empty</p>
+                                <p>{isAllLibraries ? "No content available" : "This folder is empty"}</p>
                             </div>
                         {:else}
                             <div
@@ -1024,7 +1054,7 @@
                                     {#if item.type === "collection" || item.type === "series"}
                                         <FolderCard
                                             {item}
-                                            {libraryId}
+                                            libraryId={isAllLibraries ? item.library_id : libraryId}
                                             on:click={() =>
                                                 handleFolderClick(item)}
                                             {viewMode}
@@ -1032,11 +1062,13 @@
                                     {:else if item.type === "comic"}
                                         <ComicCard
                                             comic={item}
-                                            {libraryId}
+                                            libraryId={isAllLibraries ? item.library_id : libraryId}
                                             variant={viewMode}
-                                            href={currentPath === ""
-                                                ? `/library/${libraryId}/browse/${encodePath(item.name)}`
-                                                : `/comic/${libraryId}/${item.id}/read`}
+                                            href={isAllLibraries
+                                                ? `/comic/${item.library_id}/${item.id}/read`
+                                                : currentPath === ""
+                                                    ? `/library/${libraryId}/browse/${encodePath(item.name)}`
+                                                    : `/comic/${libraryId}/${item.id}/read`}
                                         />
                                     {/if}
                                 {/each}

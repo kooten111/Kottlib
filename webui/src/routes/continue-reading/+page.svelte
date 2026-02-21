@@ -1,16 +1,19 @@
 <script>
 	import { onMount } from "svelte";
 	import Navbar from "$lib/components/layout/Navbar.svelte";
+	import HomeSidebar from "$lib/components/layout/HomeSidebar.svelte";
 	import ComicCard from "$lib/components/comic/ComicCard.svelte";
 	import {
 		getLibraries,
 		getContinueReading,
 		getContinueReadingAll,
+		getLibrariesSeriesTree,
 	} from "$lib/api/libraries";
 	import { BookOpen, Grid, List, SortAsc } from "lucide-svelte";
 	import { navigationContext } from "$lib/stores/library";
 
 	let libraries = [];
+	let seriesTree = [];
 	let continueReading = [];
 	let filteredContinueReading = [];
 	let isLoading = true;
@@ -25,12 +28,25 @@
 	});
 
 	onMount(async () => {
-		await loadContinueReading();
+		await Promise.all([loadContinueReading(), loadSidebarData()]);
 
 		return () => {
 			unsubscribeContext();
 		};
 	});
+
+	async function loadSidebarData() {
+		try {
+			const [libs, tree] = await Promise.all([
+				getLibraries(),
+				getLibrariesSeriesTree()
+			]);
+			libraries = libs || [];
+			seriesTree = tree || [];
+		} catch (err) {
+			console.error('Failed to load sidebar data:', err);
+		}
+	}
 
 	// Reactively apply filter when context or data changes
 	$: if (continueReading.length > 0 && currentContext) {
@@ -210,10 +226,18 @@
 	<title>Continue Reading - Kottlib</title>
 </svelte:head>
 
-<div class="flex flex-col min-h-screen">
+<div class="h-screen flex flex-col overflow-hidden bg-[var(--color-bg)] text-[var(--color-text)]">
 	<Navbar />
 
-	<main class="flex-1 container mx-auto px-4 py-8 max-w-content">
+	<div class="flex-1 flex overflow-hidden">
+		<HomeSidebar
+			{libraries}
+			{seriesTree}
+			currentFilter={{ type: 'continue' }}
+		/>
+
+		<main class="flex-1 overflow-y-auto px-4 pb-8 scrollbar-thin scrollbar-thumb-[var(--color-border)] scrollbar-track-transparent">
+			<div class="w-full pt-4">
 		<!-- Page Header -->
 		<div class="page-header">
 			<div class="header-title-section">
@@ -319,7 +343,9 @@
 				{/if}
 			</div>
 		{/if}
-	</main>
+			</div>
+		</main>
+	</div>
 </div>
 
 <style>
