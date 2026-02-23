@@ -34,8 +34,6 @@ webui/
 │   │   ├── browse/             # Global browse
 │   │   │   └── +page.server.js
 │   │   ├── comic/[libraryId]/[comicId]/
-│   │   │   ├── +page.svelte         # Comic detail
-│   │   │   ├── +page.server.js
 │   │   │   └── read/+page.svelte    # Comic reader
 │   │   ├── library/[libraryId]/browse/[...path]/
 │   │   │   ├── +page.svelte         # Library folder browser
@@ -103,26 +101,6 @@ webui/
 **Route Parameters:**
 - `libraryId` — Library ID
 - `...path` — Nested folder path (catch-all)
-
----
-
-### `/comic/[libraryId]/[comicId]/` — Comic Detail
-
-**Files:**
-- `+page.svelte` — Comic detail page
-- `+page.server.js` — SSR data loading
-
-**Features:**
-- Full metadata display
-- Cover art
-- Add/remove favorites
-- Reading progress
-- Scanner metadata display
-- Navigate to reader
-
-**Route Parameters:**
-- `libraryId` — Library ID
-- `comicId` — Comic ID
 
 ---
 

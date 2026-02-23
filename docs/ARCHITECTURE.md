@@ -321,7 +321,7 @@ Kottlib/
 │   │   │   ├── +page.svelte    # Home/Library browser
 │   │   │   ├── admin/          # Admin dashboard
 │   │   │   ├── browse/         # Global browse
-│   │   │   ├── comic/[libraryId]/[comicId]/  # Comic detail & reader
+│   │   │   ├── comic/[libraryId]/[comicId]/  # Comic reader
 │   │   │   ├── library/[libraryId]/browse/   # Library browser
 │   │   │   ├── series/[libraryId]/[seriesName]/  # Series browser
 │   │   │   ├── search/         # Search interface
