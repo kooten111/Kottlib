@@ -29,7 +29,7 @@
 		"Untitled";
 	$: actualItemCount = itemCount || comic.itemCount || comic.item_count || 0;
 	// Always link directly to the reader
-	$: cardHref = href !== null ? (href || `/comic/${libraryId}/${comic.id}/read`) : null;
+	$: cardHref = href || `/comic/${libraryId}/${comic.id}/read`;
 </script>
 
 {#if noLink}

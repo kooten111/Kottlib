@@ -313,6 +313,7 @@
 						libraryId={comic.libraryId}
 						variant={viewMode}
 						showProgress={true}
+						href={`/comic/${comic.libraryId}/${comic.id}/read`}
 					/>
 				{/each}
 			</div>
