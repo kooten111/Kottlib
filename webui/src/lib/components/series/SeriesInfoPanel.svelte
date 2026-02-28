@@ -27,9 +27,12 @@
         Scan,
     } from "lucide-svelte";
     import { getCoverUrl } from "$lib/api/comics";
+    import { addFavorite, removeFavorite, isFavorite } from "$lib/api/favorites";
+    import AddToListModal from "$lib/components/common/AddToListModal.svelte";
     import GenreTag from "$lib/components/common/GenreTag.svelte";
     import { scanComic, applyComicMetadata } from "$lib/api/scanners";
     import { goto } from "$app/navigation";
+    import { onMount } from "svelte";
     import { X, ExternalLink, Check, Loader2 } from "lucide-svelte";
 
     export let item; // Series/folder data
@@ -42,6 +45,7 @@
     // Per-volume metadata mode props
     export let perVolumeMetadata = false;
     export let selectedComicId = null;
+    export let firstComicId = null; // First comic ID for favorites (passed from parent)
 
     // Comic scanning state (for per-volume mode)
     let isScanningComic = false;
@@ -53,6 +57,52 @@
 
     // Track if a specific comic is selected (used for per-volume mode)
     $: hasSelectedComic = selectedComicId !== null;
+
+    // Favorites state
+    let isFav = false;
+    let favLoading = false;
+    let showListModal = false;
+
+    // Get the comic ID for favorite operations
+    // For per-volume mode: use selectedComicId (a real comic ID)
+    // For series mode: use firstComicId prop (a real comic ID from items)
+    $: favoriteComicId = perVolumeMetadata && selectedComicId
+        ? selectedComicId
+        : firstComicId || null;
+
+    // Check favorite status when comic changes
+    onMount(async () => {
+        if (favoriteComicId) {
+            isFav = await isFavorite(favoriteComicId);
+        }
+    });
+
+    $: if (favoriteComicId) {
+        checkFavoriteStatus(favoriteComicId);
+    }
+
+    async function checkFavoriteStatus(comicId) {
+        if (!comicId) return;
+        isFav = await isFavorite(comicId);
+    }
+
+    async function toggleFavorite() {
+        if (!favoriteComicId || favLoading) return;
+        try {
+            favLoading = true;
+            if (isFav) {
+                await removeFavorite(favoriteComicId);
+                isFav = false;
+            } else {
+                await addFavorite(favoriteComicId);
+                isFav = true;
+            }
+        } catch (err) {
+            console.error('Failed to toggle favorite:', err);
+        } finally {
+            favLoading = false;
+        }
+    }
 
     let synopsisExpanded = false;
 
@@ -284,16 +334,15 @@
                     <BookOpen class="icon" />
                     <span>Read</span>
                 </button>
-            {:else}
-                <button class="btn-action">
-                    <Heart class="icon" />
-                    <span>Favorite</span>
-                </button>
-                <button class="btn-action">
-                    <Bookmark class="icon" />
-                    <span>Add to List</span>
-                </button>
             {/if}
+            <button class="btn-action" class:is-favorite={isFav} on:click={toggleFavorite} disabled={favLoading || !favoriteComicId}>
+                <Heart class="icon" fill={isFav ? "currentColor" : "none"} />
+                <span>{isFav ? 'Favorited' : 'Favorite'}</span>
+            </button>
+            <button class="btn-action" on:click={() => showListModal = true} disabled={!favoriteComicId}>
+                <Bookmark class="icon" />
+                <span>Add to List</span>
+            </button>
         </div>
 
         <!-- Synopsis -->
@@ -717,6 +766,12 @@
     </div>
 {/if}
 
+<AddToListModal
+    {libraryId}
+    comicId={favoriteComicId}
+    bind:show={showListModal}
+/>
+
 <style>
     .series-info-panel {
         position: relative;
@@ -900,6 +955,21 @@
     .btn-action :global(.icon) {
         width: 0.875rem;
         height: 0.875rem;
+    }
+
+    .btn-action.is-favorite {
+        background: rgba(239, 68, 68, 0.15);
+        border-color: rgba(239, 68, 68, 0.4);
+        color: #ef4444;
+    }
+
+    .btn-action.is-favorite:hover {
+        background: rgba(239, 68, 68, 0.25);
+    }
+
+    .btn-action:disabled {
+        opacity: 0.5;
+        cursor: not-allowed;
     }
 
     .btn-read {

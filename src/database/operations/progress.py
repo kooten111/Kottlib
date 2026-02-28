@@ -8,7 +8,7 @@ from typing import Optional, List
 
 from sqlalchemy.orm import Session
 
-from ..models import ReadingProgress, Comic
+from ..models import ReadingProgress, Comic, Library
 
 
 logger = logging.getLogger(__name__)
@@ -113,9 +113,12 @@ def get_continue_reading(
     """
     results = session.query(ReadingProgress, Comic).join(
         Comic, ReadingProgress.comic_id == Comic.id
+    ).join(
+        Library, Comic.library_id == Library.id
     ).filter(
         ReadingProgress.user_id == user_id,
-        ReadingProgress.is_completed == False  # Only in-progress comics
+        ReadingProgress.is_completed == False,  # Only in-progress comics
+        (Library.exclude_from_webui == 0) | (Library.exclude_from_webui == None)
     ).order_by(
         ReadingProgress.last_read_at.desc()
     ).limit(limit).all()
@@ -141,9 +144,12 @@ def get_recently_completed(
     """
     results = session.query(ReadingProgress, Comic).join(
         Comic, ReadingProgress.comic_id == Comic.id
+    ).join(
+        Library, Comic.library_id == Library.id
     ).filter(
         ReadingProgress.user_id == user_id,
-        ReadingProgress.is_completed == True
+        ReadingProgress.is_completed == True,
+        (Library.exclude_from_webui == 0) | (Library.exclude_from_webui == None)
     ).order_by(
         ReadingProgress.completed_at.desc()
     ).limit(limit).all()

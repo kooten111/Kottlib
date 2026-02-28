@@ -34,6 +34,7 @@ from ....database import (
     create_reading_list,
     get_reading_list_by_id,
     get_reading_lists_in_library,
+    update_reading_list,
     delete_reading_list,
     add_comic_to_reading_list,
     remove_comic_from_reading_list,
@@ -85,6 +86,8 @@ async def get_favorites(request: Request):
                     "file_name": comic.filename,
                     "fileName": comic.filename,
                     "hash": comic.hash,
+                    "cover_hash": comic.hash,
+                    "coverHash": comic.hash,
                     "num_pages": comic.num_pages or 0,
                     "current_page": 0,
                     "series": comic.series,
@@ -154,6 +157,30 @@ async def remove_from_favorites(comic_id: int, request: Request):
 
         return JSONResponse({
             "success": True,
+            "comic_id": comic_id
+        })
+
+
+@router.get("/fav/{comic_id}/check")
+async def check_is_favorite(comic_id: int, request: Request):
+    """
+    Check if a comic is in the user's favorites (v2 API)
+
+    Returns whether the specified comic is in the current user's favorites.
+    """
+    db = request.app.state.db
+
+    with db.get_session() as session:
+        # Get current user or fallback to admin
+        user = get_request_user(request, session)
+
+        if not user:
+            raise HTTPException(status_code=401, detail="User not found")
+
+        favorited = is_favorite(session, user.id, comic_id)
+
+        return JSONResponse({
+            "isFavorite": favorited,
             "comic_id": comic_id
         })
 
@@ -424,17 +451,23 @@ async def get_reading_lists(library_id: int, request: Request):
         if not library:
             raise HTTPException(status_code=404, detail="Library not found")
 
-        # Get reading lists
-        reading_lists = get_reading_lists_in_library(session, library_id)
+        # Get reading lists for current user (includes their private + public lists)
+        user = get_request_user(request, session)
+        reading_lists = get_reading_lists_in_library(session, library_id, user_id=user.id if user else None)
 
         result = []
         for reading_list in reading_lists:
+            # Count comics in this reading list
+            comics = get_reading_list_comics(session, reading_list.id)
+            comic_count = len(comics) if comics else 0
+
             result.append({
                 "id": reading_list.id,
                 "name": reading_list.name,
                 "description": reading_list.description if hasattr(reading_list, 'description') else "",
                 "isPublic": reading_list.is_public if hasattr(reading_list, 'is_public') else False,
-                "libraryId": library_id
+                "libraryId": library_id,
+                "comicCount": comic_count
             })
 
         return JSONResponse(result)
@@ -478,9 +511,18 @@ async def get_reading_list_content(
                 result.append({
                     "id": comic.id,
                     "name": get_comic_display_name(comic),
+                    "title": get_comic_display_name(comic),
                     "fileName": comic.filename,
+                    "file_name": comic.filename,
                     "path": comic.path,
+                    "hash": comic.hash,
+                    "cover_hash": comic.hash,
+                    "coverHash": comic.hash,
+                    "series": comic.series,
+                    "year": comic.year,
+                    "num_pages": comic.num_pages or 0,
                     "libraryId": library_id,
+                    "library_id": library_id,
                     "folderId": comic.folder_id if comic.folder_id else 0
                 })
 
@@ -549,13 +591,17 @@ async def create_reading_list_endpoint(
         if not name:
             raise HTTPException(status_code=400, detail="Reading list name is required")
 
+        # Get current user for list ownership
+        user = get_request_user(request, session)
+
         # Create reading list
         reading_list = create_reading_list(
             session,
             library_id,
             name,
-            description,
-            is_public
+            user_id=user.id if user else None,
+            description=description,
+            is_public=is_public,
         )
 
         return JSONResponse({
@@ -596,6 +642,61 @@ async def delete_reading_list_endpoint(
         return JSONResponse({
             "success": True,
             "list_id": list_id
+        })
+
+
+@router.patch("/library/{library_id}/reading_list/{list_id}")
+async def update_reading_list_endpoint(
+    library_id: int,
+    list_id: int,
+    request: Request
+):
+    """
+    Update a reading list (v2 API)
+
+    Updates name, description, and/or public status for the specified reading list.
+    Accepts a JSON body with optional fields: name, description, is_public.
+    """
+    db = request.app.state.db
+
+    with db.get_session() as session:
+        # Verify library exists
+        library = get_library_by_id(session, library_id)
+        if not library:
+            raise HTTPException(status_code=404, detail="Library not found")
+
+        # Verify reading list exists
+        reading_list = get_reading_list_by_id(session, list_id)
+        if not reading_list:
+            raise HTTPException(status_code=404, detail="Reading list not found")
+
+        # Parse JSON body
+        try:
+            body = await request.json()
+        except Exception:
+            raise HTTPException(status_code=400, detail="Invalid JSON body")
+
+        name = body.get("name")
+        description = body.get("description")
+        is_public = body.get("is_public")
+
+        if name is not None and not name.strip():
+            raise HTTPException(status_code=400, detail="Name cannot be empty")
+
+        updated = update_reading_list(
+            session,
+            list_id,
+            name=name.strip() if name else None,
+            description=description,
+            is_public=is_public,
+        )
+
+        return JSONResponse({
+            "success": True,
+            "id": updated.id,
+            "name": updated.name,
+            "description": updated.description or "",
+            "isPublic": updated.is_public if hasattr(updated, 'is_public') else False,
         })
 
 

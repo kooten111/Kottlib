@@ -502,6 +502,9 @@
           }
         : null;
 
+    // Get the first comic ID from items for favorites/lists
+    $: firstComicId = items?.find(i => i.type === 'comic')?.id || null;
+
     // Initial setup for grid size
     $: if (isComicView) {
         // Comic view always grid, but maybe default to larger for single item?
@@ -592,6 +595,7 @@
                                     scanError={seriesScanError}
                                     {perVolumeMetadata}
                                     selectedComicId={selectedComic?.id}
+                                    {firstComicId}
                                 />
                             </aside>
 
@@ -840,6 +844,7 @@
                             <DetailHeader
                                 item={headerItem}
                                 {libraryId}
+                                {firstComicId}
                                 onBack={() => history.back()}
                                 showBack={true}
                                 onStartReading={isComicView

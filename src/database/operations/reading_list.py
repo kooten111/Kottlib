@@ -186,6 +186,43 @@ def remove_comic_from_reading_list(session: Session, list_id: int, comic_id: int
     return False
 
 
+def update_reading_list(
+    session: Session,
+    list_id: int,
+    name: Optional[str] = None,
+    description: Optional[str] = None,
+    is_public: Optional[bool] = None
+) -> Optional[ReadingList]:
+    """
+    Update a reading list's name, description, or public status.
+
+    Args:
+        session: Database session
+        list_id: Reading list ID
+        name: New name (optional)
+        description: New description (optional)
+        is_public: New public status (optional)
+
+    Returns:
+        Updated ReadingList object, or None if not found
+    """
+    reading_list = get_reading_list_by_id(session, list_id)
+    if not reading_list:
+        return None
+
+    if name is not None:
+        reading_list.name = name
+    if description is not None:
+        reading_list.description = description
+    if is_public is not None:
+        reading_list.is_public = is_public
+
+    reading_list.updated_at = int(time.time())
+    session.flush()
+    logger.debug(f"Updated reading list: id={list_id}")
+    return reading_list
+
+
 def get_reading_list_comics(session: Session, list_id: int) -> List[Comic]:
     """
     Get all comics in a reading list (ordered by position).

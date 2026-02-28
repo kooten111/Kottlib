@@ -173,6 +173,18 @@ class APIClient {
 		return result;
 	}
 
+	async patch(endpoint, data, options = {}) {
+		const result = await this.request(endpoint, {
+			...options,
+			method: 'PATCH',
+			body: JSON.stringify(data)
+		});
+
+		// Invalidate cache for library endpoints after PATCH
+		await this._invalidateRelatedCache(endpoint);
+		return result;
+	}
+
 	async delete(endpoint, options = {}) {
 		const result = await this.request(endpoint, { ...options, method: 'DELETE' });
 
@@ -195,6 +207,11 @@ class APIClient {
 		if (endpoint.includes('/series')) {
 			await clearCachePattern('v2/series');
 			await clearCachePattern('v2/libraries/series-tree');
+		}
+
+		// If reading list was modified, clear reading list caches
+		if (endpoint.includes('/reading_list')) {
+			await clearCachePattern('reading_list');
 		}
 	}
 

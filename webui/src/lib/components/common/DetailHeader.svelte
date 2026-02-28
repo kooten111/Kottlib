@@ -27,16 +27,64 @@
         Book,
     } from "lucide-svelte";
     import { getCoverUrl } from "$lib/api/comics";
+    import { addFavorite, removeFavorite, isFavorite } from "$lib/api/favorites";
+    import AddToListModal from "./AddToListModal.svelte";
     import GenreTag from "./GenreTag.svelte";
     import StarRating from "./StarRating.svelte";
     import ProgressBar from "./ProgressBar.svelte";
+    import { onMount } from "svelte";
 
     export let item; // Series/collection/comic data
     export let libraryId;
     export let onBack = () => history.back();
     export let onStartReading = null;
+    export let firstComicId = null; // Comic ID for favorites (passed from parent)
 
     let expanded = false;
+    let isFav = false;
+    let favLoading = false;
+    let showListModal = false;
+
+    // Get the comic ID for favorites
+    // For comic view: use item.id directly
+    // For series view: use the firstComicId prop passed from parent
+    $: favoriteComicId = (item?.type === 'comic')
+        ? item?.id
+        : firstComicId || null;
+
+    // Check favorite status on mount and when item changes
+    onMount(async () => {
+        if (favoriteComicId) {
+            isFav = await isFavorite(favoriteComicId);
+        }
+    });
+
+    $: if (favoriteComicId) {
+        checkFavoriteStatus(favoriteComicId);
+    }
+
+    async function checkFavoriteStatus(comicId) {
+        if (!comicId) return;
+        isFav = await isFavorite(comicId);
+    }
+
+    async function toggleFavorite() {
+        if (!favoriteComicId || favLoading) return;
+        try {
+            favLoading = true;
+            if (isFav) {
+                await removeFavorite(favoriteComicId);
+                isFav = false;
+            } else {
+                await addFavorite(favoriteComicId);
+                isFav = true;
+            }
+        } catch (err) {
+            console.error('Failed to toggle favorite:', err);
+        } finally {
+            favLoading = false;
+        }
+    }
 
     // Computed values
     $: metadata = item?.metadata || item || {};
@@ -222,11 +270,11 @@
                             {buttonText}
                         </a>
                     {/if}
-                    <button class="btn-secondary">
-                        <Heart class="icon" />
-                        Favorite
+                    <button class="btn-secondary" class:is-favorite={isFav} on:click={toggleFavorite} disabled={favLoading || !favoriteComicId}>
+                        <Heart class="icon" fill={isFav ? "currentColor" : "none"} />
+                        {isFav ? 'Favorited' : 'Favorite'}
                     </button>
-                    <button class="btn-secondary">
+                    <button class="btn-secondary" on:click={() => showListModal = true} disabled={!favoriteComicId}>
                         <Bookmark class="icon" />
                         Add to List
                     </button>
@@ -308,6 +356,12 @@
         {/if}
     </div>
 </div>
+
+<AddToListModal
+    {libraryId}
+    comicId={favoriteComicId}
+    bind:show={showListModal}
+/>
 
 <style>
     .detail-header {
@@ -581,6 +635,21 @@
     .btn-secondary :global(.icon) {
         width: 1rem;
         height: 1rem;
+    }
+
+    .btn-secondary.is-favorite {
+        background: rgba(239, 68, 68, 0.2);
+        border-color: rgba(239, 68, 68, 0.5);
+        color: #ef4444;
+    }
+
+    .btn-secondary.is-favorite:hover {
+        background: rgba(239, 68, 68, 0.3);
+    }
+
+    .btn-secondary:disabled {
+        opacity: 0.5;
+        cursor: not-allowed;
     }
 
     .progress-section {

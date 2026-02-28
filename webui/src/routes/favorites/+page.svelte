@@ -34,10 +34,6 @@
 		}
 	}
 
-	onMount(async () => {
-		await loadFavorites();
-	});
-
 	async function loadFavorites() {
 		try {
 			isLoading = true;

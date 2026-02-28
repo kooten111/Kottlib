@@ -59,7 +59,9 @@
 		? 'favorites'
 		: $page.url.pathname.startsWith('/continue-reading')
 			? 'continue'
-			: 'home';
+			: $page.url.pathname.startsWith('/reading-lists')
+				? 'reading-lists'
+				: 'home';
 
 	$: visibleLibraries = libraries.filter((lib) => !lib.exclude_from_webui);
 
@@ -123,6 +125,8 @@
 			goto('/favorites');
 		} else if (view === 'continue') {
 			goto('/continue-reading');
+		} else if (view === 'reading-lists') {
+			goto('/reading-lists');
 		}
 	}
 
@@ -302,6 +306,16 @@
 			</div>
 
 			<div class="section-content">
+				<button
+					class="sidebar-item"
+					class:active={currentView === "reading-lists"}
+					on:click={() => handleViewChangeWrapper("reading-lists")}
+					use:tooltip={{ content: "Reading Lists" }}
+				>
+					<List class="w-4 h-4" />
+					<span class="item-text">Reading Lists</span>
+				</button>
+
 				<button
 					class="sidebar-item"
 					class:active={currentView === "favorites"}
