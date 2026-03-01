@@ -59,7 +59,7 @@ data/
 
 # Claude Code
 .claude/
-yaclib.db.backup
+kottlib.db.backup
 
 # Logs
 *.log

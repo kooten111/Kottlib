@@ -1,5 +1,5 @@
 {
-  "name": "yaclib-webui",
+  "name": "kottlib-webui",
   "version": "1.0.0",
   "description": "Modern Web UI for Kottlib",
   "type": "module",
