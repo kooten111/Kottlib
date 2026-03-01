@@ -168,6 +168,7 @@ class ThreadedScanner:
                 self.library_id,
                 library_path,
                 discovered_paths,
+                {str(folder_path) for folder_path in folders},
                 self.library_name  # Pass library name for cover cleanup
             )
         except Exception as e:

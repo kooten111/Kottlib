@@ -48,7 +48,19 @@ def rebuild_series_table(db: Database, library_id: int) -> None:
             Comic.series
         ).all()
 
+        current_series_names = {series_name for series_name, _ in series_data if series_name}
+        existing_series = session.query(SeriesModel).filter(
+            SeriesModel.library_id == library_id
+        ).all()
+
+        stale_series = [series for series in existing_series if series.name not in current_series_names]
+        for series in stale_series:
+            session.delete(series)
+
         if not series_data:
+            if stale_series:
+                session.commit()
+                logger.info(f"Removed {len(stale_series)} stale series records")
             logger.info("No series found in comics")
             return
 
@@ -87,7 +99,9 @@ def rebuild_series_table(db: Database, library_id: int) -> None:
                 created += 1
 
         session.commit()
-        logger.info(f"Series table rebuilt: {created} created, {updated} updated")
+        logger.info(
+            f"Series table rebuilt: {created} created, {updated} updated, {len(stale_series)} removed"
+        )
 
 
 def build_series_tree_cache(db: Database, library_id: int) -> None:

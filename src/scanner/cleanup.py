@@ -1,14 +1,16 @@
 """
-Cleanup module for removing stale comics from the database.
+Cleanup module for removing stale library records from the database.
 
-Handles removal of comics whose files no longer exist on disk.
+Handles removal of comics and folders whose filesystem entries no longer exist.
 """
 
 import logging
 from pathlib import Path
 from typing import Set, Optional
 
+from src.constants import ROOT_FOLDER_MARKER
 from src.database import Database, get_covers_dir
+from src.database.models import Folder
 from src.database.operations.comic import get_comics_in_library
 
 from .thumbnail_generator import get_thumbnail_path
@@ -22,6 +24,7 @@ def cleanup_missing_comics(
     library_id: int,
     library_path: Path,
     discovered_paths: Set[str],
+    discovered_folder_paths: Optional[Set[str]] = None,
     library_name: Optional[str] = None
 ) -> int:
     """
@@ -35,6 +38,7 @@ def cleanup_missing_comics(
         library_id: Library ID to clean up
         library_path: Root path of the library
         discovered_paths: Set of absolute paths to files that were discovered
+        discovered_folder_paths: Set of absolute folder paths that still exist
         library_name: Optional library name for thumbnail cleanup
 
     Returns:
@@ -74,15 +78,43 @@ def cleanup_missing_comics(
                         logger.error(f"Error committing batch cleanup: {e}")
                         session.rollback()
         
-        if removed_count > 0:
-            # Commit any remaining deletions
+        try:
+            session.commit()
+            if removed_count > 0:
+                logger.info(f"Removed {removed_count} comics that no longer exist on disk")
+        except Exception as e:
+            logger.error(f"Error committing final comic cleanup: {e}")
+            session.rollback()
+
+        removed_folders = 0
+        existing_folder_paths = discovered_folder_paths or set()
+
+        # Remove folders that no longer exist on disk, deepest first.
+        folders = session.query(Folder).filter(Folder.library_id == library_id).all()
+        stale_folders = sorted(
+            (
+                folder for folder in folders
+                if folder.name != ROOT_FOLDER_MARKER
+                and folder.path != str(library_path)
+                and folder.path not in existing_folder_paths
+            ),
+            key=lambda folder: len(Path(folder.path).parts),
+            reverse=True,
+        )
+
+        for folder in stale_folders:
+            logger.info(f"Removing missing folder: {folder.path}")
+            session.delete(folder)
+            removed_folders += 1
+
+        if removed_folders > 0:
             try:
                 session.commit()
-                logger.info(f"Removed {removed_count} comics that no longer exist on disk")
+                logger.info(f"Removed {removed_folders} folders that no longer exist on disk")
             except Exception as e:
-                logger.error(f"Error committing final cleanup: {e}")
+                logger.error(f"Error committing folder cleanup: {e}")
                 session.rollback()
-    
+
     # Clean up orphaned thumbnails for removed comics
     if library_name and removed_hashes:
         covers_dir = get_covers_dir(library_name)
