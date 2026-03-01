@@ -18,22 +18,10 @@ export default defineConfig({
 			}
 		},
 		rollupOptions: {
-			onwarn(warning, warn) {
-				// Ignore unused import warnings from external dependencies
-				if (
-					warning.code === 'UNUSED_EXTERNAL_IMPORT' &&
-					warning.ids?.some(id => id.includes('node_modules'))
-				) {
-					return;
-				}
-				// Use default warning handler for other warnings
-				warn(warning);
-			},
 			output: {
 				// Manual chunking for better caching
 				manualChunks: {
-					'lucide': ['lucide-svelte'],
-					'tanstack': ['@tanstack/svelte-query']
+					'lucide': ['lucide-svelte']
 				}
 			}
 		},
@@ -57,6 +45,6 @@ export default defineConfig({
 	},
 	optimizeDeps: {
 		// Pre-bundle dependencies for faster dev server startup
-		include: ['lucide-svelte', '@tanstack/svelte-query']
+		include: ['lucide-svelte']
 	}
 });

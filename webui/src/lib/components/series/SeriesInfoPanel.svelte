@@ -494,6 +494,18 @@
                                 {Math.round(item.scan_confidence * 100)}%
                             </span>
                         {/if}
+                        {#if item?.scanner_source_url}
+                            <a
+                                href={item.scanner_source_url}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                class="source-link"
+                                title="View on {item.scanner_source}"
+                            >
+                                <ExternalLink size={12} />
+                                View on {item.scanner_source}
+                            </a>
+                        {/if}
                     {:else}
                         <span class="scanner-label muted"
                             >No metadata scanned</span
@@ -534,6 +546,18 @@
                             >
                                 {Math.round(item.scan_confidence * 100)}%
                             </span>
+                        {/if}
+                        {#if item?.scanner_source_url}
+                            <a
+                                href={item.scanner_source_url}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                class="source-link"
+                                title="View on {item.scanner_source}"
+                            >
+                                <ExternalLink size={12} />
+                                View on {item.scanner_source}
+                            </a>
                         {/if}
                     {:else}
                         <span class="scanner-label muted"
@@ -1219,5 +1243,33 @@
         color: var(--color-error);
         border-radius: 0.375rem;
         font-size: 0.75rem;
+    }
+
+    .source-link {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.25rem;
+        padding: 0.125rem 0.5rem;
+        font-size: 0.6875rem;
+        font-weight: 500;
+        color: var(--color-accent-blue);
+        background: color-mix(
+            in srgb,
+            var(--color-accent-blue) 12%,
+            transparent
+        );
+        border-radius: 1rem;
+        text-decoration: none;
+        transition: all 0.2s;
+        white-space: nowrap;
+    }
+
+    .source-link:hover {
+        background: color-mix(
+            in srgb,
+            var(--color-accent-blue) 25%,
+            transparent
+        );
+        text-decoration: none;
     }
 </style>
