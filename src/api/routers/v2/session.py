@@ -88,7 +88,7 @@ async def sync_session_v2(request: Request, yacread_session: Optional[str] = Coo
 
         if not lines and not json_comics:
             logger.warning("v2 Sync: Empty body received")
-            return JSONResponse({"success": True, "synced": 0, "count": 0, "updates": []})
+            return JSONResponse([])
 
         # Get user from session
         with main_db.get_session() as session:
@@ -96,7 +96,7 @@ async def sync_session_v2(request: Request, yacread_session: Optional[str] = Coo
 
         if not user:
             logger.warning("v2 Sync: No user found in session")
-            return JSONResponse({"success": True, "synced": 0, "count": 0, "updates": []})
+            return JSONResponse([])
 
         # Update reading progress for each line
         synced_count = 0
@@ -231,13 +231,8 @@ async def sync_session_v2(request: Request, yacread_session: Optional[str] = Coo
             except Exception as cache_err:
                 logger.warning(f"Failed to invalidate browse cache after sync: {cache_err}")
 
-        return JSONResponse({
-            "success": True,
-            "synced": synced_count,
-            "count": synced_count,
-            "updates": server_updates,
-        })
+        return JSONResponse(server_updates)
 
     except Exception as e:
         logger.error(f"v2 Sync error: {e}", exc_info=True)
-        return JSONResponse({"success": False, "error": str(e)}, status_code=500)
+        return JSONResponse([], status_code=500)

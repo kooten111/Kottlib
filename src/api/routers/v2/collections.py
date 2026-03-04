@@ -99,6 +99,20 @@ async def get_favorites(request: Request):
         return JSONResponse(result)
 
 
+@router.get("/library/{library_id}/favs")
+async def get_library_favorites(library_id: int, request: Request):
+    """YACReader-compatible library-scoped favorites endpoint."""
+    response = await get_favorites(request)
+    data = response.body
+    if isinstance(data, bytes):
+        import json
+        parsed = json.loads(data.decode("utf-8"))
+    else:
+        parsed = data
+    filtered = [item for item in parsed if str(item.get("libraryId")) == str(library_id)]
+    return JSONResponse(filtered)
+
+
 @router.post("/fav/{comic_id}")
 async def add_to_favorites(comic_id: int, request: Request):
     """

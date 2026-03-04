@@ -148,7 +148,7 @@
 
 	async function loadScannerConfig() {
 		try {
-			const response = await fetch("/v2/scanners/libraries");
+			const response = await fetch("/api/scanners/libraries");
 			if (!response.ok) throw new Error("Failed to load scanner config");
 			const configs = await response.json();
 			scannerConfig = configs.find((c) => c.library_id === libraryId);
@@ -164,7 +164,7 @@
 			scanResult = null;
 
 			const response = await fetch(
-				`/v2/scanners/scan/series?library_id=${libraryId}&series_name=${encodeURIComponent(seriesName)}&overwrite=false`,
+				`/api/scanners/scan/series?library_id=${libraryId}&series_name=${encodeURIComponent(seriesName)}&overwrite=false`,
 				{
 					method: "POST",
 					headers: { "Content-Type": "application/json" },

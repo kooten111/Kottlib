@@ -3,7 +3,7 @@
  * Functions for interacting with server configuration endpoints
  */
 
-const API_BASE = '/api/v2';
+const API_BASE = '/api';
 
 /**
  * Get current server configuration

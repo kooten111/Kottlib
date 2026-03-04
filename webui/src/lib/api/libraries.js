@@ -1,8 +1,5 @@
 import { api } from './client';
 
-// Root folder marker - matches the Python constant ROOT_FOLDER_MARKER
-const ROOT_FOLDER_MARKER = '__ROOT__';
-
 /**
  * Get all libraries
  */
@@ -42,23 +39,14 @@ export async function scanLibrary(libraryId) {
  * Get library info by ID
  */
 export async function getLibrary(libraryId) {
-	return api.get(`/library/${libraryId}/info`);
-}
-
-/**
- * Get folder contents
- */
-export async function getFolderContents(libraryId, folderId = 0) {
-	// Convert ROOT_FOLDER_MARKER to folder ID 0 (root folder convention)
-	const actualFolderId = folderId === ROOT_FOLDER_MARKER ? 0 : folderId;
-	return api.get(`/library/${libraryId}/folder/${actualFolderId}`);
+	return api.get(`/libraries/${libraryId}`);
 }
 
 /**
  * Get continue reading list for a specific library
  */
 export async function getContinueReading(libraryId, limit = 10) {
-	return api.get(`/library/${libraryId}/reading?limit=${limit}`);
+	return api.get(`/libraries/${libraryId}/reading?limit=${limit}`);
 }
 
 /**
@@ -69,29 +57,10 @@ export async function getContinueReadingAll(limit = 100) {
 }
 
 /**
- * Get folder tree for a library
- */
-export async function getFolderTree(libraryId, maxDepth = 10, folderId = null) {
-	let url = `/library/${libraryId}/tree?max_depth=${maxDepth}`;
-	if (folderId) {
-		url += `&folder_id=${folderId}`;
-	}
-	return api.get(url);
-}
-
-/**
- * Get folders in a library (flat list for card/grid display)
- */
-export async function getLibraryFolders(libraryId, folderId = null) {
-	const params = folderId ? `?folder_id=${folderId}` : '';
-	return api.get(`/library/${libraryId}/folders${params}`);
-}
-
-/**
  * Get all series in a library
  */
 export async function getSeries(libraryId, sort = 'name', offset = 0, limit = 50) {
-	return api.get(`/library/${libraryId}/series?sort=${sort}&offset=${offset}&limit=${limit}`);
+	return api.get(`/libraries/${libraryId}/series?sort=${sort}&offset=${offset}&limit=${limit}`);
 }
 
 /**
@@ -99,14 +68,14 @@ export async function getSeries(libraryId, sort = 'name', offset = 0, limit = 50
  */
 export async function getSeriesDetail(libraryId, seriesName) {
 	const encodedName = encodeURIComponent(seriesName);
-	return api.get(`/library/${libraryId}/series/${encodedName}`);
+	return api.get(`/libraries/${libraryId}/series/${encodedName}`);
 }
 
 /**
  * Get hierarchical tree of all libraries with series and comics
  */
 export async function getLibrariesSeriesTree() {
-	return api.get('/libraries/series-tree');
+	return api.get('/libraries/tree');
 }
 
 /**
@@ -117,14 +86,14 @@ export async function browseLibrary(libraryId, path = '', sort = 'name', offset 
 	if (seed) {
 		pathParam += `&seed=${seed}`;
 	}
-	return api.get(`/library/${libraryId}/browse?sort=${sort}&offset=${offset}&limit=${limit}${pathParam}`);
+	return api.get(`/browse/libraries/${libraryId}?sort=${sort}&offset=${offset}&limit=${limit}${pathParam}`);
 }
 
 /**
  * Browse content from all libraries
  */
 export async function browseAllLibraries(sort = 'name', offset = 0, limit = 50, seed = null) {
-	let url = `/libraries/browse-content?sort=${sort}&offset=${offset}&limit=${limit}`;
+	let url = `/browse/libraries?sort=${sort}&offset=${offset}&limit=${limit}`;
 	if (seed) {
 		url += `&seed=${seed}`;
 	}

@@ -9,14 +9,14 @@
  */
 
 /**
- * Base URL for the API server (v2 endpoints)
+ * Base URL for the API server (Kottlib-native endpoints)
  * Configured via API_BASE_URL environment variable, defaults to localhost for development
  */
-export const API_BASE_URL = process.env.API_BASE_URL || 'http://localhost:8081/v2';
+export const API_BASE_URL = process.env.API_BASE_URL || 'http://localhost:8081/api';
 
 /**
  * Build a full API URL from a path
- * @param {string} path - API path (e.g., '/libraries' or '/library/1/browse')
+ * @param {string} path - API path (e.g., '/libraries' or '/browse/libraries/1')
  * @returns {string} Full API URL
  */
 export function buildApiUrl(path) {
@@ -30,20 +30,20 @@ export function buildApiUrl(path) {
  */
 export const API_ENDPOINTS = {
     libraries: () => `${API_BASE_URL}/libraries`,
-    seriesTree: () => `${API_BASE_URL}/libraries/series-tree`,
-    libraryTree: (libraryId) => `${API_BASE_URL}/library/${libraryId}/tree`,
+    seriesTree: () => `${API_BASE_URL}/libraries/tree`,
+    libraryTree: (libraryId) => `${API_BASE_URL}/libraries/${libraryId}/tree`,
     libraryBrowse: (libraryId, path = '', sort = 'name') => {
         const encodedPath = path ? encodeURIComponent(path) : '';
-        return `${API_BASE_URL}/library/${libraryId}/browse?path=${encodedPath}&sort=${sort}`;
+        return `${API_BASE_URL}/browse/libraries/${libraryId}?path=${encodedPath}&sort=${sort}`;
     },
     browseAllLibraries: (sort = 'name', offset = 0, limit = 50) =>
-        `${API_BASE_URL}/libraries/browse-content?sort=${sort}&offset=${offset}&limit=${limit}`,
+        `${API_BASE_URL}/browse/libraries?sort=${sort}&offset=${offset}&limit=${limit}`,
     comicFullInfo: (libraryId, comicId) =>
-        `${API_BASE_URL}/library/${libraryId}/comic/${comicId}/fullinfo`,
+        `${API_BASE_URL}/libraries/${libraryId}/comics/${comicId}`,
     continueReading: (limit = 50) => `${API_BASE_URL}/reading?limit=${limit}`,
     seriesDetail: (libraryId, seriesName) => {
         const encodedName = encodeURIComponent(seriesName);
-        return `${API_BASE_URL}/library/${libraryId}/series/${encodedName}`;
+        return `${API_BASE_URL}/libraries/${libraryId}/series/${encodedName}`;
     }
 };
 

@@ -126,7 +126,7 @@
 	// Maintenance functions
 	async function loadSearchIndexStatus() {
 		try {
-			const response = await fetch("/v2/admin/search-index/status");
+			const response = await fetch("/api/admin/search-index/status");
 			if (!response.ok)
 				throw new Error("Failed to load search index status");
 			searchIndexStatus = await response.json();
@@ -142,7 +142,7 @@
 			reindexError = null;
 			reindexMessage = null;
 
-			const response = await fetch("/v2/admin/migrate/search-indexes", {
+			const response = await fetch("/api/admin/migrate/search-indexes", {
 				method: "POST",
 			});
 
@@ -168,7 +168,7 @@
 			reindexError = null;
 			reindexMessage = null;
 
-			const response = await fetch("/v2/admin/reindex-search", {
+			const response = await fetch("/api/admin/reindex-search", {
 				method: "POST",
 			});
 

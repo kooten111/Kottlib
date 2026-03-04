@@ -379,19 +379,19 @@
 			lastSavedPage = currentPage;
 			// Use sendBeacon for reliability during page unload, fallback to sync fetch
 			const data = `currentPage:${Math.max(0, currentPage - 1)}`;
-			const url = `/v2/library/${libraryId}/comic/${comicId}/update`;
+			const url = `/api/libraries/${libraryId}/comics/${comicId}/progress`;
 			
 			if (navigator.sendBeacon) {
 				// sendBeacon is more reliable during page unload
-				const blob = new Blob([data], { type: 'text/plain' });
+				const blob = new Blob([JSON.stringify({ current_page: Math.max(0, currentPage - 1) })], { type: 'application/json' });
 				navigator.sendBeacon(url, blob);
 			} else {
 				// Fallback to synchronous fetch (less reliable but better than nothing)
 				fetch(url, {
 					method: 'POST',
 					credentials: 'include',
-					headers: { 'Content-Type': 'text/plain' },
-					body: data,
+					headers: { 'Content-Type': 'application/json' },
+					body: JSON.stringify({ current_page: Math.max(0, currentPage - 1) }),
 					keepalive: true
 				}).catch(() => {
 					// Ignore errors during unload

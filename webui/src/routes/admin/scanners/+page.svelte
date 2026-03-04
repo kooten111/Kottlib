@@ -79,7 +79,7 @@
 			const credentials = configForm.scanner_configs?.[scannerName] || {};
 
 			const response = await fetch(
-				`/v2/scanners/verify-credentials/${scannerName}`,
+				`/api/scanners/verify-credentials/${scannerName}`,
 				{
 					method: "POST",
 					headers: { "Content-Type": "application/json" },
@@ -112,12 +112,12 @@
 			error = null;
 
 			// Fetch available scanners
-			const scannersRes = await fetch("/v2/scanners/available");
+			const scannersRes = await fetch("/api/scanners/available");
 			if (!scannersRes.ok) throw new Error("Failed to load scanners");
 			availableScanners = await scannersRes.json();
 
 			// Fetch library configurations
-			const configsRes = await fetch("/v2/scanners/libraries");
+			const configsRes = await fetch("/api/scanners/libraries");
 			if (!configsRes.ok)
 				throw new Error("Failed to load configurations");
 			libraryConfigs = await configsRes.json();
@@ -152,7 +152,7 @@
 			scanError = null;
 			testResult = null;
 
-			const response = await fetch("/v2/scanners/scan", {
+			const response = await fetch("/api/scanners/scan", {
 				method: "POST",
 				headers: { "Content-Type": "application/json" },
 				body: JSON.stringify({
@@ -186,7 +186,7 @@
 			isBulkScanning = true;
 			bulkResults = null;
 
-			const response = await fetch("/v2/scanners/scan/bulk", {
+			const response = await fetch("/api/scanners/scan/bulk", {
 				method: "POST",
 				headers: { "Content-Type": "application/json" },
 				body: JSON.stringify({
@@ -211,7 +211,7 @@
 	async function pollScanProgress(libraryId) {
 		try {
 			const response = await fetch(
-				`/v2/scanners/scan/library/${libraryId}/progress`,
+				`/api/scanners/scan/library/${libraryId}/progress`,
 			);
 			if (response.ok) {
 				const progress = await response.json();
@@ -275,7 +275,7 @@
 			};
 
 			// Start the scan request - this now returns immediately
-			const response = await fetch("/v2/scanners/scan/library", {
+			const response = await fetch("/api/scanners/scan/library", {
 				method: "POST",
 				headers: { "Content-Type": "application/json" },
 				body: JSON.stringify({
@@ -330,7 +330,7 @@
 
 					// Clear progress on backend
 					await fetch(
-						`/v2/scanners/scan/library/${selectedLibraryToScan}/progress`,
+						`/api/scanners/scan/library/${selectedLibraryToScan}/progress`,
 						{
 							method: "DELETE",
 						},
@@ -407,7 +407,7 @@
 			};
 
 			const response = await fetch(
-				`/v2/scanners/libraries/${configLibrary.library_id}/configure`,
+				`/api/scanners/libraries/${configLibrary.library_id}/configure`,
 				{
 					method: "PUT",
 					headers: { "Content-Type": "application/json" },

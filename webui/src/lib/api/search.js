@@ -9,7 +9,7 @@ export async function searchComics(libraryId, query, options = {}) {
 		...options
 	});
 
-	return api.get(`/library/${libraryId}/search?${params}`);
+	return api.get(`/libraries/${libraryId}/search?${params}`);
 }
 
 /**
@@ -22,14 +22,14 @@ export async function searchComicsAdvanced(libraryId, query, { limit = 100, offs
 		offset: offset.toString()
 	});
 
-	return api.get(`/library/${libraryId}/search/advanced?${params}`);
+	return api.get(`/libraries/${libraryId}/search/advanced?${params}`);
 }
 
 /**
  * Get searchable fields for a library
  */
 export async function getSearchableFields(libraryId) {
-	return api.get(`/library/${libraryId}/search/fields`);
+	return api.get(`/libraries/${libraryId}/search/fields`);
 }
 
 /**

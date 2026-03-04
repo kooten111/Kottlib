@@ -422,6 +422,65 @@ async def get_folder_content_json(
     return await get_folder_v2(library_id, folder_id, request, sort)
 
 
+@router.get("/library/{library_id}/folder/{folder_id}/metadata")
+async def get_folder_metadata(
+    library_id: int,
+    folder_id: int,
+    request: Request,
+):
+    """YACReader-compatible folder metadata endpoint."""
+    db = request.app.state.db
+
+    with db.get_session() as session:
+        library = get_library_by_id(session, library_id)
+        if not library:
+            raise HTTPException(status_code=404, detail="Library not found")
+
+        folder = session.query(Folder).filter(
+            Folder.library_id == library_id,
+            Folder.id == folder_id
+        ).first()
+        if not folder:
+            raise HTTPException(status_code=404, detail="Folder not found")
+
+        all_folders = session.query(Folder).filter(Folder.library_id == library_id).all()
+        first_hash = folder.first_child_hash or ""
+        if not first_hash:
+            first_comic = session.query(Comic).filter(
+                Comic.library_id == library_id,
+                Comic.folder_id == folder_id
+            ).order_by(Comic.filename).first()
+            if first_comic:
+                first_hash = first_comic.hash
+
+        num_child_folders = session.query(Folder).filter(Folder.parent_id == folder.id).count()
+        num_child_comics = session.query(Comic).filter(
+            Comic.folder_id == folder.id,
+            Comic.library_id == library_id
+        ).count()
+
+        root_folder = next((f for f in all_folders if f.name == ROOT_FOLDER_MARKER), None)
+        parent_id = folder.parent_id if folder.parent_id is not None else (root_folder.id if root_folder else 0)
+
+        return JSONResponse({
+            "type": "folder",
+            "id": str(folder.id),
+            "library_id": str(library_id),
+            "library_uuid": f"{{{library.uuid}}}",
+            "folder_name": folder.name,
+            "num_children": num_child_folders + num_child_comics,
+            "first_comic_hash": first_hash,
+            "finished": False,
+            "completed": False,
+            "custom_image": "",
+            "file_type": 0,
+            "added": int(folder.created_at.timestamp()) if hasattr(folder.created_at, "timestamp") else folder.created_at,
+            "updated": int(folder.updated_at.timestamp()) if hasattr(folder.updated_at, "timestamp") else folder.updated_at,
+            "parent_id": str(parent_id) if parent_id is not None else "0",
+            "path": f"/{folder.name}",
+        })
+
+
 @router.get("/library/{library_id}/folders")
 async def get_library_folders(
     library_id: int,

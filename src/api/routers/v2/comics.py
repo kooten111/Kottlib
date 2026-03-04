@@ -23,6 +23,7 @@ from ....database import (
     get_sibling_comics,
     get_covers_dir,
     update_reading_progress,
+    get_reading_list_comics,
 )
 from ...middleware import get_current_user_id, get_request_user
 from ...error_handling import handle_file_operation, handle_comic_archive_errors, safe_path_exists
@@ -342,6 +343,93 @@ async def open_comic_remote_v2(
         )
 
 
+@router.get("/library/{library_id}/reading_list/{list_id}/comic/{comic_id}/remote")
+async def open_reading_list_comic_remote_v2(
+    library_id: int,
+    list_id: int,
+    comic_id: int,
+    request: Request
+):
+    """Open comic for remote reading within a reading list context."""
+    db = request.app.state.db
+
+    with db.get_session() as session:
+        library = get_library_by_id(session, library_id)
+        if not library:
+            raise HTTPException(status_code=404, detail="Library not found")
+
+        comic = get_comic_by_id(session, comic_id)
+        if not comic:
+            raise HTTPException(status_code=404, detail="Comic not found")
+
+        user = get_request_user(request, session)
+        current_page = 0
+        is_read = 0
+        if user:
+            progress = get_reading_progress(session, user.id, comic_id)
+            if progress:
+                current_page = progress.current_page
+                is_read = 1 if progress.is_completed else 0
+
+        items = get_reading_list_comics(session, list_id)
+        comic_ids = []
+        for item in items:
+            if hasattr(item, "comic") and item.comic:
+                comic_ids.append(item.comic.id)
+            elif hasattr(item, "id"):
+                comic_ids.append(item.id)
+
+        previous_comic = None
+        next_comic = None
+        if comic_id in comic_ids:
+            idx = comic_ids.index(comic_id)
+            if idx > 0:
+                previous_comic = get_comic_by_id(session, comic_ids[idx - 1])
+            if idx < len(comic_ids) - 1:
+                next_comic = get_comic_by_id(session, comic_ids[idx + 1])
+
+        try:
+            relative_path = str(Path(comic.path).relative_to(library.path))
+        except ValueError:
+            relative_path = comic.filename
+        api_path = f"/{relative_path}"
+
+        lines = [
+            f"library:{library.name}",
+            f"libraryId:{library_id}",
+        ]
+        if previous_comic:
+            lines.append(f"previousComic:{previous_comic.id}")
+            lines.append(f"previousComicHash:{previous_comic.hash}")
+        if next_comic:
+            lines.append(f"nextComic:{next_comic.id}")
+            lines.append(f"nextComicHash:{next_comic.hash}")
+        lines.extend([
+            f"comicid:{comic_id}",
+            f"hash:{comic.hash}",
+            f"path:{api_path}",
+            f"numpages:{comic.num_pages}",
+            "rating:0",
+            f"currentPage:{current_page}",
+            "contrast:0",
+            f"read:{is_read}",
+            "coverPage:1",
+            f"manga:{1 if (hasattr(comic, 'reading_direction') and comic.reading_direction == 'rtl') else 0}",
+        ])
+        if comic.title:
+            lines.append(f"title:{comic.title}")
+        if comic.issue_number:
+            lines.append(f"number:{comic.issue_number}")
+        if comic.series:
+            lines.append(f"series:{comic.series}")
+        if comic.volume:
+            lines.append(f"volume:{comic.volume}")
+        if comic.created_at:
+            lines.append(f"added:{comic.created_at}")
+
+        return PlainTextResponse("\r\n".join(lines) + "\r\n", media_type="text/plain; charset=utf-8")
+
+
 # ============================================================================
 # Comic Pages
 # ============================================================================
@@ -600,14 +688,7 @@ async def update_comic_progress_v2(
         except Exception as cache_err:
             logger.warning(f"Failed to invalidate browse cache after progress update: {cache_err}")
 
-        # Return success response
-        return JSONResponse({
-            "success": True,
-            "current_page": progress.current_page,
-            "total_pages": progress.total_pages,
-            "progress_percent": progress.progress_percent,
-            "is_completed": progress.is_completed
-        })
+        return PlainTextResponse("OK")
 
 
 @router.get("/library/{library_id}/comic/{comic_id}/progress")

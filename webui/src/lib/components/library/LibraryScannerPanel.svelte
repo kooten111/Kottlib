@@ -38,7 +38,7 @@
 
 	async function pollScanProgress() {
 		try {
-			const response = await fetch(`/v2/scanners/scan/library/${libraryId}/progress`);
+			const response = await fetch(`/api/scanners/scan/library/${libraryId}/progress`);
 			if (response.ok) {
 				const progress = await response.json();
 				currentProgress = {
@@ -103,7 +103,7 @@
 					isScanning = false;
 
 					// Clear progress on backend
-					await fetch(`/v2/scanners/scan/library/${libraryId}/progress`, {
+					await fetch(`/api/scanners/scan/library/${libraryId}/progress`, {
 						method: 'DELETE'
 					});
 

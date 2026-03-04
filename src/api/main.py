@@ -1,8 +1,9 @@
 """
 Kottlib - Main FastAPI Application
 
-A modern replacement for YACReader Server with enhanced features
-while maintaining full backward compatibility with YACReader mobile apps.
+Namespace policy:
+- `/` + `/library` + `/v2`: YACReader compatibility surface
+- `/api`: Kottlib-native surface for the WebUI and internal clients
 """
 
 import logging
@@ -237,13 +238,9 @@ async def global_exception_handler(request: Request, exc: Exception):
 # ============================================================================
 
 @app.get("/")
-async def root():
-    """Root endpoint - health check"""
-    return {
-        "service": "Kottlib",
-        "version": "1.0.0",
-        "status": "running"
-    }
+async def root(request: Request):
+    """YACReader-compatible legacy root endpoint."""
+    return await legacy_v1.list_libraries(request)
 
 
 @app.get("/health")
@@ -272,18 +269,45 @@ async def server_info():
     }
 
 
+@app.get("/api/info")
+async def api_info():
+    """Kottlib-native API information."""
+    return {
+        "name": "Kottlib",
+        "version": "1.0.0",
+        "api_namespace": "/api",
+        "compatibility_namespaces": ["/", "/library", "/v2"],
+    }
+
+
+@app.post("/sync")
+async def legacy_sync(request: Request):
+    """Top-level YACReader legacy sync endpoint."""
+    return await legacy_v1.sync_reading_progress_v1(request)
+
+
+@app.get("/recoverSession")
+async def recover_session(request: Request):
+    """Top-level YACReader session recovery endpoint."""
+    return await api_v2.session.recover_session(request)
+
+
 # ============================================================================
 # API Routers
 # ============================================================================
 
 from .routers import legacy_v1, scanners, libraries, user_interactions, config as config_router
 from .routers import v2 as api_v2
+from .routers import app_api
 
 # Legacy API v1 (YACReader compatible - plain text format)
 app.include_router(legacy_v1.router, prefix="/library", tags=["Legacy API v1"])
 
 # API v2 (YACReader compatible - JSON format) - mounted at /v2 for compatibility
 app.include_router(api_v2.router, tags=["API v2"])
+
+# Kottlib-native API (WebUI/internal)
+app.include_router(app_api.router, prefix="/api", tags=["API"])
 
 # Modern JSON API (Internal use)
 app.include_router(libraries.router, prefix="/api/v1/libraries", tags=["Libraries"])

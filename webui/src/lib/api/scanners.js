@@ -15,7 +15,7 @@ export async function scanSeries(libraryId, seriesName, overwrite = false, confi
 		params.append('confidence_threshold', confidenceThreshold.toString());
 	}
 	
-	const response = await fetch(`/v2/scanners/scan/series?${params.toString()}`, {
+	const response = await fetch(`/api/scanners/scan/series?${params.toString()}`, {
 		method: 'POST',
 		credentials: 'include',
 		headers: {
@@ -35,7 +35,7 @@ export async function scanSeries(libraryId, seriesName, overwrite = false, confi
  * Apply metadata from a manually selected candidate to a series
  */
 export async function applySeriesMetadata(libraryId, seriesName, candidate, overwrite = false) {
-	const response = await fetch('/v2/scanners/apply/series', {
+	const response = await fetch('/api/scanners/apply/series', {
 		method: 'POST',
 		credentials: 'include',
 		headers: {
@@ -64,7 +64,7 @@ export async function applySeriesMetadata(libraryId, seriesName, candidate, over
  * Scan a single comic for metadata
  */
 export async function scanComic(comicId, overwrite = false, confidenceThreshold = null) {
-	const response = await fetch('/v2/scanners/scan/comic', {
+	const response = await fetch('/api/scanners/scan/comic', {
 		method: 'POST',
 		credentials: 'include',
 		headers: {
@@ -89,7 +89,7 @@ export async function scanComic(comicId, overwrite = false, confidenceThreshold 
  * Apply metadata from a manually selected candidate to a comic
  */
 export async function applyComicMetadata(comicId, candidate, overwrite = false) {
-	const response = await fetch('/v2/scanners/apply/comic', {
+	const response = await fetch('/api/scanners/apply/comic', {
 		method: 'POST',
 		credentials: 'include',
 		headers: {
@@ -117,7 +117,7 @@ export async function applyComicMetadata(comicId, candidate, overwrite = false) 
  * Scan all comics in a library
  */
 export async function scanLibrary(libraryId, overwrite = false, rescanExisting = false, confidenceThreshold = null) {
-	const response = await fetch('/v2/scanners/scan/library', {
+	const response = await fetch('/api/scanners/scan/library', {
 		method: 'POST',
 		credentials: 'include',
 		headers: {
@@ -143,7 +143,7 @@ export async function scanLibrary(libraryId, overwrite = false, rescanExisting =
  * Clear metadata from comics
  */
 export async function clearMetadata(options) {
-	const response = await fetch('/v2/scanners/clear-metadata', {
+	const response = await fetch('/api/scanners/clear-metadata', {
 		method: 'POST',
 		credentials: 'include',
 		headers: {
@@ -170,21 +170,21 @@ export async function clearMetadata(options) {
  * Get available scanners
  */
 export async function getAvailableScanners() {
-	return api.get('/v2/scanners/available');
+	return api.get('/scanners/available');
 }
 
 /**
  * Get library scanner configurations
  */
 export async function getLibraryConfigs() {
-	return api.get('/v2/scanners/libraries');
+	return api.get('/scanners/libraries');
 }
 
 /**
  * Configure scanner for a library
  */
 export async function configureLibraryScanner(libraryId, config) {
-	const response = await fetch(`/v2/scanners/libraries/${libraryId}/configure`, {
+	const response = await fetch(`/api/scanners/libraries/${libraryId}/configure`, {
 		method: 'PUT',
 		credentials: 'include',
 		headers: {

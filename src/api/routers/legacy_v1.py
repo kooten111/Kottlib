@@ -70,6 +70,20 @@ def get_or_create_session(request: Request, yacread_session: Optional[str] = Non
     return str(uuid.uuid4())
 
 
+async def parse_legacy_current_page(request: Request) -> int:
+    """Parse v1 progress payload from upstream text or legacy form payloads."""
+    body = (await request.body()).decode("utf-8", errors="ignore").strip()
+    if body:
+        first_line = body.splitlines()[0].strip()
+        if ":" in first_line:
+            key, value = first_line.split(":", 1)
+            if key == "currentPage":
+                return int(value.strip())
+
+    form_data = await request.form()
+    return int(form_data.get("page", 0))
+
+
 # ============================================================================
 # Library Listing
 # ============================================================================
@@ -471,25 +485,7 @@ async def get_comic_info(
     request: Request,
     yacread_session: Optional[str] = Cookie(None)
 ):
-    """
-    Get comic metadata
-
-    YACReader format:
-    library:Library Name
-    libraryId:1
-    comicid:123
-    hash:abc123
-    path:/path/to/comic.cbz
-    numpages:24
-    rating:0
-    currentPage:1
-    contrast:-1
-    read:0
-    coverPage:1
-    manga:0
-    added:1234567890
-    type:0
-    """
+    """Get comic download info (YACReader v1 bare comic endpoint)."""
     db = request.app.state.db
 
     with db.get_session() as session:
@@ -497,40 +493,8 @@ async def get_comic_info(
         if not comic:
             raise HTTPException(status_code=404, detail="Comic not found")
 
-        library = get_library_by_id(session, library_id)
-
-        # Get reading progress
-        current_page = 0
-        is_read = 0
-        user = get_request_user(request, session)
-        if user:
-            progress = get_reading_progress(session, user.id, comic_id)
-            if progress:
-                current_page = progress.current_page
-                is_read = 1 if progress.is_completed else 0
-
-        # Get previous/next comic for navigation
-        prev_comic_id, next_comic_id = get_sibling_comics(session, comic_id)
-
-        response_text = f"library:{library.name if library else 'Unknown'}\n"
-        response_text += f"libraryId:{library_id}\n"
-        if prev_comic_id is not None:
-            response_text += f"previousComic:{prev_comic_id}\n"
-        if next_comic_id is not None:
-            response_text += f"nextComic:{next_comic_id}\n"
-        response_text += f"comicid:{comic_id}\n"
-        response_text += f"hash:{comic.hash}\n"
-        response_text += f"path:{comic.path}\n"
-        response_text += f"numpages:{comic.num_pages}\n"
-        response_text += f"rating:0\n"
-        response_text += f"currentPage:{current_page}\n"
-        response_text += f"contrast:-1\n"
-        response_text += f"read:{is_read}\n"
-        response_text += f"coverPage:1\n"
-        response_text += f"manga:{1 if comic.reading_direction == 'rtl' else 0}\n"
-        response_text += f"added:{comic.created_at}\n"
-        response_text += f"type:0\n"
-
+        response_text = f"fileName:{comic.filename}\n"
+        response_text += f"fileSize:{comic.file_size}\n"
         return PlainTextResponse(format_v1_response(response_text))
 
 
@@ -587,6 +551,32 @@ async def get_comic_cover(
                 "Vary": "Accept-Encoding"
             }
         )
+
+    raise HTTPException(status_code=404, detail="Cover not found")
+
+
+@router.get("/{library_id}/cover/{cover_path:path}")
+@handle_file_operation("Failed to retrieve cover image")
+async def get_cover_by_hash(
+    library_id: int,
+    cover_path: str,
+    request: Request
+):
+    """Get a cover by YACReader-style hash path."""
+    main_db = request.app.state.db
+
+    with main_db.get_session() as session:
+        library = get_library_by_id(session, library_id)
+        if not library:
+            raise HTTPException(status_code=404, detail="Library not found")
+        library_name = library.name
+
+    comic_hash = cover_path.rsplit(".", 1)[0]
+    result = find_cover_for_comic(comic_hash, library_name, None)
+
+    if result:
+        cover_path, media_type = result
+        return FileResponse(cover_path, media_type=media_type)
 
     raise HTTPException(status_code=404, detail="Cover not found")
 
@@ -767,10 +757,8 @@ async def set_current_page(
     """
     db = request.app.state.db
 
-    # Get form data
-    form_data = await request.form()
     try:
-        page_num = int(form_data.get('page', 0))
+        page_num = await parse_legacy_current_page(request)
     except (TypeError, ValueError):
         raise HTTPException(status_code=400, detail="Invalid page number")
 
@@ -799,6 +787,17 @@ async def set_current_page(
         )
 
     return PlainTextResponse("OK")
+
+
+@router.post("/{library_id}/comic/{comic_id}/update")
+async def update_comic_v1(
+    library_id: int,
+    comic_id: int,
+    request: Request,
+    yacread_session: Optional[str] = Cookie(None)
+):
+    """Upstream-compatible v1 progress update endpoint."""
+    return await set_current_page(library_id, comic_id, request, yacread_session)
 
 
 # ============================================================================
@@ -946,16 +945,33 @@ async def sync_reading_progress_v1(
     db = request.app.state.db
 
     try:
-        # Parse JSON body
-        body = await request.json()
-        comics = body.get("comics", [])
+        body_bytes = await request.body()
+        body_text = body_bytes.decode("utf-8", errors="ignore").strip()
+        comics = []
+
+        if body_text:
+            if body_text.startswith("{"):
+                body = await request.json()
+                comics = body.get("comics", [])
+            else:
+                for line in body_text.splitlines():
+                    if not line.strip():
+                        continue
+                    parts = line.split("\t")
+                    if len(parts) < 4:
+                        continue
+                    comics.append({
+                        "libraryId": int(parts[0]) if parts[0] else None,
+                        "comicId": int(parts[1]) if parts[1] else None,
+                        "currentPage": int(parts[3]) if parts[3] else 0,
+                    })
 
         # Get user from session
         with db.get_session() as session:
             user = get_request_user(request, session)
 
         if not user:
-            return PlainTextResponse("OK: Synced 0 comics")
+            return PlainTextResponse("OK")
 
         # Update reading progress for each comic
         synced_count = 0
@@ -976,8 +992,8 @@ async def sync_reading_progress_v1(
                     synced_count += 1
 
         logger.info(f"v1 Sync: Updated {synced_count} comics for user {user.username}")
-        return PlainTextResponse(f"OK: Synced {synced_count} comics")
+        return PlainTextResponse("OK")
 
     except Exception as e:
         logger.error(f"v1 Sync error: {e}", exc_info=True)
-        return PlainTextResponse(f"ERROR: {str(e)}", status_code=500)
+        return PlainTextResponse("ERROR", status_code=500)

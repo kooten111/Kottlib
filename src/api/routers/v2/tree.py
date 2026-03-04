@@ -5,6 +5,7 @@ Endpoints for hierarchical tree navigation of libraries and folders.
 """
 
 import logging
+from sqlalchemy import or_
 from typing import Optional
 
 from fastapi import APIRouter, Depends, HTTPException
@@ -112,12 +113,20 @@ async def get_folder_tree(
     ).first()
     root_id = root_folder_db.id if root_folder_db else None
 
-    query = session.query(FolderModel).filter(
-        FolderModel.library_id == library_id
-    )
+    query = session.query(FolderModel).filter(FolderModel.library_id == library_id)
 
     if root_id:
-        query = query.filter(FolderModel.parent_id == root_id)
+        # Support both parenting conventions:
+        # - migrated libraries: top-level folders parented to the synthetic root folder
+        # - older libraries: top-level folders with parent_id NULL
+        # - legacy YACReader-style datasets: top-level folders with parent_id=1
+        query = query.filter(
+            or_(
+                FolderModel.parent_id == root_id,
+                FolderModel.parent_id.is_(None),
+                FolderModel.parent_id == 1,
+            )
+        )
     else:
         query = query.filter(FolderModel.parent_id.is_(None))
 

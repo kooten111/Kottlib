@@ -4,21 +4,21 @@ import { api } from './client';
  * Get all favorites for the current user (all libraries)
  */
 export async function getFavorites() {
-	return api.get('/favs');
+	return api.get('/favorites');
 }
 
 /**
  * Add comic to favorites
  */
 export async function addFavorite(comicId) {
-	return api.post(`/fav/${comicId}`);
+	return api.post(`/favorites/${comicId}`);
 }
 
 /**
  * Remove comic from favorites
  */
 export async function removeFavorite(comicId) {
-	return api.delete(`/fav/${comicId}`);
+	return api.delete(`/favorites/${comicId}`);
 }
 
 /**
@@ -26,7 +26,7 @@ export async function removeFavorite(comicId) {
  */
 export async function isFavorite(comicId) {
 	try {
-		const result = await api.get(`/fav/${comicId}/check`);
+		const result = await api.get(`/favorites/${comicId}/check`);
 		return result?.isFavorite || false;
 	} catch {
 		return false;

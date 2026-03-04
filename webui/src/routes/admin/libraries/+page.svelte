@@ -232,7 +232,7 @@
     async function pollScanProgress(libraryId) {
         try {
             const response = await fetch(
-                `/v2/libraries/${libraryId}/scan/progress`,
+                `/api/libraries/${libraryId}/scan/progress`,
             );
             if (response.ok) {
                 return await response.json();

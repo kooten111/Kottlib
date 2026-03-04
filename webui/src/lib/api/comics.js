@@ -4,7 +4,7 @@ import { api } from './client';
  * Get full comic information
  */
 export async function getComic(libraryId, comicId) {
-	const comic = await api.get(`/library/${libraryId}/comic/${comicId}/fullinfo`);
+	const comic = await api.get(`/libraries/${libraryId}/comics/${comicId}`);
 
 	// Convert 0-based page index to 1-based for frontend
 	if (typeof comic.current_page === 'number' && comic.current_page > 0) {
@@ -27,52 +27,41 @@ export async function getComicInfo(libraryId, comicId) {
 export async function getComicPage(libraryId, comicId, page) {
 	// Convert 1-based page to 0-based index for API
 	const pageIndex = Math.max(0, page - 1);
-	return api.getBlob(`/library/${libraryId}/comic/${comicId}/page/${pageIndex}/remote`, {
+	return api.getBlob(`/libraries/${libraryId}/comics/${comicId}/pages/${pageIndex}/remote`, {
 		cache: 'no-store'
 	});
 }
 
 /**
  * Update comic reading progress
- * Note: YACReader API expects plain text format "currentPage:N", not JSON
+ * Uses the Kottlib-native JSON API.
  */
 export async function updateReadingProgress(libraryId, comicId, currentPage) {
 	// Convert 1-based page to 0-based index for API
 	const pageIndex = Math.max(0, currentPage - 1);
 
-	const response = await fetch(`/v2/library/${libraryId}/comic/${comicId}/update`, {
-		method: 'POST',
-		credentials: 'include',
-		headers: {
-			'Content-Type': 'text/plain'
-		},
-		body: `currentPage:${pageIndex}`
+	return api.post(`/libraries/${libraryId}/comics/${comicId}/progress`, {
+		current_page: pageIndex
 	});
-
-	if (!response.ok) {
-		throw new Error(`Failed to update progress: ${response.statusText}`);
-	}
-
-	return response.json();
 }
 
 /**
  * Get previous comic in series
  */
 export async function getPreviousComic(libraryId, comicId) {
-	return api.get(`/library/${libraryId}/comic/${comicId}/previousComic`);
+	return api.get(`/libraries/${libraryId}/comics/${comicId}/previous`);
 }
 
 /**
  * Get next comic in series
  */
 export async function getNextComic(libraryId, comicId) {
-	return api.get(`/library/${libraryId}/comic/${comicId}/nextComic`);
+	return api.get(`/libraries/${libraryId}/comics/${comicId}/next`);
 }
 
 /**
  * Get comic cover
  */
 export function getCoverUrl(libraryId, coverHash, format = 'jpg') {
-	return `/v2/library/${libraryId}/cover/${coverHash}.${format}`;
+	return `/api/libraries/${libraryId}/covers/${coverHash}.${format}`;
 }
