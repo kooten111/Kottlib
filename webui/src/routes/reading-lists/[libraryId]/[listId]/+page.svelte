@@ -149,6 +149,31 @@
 		viewMode = viewMode === 'grid' ? 'list' : 'grid';
 	}
 
+	function encodePath(path) {
+		if (!path) return '';
+		return path
+			.split('/')
+			.map((segment) => encodeURIComponent(segment))
+			.join('/');
+	}
+
+	function getComicOverviewHref(comic) {
+		const targetLibraryId = comic.libraryId || comic.library_id || libraryId;
+		const rawPath =
+			comic.browse_path ||
+			comic.browsePath ||
+			comic.name ||
+			comic.title ||
+			comic.series ||
+			comic.file_name?.replace(/\.(cbz|cbr|cb7|cbt)$/i, '');
+
+		if (targetLibraryId && rawPath) {
+			return `/library/${targetLibraryId}/browse/${encodePath(rawPath)}`;
+		}
+
+		return `/comic/${targetLibraryId}/${comic.id}/read`;
+	}
+
 	function sortComics(comicList, sortType) {
 		const sorted = [...comicList];
 		switch (sortType) {
@@ -305,7 +330,7 @@
 										{comic}
 										{libraryId}
 										variant={viewMode}
-										href={`/comic/${comic.libraryId || libraryId}/${comic.id}/read`}
+										href={getComicOverviewHref(comic)}
 									/>
 									<button
 										class="remove-btn"

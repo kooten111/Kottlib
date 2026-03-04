@@ -51,13 +51,6 @@ PROTOCOL_PREVIOUS_COMIC = "previousComic:"
 PROTOCOL_NEXT_COMIC = "nextComic:"
 
 # ============================================================================
-# Path Markers
-# ============================================================================
-
-# Prefix for comic paths in browse API (distinguishes comics from folders)
-COMIC_PATH_PREFIX = "_comic/"
-
-# ============================================================================
 # Pagination
 # ============================================================================
 

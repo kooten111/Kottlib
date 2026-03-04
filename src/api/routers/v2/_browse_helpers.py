@@ -6,109 +6,16 @@ to improve readability and maintainability.
 """
 
 from typing import Optional, List, Dict, Tuple
-from urllib.parse import unquote
 import random
 
-from fastapi import HTTPException
 from sqlalchemy.orm import Session
-from sqlalchemy import func, desc
 
-from ....constants import COMIC_PATH_PREFIX
 from ....database.models import (
     Folder as FolderModel,
     Comic,
     Series,
     ReadingProgress
 )
-from ....database.operations import get_comic_by_id
-from ._shared import get_comic_display_name
-
-
-def parse_browse_path(
-    path: Optional[str],
-    library_id: int,
-    root_folder: FolderModel,
-    session: Session
-) -> Tuple[FolderModel, List[dict], Optional[dict]]:
-    """
-    Parse browse path and build breadcrumbs.
-    
-    Handles both regular folder paths and special comic view paths (/_comic/ID).
-    
-    Args:
-        path: URL path to parse (may be None for root)
-        library_id: Library ID for validation
-        root_folder: Root folder of the library
-        session: Database session
-    
-    Returns:
-        Tuple of (current_folder, breadcrumbs, comic_item_or_none)
-        - current_folder: The folder to browse
-        - breadcrumbs: List of breadcrumb dicts with "name" and "path" keys
-        - comic_item_or_none: If comic view path, returns comic data dict, else None
-    """
-    current_folder = root_folder
-    breadcrumbs = []
-    
-    if not path:
-        return current_folder, breadcrumbs, None
-    
-    # Check for comic path pattern: /_comic/ID
-    if COMIC_PATH_PREFIX in path:
-        decoded_path = unquote(path).strip('/')
-        # Extract comic ID from path
-        parts = decoded_path.split(COMIC_PATH_PREFIX)
-        comic_id_str = parts[-1].split('/')[0] if parts else None
-        
-        # Build breadcrumbs from folder part (before _comic)
-        folder_path = parts[0].rstrip('/') if len(parts) > 1 else ''
-        if folder_path:
-            folder_parts = folder_path.split('/')
-            for part in folder_parts:
-                if not part:
-                    continue
-                child = session.query(FolderModel).filter(
-                    FolderModel.parent_id == current_folder.id,
-                    FolderModel.name == part
-                ).first()
-                if child:
-                    current_folder = child
-                    breadcrumbs.append({
-                        "name": part,
-                        "path": '/'.join(p["name"] for p in breadcrumbs) + ('/' if breadcrumbs else '') + part
-                    })
-        
-        if comic_id_str and comic_id_str.isdigit():
-            comic_id = int(comic_id_str)
-            comic = get_comic_by_id(session, comic_id)
-            
-            if not comic or comic.library_id != library_id:
-                raise HTTPException(status_code=404, detail="Comic not found")
-            
-            # Note: Comic item returned here should have progress fetched by caller
-            # This function returns the base comic dict without progress
-            return current_folder, breadcrumbs, comic
-    
-    # Regular folder path
-    decoded_path = unquote(path).strip('/')
-    path_parts = decoded_path.split('/') if decoded_path else []
-    
-    for part in path_parts:
-        if not part:
-            continue
-        child = session.query(FolderModel).filter(
-            FolderModel.parent_id == current_folder.id,
-            FolderModel.name == part
-        ).first()
-        if not child:
-            raise HTTPException(status_code=404, detail=f"Folder not found: {part}")
-        current_folder = child
-        breadcrumbs.append({
-            "name": part,
-            "path": '/'.join(p["name"] for p in breadcrumbs) + ('/' if breadcrumbs else '') + part
-        })
-    
-    return current_folder, breadcrumbs, None
 
 
 def apply_random_sort(

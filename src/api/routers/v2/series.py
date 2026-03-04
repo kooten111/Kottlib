@@ -23,11 +23,10 @@ from fastapi import APIRouter, Request, HTTPException
 from fastapi.responses import JSONResponse
 from sqlalchemy import func
 
-from ....constants import ROOT_FOLDER_MARKER, COMIC_PATH_PREFIX
+from ....constants import ROOT_FOLDER_MARKER
 from ....database import (
     get_library_by_id,
     get_folders_in_library,
-    get_comic_by_id,
     get_user_by_username,
     get_user_by_id,
     get_reading_progress,
@@ -37,7 +36,6 @@ from ...middleware import get_current_user_id, get_request_user
 from ._shared import get_comic_display_name, series_tree_cache, get_comic_sort_key
 from ._item_builders import build_folder_item, build_comic_item
 from ._browse_helpers import (
-    parse_browse_path,
     apply_random_sort,
     batch_fetch_folder_metadata,
     batch_fetch_comic_progress,
@@ -241,82 +239,6 @@ async def browse_folder(
         # Determine target folder
         current_folder = root_folder
         breadcrumbs = []
-        
-        # Check for comic path pattern: /_comic/ID
-        if path and COMIC_PATH_PREFIX in path:
-            decoded_path = unquote(path).strip('/')
-            # Extract comic ID from path
-            parts = decoded_path.split(COMIC_PATH_PREFIX)
-            comic_id_str = parts[-1].split('/')[0] if parts else None
-            
-            # Build breadcrumbs from folder part (before _comic)
-            folder_path = parts[0].rstrip('/') if len(parts) > 1 else ''
-            if folder_path:
-                folder_parts = folder_path.split('/')
-                for part in folder_parts:
-                    if not part: continue
-                    child = session.query(FolderModel).filter(
-                        FolderModel.parent_id == current_folder.id,
-                        FolderModel.name == part
-                    ).first()
-                    if child:
-                        current_folder = child
-                        breadcrumbs.append({
-                            "name": part,
-                            "path": '/'.join(p["name"] for p in breadcrumbs) + ('/' if breadcrumbs else '') + part
-                        })
-            
-            if comic_id_str and comic_id_str.isdigit():
-                comic_id = int(comic_id_str)
-                comic = get_comic_by_id(session, comic_id)
-                
-                if comic and comic.library_id == library_id:
-                    # Get user progress
-                    user = get_request_user(request, session)
-                    progress = None
-                    if user:
-                        progress = get_reading_progress(session, user.id, comic_id)
-                    
-                    # Build comic item
-                    comic_item = {
-                        "id": comic.id,
-                        "type": "comic",
-                        "name": get_comic_display_name(comic),
-                        "title": get_comic_display_name(comic),
-                        "cover_hash": comic.hash,
-                        "progress_percent": progress.progress_percent if progress else 0,
-                        "is_completed": progress.is_completed if progress else False,
-                        "current_page": progress.current_page if progress else 0,
-                        "num_pages": comic.num_pages,
-                        "size": comic.file_size,
-                        # Full comic metadata
-                        "series": comic.series,
-                        "volume": comic.volume,
-                        "issue_number": comic.issue_number,
-                        "writer": comic.writer,
-                        "artist": comic.penciller,
-                        "publisher": comic.publisher,
-                        "year": comic.year,
-                        "genre": comic.genre,
-                        "synopsis": comic.description,
-                        "file_name": comic.filename,
-                        "hash": comic.hash,
-                    }
-                    
-                    # Return comic as single-item browse response
-                    return _timed_browse_response({
-                        "library": {"id": library.id, "name": library.name},
-                        "folder": None,
-                        "comic": comic_item,
-                        "is_comic_view": True,
-                        "breadcrumbs": breadcrumbs,
-                        "items": [comic_item],
-                        "total": 1,
-                        "offset": 0,
-                        "limit": 1
-                    }, "library", "bypass", started_at)
-                else:
-                    raise HTTPException(status_code=404, detail="Comic not found")
         
         if path:
             decoded_path = unquote(path).strip('/')
@@ -1513,4 +1435,3 @@ async def get_series_detail(
             "cover_hash": None,
             "volumes": []
         })
-

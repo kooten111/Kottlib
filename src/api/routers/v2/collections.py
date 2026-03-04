@@ -41,12 +41,46 @@ from ....database import (
     get_reading_list_comics,
 )
 from ....database.models import Comic, Label, ReadingListItem
+from ....database.models.library import Folder
+from ....constants import ROOT_FOLDER_MARKER
 from ...middleware import get_current_user_id, get_request_user
 from ._shared import get_comic_display_name
 
 logger = logging.getLogger(__name__)
 
 router = APIRouter()
+
+def _build_browse_path(session, comic: Comic) -> Optional[str]:
+    """
+    Build canonical browse path from folder ancestry.
+
+    Returns a slash-delimited path relative to library root, or None if the
+    comic is not inside a browsable folder hierarchy.
+    """
+    if not comic.folder_id:
+        # Loose comics at library root are browsed by display name.
+        return get_comic_display_name(comic)
+
+    parts = []
+    current = session.query(Folder).filter(Folder.id == comic.folder_id).first()
+    hops = 0
+
+    while current and hops < 128:
+        if current.name and current.name != ROOT_FOLDER_MARKER:
+            parts.append(current.name)
+
+        if current.parent_id is None:
+            break
+
+        current = session.query(Folder).filter(Folder.id == current.parent_id).first()
+        hops += 1
+
+    if not parts:
+        # Root-level folder comic (e.g. __ROOT__) should still be reachable via
+        # the browse display-name path.
+        return get_comic_display_name(comic)
+
+    return "/".join(reversed(parts))
 
 
 # ============================================================================
@@ -76,6 +110,7 @@ async def get_favorites(request: Request):
         for fav in favorites:
             comic = get_comic_by_id(session, fav.comic_id)
             if comic:
+                browse_path = _build_browse_path(session, comic)
                 result.append({
                     "id": comic.id,
                     "type": "comic",
@@ -91,6 +126,8 @@ async def get_favorites(request: Request):
                     "num_pages": comic.num_pages or 0,
                     "current_page": 0,
                     "series": comic.series,
+                    "browse_path": browse_path,
+                    "browsePath": browse_path,
                     "year": comic.year,
                     "createdAt": fav.created_at if hasattr(fav, "created_at") else int(time.time()),
                     "favoriteDate": fav.created_at if hasattr(fav, "created_at") else int(time.time()),
@@ -522,6 +559,7 @@ async def get_reading_list_content(
                 comic = item
 
             if comic:
+                browse_path = _build_browse_path(session, comic)
                 result.append({
                     "id": comic.id,
                     "name": get_comic_display_name(comic),
@@ -533,6 +571,8 @@ async def get_reading_list_content(
                     "cover_hash": comic.hash,
                     "coverHash": comic.hash,
                     "series": comic.series,
+                    "browse_path": browse_path,
+                    "browsePath": browse_path,
                     "year": comic.year,
                     "num_pages": comic.num_pages or 0,
                     "libraryId": library_id,

@@ -16,7 +16,8 @@
 	// Extract route parameters
 	$: libraryId = parseInt($page.params.libraryId);
 	$: comicId = parseInt($page.params.comicId);
-	$: startPage = parseInt($page.url.searchParams.get("page") || "1") || 1;
+	$: pageParam = $page.url.searchParams.get("page");
+	$: startPage = pageParam !== null ? parseInt(pageParam, 10) : null;
 
 	// Component state
 	let comic = null;
@@ -70,7 +71,7 @@
 			totalPages = comic.num_pages || comic.numPages || 0;
 
 			// Set initial page
-			if (startPage && startPage > 0) {
+			if (Number.isInteger(startPage) && startPage > 0) {
 				// User explicitly specified a page in URL
 				currentPage = startPage;
 			} else if ((comic.current_page || comic.currentPage || 0) > 0) {

@@ -68,6 +68,31 @@
 		viewMode = viewMode === 'grid' ? 'list' : 'grid';
 	}
 
+	function encodePath(path) {
+		if (!path) return '';
+		return path
+			.split('/')
+			.map((segment) => encodeURIComponent(segment))
+			.join('/');
+	}
+
+	function getFavoriteHref(comic) {
+		const libId = comic.libraryId || comic.library_id;
+		const rawPath =
+			comic.browse_path ||
+			comic.browsePath ||
+			comic.name ||
+			comic.title ||
+			comic.series ||
+			comic.file_name?.replace(/\.(cbz|cbr|cb7|cbt)$/i, '');
+
+		if (libId && rawPath) {
+			return `/library/${libId}/browse/${encodePath(rawPath)}`;
+		}
+
+		return `/comic/${libId}/${comic.id}/read`;
+	}
+
 	$: sortedFavorites = sortFavorites(favorites, sortBy);
 </script>
 
@@ -141,7 +166,12 @@
 		{:else if sortedFavorites.length > 0}
 			<div class="comics-{viewMode}">
 				{#each sortedFavorites as comic}
-					<ComicCard {comic} libraryId={comic.libraryId || comic.library_id} variant={viewMode} href={`/comic/${comic.libraryId || comic.library_id}/${comic.id}/read`} />
+					<ComicCard
+						{comic}
+						libraryId={comic.libraryId || comic.library_id}
+						variant={viewMode}
+						href={getFavoriteHref(comic)}
+					/>
 				{/each}
 			</div>
 		{:else}
