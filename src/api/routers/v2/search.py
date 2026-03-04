@@ -7,6 +7,7 @@ Endpoints for comic search functionality.
 import logging
 from typing import Optional
 from pathlib import Path
+from urllib.parse import quote
 
 from fastapi import APIRouter, Request, HTTPException
 from fastapi.responses import JSONResponse
@@ -19,13 +20,13 @@ from ....database import (
 )
 from ....database.enhanced_search import (
     search_with_fts,
-    search_series,
     search_comics_advanced,
     get_searchable_fields,
     parse_search_query,
 )
-from ....database.models import Folder as FolderModel
-from ...middleware import get_current_user_id, get_request_user
+from ....database.models import Comic, Folder as FolderModel, Series as SeriesModel
+from ....constants import ROOT_FOLDER_MARKER
+from ...middleware import get_request_user
 
 logger = logging.getLogger(__name__)
 
@@ -90,15 +91,39 @@ async def search_comics_v2(
         # Perform search using enhanced FTS search
         comics_results = search_with_fts(session, library_id, query)
         
-        # Search for series first (prioritized)
-        series_results = search_series(session, library_id, query, limit=5)
+        # Search for browseable series (folder-based) first.
+        # Series metadata can differ from folder names. Use folder names as the
+        # source of truth for navigation.
+        search_pattern = f"%{query.strip()}%"
+        root_folder = session.query(FolderModel).filter(
+            FolderModel.library_id == library_id,
+            FolderModel.name == ROOT_FOLDER_MARKER
+        ).first()
+
+        series_folders_query = session.query(FolderModel).filter(
+            FolderModel.library_id == library_id,
+            FolderModel.name != ROOT_FOLDER_MARKER,
+            FolderModel.name.ilike(search_pattern)
+        )
+        if root_folder:
+            series_folders_query = series_folders_query.filter(FolderModel.parent_id == root_folder.id)
+
+        series_results = series_folders_query.order_by(FolderModel.name).limit(5).all()
 
         logger.info(f"v2 API: Found {len(series_results)} series and {len(comics_results)} comics matching '{query}'")
 
         # Get cover hashes for series by looking up their folders
         series_names = [s.name for s in series_results]
         folder_covers = {}
+        series_meta_map = {}
+        series_comic_counts = {}
         if series_names:
+            series_metadata = session.query(SeriesModel).filter(
+                SeriesModel.library_id == library_id,
+                SeriesModel.name.in_(series_names)
+            ).all()
+            series_meta_map = {s.name: s for s in series_metadata}
+
             # First try to get folders with cached first_child_hash
             folders = session.query(FolderModel.name, FolderModel.first_child_hash, FolderModel.path).filter(
                 FolderModel.library_id == library_id,
@@ -117,7 +142,6 @@ async def search_comics_v2(
             
             # Fallback: Get first comic hash for series without cached cover
             if series_needing_cover:
-                from ....database.models import Comic
                 for series_name in series_needing_cover:
                     folder_path = folder_paths.get(series_name)
                     if folder_path:
@@ -128,6 +152,13 @@ async def search_comics_v2(
                         if first_comic:
                             folder_covers[series_name] = first_comic[0]
 
+            for folder_name, _, folder_path in folders:
+                if folder_path:
+                    series_comic_counts[folder_name] = session.query(Comic.id).filter(
+                        Comic.library_id == library_id,
+                        Comic.path.startswith(folder_path + "/")
+                    ).count()
+
         # Get user for reading progress
         user = get_request_user(request, session)
 
@@ -137,16 +168,17 @@ async def search_comics_v2(
         
         # Add series results first
         for series in series_results:
+            series_meta = series_meta_map.get(series.name)
             results.append({
                 "type": "series",
                 "id": str(series.id),
                 "libraryId": str(library_id),
                 "name": series.name,
-                "publisher": series.publisher,
-                "comic_count": series.comic_count,
+                "publisher": series_meta.publisher if series_meta else None,
+                "comic_count": series_comic_counts.get(series.name, 0),
                 # Helper for frontend icon/display
                 "file_name": series.name, 
-                "path": f"/series/{library_id}/{series.name}",
+                "path": f"/library/{library_id}/browse/{quote(series.name, safe='')}",
                 "coverHash": folder_covers.get(series.name),
             })
             

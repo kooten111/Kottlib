@@ -361,7 +361,16 @@
 					<!-- Results Grid -->
 					<div class="comics-{viewMode}">
 						{#each searchResults as comic}
-							<ComicCard {comic} libraryId={comic.libraryId} variant={viewMode} />
+							<ComicCard
+								{comic}
+								libraryId={comic.libraryId}
+								variant={viewMode}
+								isFolder={comic.type === 'series'}
+								itemCount={comic.comic_count || comic.item_count || 0}
+								href={comic.type === 'series'
+									? `/library/${comic.libraryId}/browse/${encodeURIComponent(comic.name || comic.series_name || comic.title || '')}`
+									: null}
+							/>
 						{/each}
 					</div>
 				{:else}

@@ -64,14 +64,6 @@ export async function getSeries(libraryId, sort = 'name', offset = 0, limit = 50
 }
 
 /**
- * Get detailed information about a specific series
- */
-export async function getSeriesDetail(libraryId, seriesName) {
-	const encodedName = encodeURIComponent(seriesName);
-	return api.get(`/libraries/${libraryId}/series/${encodedName}`);
-}
-
-/**
  * Get hierarchical tree of all libraries with series and comics
  */
 export async function getLibrariesSeriesTree() {
