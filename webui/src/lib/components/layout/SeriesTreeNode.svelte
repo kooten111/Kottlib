@@ -30,13 +30,12 @@
 		if (!node) return "#";
 		if (node.type === "root") return "/";
 		if (node.type === "library") return `/library/${node.id}/browse`;
-		if (node.type === "folder" && node.path) {
-			// Split path by slashes and encode each segment to ensure valid URI
-			const encodedPath = node.path
-				.split("/")
-				.map((segment) => encodeURIComponent(segment))
-				.join("/");
-			return `/library/${node.libraryId}/browse/${encodedPath}`;
+		if (node.type === "folder") {
+			if (node.name === "__ROOT__") {
+				return `/library/${node.libraryId}/browse`;
+			}
+			const browsePath = node.idPath || `${node.id}`;
+			return `/library/${node.libraryId}/browse/${browsePath}`;
 		}
 		if (node.type === "comic") {
 			return `/comic/${node.libraryId}/${node.id}/read`;

@@ -134,7 +134,7 @@
 			onSelect(result);
 		} else {
 			if (result.type === "series") {
-				window.location.href = `/library/${result.libraryId}/browse/${encodeURIComponent(result.name)}`;
+				window.location.href = `/library/${result.libraryId}/browse/${result.id || encodeURIComponent(result.name)}`;
 			} else {
 				// Navigate to the parent folder's browse view
 				const segments = result.path

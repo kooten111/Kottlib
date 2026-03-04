@@ -75,25 +75,45 @@
 		(node) => node.id === selectedLibraryId,
 	);
 
-	// Add paths to folder nodes for proper navigation links
-	function addPathsToNodes(nodes, parentPath = "", libraryId = null) {
+	// Add derived paths to folder nodes for proper navigation links.
+	// `path` keeps the display/name path, `idPath` is used for routing.
+	function addPathsToNodes(
+		nodes,
+		parentPath = "",
+		parentIdPath = "",
+		libraryId = null,
+	) {
 		if (!nodes) return [];
 		return nodes.map((node) => {
 			let currentPath = parentPath;
+			let currentIdPath = parentIdPath;
+			const isVirtualRootFolder =
+				node.type === "folder" && node.name === "__ROOT__";
 			if (node.type === "folder") {
-				currentPath = parentPath
-					? `${parentPath}/${node.name}`
-					: node.name;
+				if (isVirtualRootFolder) {
+					// Keep virtual root out of URL paths.
+					currentPath = parentPath;
+					currentIdPath = parentIdPath;
+				} else {
+					currentPath = parentPath
+						? `${parentPath}/${node.name}`
+						: node.name;
+					currentIdPath = parentIdPath
+						? `${parentIdPath}/${node.id}`
+						: `${node.id}`;
+				}
 			}
 			const newNode = {
 				...node,
 				path: currentPath,
+				idPath: currentIdPath,
 				libraryId: libraryId || node.libraryId,
 			};
 			if (node.children && node.children.length > 0) {
 				newNode.children = addPathsToNodes(
 					node.children,
 					currentPath,
+					currentIdPath,
 					libraryId || node.libraryId,
 				);
 			}
@@ -103,6 +123,7 @@
 
 	$: folderNodes = addPathsToNodes(
 		selectedLibraryNode?.children || [],
+		"",
 		"",
 		selectedLibraryId,
 	);
@@ -134,10 +155,9 @@
 		// Forward selection to parent - navigate via goto
 		const { node } = event.detail;
 		if (node.type === "folder" && node.libraryId) {
-			const encodedPath = node.path
-				? node.path.split('/').map(s => encodeURIComponent(s)).join('/')
-				: '';
-			goto(`/library/${node.libraryId}/browse/${encodedPath}`);
+			const browsePath =
+				node.name === "__ROOT__" ? "" : node.idPath || `${node.id}`;
+			goto(`/library/${node.libraryId}/browse/${browsePath}`);
 			closeSidebarOnMobile();
 		}
 	}

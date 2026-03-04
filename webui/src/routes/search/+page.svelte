@@ -368,7 +368,7 @@
 								isFolder={comic.type === 'series'}
 								itemCount={comic.comic_count || comic.item_count || 0}
 								href={comic.type === 'series'
-									? `/library/${comic.libraryId}/browse/${encodeURIComponent(comic.name || comic.series_name || comic.title || '')}`
+									? `/library/${comic.libraryId}/browse/${comic.id || encodeURIComponent(comic.name || comic.series_name || comic.title || '')}`
 									: null}
 							/>
 						{/each}

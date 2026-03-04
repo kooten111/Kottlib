@@ -351,19 +351,14 @@
             // In all-libraries mode, navigate to the specific library
             const itemLibraryId = item.library_id;
             if (item.type === "collection" || item.type === "series") {
-                const path = item.path || item.name;
-                const encodedPath = path
-                    .split("/")
-                    .map((segment) => encodeURIComponent(segment))
-                    .join("/");
-                goto(`/library/${itemLibraryId}/browse/${encodedPath}`);
+                goto(`/library/${itemLibraryId}/browse/${item.id}`);
             }
         } else {
             // Navigate to subfolder within same library
-            const rawPath =
-                item.path ||
-                (currentPath ? `${currentPath}/${item.name}` : item.name);
-            goto(`/library/${libraryId}/browse/${encodePath(rawPath)}`);
+            const rawPath = currentPath
+                ? `${currentPath}/${item.id}`
+                : `${item.id}`;
+            goto(`/library/${libraryId}/browse/${rawPath}`);
         }
     }
 
@@ -1072,7 +1067,7 @@
                                             href={isAllLibraries
                                                 ? `/comic/${item.library_id}/${item.id}/read`
                                                 : currentPath === ""
-                                                    ? `/library/${libraryId}/browse/${encodePath(item.name)}`
+                                                    ? `/library/${libraryId}/browse/${item.id}`
                                                     : `/comic/${libraryId}/${item.id}/read`}
                                         />
                                     {/if}

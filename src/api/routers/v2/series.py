@@ -245,21 +245,40 @@ async def browse_folder(
             path_parts = decoded_path.split('/') if decoded_path else []
             
             for i, part in enumerate(path_parts):
-                if not part: continue
+                if not part:
+                    continue
+
+                # Prefer name lookup (backward compatible), but allow folder-id
+                # path segments so URLs can stay stable and readable.
                 child = session.query(FolderModel).filter(
                     FolderModel.parent_id == current_folder.id,
                     FolderModel.name == part
                 ).first()
+                if not child and part.isdigit():
+                    child = session.query(FolderModel).filter(
+                        FolderModel.parent_id == current_folder.id,
+                        FolderModel.id == int(part)
+                    ).first()
                 if not child:
                     # Check if this is a comic file (by title or filename without extension)
                     # Only valid as the last path segment
                     if i == len(path_parts) - 1:
+                        # First, support comic-id browse paths in this folder.
+                        comic = None
+                        if part.isdigit():
+                            comic = session.query(Comic).filter(
+                                Comic.id == int(part),
+                                Comic.library_id == library_id,
+                                Comic.folder_id == current_folder.id,
+                            ).first()
+
                         # Try to find comic by title first
-                        comic = session.query(Comic).filter(
-                            Comic.library_id == library_id,
-                            Comic.folder_id == current_folder.id,
-                            Comic.title == part
-                        ).first()
+                        if not comic:
+                            comic = session.query(Comic).filter(
+                                Comic.library_id == library_id,
+                                Comic.folder_id == current_folder.id,
+                                Comic.title == part
+                            ).first()
                         
                         # If not found by title, try by filename (with various extensions)
                         if not comic:
@@ -331,8 +350,8 @@ async def browse_folder(
                     raise HTTPException(status_code=404, detail=f"Folder not found: {part}")
                 current_folder = child
                 breadcrumbs.append({
-                    "name": part,
-                    "path": '/'.join(p["name"] for p in breadcrumbs) + ('/' if breadcrumbs else '') + part
+                    "name": child.name,
+                    "path": '/'.join(p["name"] for p in breadcrumbs) + ('/' if breadcrumbs else '') + child.name
                 })
 
         # -------------------

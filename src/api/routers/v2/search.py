@@ -7,7 +7,6 @@ Endpoints for comic search functionality.
 import logging
 from typing import Optional
 from pathlib import Path
-from urllib.parse import quote
 
 from fastapi import APIRouter, Request, HTTPException
 from fastapi.responses import JSONResponse
@@ -178,7 +177,7 @@ async def search_comics_v2(
                 "comic_count": series_comic_counts.get(series.name, 0),
                 # Helper for frontend icon/display
                 "file_name": series.name, 
-                "path": f"/library/{library_id}/browse/{quote(series.name, safe='')}",
+                "path": f"/library/{library_id}/browse/{series.id}",
                 "coverHash": folder_covers.get(series.name),
             })
             
