@@ -12,14 +12,6 @@ Modern, responsive web interface for Kottlib comic library server.
 - ⭐ **Favorites** - Mark and browse your favorite comics
 - 📊 **Admin Dashboard** - Server statistics and management
 
-### Design
-- 🎨 Modern dark-mode-first design (with light mode toggle)
-- 📱 Fully responsive (mobile, tablet, desktop)
-- ⚡ Fast, optimized with SvelteKit
-- 🎯 Tailwind CSS custom design system
-- 🔍 TanStack Query for efficient data fetching
-- ♿ Accessible (WCAG 2.1 AA compliant)
-
 ## Tech Stack
 
 - **Framework**: SvelteKit
@@ -62,7 +54,7 @@ bun run dev
 
 Open [http://localhost:5173](http://localhost:5173) in your browser.
 
-The API proxy is configured to forward `/v2/*` requests to `http://localhost:8081`.
+The API proxy forwards both `/api/*` (primary WebUI API) and `/v2/*` (YACReader compatibility) to `http://localhost:8081`.
 
 ### Build for Production
 
@@ -96,55 +88,6 @@ webui/
 ├── tailwind.config.js
 └── package.json
 ```
-
-## Implementation Status
-
-### ✅ Phase 1: Foundation (COMPLETE)
-- SvelteKit project with Vite
-- Tailwind CSS custom design system
-- Layout components (Navbar, Sidebar, Footer)
-- Common components (Button, Card, Input, Modal, ProgressBar, Breadcrumbs)
-- API client with full backend integration
-- Dark/light theme system with localStorage
-- Development server with API proxy
-
-### ✅ Phase 2: Comic Reader (COMPLETE)
-- PageViewer component with fit modes (width, height, original)
-- Reader controls (prev/next, page slider)
-- Keyboard shortcuts (arrows, space, fullscreen, ESC)
-- Reading progress tracking and auto-save
-- Fullscreen mode
-- Manga mode (RTL reading)
-- ReaderSettings panel
-
-### ✅ Phase 3: Library Browser (COMPLETE)
-- Comic grid/list views with toggle
-- Folder navigation with breadcrumbs
-- Folder covers (using first comic)
-- Sorting options (name, date, progress)
-- Library sidebar on home page
-- Continue reading page
-- Favorites page
-- Comic detail pages
-- Progress indicators on cards
-
-### ✅ Phase 4: Search & Discovery (COMPLETE)
-- Search interface with filters
-- Multi-library search
-- Status filters (unread/reading/completed)
-- Active filter chips
-- Search autocomplete with covers and keyboard navigation
-
-### ⏳ Phase 5: User Features (PARTIAL)
-- Favorites system ✅
-- Comic detail pages ✅
-- Reading lists UI (pending)
-- Tags/labels UI (pending)
-
-### ⏳ Phase 6: Admin Panel (BASIC)
-- Basic dashboard ✅
-- Library stats ✅
-- Full management UI (pending)
 
 See [WEB_UI_PLAN.md](../docs/WEB_UI_PLAN.md) for the complete implementation roadmap.
 

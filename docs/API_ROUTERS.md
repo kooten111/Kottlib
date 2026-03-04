@@ -8,9 +8,10 @@ Kottlib exposes multiple API layers for different clients:
 |-----------|--------|--------|---------|
 | Legacy v1 | `/library/*` | Plain text | YACReader mobile app compatibility |
 | API v2 | `/v2/*` | JSON | Enhanced YACReader features |
+| Kottlib Native API | `/api/*` | JSON | Primary WebUI/internal API surface |
 | Modern API v1 | `/api/v1/*` | JSON | Libraries CRUD |
-| Modern API v2 | `/api/v2/*` | JSON | User interactions, config |
-| Scanners API | `/v2/scanners/*` | JSON | Metadata scanner operations |
+| Modern API v2 | `/api/v2/*` | JSON | Backward-compatible user/config aliases |
+| Scanners API | `/v2/scanners/*`, `/api/scanners/*` | JSON | Metadata scanner operations |
 
 ---
 
@@ -683,7 +684,28 @@ Delete library.
 
 ---
 
+## Kottlib Native API (`/api/*`)
+
+**Package:** `src/api/routers/app_api/`
+
+Primary namespace used by the WebUI and internal clients. This layer exposes
+stable, client-friendly endpoint naming and reuses v2 implementations where
+possible.
+
+### Key endpoint groups
+
+- Libraries and browse: `/api/libraries`, `/api/libraries/tree`, `/api/browse/libraries/*`
+- Comics and reading: `/api/libraries/{library_id}/comics/*`, `/api/reading`
+- Collections: `/api/favorites`, `/api/libraries/{library_id}/reading-lists/*`
+- Search: `/api/libraries/{library_id}/search*`, `/api/search/query/parse`
+- Admin and config aliases: `/api/admin/*`, `/api/config`
+- Scanners alias: `/api/scanners/*`
+
+---
+
 ## Modern API v2 (`/api/v2/*`)
+
+Compatibility namespace retained for legacy clients.
 
 ### User Interactions
 
@@ -717,9 +739,11 @@ Update configuration.
 
 ---
 
-## Scanners API (`/v2/scanners/*`)
+## Scanners API (`/v2/scanners/*`, `/api/scanners/*`)
 
 **Package:** `src/api/routers/scanners/`
+
+Also mounted under `/api/scanners/*` via the Kottlib-native API router.
 
 The scanners API is organized as a package with the following modules:
 - `router.py` — Main router definition

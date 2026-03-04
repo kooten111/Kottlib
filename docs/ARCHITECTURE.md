@@ -323,7 +323,7 @@ Kottlib/
 │   │   │   ├── browse/         # Global browse
 │   │   │   ├── comic/[libraryId]/[comicId]/  # Comic reader
 │   │   │   ├── library/[libraryId]/browse/   # Library browser
-│   │   │   ├── series/[libraryId]/[seriesName]/  # Series browser
+│   │   │   ├── reading-lists/  # Reading lists
 │   │   │   ├── search/         # Search interface
 │   │   │   ├── favorites/      # User favorites
 │   │   │   └── continue-reading/

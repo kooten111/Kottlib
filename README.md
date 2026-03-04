@@ -198,7 +198,7 @@ Kottlib/
 │   │   ├── middleware/    # Session & CORS middleware
 │   │   └── routers/       # API route handlers
 │   │       ├── legacy_v1.py      # YACReader v1 API (text format)
-│   │       ├── libraries.py      # Modern library management
+│   │       ├── app_api/          # Kottlib-native API namespace (/api/*)
 │   │       ├── covers.py         # Cover serving endpoints
 │   │       ├── user_interactions.py  # Favorites, progress
 │   │       ├── scanners/         # Metadata scanner API (package)
@@ -264,7 +264,7 @@ Kottlib/
 │   │   │   ├── browse/            # Global browse
 │   │   │   ├── comic/[libraryId]/[comicId]/  # Comic detail & reader
 │   │   │   ├── library/[libraryId]/browse/   # Library browser
-│   │   │   ├── series/[libraryId]/[seriesName]/  # Series browser
+│   │   │   ├── reading-lists/     # Reading lists and items
 │   │   │   ├── continue-reading/  # Continue reading list
 │   │   │   ├── favorites/         # Favorites
 │   │   │   └── search/            # Search interface
