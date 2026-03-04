@@ -331,10 +331,16 @@
                 label: library?.name || "Library",
                 href: `/library/${libraryId}/browse`,
             },
-            ...breadcrumbs.map((b, i) => ({
-                label: b.name,
-                href: `/library/${libraryId}/browse/${encodePath(b.path)}`,
-            })),
+            ...breadcrumbs.map((b, i) => {
+                const currentSegments = (currentPath || "")
+                    .split("/")
+                    .filter(Boolean);
+                const idPath = currentSegments.slice(0, i + 1).join("/");
+                return {
+                    label: b.name,
+                    href: `/library/${libraryId}/browse/${idPath || encodePath(b.path)}`,
+                };
+            }),
         ];
 
     // Helper to encode path segments for URL (handles special chars like %, #, etc.)

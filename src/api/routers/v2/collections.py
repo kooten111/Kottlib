@@ -52,14 +52,13 @@ router = APIRouter()
 
 def _build_browse_path(session, comic: Comic) -> Optional[str]:
     """
-    Build canonical browse path from folder ancestry.
+    Build canonical ID-based browse path from folder ancestry.
 
-    Returns a slash-delimited path relative to library root, or None if the
-    comic is not inside a browsable folder hierarchy.
+    Returns a slash-delimited folder-id path relative to library root.
     """
     if not comic.folder_id:
-        # Loose comics at library root are browsed by display name.
-        return get_comic_display_name(comic)
+        # Loose comics at library root can be reached directly by comic ID.
+        return str(comic.id)
 
     parts = []
     current = session.query(Folder).filter(Folder.id == comic.folder_id).first()
@@ -67,7 +66,7 @@ def _build_browse_path(session, comic: Comic) -> Optional[str]:
 
     while current and hops < 128:
         if current.name and current.name != ROOT_FOLDER_MARKER:
-            parts.append(current.name)
+            parts.append(str(current.id))
 
         if current.parent_id is None:
             break
@@ -76,9 +75,8 @@ def _build_browse_path(session, comic: Comic) -> Optional[str]:
         hops += 1
 
     if not parts:
-        # Root-level folder comic (e.g. __ROOT__) should still be reachable via
-        # the browse display-name path.
-        return get_comic_display_name(comic)
+        # Fallback to comic ID.
+        return str(comic.id)
 
     return "/".join(reversed(parts))
 
@@ -126,6 +124,8 @@ async def get_favorites(request: Request):
                     "num_pages": comic.num_pages or 0,
                     "current_page": 0,
                     "series": comic.series,
+                    "parent_id": str(comic.folder_id) if comic.folder_id is not None else "0",
+                    "folderId": comic.folder_id if comic.folder_id is not None else 0,
                     "browse_path": browse_path,
                     "browsePath": browse_path,
                     "year": comic.year,
@@ -571,6 +571,7 @@ async def get_reading_list_content(
                     "cover_hash": comic.hash,
                     "coverHash": comic.hash,
                     "series": comic.series,
+                    "parent_id": str(comic.folder_id) if comic.folder_id is not None else "0",
                     "browse_path": browse_path,
                     "browsePath": browse_path,
                     "year": comic.year,

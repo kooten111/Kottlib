@@ -159,6 +159,16 @@
 
 	function getComicOverviewHref(comic) {
 		const targetLibraryId = comic.libraryId || comic.library_id || libraryId;
+		const parentFolderId =
+			comic.parent_id ||
+			comic.parentId ||
+			comic.folderId ||
+			comic.folder_id;
+
+		if (targetLibraryId && parentFolderId && String(parentFolderId) !== '0') {
+			return `/library/${targetLibraryId}/browse/${parentFolderId}`;
+		}
+
 		const rawPath =
 			comic.browse_path ||
 			comic.browsePath ||

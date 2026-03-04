@@ -78,6 +78,16 @@
 
 	function getFavoriteHref(comic) {
 		const libId = comic.libraryId || comic.library_id;
+		const parentFolderId =
+			comic.parent_id ||
+			comic.parentId ||
+			comic.folderId ||
+			comic.folder_id;
+
+		if (libId && parentFolderId && String(parentFolderId) !== '0') {
+			return `/library/${libId}/browse/${parentFolderId}`;
+		}
+
 		const rawPath =
 			comic.browse_path ||
 			comic.browsePath ||
