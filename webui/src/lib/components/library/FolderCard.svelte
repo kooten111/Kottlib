@@ -128,14 +128,16 @@
 
         <!-- Hover Overlay -->
         <div
-            class="absolute inset-0 bg-gradient-to-t from-black/90 via-black/50 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex flex-col justify-end p-3"
+            class="absolute inset-0 bg-gradient-to-t from-black/95 via-black/75 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex flex-col justify-end p-3"
         >
             {#if metadata.description || metadata.synopsis}
-                <p class="text-xs text-zinc-300 line-clamp-3 mb-2">
+                <p
+                    class="text-xs text-zinc-100 font-medium leading-relaxed line-clamp-3 mb-2 drop-shadow-[0_1px_2px_rgba(0,0,0,0.95)] drop-shadow-[0_0_10px_rgba(0,0,0,0.6)]"
+                >
                     {metadata.description || metadata.synopsis}
                 </p>
             {/if}
-            <div class="flex items-center gap-2 mt-auto">
+            <div class="flex items-center gap-2">
                 <Play class="w-4 h-4 text-orange-400 fill-orange-400" />
                 <span class="text-xs text-orange-400 font-medium"
                     >Browse {isCollection ? "Collection" : "Series"}</span
