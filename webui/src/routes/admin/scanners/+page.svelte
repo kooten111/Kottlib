@@ -441,7 +441,7 @@
 
 <Navbar />
 
-<div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+<div class="scanner-admin max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
 	<!-- Header -->
 	<div class="mb-8">
 		<h1 class="text-3xl font-bold text-dark-text flex items-center gap-3">
@@ -1506,51 +1506,163 @@
 {/if}
 
 <style>
+	.scanner-admin {
+		color: var(--color-text);
+	}
+
+	/* Route-scoped overrides to neutralize dark-biased utility classes */
+	.scanner-admin :global(.bg-dark-bg-secondary) {
+		background: color-mix(in srgb, var(--color-secondary-bg) 92%, var(--color-bg) 8%) !important;
+	}
+
+	.scanner-admin :global(.bg-dark-bg-tertiary) {
+		background: color-mix(in srgb, var(--color-secondary-bg) 86%, var(--color-bg) 14%) !important;
+	}
+
+	.scanner-admin :global(.border-gray-700) {
+		border-color: var(--color-border-strong) !important;
+	}
+
+	.scanner-admin :global(.hover\:border-gray-600:hover) {
+		border-color: var(--color-border-hover) !important;
+	}
+
+	.scanner-admin :global(.hover\:bg-gray-600:hover),
+	.scanner-admin :global(.hover\:bg-gray-700:hover) {
+		background: color-mix(in srgb, var(--color-accent) 14%, var(--color-secondary-bg)) !important;
+	}
+
+	.scanner-admin :global(.disabled\:bg-gray-600:disabled) {
+		background: color-mix(in srgb, var(--color-border) 70%, var(--color-secondary-bg)) !important;
+	}
+
+	.scanner-admin :global(.bg-red-950) {
+		background: color-mix(in srgb, var(--color-error) 16%, transparent) !important;
+	}
+
+	.scanner-admin :global(.border-red-800) {
+		border-color: color-mix(in srgb, var(--color-error) 35%, transparent) !important;
+	}
+
+	.scanner-admin :global(.text-red-200),
+	.scanner-admin :global(.text-red-300) {
+		color: var(--color-error) !important;
+	}
+
+	.scanner-admin :global(.bg-green-950) {
+		background: color-mix(in srgb, var(--color-success) 14%, transparent) !important;
+	}
+
+	.scanner-admin :global(.border-green-800) {
+		border-color: color-mix(in srgb, var(--color-success) 35%, transparent) !important;
+	}
+
+	.scanner-admin :global(.text-green-200) {
+		color: var(--color-success) !important;
+	}
+
+	.scanner-admin :global(.text-yellow-200) {
+		color: var(--color-warning) !important;
+	}
+
+	.scanner-admin :global(.text-gray-300),
+	.scanner-admin :global(.text-gray-400) {
+		color: var(--color-text-secondary) !important;
+	}
+
+	.scanner-admin :global(.bg-blue-900) {
+		background: color-mix(in srgb, var(--color-accent-blue) 22%, transparent) !important;
+	}
+
+	.scanner-admin :global(.border-blue-700) {
+		border-color: color-mix(in srgb, var(--color-accent-blue) 35%, transparent) !important;
+	}
+
+	.scanner-admin :global(.text-blue-200) {
+		color: var(--color-accent-blue) !important;
+	}
+
+	.scanner-admin :global(.bg-yellow-900),
+	.scanner-admin :global(.bg-orange-900),
+	.scanner-admin :global(.bg-red-900),
+	.scanner-admin :global(.bg-gray-800) {
+		background: color-mix(in srgb, var(--color-tertiary-bg) 88%, var(--color-bg) 12%) !important;
+	}
+
+	.scanner-admin :global(.text-yellow-200),
+	.scanner-admin :global(.text-orange-200),
+	.scanner-admin :global(.text-red-200),
+	.scanner-admin :global(.text-gray-200) {
+		color: var(--color-text-secondary) !important;
+	}
+
+	.scanner-admin :global(.border-yellow-700),
+	.scanner-admin :global(.border-orange-700),
+	.scanner-admin :global(.border-red-700),
+	.scanner-admin :global(.border-gray-600) {
+		border-color: var(--color-border-strong) !important;
+	}
+
+	.scanner-admin :global(input),
+	.scanner-admin :global(select),
+	.scanner-admin :global(textarea) {
+		color: var(--color-text);
+	}
+
+	.scanner-admin :global(input::placeholder),
+	.scanner-admin :global(textarea::placeholder) {
+		color: var(--color-text-muted);
+	}
+
 	.library-card {
 		text-align: left;
 		padding: 1rem;
-		border: 2px solid var(--color-gray-700, #374151);
-		background: var(--color-dark-bg-tertiary, #1f2937);
+		border: 1px solid var(--color-border-strong);
+		background: color-mix(in srgb, var(--color-secondary-bg) 88%, var(--color-bg) 12%);
 		border-radius: 8px;
 		transition: all 0.2s;
 		cursor: pointer;
 	}
 
 	.library-card:hover {
-		border-color: var(--color-gray-600, #4b5563);
-		background: var(--color-gray-800, #1f2937);
+		border-color: var(--color-border-hover);
+		background: color-mix(in srgb, var(--color-accent-blue) 12%, var(--color-secondary-bg));
 	}
 
 	.library-card-selected {
-		border-color: var(--color-accent-orange, #ff6740);
-		background: rgba(255, 103, 64, 0.1);
+		border-color: var(--color-accent);
+		background: color-mix(in srgb, var(--color-accent) 16%, transparent);
 	}
 
 	.library-card-selected:hover {
-		border-color: var(--color-accent-orange, #ff6740);
-		background: rgba(255, 103, 64, 0.15);
+		border-color: var(--color-accent);
+		background: color-mix(in srgb, var(--color-accent) 22%, transparent);
 	}
 
 	.scan-progress-container {
 		padding: 1rem;
-		background: rgba(0, 0, 0, 0.2);
-		border: 1px solid var(--color-gray-700, #374151);
+		background: color-mix(in srgb, var(--color-secondary-bg) 88%, var(--color-bg) 12%);
+		border: 1px solid var(--color-border-strong);
 		border-radius: 8px;
 	}
 
 	.progress-bar-wrapper {
 		width: 100%;
 		height: 8px;
-		background: rgba(255, 255, 255, 0.1);
+		background: var(--color-border);
 		border-radius: 4px;
 		overflow: hidden;
 	}
 
 	.progress-bar-fill {
 		height: 100%;
-		background: linear-gradient(90deg, #ff6740 0%, #ff4520 100%);
+		background: linear-gradient(
+			90deg,
+			var(--color-accent) 0%,
+			var(--color-accent-hover) 100%
+		);
 		border-radius: 4px;
 		transition: width 0.3s ease;
-		box-shadow: 0 0 10px rgba(255, 103, 64, 0.5);
+		box-shadow: 0 0 8px color-mix(in srgb, var(--color-accent) 40%, transparent);
 	}
 </style>

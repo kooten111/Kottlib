@@ -1,13 +1,7 @@
 <script>
     /**
-     * GenreTag - Styled tag/badge component for genres, tags, status indicators
-     *
-     * Variants:
-     * - default: muted zinc styling
-     * - genre: orange accent for genres
-     * - tag: subtle gray for tags
-     * - status: green for status (Ongoing/Completed)
-     * - warning: red for content warnings
+     * GenreTag - Styled tag/badge component for genres, tags, status indicators.
+     * Colors are derived from active theme variables.
      */
     export let variant = "default";
 </script>
@@ -31,32 +25,32 @@
     }
 
     .genre-tag.default {
-        background: rgba(63, 63, 70, 0.8);
-        color: #a1a1aa;
-        border-color: rgba(82, 82, 91, 0.7);
+        background: color-mix(in srgb, var(--color-tertiary-bg) 82%, transparent);
+        color: var(--color-text-secondary);
+        border-color: var(--color-border-strong);
     }
 
     .genre-tag.genre {
-        background: rgba(249, 115, 22, 0.2);
-        color: #fb923c;
-        border-color: rgba(249, 115, 22, 0.3);
+        background: color-mix(in srgb, var(--color-accent) 20%, transparent);
+        color: var(--color-accent);
+        border-color: color-mix(in srgb, var(--color-accent) 35%, transparent);
     }
 
     .genre-tag.tag {
-        background: rgba(63, 63, 70, 0.5);
-        color: #71717a;
-        border-color: rgba(82, 82, 91, 0.4);
+        background: color-mix(in srgb, var(--color-tertiary-bg) 68%, transparent);
+        color: var(--color-text-muted);
+        border-color: var(--color-border);
     }
 
     .genre-tag.status {
-        background: rgba(34, 197, 94, 0.2);
-        color: #4ade80;
-        border-color: rgba(34, 197, 94, 0.3);
+        background: color-mix(in srgb, var(--color-success) 20%, transparent);
+        color: var(--color-success);
+        border-color: color-mix(in srgb, var(--color-success) 35%, transparent);
     }
 
     .genre-tag.warning {
-        background: rgba(239, 68, 68, 0.2);
-        color: #f87171;
-        border-color: rgba(239, 68, 68, 0.3);
+        background: color-mix(in srgb, var(--color-error) 20%, transparent);
+        color: var(--color-error);
+        border-color: color-mix(in srgb, var(--color-error) 35%, transparent);
     }
 </style>

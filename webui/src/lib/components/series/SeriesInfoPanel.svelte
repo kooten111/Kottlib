@@ -591,7 +591,7 @@
 <!-- Comic Candidate Selection Modal -->
 {#if showComicCandidateModal && comicScanCandidates.length > 0}
     <div
-        class="fixed inset-0 bg-black/70 backdrop-blur-sm z-50 flex items-center justify-center p-4"
+        class="fixed inset-0 candidate-modal-overlay backdrop-blur-sm z-50 flex items-center justify-center p-4"
         on:click|self={closeComicCandidateModal}
         on:keydown={(e) => e.key === "Escape" && closeComicCandidateModal()}
         role="dialog"
@@ -635,7 +635,7 @@
                     <button
                         on:click={() => handleSelectComicCandidate(candidate, index)}
                         disabled={isApplyingComicCandidate}
-                        class="w-full text-left p-4 rounded-xl border transition-all duration-200
+                                class="group w-full text-left p-4 rounded-xl border transition-all duration-200
                                {selectedComicCandidateIndex === index
                             ? 'border-status-success bg-status-success/20'
                             : 'bg-dark-bg-tertiary hover:border-accent-orange/50 hover:bg-accent-orange/10'}
@@ -742,7 +742,7 @@
                                     />
                                 {:else}
                                     <div
-                                        class="p-2 rounded-lg bg-dark-bg group-hover:bg-accent-orange/20 transition-colors"
+                                        class="p-2 rounded-lg candidate-check-wrap transition-colors"
                                     >
                                         <Check
                                             class="w-5 h-5 text-dark-text-muted"
@@ -759,7 +759,7 @@
                                 target="_blank"
                                 rel="noopener noreferrer"
                                 on:click|stopPropagation
-                                class="mt-3 inline-flex items-center gap-1 text-xs text-accent-blue hover:text-accent-orange-hover transition-colors"
+                                class="mt-3 source-link"
                             >
                                 <ExternalLink class="w-3 h-3" />
                                 View Source
@@ -897,7 +897,12 @@
         flex-direction: column;
         gap: 0.375rem;
         padding: 0.75rem;
-        background: var(--color-tertiary-bg);
+        background: color-mix(
+            in srgb,
+            var(--color-secondary-bg) 86%,
+            var(--color-bg) 14%
+        );
+        border: 1px solid var(--color-border-strong);
         border-radius: 0.5rem;
     }
 
@@ -917,7 +922,12 @@
 
     .progress-section {
         padding: 0.75rem;
-        background: var(--color-tertiary-bg);
+        background: color-mix(
+            in srgb,
+            var(--color-secondary-bg) 86%,
+            var(--color-bg) 14%
+        );
+        border: 1px solid var(--color-border-strong);
         border-radius: 0.5rem;
     }
 
@@ -962,8 +972,12 @@
         justify-content: center;
         gap: 0.375rem;
         padding: 0.5rem;
-        background: var(--color-tertiary-bg);
-        border: 1px solid var(--color-border);
+        background: color-mix(
+            in srgb,
+            var(--color-secondary-bg) 90%,
+            var(--color-bg) 10%
+        );
+        border: 1px solid var(--color-border-strong);
         border-radius: 0.5rem;
         color: var(--color-text-secondary);
         font-size: 0.75rem;
@@ -972,7 +986,7 @@
     }
 
     .btn-action:hover {
-        background: var(--color-border);
+        background: color-mix(in srgb, var(--color-accent) 14%, transparent);
         color: var(--color-text);
     }
 
@@ -982,13 +996,13 @@
     }
 
     .btn-action.is-favorite {
-        background: rgba(239, 68, 68, 0.15);
-        border-color: rgba(239, 68, 68, 0.4);
-        color: #ef4444;
+        background: color-mix(in srgb, var(--color-error) 18%, transparent);
+        border-color: color-mix(in srgb, var(--color-error) 45%, transparent);
+        color: var(--color-error);
     }
 
     .btn-action.is-favorite:hover {
-        background: rgba(239, 68, 68, 0.25);
+        background: color-mix(in srgb, var(--color-error) 28%, transparent);
     }
 
     .btn-action:disabled {
@@ -1026,7 +1040,12 @@
 
     .synopsis-section {
         padding: 0.75rem;
-        background: var(--color-tertiary-bg);
+        background: color-mix(
+            in srgb,
+            var(--color-secondary-bg) 86%,
+            var(--color-bg) 14%
+        );
+        border: 1px solid var(--color-border-strong);
         border-radius: 0.5rem;
     }
 
@@ -1049,6 +1068,7 @@
     .synopsis-text.collapsed {
         display: -webkit-box;
         -webkit-line-clamp: 4;
+        line-clamp: 4;
         -webkit-box-orient: vertical;
         overflow: hidden;
     }
@@ -1113,39 +1133,47 @@
 
     /* Tag type styling for categorized tags */
     :global(.tag-parody) {
-        background: rgba(147, 51, 234, 0.15) !important;
-        color: rgb(168, 85, 247) !important;
+        background: color-mix(in srgb, var(--color-accent) 18%, transparent) !important;
+        color: var(--color-accent) !important;
     }
 
     :global(.tag-character) {
-        background: rgba(59, 130, 246, 0.15) !important;
-        color: rgb(96, 165, 250) !important;
+        background: color-mix(in srgb, var(--color-accent-blue) 18%, transparent) !important;
+        color: var(--color-accent-blue) !important;
     }
 
     :global(.tag-artist) {
-        background: rgba(34, 197, 94, 0.15) !important;
-        color: rgb(74, 222, 128) !important;
+        background: color-mix(in srgb, var(--color-success) 18%, transparent) !important;
+        color: var(--color-success) !important;
     }
 
     :global(.tag-group) {
-        background: rgba(249, 115, 22, 0.15) !important;
-        color: rgb(251, 146, 60) !important;
+        background: color-mix(in srgb, var(--color-accent) 14%, var(--color-warning) 14%, transparent) !important;
+        color: var(--color-warning) !important;
     }
 
     :global(.tag-language) {
-        background: rgba(234, 179, 8, 0.15) !important;
-        color: rgb(250, 204, 21) !important;
+        background: color-mix(in srgb, var(--color-warning) 18%, transparent) !important;
+        color: var(--color-warning) !important;
     }
 
     :global(.tag-category) {
-        background: rgba(236, 72, 153, 0.15) !important;
-        color: rgb(244, 114, 182) !important;
+        background: color-mix(in srgb, var(--color-error) 16%, var(--color-accent) 12%, transparent) !important;
+        color: color-mix(in srgb, var(--color-error) 60%, var(--color-accent) 40%) !important;
+    }
+
+    .candidate-modal-overlay {
+        background: color-mix(in srgb, var(--color-bg) 72%, black 28%);
     }
 
     .scanner-section {
         padding: 0.75rem;
-        background: var(--color-tertiary-bg);
-        border: 1px solid var(--color-border);
+        background: color-mix(
+            in srgb,
+            var(--color-secondary-bg) 86%,
+            var(--color-bg) 14%
+        );
+        border: 1px solid var(--color-border-strong);
         border-radius: 0.5rem;
         display: flex;
         flex-direction: column;
@@ -1271,5 +1299,13 @@
             transparent
         );
         text-decoration: none;
+    }
+
+    .candidate-check-wrap {
+        background: var(--color-bg);
+    }
+
+    .group:hover .candidate-check-wrap {
+        background: color-mix(in srgb, var(--color-accent) 20%, transparent);
     }
 </style>

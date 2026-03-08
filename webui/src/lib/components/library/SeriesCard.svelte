@@ -187,10 +187,10 @@
         position: relative;
         display: flex;
         flex-direction: column;
-        background: rgba(24, 24, 27, 0.9);
+        background: var(--color-secondary-bg);
         border-radius: 0.75rem;
         overflow: hidden;
-        border: 1px solid rgba(63, 63, 70, 0.8);
+        border: 1px solid var(--color-border);
         cursor: pointer;
         text-decoration: none;
         text-align: left;
@@ -199,9 +199,9 @@
     }
 
     .series-card:hover {
-        border-color: rgba(249, 115, 22, 0.5);
+        border-color: var(--color-accent);
         transform: scale(1.02);
-        box-shadow: 0 20px 40px -15px rgba(249, 115, 22, 0.1);
+        box-shadow: 0 20px 40px -15px color-mix(in srgb, var(--color-accent) 20%, transparent);
     }
 
     .cover-container {
@@ -233,9 +233,9 @@
 
     .series-badge {
         left: 0.5rem;
-        background: rgba(24, 24, 27, 0.9);
-        color: #60a5fa;
-        border: 1px solid rgba(96, 165, 250, 0.3);
+        background: var(--color-overlay);
+        color: var(--color-accent-blue);
+        border: 1px solid color-mix(in srgb, var(--color-accent-blue) 40%, transparent);
     }
 
     .progress-badge {
@@ -243,12 +243,12 @@
         top: 0.5rem;
         right: 0.5rem;
         padding: 0.125rem 0.5rem;
-        background: rgba(24, 24, 27, 0.9);
+        background: var(--color-overlay);
         backdrop-filter: blur(4px);
         border-radius: 0.25rem;
         font-size: 0.625rem;
         font-weight: 500;
-        color: #d4d4d8;
+        color: var(--color-text-secondary);
     }
 
     .hover-overlay {
@@ -256,8 +256,8 @@
         inset: 0;
         background: linear-gradient(
             to top,
-            rgba(0, 0, 0, 0.9),
-            rgba(0, 0, 0, 0.5) 50%,
+            color-mix(in srgb, var(--color-bg) 96%, black 4%),
+            color-mix(in srgb, var(--color-bg) 70%, transparent) 50%,
             transparent
         );
         opacity: 0;
@@ -275,7 +275,7 @@
 
     .overlay-description {
         font-size: 0.75rem;
-        color: #d4d4d8;
+        color: var(--color-text-secondary);
         margin: 0;
         display: -webkit-box;
         -webkit-line-clamp: 3;
@@ -293,13 +293,13 @@
     :global(.play-icon) {
         width: 1rem;
         height: 1rem;
-        color: #fb923c;
+        color: var(--color-accent);
     }
 
     .overlay-action span {
         font-size: 0.75rem;
         font-weight: 500;
-        color: #fb923c;
+        color: var(--color-accent);
     }
 
     .progress-bar {
@@ -308,12 +308,12 @@
         left: 0;
         right: 0;
         height: 0.25rem;
-        background: rgba(0, 0, 0, 0.4);
+        background: color-mix(in srgb, var(--color-bg) 40%, transparent);
     }
 
     .progress-fill {
         height: 100%;
-        background: #f97316;
+        background: var(--color-accent);
     }
 
     .card-info {
@@ -326,7 +326,7 @@
     .card-title {
         font-size: 0.875rem;
         font-weight: 600;
-        color: white;
+        color: var(--color-text);
         margin: 0;
         overflow: hidden;
         text-overflow: ellipsis;
@@ -335,12 +335,12 @@
     }
 
     .series-card:hover .card-title {
-        color: #fb923c;
+        color: var(--color-accent);
     }
 
     .card-writer {
         font-size: 0.75rem;
-        color: #71717a;
+        color: var(--color-text-muted);
         margin: 0;
         overflow: hidden;
         text-overflow: ellipsis;
@@ -352,7 +352,7 @@
         align-items: center;
         gap: 0.5rem;
         font-size: 0.75rem;
-        color: #71717a;
+        color: var(--color-text-muted);
     }
 
     .stat {
@@ -362,7 +362,7 @@
     }
 
     .stat.in-progress :global(.stat-icon) {
-        color: #fb923c;
+        color: var(--color-accent);
     }
 
     .stat.rating {
@@ -375,6 +375,6 @@
     }
 
     :global(.stat-icon.star) {
-        color: #eab308;
+        color: var(--color-warning);
     }
 </style>

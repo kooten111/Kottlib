@@ -91,12 +91,13 @@
 	}
 
 	.btn-secondary {
-		@apply btn text-dark-text hover:bg-gray-600;
-		background: var(--color-tertiary-bg);
+		@apply btn text-dark-text;
+		background: color-mix(in srgb, var(--color-secondary-bg) 90%, var(--color-bg) 10%);
 		border-color: var(--color-border);
 	}
 
 	.btn-secondary:hover {
+		background: color-mix(in srgb, var(--color-accent) 12%, var(--color-secondary-bg));
 		border-color: var(--color-border-strong);
 	}
 

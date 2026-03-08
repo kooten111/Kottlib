@@ -231,8 +231,14 @@
 
 	.section-card {
 		padding: 1.5rem;
-		background: var(--color-secondary-bg);
+		background: linear-gradient(
+			180deg,
+			color-mix(in srgb, var(--color-secondary-bg) 94%, var(--color-bg) 6%),
+			color-mix(in srgb, var(--color-secondary-bg) 88%, var(--color-bg) 12%)
+		);
+		border: 1px solid var(--color-border-strong);
 		border-radius: 8px;
+		box-shadow: 0 8px 20px color-mix(in srgb, var(--color-bg) 22%, transparent);
 	}
 
 	.section-header {
@@ -274,8 +280,24 @@
 		align-items: center;
 		justify-content: space-between;
 		padding: 1rem;
-		background: rgba(255, 255, 255, 0.02);
+		background: linear-gradient(
+			135deg,
+			color-mix(in srgb, var(--color-accent-blue) 10%, var(--color-secondary-bg)),
+			color-mix(in srgb, var(--color-secondary-bg) 88%, var(--color-bg) 12%)
+		);
+		border: 1px solid color-mix(in srgb, var(--color-accent-blue) 22%, var(--color-border-strong));
 		border-radius: 6px;
+		box-shadow: inset 0 1px 0 color-mix(in srgb, var(--color-text) 9%, transparent);
+		transition: all 0.2s ease;
+	}
+
+	.library-item:hover {
+		border-color: color-mix(in srgb, var(--color-accent-blue) 40%, var(--color-border-strong));
+		background: color-mix(
+			in srgb,
+			var(--color-accent-blue) 14%,
+			var(--color-secondary-bg)
+		);
 	}
 
 	.library-info {
@@ -302,7 +324,12 @@
 
 	.stat-badge {
 		padding: 0.25rem 0.5rem;
-		background: rgba(255, 255, 255, 0.05);
+		background: color-mix(
+			in srgb,
+			var(--color-accent-blue) 14%,
+			var(--color-secondary-bg)
+		);
+		border: 1px solid color-mix(in srgb, var(--color-accent-blue) 28%, var(--color-border));
 		border-radius: 4px;
 		font-size: 0.75rem;
 		color: var(--color-text-secondary);

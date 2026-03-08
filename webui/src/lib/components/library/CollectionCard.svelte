@@ -191,10 +191,10 @@
         position: relative;
         display: flex;
         flex-direction: column;
-        background: rgba(24, 24, 27, 0.9);
+        background: var(--color-secondary-bg);
         border-radius: 0.75rem;
         overflow: hidden;
-        border: 1px solid rgba(63, 63, 70, 0.8);
+        border: 1px solid var(--color-border);
         cursor: pointer;
         text-decoration: none;
         text-align: left;
@@ -203,9 +203,9 @@
     }
 
     .collection-card:hover {
-        border-color: rgba(249, 115, 22, 0.5);
+        border-color: var(--color-accent);
         transform: scale(1.02);
-        box-shadow: 0 20px 40px -15px rgba(249, 115, 22, 0.1);
+        box-shadow: 0 20px 40px -15px color-mix(in srgb, var(--color-accent) 20%, transparent);
     }
 
     .card-stack {
@@ -222,8 +222,8 @@
 
     .layer-1 {
         top: -0.375rem;
-        background: rgba(63, 63, 70, 0.8);
-        border: 1px solid rgba(82, 82, 91, 0.7);
+        background: var(--color-tertiary-bg);
+        border: 1px solid var(--color-border-strong);
         border-bottom: none;
     }
 
@@ -231,7 +231,7 @@
         top: -0.125rem;
         left: 0.375rem;
         right: 0.375rem;
-        background: rgba(52, 52, 56, 0.9);
+        background: color-mix(in srgb, var(--color-tertiary-bg) 88%, black 12%);
     }
 
     .cover-container {
@@ -263,9 +263,9 @@
 
     .collection-badge {
         left: 0.5rem;
-        background: rgba(24, 24, 27, 0.9);
-        color: #fb923c;
-        border: 1px solid rgba(249, 115, 22, 0.3);
+        background: var(--color-overlay);
+        color: var(--color-accent);
+        border: 1px solid color-mix(in srgb, var(--color-accent) 40%, transparent);
     }
 
     .progress-badge {
@@ -273,12 +273,12 @@
         top: 0.5rem;
         right: 0.5rem;
         padding: 0.125rem 0.5rem;
-        background: rgba(24, 24, 27, 0.9);
+        background: var(--color-overlay);
         backdrop-filter: blur(4px);
         border-radius: 0.25rem;
         font-size: 0.625rem;
         font-weight: 500;
-        color: #d4d4d8;
+        color: var(--color-text-secondary);
     }
 
     .progress-bar {
@@ -287,12 +287,12 @@
         left: 0;
         right: 0;
         height: 0.25rem;
-        background: rgba(0, 0, 0, 0.4);
+        background: color-mix(in srgb, var(--color-bg) 40%, transparent);
     }
 
     .progress-fill {
         height: 100%;
-        background: #f97316;
+        background: var(--color-accent);
     }
 
     .card-info {
@@ -305,7 +305,7 @@
     .card-title {
         font-size: 0.875rem;
         font-weight: 600;
-        color: white;
+        color: var(--color-text);
         margin: 0;
         overflow: hidden;
         text-overflow: ellipsis;
@@ -314,7 +314,7 @@
     }
 
     .collection-card:hover .card-title {
-        color: #fb923c;
+        color: var(--color-accent);
     }
 
     .genre-pills {
@@ -325,8 +325,8 @@
 
     .genre-pill {
         padding: 0.125rem 0.375rem;
-        background: rgba(63, 63, 70, 0.8);
-        color: #a1a1aa;
+        background: var(--color-tertiary-bg);
+        color: var(--color-text-secondary);
         border-radius: 0.25rem;
         font-size: 0.625rem;
     }
@@ -336,7 +336,7 @@
         align-items: center;
         gap: 0.5rem;
         font-size: 0.75rem;
-        color: #71717a;
+        color: var(--color-text-muted);
     }
 
     .stat {
@@ -355,6 +355,6 @@
     }
 
     :global(.stat-icon.star) {
-        color: #eab308;
+        color: var(--color-warning);
     }
 </style>
