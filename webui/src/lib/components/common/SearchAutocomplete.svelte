@@ -134,22 +134,17 @@
 			onSelect(result);
 		} else {
 			if (result.type === "series") {
-				window.location.href = `/library/${result.libraryId}/browse/${result.id || encodeURIComponent(result.name)}`;
+				window.location.href =
+					result.path || `/series/${result.libraryId}/${result.name}`;
 			} else {
-				// Navigate to the parent folder's browse view.
-				// Prefer folder ID to avoid encoded name paths.
-				const parentFolderId = result.parent_id;
-				if (parentFolderId && parentFolderId !== "0") {
-					window.location.href = `/library/${result.libraryId}/browse/${parentFolderId}`;
-				} else {
-					const segments = result.path
-						? result.path.replace(/^\//, "").split("/").slice(0, -1)
-						: [];
-					const folderPath = segments
-						.map((s) => encodeURIComponent(s))
-						.join("/");
-					window.location.href = `/library/${result.libraryId}/browse/${folderPath}`;
-				}
+				// Navigate to the parent folder's browse view
+				const segments = result.path
+					? result.path.replace(/^\//, "").split("/").slice(0, -1)
+					: [];
+				const folderPath = segments
+					.map((s) => encodeURIComponent(s))
+					.join("/");
+				window.location.href = `/library/${result.libraryId}/browse/${folderPath}`;
 			}
 		}
 		isOpen = false;

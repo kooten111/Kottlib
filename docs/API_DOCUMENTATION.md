@@ -351,7 +351,9 @@ Returns an array of series with aggregated metadata and reading progress:
 ```
 
 **Query Parameters:**
-- `sort`: Sort order - `name`, `recent`, `progress` (default: `name`)
+- `sort`: Sort order - `name`, `recent`, `updated`, `progress` (default: `name`).
+- `recent` sorts by series/comic creation time; `updated` sorts by latest newly-added content in a series subtree.
+- Alias inputs are normalized: `date_added`/`recently_added` -> `recent`, `last_updated`/`recently_updated`/`date_updated` -> `updated`.
 - `include_metadata`: Include series metadata (default: `true`)
 
 #### Series Tree (`/v2/libraries/series-tree`)

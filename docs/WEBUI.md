@@ -38,6 +38,9 @@ webui/
 │   │   ├── library/[libraryId]/browse/[...path]/
 │   │   │   ├── +page.svelte         # Library folder browser
 │   │   │   └── +page.server.js
+│   │   ├── series/[libraryId]/[seriesName]/
+│   │   │   ├── +page.svelte         # Series detail
+│   │   │   └── +page.server.js
 │   │   ├── continue-reading/+page.svelte
 │   │   ├── favorites/+page.svelte
 │   │   └── search/+page.svelte
@@ -97,7 +100,7 @@ webui/
 
 **Route Parameters:**
 - `libraryId` — Library ID
-- `...path` — Catch-all ID-based browse path (folder IDs; optionally a trailing comic ID)
+- `...path` — Nested folder path (catch-all)
 
 ---
 
@@ -197,13 +200,20 @@ webui/
 
 ---
 
-### Series Navigation
+### `/series/[libraryId]/[seriesName]/` — Series Detail
 
-There is no dedicated `/series/[libraryId]/[seriesName]/` page route.
-Series selections resolve to canonical library browse URLs under:
-- `/library/[libraryId]/browse/[...path]/`
+**Files:**
+- `+page.svelte` — Series browser
+- `+page.server.js` — SSR data loading
 
-Browse paths are ID-first and use folder ancestry for stable navigation.
+**Features:**
+- Series metadata display (via `SeriesInfoPanel`)
+- Volume listing with covers
+- Reading progress per volume
+
+**Route Parameters:**
+- `libraryId` — Library ID
+- `seriesName` — URL-encoded series name
 
 ---
 

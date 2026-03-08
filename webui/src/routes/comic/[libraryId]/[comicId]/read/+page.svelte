@@ -16,8 +16,7 @@
 	// Extract route parameters
 	$: libraryId = parseInt($page.params.libraryId);
 	$: comicId = parseInt($page.params.comicId);
-	$: pageParam = $page.url.searchParams.get("page");
-	$: startPage = pageParam !== null ? parseInt(pageParam, 10) : null;
+	$: startPage = parseInt($page.url.searchParams.get("page") || "1") || 1;
 
 	// Component state
 	let comic = null;
@@ -71,7 +70,7 @@
 			totalPages = comic.num_pages || comic.numPages || 0;
 
 			// Set initial page
-			if (Number.isInteger(startPage) && startPage > 0) {
+			if (startPage && startPage > 0) {
 				// User explicitly specified a page in URL
 				currentPage = startPage;
 			} else if ((comic.current_page || comic.currentPage || 0) > 0) {
@@ -380,19 +379,19 @@
 			lastSavedPage = currentPage;
 			// Use sendBeacon for reliability during page unload, fallback to sync fetch
 			const data = `currentPage:${Math.max(0, currentPage - 1)}`;
-			const url = `/api/libraries/${libraryId}/comics/${comicId}/progress`;
+			const url = `/v2/library/${libraryId}/comic/${comicId}/update`;
 			
 			if (navigator.sendBeacon) {
 				// sendBeacon is more reliable during page unload
-				const blob = new Blob([JSON.stringify({ current_page: Math.max(0, currentPage - 1) })], { type: 'application/json' });
+				const blob = new Blob([data], { type: 'text/plain' });
 				navigator.sendBeacon(url, blob);
 			} else {
 				// Fallback to synchronous fetch (less reliable but better than nothing)
 				fetch(url, {
 					method: 'POST',
 					credentials: 'include',
-					headers: { 'Content-Type': 'application/json' },
-					body: JSON.stringify({ current_page: Math.max(0, currentPage - 1) }),
+					headers: { 'Content-Type': 'text/plain' },
+					body: data,
 					keepalive: true
 				}).catch(() => {
 					// Ignore errors during unload

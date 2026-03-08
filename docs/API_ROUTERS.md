@@ -551,7 +551,7 @@ Get all series in library.
 
 | Parameter | Type | Default | Description |
 |-----------|------|---------|-------------|
-| `sort` | string | "name" | Sort: name, recent, progress |
+| `sort` | string | "name" | Sort: name, recent, updated, progress. Aliases accepted: date_added/recently_added -> recent, last_updated/recently_updated/date_updated -> updated |
 | `include_metadata` | bool | true | Include writer, artist, etc. |
 
 **Response:**
