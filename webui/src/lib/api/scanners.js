@@ -1,4 +1,4 @@
-import { api } from './client';
+import { appApi } from './client';
 
 /**
  * Scan a series for metadata
@@ -170,14 +170,14 @@ export async function clearMetadata(options) {
  * Get available scanners
  */
 export async function getAvailableScanners() {
-	return api.get('/scanners/available');
+	return appApi.get('/scanners/available');
 }
 
 /**
  * Get library scanner configurations
  */
 export async function getLibraryConfigs() {
-	return api.get('/scanners/libraries');
+	return appApi.get('/scanners/libraries');
 }
 
 /**

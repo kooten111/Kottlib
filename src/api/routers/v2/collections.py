@@ -9,7 +9,6 @@ Endpoints for user collections:
 
 import logging
 import json
-import time
 from pathlib import Path
 from typing import List, Optional
 
@@ -19,6 +18,7 @@ from fastapi.responses import JSONResponse, Response
 from ....database import (
     get_library_by_id,
     get_comic_by_id,
+    get_reading_progress,
     get_user_by_id,
     get_user_by_username,
     add_favorite,
@@ -63,8 +63,8 @@ def _legacy_json_response(payload) -> Response:
 # Favorites
 # ============================================================================
 
-@router.get("/favs")
-async def get_favorites(request: Request):
+@router.get("/library/{library_id}/favs")
+async def get_favorites(request: Request, library_id: Optional[int] = None):
     """
     Get user's favorite comics (v2 API)
 
@@ -79,38 +79,59 @@ async def get_favorites(request: Request):
         if not user:
             raise HTTPException(status_code=401, detail="User not found")
 
-        # Get favorites
+        library = None
+        if library_id is not None:
+            library = get_library_by_id(session, library_id)
+            if not library:
+                raise HTTPException(status_code=404, detail="Library not found")
+
+        # Get favorites for current user
         favorites = get_user_favorites(session, user.id)
+
+        library_uuid = ""
+        if library is not None and getattr(library, "uuid", None):
+            library_uuid = f"{{{str(library.uuid).strip('{}')}}}"
 
         result = []
         for fav in favorites:
             comic = get_comic_by_id(session, fav.comic_id)
-            if comic:
-                result.append({
-                    "id": comic.id,
-                    "type": "comic",
-                    "library_id": fav.library_id,
-                    "libraryId": fav.library_id,
-                    "title": get_comic_display_name(comic),
-                    "name": get_comic_display_name(comic),
-                    "file_name": comic.filename,
-                    "fileName": comic.filename,
-                    "hash": comic.hash,
-                    "cover_hash": comic.hash,
-                    "coverHash": comic.hash,
-                    "num_pages": comic.num_pages or 0,
-                    "current_page": 0,
-                    "series": comic.series,
-                    "year": comic.year,
-                    "createdAt": fav.created_at if hasattr(fav, "created_at") else int(time.time()),
-                    "favoriteDate": fav.created_at if hasattr(fav, "created_at") else int(time.time()),
-                })
+            if not comic:
+                continue
+            if library_id is not None and comic.library_id != library_id:
+                continue
 
-        return JSONResponse(result)
+            # Keep progress fields aligned with other v2 comic list endpoints.
+            progress = get_reading_progress(session, user.id, comic.id)
+            current_page = progress.current_page if progress else 0
+            is_read = progress.is_completed if progress else False
+
+            result.append({
+                "type": "comic",
+                "id": str(fav.id),
+                "comic_info_id": str(comic.id),
+                "parent_id": str(comic.folder_id) if comic.folder_id is not None else "0",
+                "library_id": str(fav.library_id),
+                "library_uuid": library_uuid,
+                "file_name": comic.filename,
+                "file_size": str(comic.file_size),
+                "hash": comic.hash,
+                "path": "",
+                "current_page": current_page,
+                "num_pages": comic.num_pages or 0,
+                "read": is_read,
+                "manga": getattr(comic, "reading_direction", "ltr") == "rtl",
+                "file_type": 0,
+                "cover_size_ratio": comic.cover_size_ratio if comic.cover_size_ratio > 0 else 0.67,
+                "number": 0,
+                "title": comic.title or "",
+                "has_been_opened": bool(comic.has_been_opened),
+            })
+
+        return _legacy_json_response(result)
 
 
-@router.post("/fav/{comic_id}")
-async def add_to_favorites(comic_id: int, request: Request):
+@router.post("/library/{library_id}/comic/{comic_id}/fav")
+async def add_to_favorites(library_id: int, comic_id: int, request: Request):
     """
     Add a comic to favorites (v2 API)
 
@@ -125,9 +146,14 @@ async def add_to_favorites(comic_id: int, request: Request):
         if not user:
             raise HTTPException(status_code=401, detail="User not found")
 
-        # Get comic and verify it exists
+        # Verify library exists
+        library = get_library_by_id(session, library_id)
+        if not library:
+            raise HTTPException(status_code=404, detail="Library not found")
+
+        # Get comic and verify it exists in the target library
         comic = get_comic_by_id(session, comic_id)
-        if not comic:
+        if not comic or comic.library_id != library_id:
             raise HTTPException(status_code=404, detail="Comic not found")
 
         # Check if already favorite
@@ -146,8 +172,8 @@ async def add_to_favorites(comic_id: int, request: Request):
         })
 
 
-@router.delete("/fav/{comic_id}")
-async def remove_from_favorites(comic_id: int, request: Request):
+@router.delete("/library/{library_id}/comic/{comic_id}/fav")
+async def remove_from_favorites(library_id: int, comic_id: int, request: Request):
     """
     Remove a comic from favorites (v2 API)
 
@@ -162,7 +188,12 @@ async def remove_from_favorites(comic_id: int, request: Request):
         if not user:
             raise HTTPException(status_code=401, detail="User not found")
 
-        # Remove from favorites
+        # Verify library exists
+        library = get_library_by_id(session, library_id)
+        if not library:
+            raise HTTPException(status_code=404, detail="Library not found")
+
+        # Remove from favorites regardless of current state (idempotent)
         remove_favorite(session, user.id, comic_id)
 
         return JSONResponse({
@@ -171,7 +202,6 @@ async def remove_from_favorites(comic_id: int, request: Request):
         })
 
 
-@router.get("/fav/{comic_id}/check")
 async def check_is_favorite(comic_id: int, request: Request):
     """
     Check if a comic is in the user's favorites (v2 API)
@@ -299,7 +329,6 @@ async def get_tag_info(library_id: int, tag_id: int, request: Request):
         })
 
 
-@router.post("/library/{library_id}/tag")
 async def create_tag(
     library_id: int,
     request: Request,
@@ -333,7 +362,6 @@ async def create_tag(
         })
 
 
-@router.delete("/library/{library_id}/tag/{tag_id}")
 async def delete_tag(library_id: int, tag_id: int, request: Request):
     """
     Delete a tag (v2 API)
@@ -362,7 +390,6 @@ async def delete_tag(library_id: int, tag_id: int, request: Request):
         })
 
 
-@router.post("/library/{library_id}/comic/{comic_id}/tag/{tag_id}")
 async def add_tag_to_comic(
     library_id: int,
     comic_id: int,
@@ -402,7 +429,6 @@ async def add_tag_to_comic(
         })
 
 
-@router.delete("/library/{library_id}/comic/{comic_id}/tag/{tag_id}")
 async def remove_tag_from_comic(
     library_id: int,
     comic_id: int,
@@ -599,7 +625,6 @@ async def get_reading_list_info(
         })
 
 
-@router.post("/library/{library_id}/reading_list")
 async def create_reading_list_endpoint(
     library_id: int,
     request: Request,
@@ -644,7 +669,6 @@ async def create_reading_list_endpoint(
         })
 
 
-@router.delete("/library/{library_id}/reading_list/{list_id}")
 async def delete_reading_list_endpoint(
     library_id: int,
     list_id: int,
@@ -677,7 +701,6 @@ async def delete_reading_list_endpoint(
         })
 
 
-@router.patch("/library/{library_id}/reading_list/{list_id}")
 async def update_reading_list_endpoint(
     library_id: int,
     list_id: int,
@@ -732,7 +755,6 @@ async def update_reading_list_endpoint(
         })
 
 
-@router.post("/library/{library_id}/reading_list/{list_id}/comic/{comic_id}")
 async def add_comic_to_reading_list_endpoint(
     library_id: int,
     list_id: int,
@@ -772,7 +794,6 @@ async def add_comic_to_reading_list_endpoint(
         })
 
 
-@router.delete("/library/{library_id}/reading_list/{list_id}/comic/{comic_id}")
 async def remove_comic_from_reading_list_endpoint(
     library_id: int,
     list_id: int,

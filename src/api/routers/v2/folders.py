@@ -33,7 +33,6 @@ router = APIRouter()
 # Folder Content
 # ============================================================================
 
-@router.get("/library/{library_id}/folder/{folder_id}")
 async def get_folder_v2(
     library_id: int,
     folder_id: int,
@@ -422,7 +421,6 @@ async def get_folder_content_json(
     return await get_folder_v2(library_id, folder_id, request, sort)
 
 
-@router.get("/library/{library_id}/folders")
 async def get_library_folders(
     library_id: int,
     request: Request,

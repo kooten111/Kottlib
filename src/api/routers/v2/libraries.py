@@ -264,11 +264,39 @@ async def get_version():
     return PlainTextResponse("2.1")
 
 
+def build_library_info(session: Session, lib) -> LibraryInfo:
+    """Build extended library info payload used by /api endpoints."""
+    stats = get_library_stats(session, lib.id)
+    uuid_formatted = f"{{{lib.uuid}}}" if not str(lib.uuid).startswith('{') else str(lib.uuid)
+
+    return LibraryInfo(
+        id=lib.id,
+        name=lib.name,
+        uuid=uuid_formatted,
+        path=lib.path,
+        created_at=lib.created_at,
+        updated_at=lib.updated_at,
+        last_scan_at=lib.last_scan_completed,
+        scan_status=lib.scan_status,
+        scan_interval=lib.scan_interval,
+        comic_count=stats.get('comic_count', 0),
+        folder_count=stats.get('folder_count', 0),
+        exclude_from_webui=bool(lib.exclude_from_webui or False),
+        settings=lib.settings,
+    )
+
+
+def list_libraries_extended(session: Session) -> List[LibraryInfo]:
+    """Extended library payload for /api clients."""
+    libraries = get_all_libraries(session)
+    return [build_library_info(session, lib) for lib in libraries]
+
+
 # ============================================================================
 # Endpoints
 # ============================================================================
 
-@router.get("/libraries", response_model=List[LibraryInfo])
+@router.get("/libraries", response_model=List[LibrarySimple])
 async def list_libraries(session: Session = Depends(get_db_session)):
     """
     Get all libraries with extended information
@@ -280,59 +308,21 @@ async def list_libraries(session: Session = Depends(get_db_session)):
 
     result = []
     for lib in libraries:
-        # Format UUID with curly braces for YACReader compatibility
-        uuid_formatted = f"{{{lib.uuid}}}" if not lib.uuid.startswith('{') else lib.uuid
-
-        # Get library stats
-        stats = get_library_stats(session, lib.id)
-
-        result.append(LibraryInfo(
-            id=lib.id,
-            name=lib.name,
-            uuid=uuid_formatted,
-            path=lib.path,
-            created_at=lib.created_at,
-            updated_at=lib.updated_at,
-            last_scan_at=lib.last_scan_completed,
-            scan_status=lib.scan_status,
-            scan_interval=lib.scan_interval,
-            comic_count=stats.get('comic_count', 0),
-            folder_count=stats.get('folder_count', 0),
-            exclude_from_webui=bool(lib.exclude_from_webui or False),
-            settings=lib.settings,
-        ))
+        uuid_formatted = f"{{{lib.uuid}}}" if not str(lib.uuid).startswith('{') else str(lib.uuid)
+        result.append(LibrarySimple(id=lib.id, name=lib.name, uuid=uuid_formatted))
 
     return result
 
 
-@router.get("/library/{library_id}/info", response_model=LibraryInfo)
-@router.get("/library/{library_id}", response_model=LibraryInfo)
 async def get_library(library_id: int, session: Session = Depends(get_db_session)):
     """Get library by ID"""
     library = get_library_by_id(session, library_id)
     if not library:
         raise HTTPException(status_code=404, detail="Library not found")
 
-    stats = get_library_stats(session, library.id)
-
-    return LibraryInfo(
-        id=library.id,
-        uuid=library.uuid,
-        name=library.name,
-        path=library.path,
-        created_at=library.created_at,
-        updated_at=library.updated_at,
-        last_scan_at=library.last_scan_completed,
-        scan_status=library.scan_status,
-        scan_interval=library.scan_interval,
-        comic_count=stats.get('comic_count', 0),
-        folder_count=stats.get('folder_count', 0),
-        exclude_from_webui=bool(library.exclude_from_webui or False),
-        settings=library.settings,
-    )
+    return build_library_info(session, library)
 
 
-@router.post("/libraries", response_model=LibraryInfo)
 async def add_library(
     request: Request, 
     data: CreateLibraryRequest, 
@@ -382,7 +372,6 @@ async def add_library(
         )
 
 
-@router.put("/libraries/{library_id}", response_model=LibraryInfo)
 async def update_library_details(library_id: int, request: Request, data: UpdateLibraryRequest):
     """Update library details"""
     db = request.app.state.db
@@ -428,7 +417,6 @@ async def update_library_details(library_id: int, request: Request, data: Update
         )
 
 
-@router.delete("/libraries/{library_id}")
 async def remove_library(library_id: int, request: Request, session: Session = Depends(get_db_session)):
     """Delete a library"""
     db = request.app.state.db
@@ -448,7 +436,6 @@ async def remove_library(library_id: int, request: Request, session: Session = D
     return {"success": True, "message": "Library deleted"}
 
 
-@router.post("/libraries/{library_id}/scan")
 async def scan_library_manual(library_id: int, request: Request, background_tasks: BackgroundTasks):
     """Trigger a manual scan for a library"""
     db = request.app.state.db
@@ -464,7 +451,6 @@ async def scan_library_manual(library_id: int, request: Request, background_task
     return {"success": True, "message": "Scan started"}
 
 
-@router.get("/libraries/{library_id}/scan/progress")
 async def get_file_scan_progress(library_id: int, session: Session = Depends(get_db_session)):
     """Get file scan progress for a library (checks both memory and database)"""
     
@@ -549,7 +535,6 @@ async def get_file_scan_progress(library_id: int, session: Session = Depends(get
     }
 
 
-@router.delete("/libraries/{library_id}/scan/progress")
 async def clear_file_scan_progress(library_id: int, session: Session = Depends(get_db_session)):
     """Clear file scan progress for a library (both memory and database)"""
     # Clear from memory

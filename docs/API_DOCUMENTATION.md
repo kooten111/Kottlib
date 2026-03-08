@@ -254,7 +254,7 @@ This is similar to v1 but adds `previousComicHash` and `nextComicHash`.
 ## Kottlib Extensions
 
 > **Note**: The endpoints below are **Kottlib extensions** beyond the original YACReader API.
-> They provide additional functionality while maintaining 100% backward compatibility with YACReader mobile apps.
+> These routes should live under `/api/*`. The `/v2/*` namespace is reserved for strict YACReader compatibility.
 
 ### Additional v2 Endpoints
 

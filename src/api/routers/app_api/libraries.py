@@ -52,7 +52,7 @@ def _normalize_tree_node(node, library_id: Optional[int] = None):
 async def list_libraries(request: Request):
     db = request.app.state.db
     with db.get_session() as session:
-        return await v2_libraries.list_libraries(session)
+        return v2_libraries.list_libraries_extended(session)
 
 
 @router.post("/libraries")
@@ -74,7 +74,7 @@ async def get_libraries_tree(request: Request, max_depth: int = 10):
 async def get_library(request: Request, library_id: int):
     db = request.app.state.db
     with db.get_session() as session:
-        return await v2_libraries.get_library(library_id, session)
+        return v2_libraries.get_library(library_id, session)
 
 
 @router.put("/libraries/{library_id}")

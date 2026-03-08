@@ -741,11 +741,12 @@ async def update_comic_progress_v2_json(
     if not isinstance(payload, dict):
         raise HTTPException(status_code=422, detail="Invalid JSON body")
 
-    if "current_page" not in payload:
+    current_page_raw = payload.get("current_page", payload.get("currentPage"))
+    if current_page_raw is None:
         raise HTTPException(status_code=422, detail="current_page is required")
 
     try:
-        current_page = int(payload.get("current_page"))
+        current_page = int(current_page_raw)
     except (TypeError, ValueError):
         raise HTTPException(status_code=422, detail="current_page must be an integer")
 

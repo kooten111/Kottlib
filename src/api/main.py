@@ -294,7 +294,7 @@ async def recover_session(request: Request):
 # API Routers
 # ============================================================================
 
-from .routers import legacy_v1, scanners, libraries, user_interactions, config as config_router
+from .routers import legacy_v1, libraries, user_interactions, config as config_router
 from .routers import v2 as api_v2
 from .routers import app_api
 
@@ -309,9 +309,6 @@ app.include_router(app_api.router, prefix="/api", tags=["API"])
 
 # Modern JSON API (Internal use)
 app.include_router(libraries.router, prefix="/api/v1/libraries", tags=["Libraries"])
-
-# Scanner API (Metadata scanning) - Part of v2 enhanced API
-app.include_router(scanners.router, prefix="/v2", tags=["Scanners"])
 
 # Modern API v2 (New features)
 app.include_router(user_interactions.router, prefix="/api/v2", tags=["User Interactions"])

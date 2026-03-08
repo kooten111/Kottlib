@@ -7,11 +7,17 @@ Kottlib exposes multiple API layers for different clients:
 | API Layer | Prefix | Format | Purpose |
 |-----------|--------|--------|---------|
 | Legacy v1 | `/library/*` | Plain text | YACReader mobile app compatibility |
-| API v2 | `/v2/*` | JSON | Enhanced YACReader features |
+| API v2 | `/v2/*` | JSON/Text | Strict YACReader compatibility surface |
 | Kottlib Native API | `/api/*` | JSON | Primary WebUI/internal API surface |
 | Modern API v1 | `/api/v1/*` | JSON | Libraries CRUD |
 | Modern API v2 | `/api/v2/*` | JSON | Backward-compatible user/config aliases |
-| Scanners API | `/v2/scanners/*`, `/api/scanners/*` | JSON | Metadata scanner operations |
+| Scanners API | `/api/scanners/*` | JSON | Metadata scanner operations |
+
+## Namespace Policy
+
+- `/v2` must remain YACReader-compatible. Do not add Kottlib-only features here.
+- `/api` is the only namespace for Kottlib/WebUI extensions.
+- WebUI may call `/v2` endpoints only when those endpoints are part of the compatibility contract.
 
 ---
 

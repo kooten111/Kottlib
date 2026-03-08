@@ -32,7 +32,6 @@ router = APIRouter()
 # Session Management
 # ============================================================================
 
-@router.get("/recoverSession")
 async def recover_session(request: Request):
     """
     Recover session (stub)

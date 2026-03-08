@@ -1,73 +1,73 @@
-import { api } from './client';
+import { appApi } from './client';
 
 /**
  * Get all libraries
  */
 export async function getLibraries() {
-	return api.get('/libraries');
+	return appApi.get('/libraries');
 }
 
 /**
  * Create a new library
  */
 export async function createLibrary(data) {
-	return api.post('/libraries', data);
+	return appApi.post('/libraries', data);
 }
 
 /**
  * Update a library
  */
 export async function updateLibrary(libraryId, data) {
-	return api.put(`/libraries/${libraryId}`, data);
+	return appApi.put(`/libraries/${libraryId}`, data);
 }
 
 /**
  * Delete a library
  */
 export async function deleteLibrary(libraryId) {
-	return api.delete(`/libraries/${libraryId}`);
+	return appApi.delete(`/libraries/${libraryId}`);
 }
 
 /**
  * Trigger a manual scan for a library
  */
 export async function scanLibrary(libraryId) {
-	return api.post(`/libraries/${libraryId}/scan`);
+	return appApi.post(`/libraries/${libraryId}/scan`);
 }
 
 /**
  * Get library info by ID
  */
 export async function getLibrary(libraryId) {
-	return api.get(`/libraries/${libraryId}`);
+	return appApi.get(`/libraries/${libraryId}`);
 }
 
 /**
  * Get continue reading list for a specific library
  */
 export async function getContinueReading(libraryId, limit = 10) {
-	return api.get(`/libraries/${libraryId}/reading?limit=${limit}`);
+	return appApi.get(`/libraries/${libraryId}/reading?limit=${limit}`);
 }
 
 /**
  * Get continue reading list from ALL libraries (cross-library, sorted by last_read_at)
  */
 export async function getContinueReadingAll(limit = 100) {
-	return api.get(`/reading?limit=${limit}`);
+	return appApi.get(`/reading?limit=${limit}`);
 }
 
 /**
  * Get all series in a library
  */
 export async function getSeries(libraryId, sort = 'name', offset = 0, limit = 50) {
-	return api.get(`/libraries/${libraryId}/series?sort=${sort}&offset=${offset}&limit=${limit}`);
+	return appApi.get(`/libraries/${libraryId}/series?sort=${sort}&offset=${offset}&limit=${limit}`);
 }
 
 /**
  * Get hierarchical tree of all libraries with series and comics
  */
 export async function getLibrariesSeriesTree() {
-	return api.get('/libraries/tree');
+	return appApi.get('/libraries/tree');
 }
 
 /**
@@ -78,7 +78,7 @@ export async function browseLibrary(libraryId, path = '', sort = 'name', offset 
 	if (seed) {
 		pathParam += `&seed=${seed}`;
 	}
-	return api.get(`/browse/libraries/${libraryId}?sort=${sort}&offset=${offset}&limit=${limit}${pathParam}`);
+	return appApi.get(`/browse/libraries/${libraryId}?sort=${sort}&offset=${offset}&limit=${limit}${pathParam}`);
 }
 
 /**
@@ -89,5 +89,5 @@ export async function browseAllLibraries(sort = 'name', offset = 0, limit = 50, 
 	if (seed) {
 		url += `&seed=${seed}`;
 	}
-	return api.get(url);
+	return appApi.get(url);
 }

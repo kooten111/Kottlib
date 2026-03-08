@@ -1,4 +1,4 @@
-import { api } from './client';
+import { appApi } from './client';
 
 /**
  * Search comics in a library (basic search)
@@ -9,7 +9,7 @@ export async function searchComics(libraryId, query, options = {}) {
 		...options
 	});
 
-	return api.get(`/libraries/${libraryId}/search?${params}`);
+	return appApi.get(`/libraries/${libraryId}/search?${params}`);
 }
 
 /**
@@ -22,14 +22,14 @@ export async function searchComicsAdvanced(libraryId, query, { limit = 100, offs
 		offset: offset.toString()
 	});
 
-	return api.get(`/libraries/${libraryId}/search/advanced?${params}`);
+	return appApi.get(`/libraries/${libraryId}/search/advanced?${params}`);
 }
 
 /**
  * Get searchable fields for a library
  */
 export async function getSearchableFields(libraryId) {
-	return api.get(`/libraries/${libraryId}/search/fields`);
+	return appApi.get(`/libraries/${libraryId}/search/fields`);
 }
 
 /**
@@ -37,5 +37,5 @@ export async function getSearchableFields(libraryId) {
  */
 export async function parseSearchQuery(query) {
 	const params = new URLSearchParams({ q: query });
-	return api.get(`/search/query/parse?${params}`);
+	return appApi.get(`/search/query/parse?${params}`);
 }

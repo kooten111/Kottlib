@@ -201,12 +201,14 @@ class APIClient {
 		// If library was modified, clear library-related caches
 		if (endpoint.includes('/libraries')) {
 			await clearCachePattern('v2/libraries');
+			await clearCachePattern('api/libraries');
 		}
 
 		// If series was modified, clear series-related caches
 		if (endpoint.includes('/series')) {
 			await clearCachePattern('v2/series');
 			await clearCachePattern('v2/libraries/series-tree');
+			await clearCachePattern('api/libraries');
 		}
 
 		// If reading list was modified, clear reading list caches

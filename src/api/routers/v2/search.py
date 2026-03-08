@@ -226,8 +226,6 @@ async def search_comics_v2(
         return JSONResponse(results)
 
 
-@router.get("/library/{library_id}/search/advanced")
-@router.post("/library/{library_id}/search/advanced")
 async def search_comics_advanced_v2(
     library_id: int,
     request: Request,
@@ -347,7 +345,6 @@ async def search_comics_advanced_v2(
         })
 
 
-@router.get("/library/{library_id}/search/fields")
 async def get_search_fields_v2(library_id: int, request: Request):
     """
     Get list of searchable fields for a library
@@ -369,7 +366,6 @@ async def get_search_fields_v2(library_id: int, request: Request):
         return JSONResponse(fields)
 
 
-@router.get("/search/query/parse")
 async def parse_query_v2(q: str):
     """
     Parse a search query to show how it will be interpreted

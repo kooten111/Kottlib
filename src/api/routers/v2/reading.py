@@ -29,8 +29,6 @@ router = APIRouter()
 # Reading Progress / Continue Reading
 # ============================================================================
 
-@router.get("/reading")
-@router.get("/continue-reading")
 async def get_all_libraries_reading(
     request: Request,
     limit: int = 100,
