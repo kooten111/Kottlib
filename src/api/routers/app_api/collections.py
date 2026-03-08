@@ -2,11 +2,89 @@
 Kottlib-native favorites and reading list endpoints.
 """
 
+import json
+
 from fastapi import APIRouter, Request
+from fastapi.responses import JSONResponse
 
 from ..v2 import collections as v2_collections
 
 router = APIRouter()
+
+
+def _read_json_response(response):
+    if hasattr(response, "body") and isinstance(response.body, (bytes, bytearray)):
+        try:
+            return json.loads(response.body.decode("utf-8"))
+        except Exception:
+            return response
+    return response
+
+
+def _to_bool(value, default: bool = False) -> bool:
+    if isinstance(value, bool):
+        return value
+    if isinstance(value, str):
+        lowered = value.strip().lower()
+        if lowered in {"1", "true", "yes", "on"}:
+            return True
+        if lowered in {"0", "false", "no", "off"}:
+            return False
+    return default
+
+
+def _to_int(value, default: int = 0) -> int:
+    try:
+        return int(value)
+    except (TypeError, ValueError):
+        return default
+
+
+def _normalize_reading_list(item: dict, fallback_library_id: int | None = None) -> dict:
+    library_id = _to_int(item.get("libraryId", item.get("library_id", fallback_library_id)))
+    comic_count = _to_int(item.get("comicCount", item.get("comic_count", 0)))
+    is_public = item.get("isPublic", item.get("is_public", False))
+    name = item.get("name", item.get("reading_list_name", ""))
+
+    return {
+        **item,
+        "name": name,
+        "libraryId": library_id,
+        "library_id": library_id,
+        "comicCount": comic_count,
+        "comic_count": comic_count,
+        "isPublic": is_public,
+        "is_public": is_public,
+        "description": item.get("description") or "",
+    }
+
+
+def _normalize_reading_list_item(item: dict, fallback_library_id: int | None = None) -> dict:
+    library_id = _to_int(item.get("libraryId", item.get("library_id", fallback_library_id)))
+    file_name = item.get("fileName", item.get("file_name", ""))
+    title = item.get("title", item.get("name", file_name))
+    hash_value = item.get("hash", item.get("coverHash", item.get("cover_hash")))
+    folder_id = item.get("folderId")
+    if folder_id is None:
+        parent_id = item.get("parent_id")
+        try:
+            folder_id = int(parent_id) if parent_id is not None else 0
+        except (TypeError, ValueError):
+            folder_id = 0
+
+    return {
+        **item,
+        "id": _to_int(item.get("id"), default=item.get("id")),
+        "name": item.get("name", title),
+        "title": title,
+        "fileName": file_name,
+        "file_name": file_name,
+        "coverHash": item.get("coverHash", hash_value),
+        "cover_hash": item.get("cover_hash", hash_value),
+        "libraryId": library_id,
+        "library_id": library_id,
+        "folderId": folder_id,
+    }
 
 
 @router.get("/favorites")
@@ -31,7 +109,11 @@ async def check_favorite(comic_id: int, request: Request):
 
 @router.get("/libraries/{library_id}/reading-lists")
 async def get_reading_lists(library_id: int, request: Request):
-    return await v2_collections.get_reading_lists(library_id, request)
+    response = await v2_collections.get_reading_lists(library_id, request)
+    payload = _read_json_response(response)
+    if not isinstance(payload, list):
+        return response
+    return JSONResponse([_normalize_reading_list(item, fallback_library_id=library_id) for item in payload])
 
 
 @router.post("/libraries/{library_id}/reading-lists")
@@ -42,23 +124,57 @@ async def create_reading_list(
     description: str = "",
     is_public: bool = False,
 ):
-    return await v2_collections.create_reading_list_endpoint(
+    body = {}
+    try:
+        parsed = await request.json()
+        if isinstance(parsed, dict):
+            body = parsed
+    except Exception:
+        body = {}
+
+    resolved_name = name if name is not None else body.get("name")
+    resolved_description = description
+    if description == "":
+        resolved_description = body.get("description", "")
+
+    resolved_is_public = _to_bool(
+        body.get("is_public", body.get("isPublic", is_public)),
+        default=is_public,
+    )
+
+    response = await v2_collections.create_reading_list_endpoint(
         library_id,
         request,
-        name,
-        description,
-        is_public,
+        resolved_name,
+        resolved_description,
+        resolved_is_public,
     )
+    payload = _read_json_response(response)
+    if isinstance(payload, dict):
+        payload["isPublic"] = payload.get("isPublic", resolved_is_public)
+        payload["is_public"] = payload.get("is_public", payload["isPublic"])
+    return JSONResponse(payload) if isinstance(payload, dict) else response
 
 
 @router.get("/libraries/{library_id}/reading-lists/{list_id}")
 async def get_reading_list(library_id: int, list_id: int, request: Request):
-    return await v2_collections.get_reading_list_info(library_id, list_id, request)
+    response = await v2_collections.get_reading_list_info(library_id, list_id, request)
+    payload = _read_json_response(response)
+    if not isinstance(payload, dict):
+        return response
+    return JSONResponse(_normalize_reading_list(payload, fallback_library_id=library_id))
 
 
 @router.patch("/libraries/{library_id}/reading-lists/{list_id}")
 async def update_reading_list(library_id: int, list_id: int, request: Request):
-    return await v2_collections.update_reading_list_endpoint(library_id, list_id, request)
+    response = await v2_collections.update_reading_list_endpoint(library_id, list_id, request)
+    payload = _read_json_response(response)
+    if not isinstance(payload, dict):
+        return response
+    # Keep API-native aliases available for mobile clients.
+    payload["isPublic"] = payload.get("isPublic", payload.get("is_public", False))
+    payload["is_public"] = payload.get("is_public", payload["isPublic"])
+    return JSONResponse(payload)
 
 
 @router.delete("/libraries/{library_id}/reading-lists/{list_id}")
@@ -68,7 +184,11 @@ async def delete_reading_list(library_id: int, list_id: int, request: Request):
 
 @router.get("/libraries/{library_id}/reading-lists/{list_id}/items")
 async def get_reading_list_items(library_id: int, list_id: int, request: Request):
-    return await v2_collections.get_reading_list_content(library_id, list_id, request)
+    response = await v2_collections.get_reading_list_content(library_id, list_id, request)
+    payload = _read_json_response(response)
+    if not isinstance(payload, list):
+        return response
+    return JSONResponse([_normalize_reading_list_item(item, fallback_library_id=library_id) for item in payload])
 
 
 @router.post("/libraries/{library_id}/reading-lists/{list_id}/items/{comic_id}")

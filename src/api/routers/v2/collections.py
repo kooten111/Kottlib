@@ -8,11 +8,13 @@ Endpoints for user collections:
 """
 
 import logging
+import json
 import time
+from pathlib import Path
 from typing import List, Optional
 
 from fastapi import APIRouter, Request, HTTPException
-from fastapi.responses import JSONResponse
+from fastapi.responses import JSONResponse, Response
 
 from ....database import (
     get_library_by_id,
@@ -41,8 +43,6 @@ from ....database import (
     get_reading_list_comics,
 )
 from ....database.models import Comic, Label, ReadingListItem
-from ....database.models.library import Folder
-from ....constants import ROOT_FOLDER_MARKER
 from ...middleware import get_current_user_id, get_request_user
 from ._shared import get_comic_display_name
 
@@ -50,35 +50,13 @@ logger = logging.getLogger(__name__)
 
 router = APIRouter()
 
-def _build_browse_path(session, comic: Comic) -> Optional[str]:
-    """
-    Build canonical ID-based browse path from folder ancestry.
 
-    Returns a slash-delimited folder-id path relative to library root.
-    """
-    if not comic.folder_id:
-        # Loose comics at library root can be reached directly by comic ID.
-        return str(comic.id)
-
-    parts = []
-    current = session.query(Folder).filter(Folder.id == comic.folder_id).first()
-    hops = 0
-
-    while current and hops < 128:
-        if current.name and current.name != ROOT_FOLDER_MARKER:
-            parts.append(str(current.id))
-
-        if current.parent_id is None:
-            break
-
-        current = session.query(Folder).filter(Folder.id == current.parent_id).first()
-        hops += 1
-
-    if not parts:
-        # Fallback to comic ID.
-        return str(comic.id)
-
-    return "/".join(reversed(parts))
+def _legacy_json_response(payload) -> Response:
+    """Return JSON payload with YACReader-compatible text/plain content-type."""
+    return Response(
+        content=json.dumps(payload, ensure_ascii=True, separators=(",", ":")),
+        media_type="text/plain; charset=utf-8",
+    )
 
 
 # ============================================================================
@@ -108,7 +86,6 @@ async def get_favorites(request: Request):
         for fav in favorites:
             comic = get_comic_by_id(session, fav.comic_id)
             if comic:
-                browse_path = _build_browse_path(session, comic)
                 result.append({
                     "id": comic.id,
                     "type": "comic",
@@ -124,30 +101,12 @@ async def get_favorites(request: Request):
                     "num_pages": comic.num_pages or 0,
                     "current_page": 0,
                     "series": comic.series,
-                    "parent_id": str(comic.folder_id) if comic.folder_id is not None else "0",
-                    "folderId": comic.folder_id if comic.folder_id is not None else 0,
-                    "browse_path": browse_path,
-                    "browsePath": browse_path,
                     "year": comic.year,
                     "createdAt": fav.created_at if hasattr(fav, "created_at") else int(time.time()),
                     "favoriteDate": fav.created_at if hasattr(fav, "created_at") else int(time.time()),
                 })
 
         return JSONResponse(result)
-
-
-@router.get("/library/{library_id}/favs")
-async def get_library_favorites(library_id: int, request: Request):
-    """YACReader-compatible library-scoped favorites endpoint."""
-    response = await get_favorites(request)
-    data = response.body
-    if isinstance(data, bytes):
-        import json
-        parsed = json.loads(data.decode("utf-8"))
-    else:
-        parsed = data
-    filtered = [item for item in parsed if str(item.get("libraryId")) == str(library_id)]
-    return JSONResponse(filtered)
 
 
 @router.post("/fav/{comic_id}")
@@ -508,20 +467,21 @@ async def get_reading_lists(library_id: int, request: Request):
 
         result = []
         for reading_list in reading_lists:
-            # Count comics in this reading list
             comics = get_reading_list_comics(session, reading_list.id)
             comic_count = len(comics) if comics else 0
-
             result.append({
-                "id": reading_list.id,
-                "name": reading_list.name,
+                "type": "reading_list",
+                "id": str(reading_list.id),
+                "library_id": str(library_id),
+                "library_uuid": library.uuid,
+                "reading_list_name": reading_list.name,
+                # Extra fields are ignored by YACReader but used by /api normalization.
                 "description": reading_list.description if hasattr(reading_list, 'description') else "",
-                "isPublic": reading_list.is_public if hasattr(reading_list, 'is_public') else False,
-                "libraryId": library_id,
-                "comicCount": comic_count
+                "is_public": reading_list.is_public if hasattr(reading_list, 'is_public') else False,
+                "comic_count": comic_count,
             })
 
-        return JSONResponse(result)
+        return _legacy_json_response(result)
 
 
 @router.get("/library/{library_id}/reading_list/{list_id}/content")
@@ -559,29 +519,44 @@ async def get_reading_list_content(
                 comic = item
 
             if comic:
-                browse_path = _build_browse_path(session, comic)
+                try:
+                    relative_path = str(Path(comic.path).relative_to(library.path))
+                except ValueError:
+                    relative_path = comic.filename
+
                 result.append({
-                    "id": comic.id,
-                    "name": get_comic_display_name(comic),
-                    "title": get_comic_display_name(comic),
-                    "fileName": comic.filename,
-                    "file_name": comic.filename,
-                    "path": comic.path,
-                    "hash": comic.hash,
-                    "cover_hash": comic.hash,
-                    "coverHash": comic.hash,
-                    "series": comic.series,
+                    "type": "comic",
+                    "id": str(comic.id),
+                    "comic_info_id": str(comic.id),
                     "parent_id": str(comic.folder_id) if comic.folder_id is not None else "0",
-                    "browse_path": browse_path,
-                    "browsePath": browse_path,
-                    "year": comic.year,
+                    "library_id": str(library_id),
+                    "library_uuid": library.uuid,
+                    "file_name": comic.filename,
+                    "file_size": str(comic.file_size),
+                    "hash": comic.hash,
+                    "path": f"/{relative_path}",
+                    "current_page": 0,
                     "num_pages": comic.num_pages or 0,
-                    "libraryId": library_id,
-                    "library_id": library_id,
-                    "folderId": comic.folder_id if comic.folder_id else 0
+                    "read": False,
+                    "manga": getattr(comic, 'reading_direction', 'ltr') == 'rtl',
+                    "file_type": 1,
+                    "cover_size_ratio": comic.cover_size_ratio if comic.cover_size_ratio > 0 else 0.67,
+                    "number": 0,
+                    "count": 0,
+                    "date": "",
+                    "rating": 0,
+                    "synopsis": "",
+                    "title": get_comic_display_name(comic),
+                    "has_been_opened": False,
+                    "last_time_opened": 0,
+                    "current_page_bookmarked": False,
+                    "cover_page": 0,
+                    "brightness": 0,
+                    "contrast": 0,
+                    "gamma": 1.0,
                 })
 
-        return JSONResponse(result)
+        return _legacy_json_response(result)
 
 
 @router.get("/library/{library_id}/reading_list/{list_id}/info")
@@ -608,17 +583,19 @@ async def get_reading_list_info(
         if not reading_list:
             raise HTTPException(status_code=404, detail="Reading list not found")
 
-        # Count comics in this reading list
         comics = get_reading_list_comics(session, list_id)
         comic_count = len(comics) if comics else 0
 
-        return JSONResponse({
-            "id": reading_list.id,
-            "name": reading_list.name,
+        return _legacy_json_response({
+            "type": "reading_list",
+            "id": str(reading_list.id),
+            "library_id": str(library_id),
+            "library_uuid": library.uuid,
+            "reading_list_name": reading_list.name,
+            # Extra fields are ignored by YACReader but used by /api normalization.
             "description": reading_list.description if hasattr(reading_list, 'description') else "",
-            "isPublic": reading_list.is_public if hasattr(reading_list, 'is_public') else False,
-            "libraryId": library_id,
-            "comicCount": comic_count
+            "is_public": reading_list.is_public if hasattr(reading_list, 'is_public') else False,
+            "comic_count": comic_count,
         })
 
 
@@ -733,7 +710,7 @@ async def update_reading_list_endpoint(
 
         name = body.get("name")
         description = body.get("description")
-        is_public = body.get("is_public")
+        is_public = body.get("is_public", body.get("isPublic"))
 
         if name is not None and not name.strip():
             raise HTTPException(status_code=400, detail="Name cannot be empty")

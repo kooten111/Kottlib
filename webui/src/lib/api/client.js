@@ -26,8 +26,8 @@ class APIClient {
 		// Cache GET requests for mostly-static data
 		const cacheableEndpoints = [
 			'/libraries',
-			'/libraries/tree',
-			'/browse/libraries',
+			'/libraries/series-tree',
+			'/library/',
 			'/series/'
 		];
 
@@ -224,6 +224,7 @@ class APIClient {
 }
 
 // Export singleton instance
-export const api = new APIClient('/api');
+export const api = new APIClient('/v2');
+export const appApi = new APIClient('/api');
 
 export { APIError };
