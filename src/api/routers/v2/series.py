@@ -47,6 +47,19 @@ logger = logging.getLogger(__name__)
 router = APIRouter()
 
 
+def _normalize_sort(sort: Optional[str]) -> str:
+    """Normalize sort aliases used by different clients into canonical values."""
+    sort_aliases = {
+        "date_added": "recent",
+        "recently_added": "recent",
+        "last_updated": "updated",
+        "recently_updated": "updated",
+        "date_updated": "updated",
+    }
+    normalized = (sort or "name").lower()
+    return sort_aliases.get(normalized, normalized)
+
+
 def _cache_safe_copy(data: dict) -> dict:
     """Return a deep-copied response with reading-progress fields stripped."""
     cache_data = deepcopy(data)
@@ -170,6 +183,7 @@ async def browse_folder(
     db = request.app.state.db
 
     with db.get_session() as session:
+        normalized_sort = _normalize_sort(sort)
         # Get library - query directly to ensure fresh data
         from ....database.models import Library
         library = session.query(Library).filter(Library.id == library_id).first()
@@ -216,12 +230,12 @@ async def browse_folder(
         # Cache read (safe for non-random/non-progress sort)
         cache_path = path or "root"
         cache_params = {
-            "sort": sort,
+            "sort": normalized_sort,
             "offset": offset,
             "limit": limit,
             "per_volume_metadata": int(per_volume_metadata),
         }
-        if sort not in ('random', 'progress'):
+        if normalized_sort not in ('random', 'progress'):
             cached_data = cache_service.get_cached_response(cache_path, cache_params)
             if cached_data:
                 response = _apply_progress_overlay(cached_data, session, user)
@@ -363,7 +377,7 @@ async def browse_folder(
         total_items = 0
 
         # Special Handling for Random Sort
-        if sort == 'random':
+        if normalized_sort == 'random':
              # 1. Fetch ALL IDs for this view
              all_folders = session.query(FolderModel.id).filter(
                  FolderModel.parent_id == current_folder.id
@@ -493,13 +507,21 @@ async def browse_folder(
             folders_query = base_folders_query
             comics_query = base_comics_query
 
-            if sort == 'created' or sort == 'recent':
+            if normalized_sort in ('created', 'recent'):
                 folders_query = folders_query.order_by(desc(FolderModel.created_at), FolderModel.name)
                 comics_query = comics_query.order_by(desc(Comic.created_at), Comic.path)
-            elif sort == 'updated':
-                folders_query = folders_query.order_by(desc(FolderModel.updated_at), FolderModel.name)
-                comics_query = comics_query.order_by(desc(Comic.file_modified_at), Comic.path)
-            elif sort == 'progress' and user:
+            elif normalized_sort == 'updated':
+                # "updated" means recently added content inside an existing series.
+                latest_descendant_created_subq = session.query(func.max(Comic.created_at)).filter(
+                    Comic.library_id == library_id,
+                    Comic.path.like(FolderModel.path + "/%")
+                ).correlate(FolderModel).scalar_subquery()
+                folders_query = folders_query.order_by(
+                    desc(func.coalesce(latest_descendant_created_subq, FolderModel.created_at)),
+                    FolderModel.name
+                )
+                comics_query = comics_query.order_by(desc(Comic.created_at), Comic.path)
+            elif normalized_sort == 'progress' and user:
                 # Sort comics by progress
                 comics_query = comics_query.outerjoin(
                     ReadingProgress, 
@@ -687,11 +709,11 @@ async def browse_folder(
         # Cache (unless sorting by progress which is per-user, or random)
         response_result = _apply_progress_overlay(result, session, user)
 
-        if sort != 'random' and sort != 'progress':
+        if normalized_sort not in ('random', 'progress'):
             cache_service = get_library_cache(library_id)
             cache_service.cache_response(cache_path, _cache_safe_copy(result), cache_params)
 
-        cache_status = "bypass" if sort in ('random', 'progress') else "miss"
+        cache_status = "bypass" if normalized_sort in ('random', 'progress') else "miss"
         return _timed_browse_response(response_result, "library", cache_status, started_at)
 
 # ============================================================================
@@ -713,19 +735,21 @@ async def get_series_list(
     Replaces old metadata-based series grouping with a direct Folder Browse view.
     This ensures the structure matches the Sidebar/File System exactly.
     """
-    from sqlalchemy import func
+    from sqlalchemy import func, desc
     from ....services.library_cache import get_library_cache
     from ....database.models import Series
+
+    normalized_sort = _normalize_sort(sort)
 
     # --------------------------------------------------------------------------
     # CACHE CHECK
     # --------------------------------------------------------------------------
     cache_service = get_library_cache(library_id)
     # Include sort/offset/limit in cache key
-    cache_key = f"series/root?sort={sort}&o={offset}&l={limit}"
+    cache_key = f"series/root?sort={normalized_sort}&o={offset}&l={limit}"
     
     # Random sort should NOT be cached
-    if sort != 'random':
+    if normalized_sort != 'random':
         cached_data = cache_service.get_cached_response(cache_key)
         if cached_data:
             return JSONResponse(cached_data)
@@ -756,11 +780,7 @@ async def get_series_list(
         items = []
         total_items = 0
         
-        if sort == 'random':
-            # Complex random logic omitted for brevity/performance in pagination.
-            # Just fallback to standard or implement simplified random later.
-            # For now, treat same as Name sort but strictly for this structure
-            pass
+        random_sort = normalized_sort == 'random'
 
         # 1. Count totals
         num_folders = session.query(func.count(FolderModel.id)).filter(
@@ -777,9 +797,26 @@ async def get_series_list(
         # 2. Fetch Folders
         if offset < num_folders:
             folder_limit = limit
-            folders_query = session.query(FolderModel).filter(
+            folders_base_query = session.query(FolderModel).filter(
                 FolderModel.parent_id == current_folder.id
-            ).order_by(FolderModel.name).offset(offset).limit(folder_limit).all()
+            )
+            if normalized_sort in ('created', 'recent'):
+                folders_base_query = folders_base_query.order_by(desc(FolderModel.created_at), FolderModel.name)
+            elif normalized_sort == 'updated':
+                # "updated" means latest issue/chapter added in that series subtree,
+                # not folder metadata timestamps.
+                latest_descendant_created_subq = session.query(func.max(Comic.created_at)).filter(
+                    Comic.library_id == library_id,
+                    Comic.path.like(FolderModel.path + "/%")
+                ).correlate(FolderModel).scalar_subquery()
+                folders_base_query = folders_base_query.order_by(
+                    desc(func.coalesce(latest_descendant_created_subq, FolderModel.created_at)),
+                    FolderModel.name
+                )
+            else:
+                folders_base_query = folders_base_query.order_by(FolderModel.name)
+
+            folders_query = folders_base_query.offset(offset).limit(folder_limit).all()
             
             # Metadata Batch Fetch
             sub_folder_names = [f.name for f in folders_query]
@@ -825,13 +862,32 @@ async def get_series_list(
         
         if remaining_limit > 0:
             comic_offset = max(0, offset - num_folders)
-            comics_query = session.query(Comic).filter(
+            comics_base_query = session.query(Comic).filter(
                 Comic.library_id == library_id,
                 Comic.folder_id == current_folder.id
-            ).order_by(Comic.path).offset(comic_offset).limit(remaining_limit).all()
+            )
+
+            user = get_request_user(request, session)
+            if normalized_sort in ('created', 'recent'):
+                comics_base_query = comics_base_query.order_by(desc(Comic.created_at), Comic.path)
+            elif normalized_sort == 'updated':
+                # "updated" should track newly added comics, not source file mtime.
+                comics_base_query = comics_base_query.order_by(desc(Comic.created_at), Comic.path)
+            elif normalized_sort == 'progress' and user:
+                comics_base_query = comics_base_query.outerjoin(
+                    ReadingProgress,
+                    (ReadingProgress.comic_id == Comic.id) & (ReadingProgress.user_id == user.id)
+                ).order_by(
+                    ReadingProgress.last_read_at.desc().nulls_last(),
+                    ReadingProgress.progress_percent.desc().nulls_last(),
+                    Comic.path
+                )
+            else:
+                comics_base_query = comics_base_query.order_by(Comic.path)
+
+            comics_query = comics_base_query.offset(comic_offset).limit(remaining_limit).all()
             
             # Progress
-            user = get_request_user(request, session)
             progress_map = {}
             if user and comics_query:
                 c_ids = [c.id for c in comics_query]
@@ -858,8 +914,10 @@ async def get_series_list(
         }
 
         # Cache (if not random)
-        if sort != 'random':
+        if not random_sort:
             cache_service.cache_response(cache_key, result)
+
+        return JSONResponse(result)
 
 
 @router.get("/libraries/browse-content")
@@ -882,11 +940,12 @@ async def browse_all_content(
     db = request.app.state.db
 
     with db.get_session() as session:
+        normalized_sort = _normalize_sort(sort)
         user = get_request_user(request, session)
         cache_service = get_library_cache(0)
         cache_path = "browse/all"
-        cache_params = {"sort": sort, "offset": offset, "limit": limit}
-        if sort not in ('random', 'progress'):
+        cache_params = {"sort": normalized_sort, "offset": offset, "limit": limit}
+        if normalized_sort not in ('random', 'progress'):
             cached_data = cache_service.get_cached_response(cache_path, cache_params)
             if cached_data:
                 response = _apply_progress_overlay(cached_data, session, user)
@@ -924,7 +983,7 @@ async def browse_all_content(
         user = get_request_user(request, session)
         items = []
         
-        if sort == 'random':
+        if normalized_sort == 'random':
              import random
              logger.info(f"[BROWSE-CONTENT] Random sort requested with seed={seed}")
              
@@ -1052,13 +1111,21 @@ async def browse_all_content(
              )
 
              # Apply Sort
-             if sort == 'created' or sort == 'recent':
+             if normalized_sort in ('created', 'recent'):
                  folders_query = folders_query.order_by(desc(FolderModel.created_at), FolderModel.name)
                  comics_query = comics_query.order_by(desc(Comic.created_at), Comic.path)
-             elif sort == 'updated':
-                 folders_query = folders_query.order_by(desc(FolderModel.updated_at), FolderModel.name)
-                 comics_query = comics_query.order_by(desc(Comic.file_modified_at), Comic.path)
-             elif sort == 'progress' and user:
+             elif normalized_sort == 'updated':
+                 # "updated" ranks series by newest comic added in that series subtree.
+                 latest_descendant_created_subq = session.query(func.max(Comic.created_at)).filter(
+                     Comic.library_id == FolderModel.library_id,
+                     Comic.path.like(FolderModel.path + "/%")
+                 ).correlate(FolderModel).scalar_subquery()
+                 folders_query = folders_query.order_by(
+                     desc(func.coalesce(latest_descendant_created_subq, FolderModel.created_at)),
+                     FolderModel.name
+                 )
+                 comics_query = comics_query.order_by(desc(Comic.created_at), Comic.path)
+             elif normalized_sort == 'progress' and user:
                  # Sort comics by progress
                  comics_query = comics_query.outerjoin(
                      ReadingProgress, 
@@ -1178,10 +1245,10 @@ async def browse_all_content(
 
         response_result = _apply_progress_overlay(result, session, user)
 
-        if sort not in ('random', 'progress'):
+        if normalized_sort not in ('random', 'progress'):
             cache_service.cache_response(cache_path, _cache_safe_copy(result), cache_params)
 
-        cache_status = "bypass" if sort in ('random', 'progress') else "miss"
+        cache_status = "bypass" if normalized_sort in ('random', 'progress') else "miss"
         return _timed_browse_response(response_result, "all-libraries", cache_status, started_at)
 
 
