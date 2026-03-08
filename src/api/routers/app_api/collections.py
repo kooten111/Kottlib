@@ -4,9 +4,10 @@ Kottlib-native favorites and reading list endpoints.
 
 import json
 
-from fastapi import APIRouter, Request
+from fastapi import APIRouter, Request, HTTPException
 from fastapi.responses import JSONResponse
 
+from ....database import get_comic_by_id
 from ..v2 import collections as v2_collections
 
 router = APIRouter()
@@ -87,19 +88,64 @@ def _normalize_reading_list_item(item: dict, fallback_library_id: int | None = N
     }
 
 
+def _normalize_favorite_item(item: dict) -> dict:
+    library_id = _to_int(item.get("libraryId", item.get("library_id", 0)))
+    comic_info_id = _to_int(item.get("comic_info_id", item.get("comicId", item.get("id", 0))))
+    favorite_id = _to_int(item.get("id", comic_info_id), default=comic_info_id)
+    hash_value = item.get("hash", item.get("coverHash", item.get("cover_hash")))
+    file_name = item.get("fileName", item.get("file_name", ""))
+    title = item.get("title", item.get("name", ""))
+
+    return {
+        **item,
+        "id": favorite_id,
+        "comic_id": comic_info_id,
+        "comicId": comic_info_id,
+        "comic_info_id": str(comic_info_id),
+        "libraryId": library_id,
+        "library_id": library_id,
+        "name": item.get("name", title),
+        "title": title,
+        "fileName": file_name,
+        "file_name": file_name,
+        "coverHash": item.get("coverHash", hash_value),
+        "cover_hash": item.get("cover_hash", hash_value),
+        "favoriteDate": _to_int(item.get("favoriteDate", item.get("createdAt", 0))),
+        "createdAt": _to_int(item.get("createdAt", item.get("favoriteDate", 0))),
+    }
+
+
 @router.get("/favorites")
 async def get_favorites(request: Request):
-    return await v2_collections.get_favorites(request)
+    response = await v2_collections.get_favorites(request, None)
+    payload = _read_json_response(response)
+    if not isinstance(payload, list):
+        return response
+    return JSONResponse([_normalize_favorite_item(item) for item in payload])
 
 
 @router.post("/favorites/{comic_id}")
 async def add_favorite(comic_id: int, request: Request):
-    return await v2_collections.add_to_favorites(comic_id, request)
+    db = request.app.state.db
+    with db.get_session() as session:
+        comic = get_comic_by_id(session, comic_id)
+        if not comic:
+            raise HTTPException(status_code=404, detail="Comic not found")
+        library_id = comic.library_id
+
+    return await v2_collections.add_to_favorites(library_id, comic_id, request)
 
 
 @router.delete("/favorites/{comic_id}")
 async def remove_favorite(comic_id: int, request: Request):
-    return await v2_collections.remove_from_favorites(comic_id, request)
+    db = request.app.state.db
+    with db.get_session() as session:
+        comic = get_comic_by_id(session, comic_id)
+        if not comic:
+            raise HTTPException(status_code=404, detail="Comic not found")
+        library_id = comic.library_id
+
+    return await v2_collections.remove_from_favorites(library_id, comic_id, request)
 
 
 @router.get("/favorites/{comic_id}/check")
