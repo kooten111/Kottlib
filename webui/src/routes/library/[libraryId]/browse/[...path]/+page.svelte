@@ -63,6 +63,7 @@
     let prefetching = false;
     let prefetchedPage = null;
     let prefetchedOffset = null;
+    let scrollContainer;
 
     // Series scanner state
     let isScanningSeries = false;
@@ -463,28 +464,96 @@
             if (browser) {
                 queueMicrotask(() => {
                     prefetchNextPage();
+
+                    // On very wide screens each page can be visually short.
+                    // Chain another load if we're still close to the bottom.
+                    if (isNearListEnd()) {
+                        loadMoreItems();
+                    }
                 });
             }
         }
     }
 
+    const INFINITE_SCROLL_MIN_PRELOAD_PX = 2500;
+    const INFINITE_SCROLL_VIEWPORT_MULTIPLIER = 3.5;
+
+    function getPreloadDistancePx() {
+        const viewportHeight = scrollContainer?.clientHeight || (browser ? window.innerHeight : 0);
+        return Math.max(
+            INFINITE_SCROLL_MIN_PRELOAD_PX,
+            Math.round(viewportHeight * INFINITE_SCROLL_VIEWPORT_MULTIPLIER),
+        );
+    }
+
+    function isNearListEnd() {
+        if (!browser) return false;
+
+        const preloadDistance = getPreloadDistancePx();
+
+        if (scrollContainer) {
+            const remaining =
+                scrollContainer.scrollHeight -
+                scrollContainer.scrollTop -
+                scrollContainer.clientHeight;
+            return remaining <= preloadDistance;
+        }
+
+        const doc = document.documentElement;
+        const remaining = doc.scrollHeight - window.scrollY - window.innerHeight;
+        return remaining <= preloadDistance;
+    }
+
     function infiniteScroll(node) {
-        const observer = new IntersectionObserver(
+        const createObserver = () =>
+            new IntersectionObserver(
             (entries) => {
                 if (entries[0].isIntersecting) {
                     loadMoreItems();
                 }
             },
             {
-                rootMargin: "1500px", // Load next page when within 1500px of bottom for smoother infinite scroll
+                // Start loading well before reaching the visual bottom of the list.
+                root: scrollContainer || null,
+                rootMargin: `0px 0px ${getPreloadDistancePx()}px 0px`,
+                threshold: 0,
             },
         );
 
+        let observer = createObserver();
+        const onScroll = () => {
+            // Keep a prefetched page warm while the user is moving through the list.
+            prefetchNextPage();
+            if (isNearListEnd()) {
+                loadMoreItems();
+            }
+        };
+
+        const onResize = () => {
+            observer.disconnect();
+            observer = createObserver();
+            observer.observe(node);
+
+            // If viewport got larger, we may need to immediately fetch another page.
+            if (isNearListEnd()) {
+                loadMoreItems();
+            }
+        };
+
         observer.observe(node);
+        (scrollContainer || window).addEventListener("scroll", onScroll, {
+            passive: true,
+        });
+        window.addEventListener("resize", onResize);
+
+        // Initial kick so first load can happen before user hits bottom.
+        onScroll();
 
         return {
             destroy() {
                 observer.disconnect();
+                (scrollContainer || window).removeEventListener("scroll", onScroll);
+                window.removeEventListener("resize", onResize);
             },
         };
     }
@@ -530,6 +599,7 @@
 
         <!-- Main Content -->
         <main
+            bind:this={scrollContainer}
             class="flex-1 overflow-y-auto px-4 pb-8 scrollbar-thin scrollbar-thumb-[var(--color-border)] scrollbar-track-transparent"
         >
             <div class="w-full pt-4">
