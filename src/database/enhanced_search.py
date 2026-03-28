@@ -10,6 +10,7 @@ Provides advanced search capabilities including:
 
 import re
 import logging
+from collections import Counter
 from typing import List, Dict, Any, Optional, Tuple
 from sqlalchemy import text, select
 from sqlalchemy.orm import Session
@@ -19,6 +20,31 @@ from .search_index import SearchIndexManager
 from .operations.comic import search_comics
 
 logger = logging.getLogger(__name__)
+
+
+FIELD_SUGGESTION_CONFIG: Dict[str, Dict[str, Any]] = {
+    'title': {'column': 'title', 'split': False},
+    'series': {'column': 'series', 'split': False},
+    'story_arc': {'column': 'story_arc', 'split': False},
+    'writer': {'column': 'writer', 'split': True},
+    'artist': {'column': 'artist', 'split': True},
+    'penciller': {'column': 'penciller', 'split': True},
+    'inker': {'column': 'inker', 'split': True},
+    'colorist': {'column': 'colorist', 'split': True},
+    'letterer': {'column': 'letterer', 'split': True},
+    'cover_artist': {'column': 'cover_artist', 'split': True},
+    'editor': {'column': 'editor', 'split': True},
+    'publisher': {'column': 'publisher', 'split': False},
+    'imprint': {'column': 'imprint', 'split': False},
+    'genre': {'column': 'genre', 'split': True},
+    'tags': {'column': 'tags', 'split': True},
+    'characters': {'column': 'characters', 'split': True},
+    'teams': {'column': 'teams', 'split': True},
+    'locations': {'column': 'locations', 'split': True},
+    'language_iso': {'column': 'language_iso', 'split': True},
+    'scanner_source': {'column': 'scanner_source', 'split': False},
+    'series_group': {'column': 'series_group', 'split': False},
+}
 
 
 class SearchQuery:
@@ -308,6 +334,119 @@ def get_searchable_fields(session: Session, library_id: Optional[int] = None) ->
         'supports_dynamic_fields': True,
         'dynamic_field_note': 'Scanner-specific fields from metadata_json can be searched using dynamic_metadata field'
     }
+
+
+def get_field_suggestions(
+    session: Session,
+    field_name: str,
+    library_id: Optional[int] = None,
+    query: Optional[str] = None,
+    limit: int = 25,
+) -> List[Dict[str, Any]]:
+    """
+    Get aggregated suggestions for a supported metadata field.
+
+    For multi-value string fields we split on commas/semicolons and count
+    individual values. For scalar fields we aggregate the raw field values.
+    """
+    config = FIELD_SUGGESTION_CONFIG.get(field_name)
+    if not config:
+        raise ValueError(f"Unsupported field for suggestions: {field_name}")
+
+    column = getattr(Comic, config['column'])
+    values_query = session.query(column).filter(column.isnot(None))
+    if library_id is not None:
+        values_query = values_query.filter(Comic.library_id == library_id)
+
+    normalized_query = (query or '').strip().casefold()
+    if normalized_query and not config['split']:
+        values_query = values_query.filter(column.ilike(f"%{query.strip()}%"))
+
+    value_counter: Counter[str] = Counter()
+    display_names: Dict[str, str] = {}
+
+    for (raw_value,) in values_query:
+        if not raw_value:
+            continue
+
+        if field_name == 'tags':
+            candidate_values = []
+            for token in re.split(r'[\n,;]+', raw_value):
+                cleaned_token = token.strip()
+                if not cleaned_token:
+                    continue
+                if ':' in cleaned_token:
+                    tag_type, tag_value = cleaned_token.split(':', 1)
+                    if tag_type.strip().casefold() != 'tag':
+                        continue
+                    cleaned_token = tag_value.strip()
+                if cleaned_token:
+                    candidate_values.append(cleaned_token)
+        elif config['split']:
+            candidate_values = re.split(r'[\n,;]+', raw_value)
+        else:
+            candidate_values = [raw_value]
+
+        for candidate in candidate_values:
+            cleaned = candidate.strip()
+            if not cleaned:
+                continue
+
+            normalized = cleaned.casefold()
+            if normalized_query and normalized_query not in normalized:
+                continue
+
+            value_counter[normalized] += 1
+            display_names.setdefault(normalized, cleaned)
+
+    candidates = list(value_counter.items())
+    if normalized_query:
+        candidates.sort(
+            key=lambda item: (
+                not item[0].startswith(normalized_query),
+                -item[1],
+                display_names[item[0]].lower(),
+            )
+        )
+    else:
+        candidates.sort(key=lambda item: (-item[1], display_names[item[0]].lower()))
+
+    return [
+        {
+            'name': display_names[normalized],
+            'count': count,
+        }
+        for normalized, count in candidates[:limit]
+    ]
+
+
+def get_tag_suggestions(
+    session: Session,
+    library_id: Optional[int] = None,
+    query: Optional[str] = None,
+    limit: int = 25
+) -> List[Dict[str, Any]]:
+    """
+    Get tag suggestions aggregated from existing comic tags.
+
+    Tags are stored as comma-separated text, so we normalize them in Python.
+
+    Args:
+        session: Database session
+        library_id: Optional library filter
+        query: Optional substring filter for autocomplete
+        limit: Maximum number of tags to return
+
+    Returns:
+        List of {name, count} tag dictionaries sorted by relevance and usage
+    """
+    return get_field_suggestions(
+        session,
+        field_name='tags',
+        library_id=library_id,
+        query=query,
+        limit=limit,
+    )
 
 
 def search_comics_advanced(

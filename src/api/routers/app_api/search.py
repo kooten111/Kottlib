@@ -34,6 +34,53 @@ async def get_search_fields(library_id: int, request: Request):
     return await v2_search.get_search_fields_v2(library_id, request)
 
 
+@router.get("/libraries/{library_id}/search/values/{field}")
+async def get_library_search_values(
+    library_id: int,
+    field: str,
+    request: Request,
+    q: Optional[str] = None,
+    limit: int = 25,
+):
+    return await v2_search.get_search_values_v2(
+        request,
+        field=field,
+        library_id=library_id,
+        q=q,
+        limit=limit,
+    )
+
+
+@router.get("/libraries/{library_id}/search/tags")
+async def get_library_search_tags(
+    library_id: int,
+    request: Request,
+    q: Optional[str] = None,
+    limit: int = 25,
+):
+    return await v2_search.get_search_tags_v2(request, library_id=library_id, q=q, limit=limit)
+
+
+@router.get("/search/tags")
+async def get_search_tags(request: Request, q: Optional[str] = None, limit: int = 25):
+    return await v2_search.get_search_tags_v2(request, q=q, limit=limit)
+
+
+@router.get("/search/values/{field}")
+async def get_search_values(
+    field: str,
+    request: Request,
+    q: Optional[str] = None,
+    limit: int = 25,
+):
+    return await v2_search.get_search_values_v2(
+        request,
+        field=field,
+        q=q,
+        limit=limit,
+    )
+
+
 @router.get("/search/query/parse")
 async def parse_search_query(q: str):
     return await v2_search.parse_query_v2(q)

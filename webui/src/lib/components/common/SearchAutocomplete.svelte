@@ -6,6 +6,7 @@
 		Library,
 		BookOpen,
 	} from "lucide-svelte";
+	import { page } from "$app/stores";
 	import { getLibraries } from "$lib/api/libraries";
 	import { searchComics } from "$lib/api/search";
 	import { getCoverUrl } from "$lib/api/comics";
@@ -31,8 +32,18 @@
 		}
 	}
 
-	let searchQuery = "";
+	// Initialise from URL ?q= so the input and advanced search modal stay in sync
+	// when returning to the search results page
+	let searchQuery = (typeof window !== "undefined" ? new URL(window.location.href).searchParams.get("q") : "") || "";
 	let isOpen = false;
+
+	// Keep in sync reactively on SvelteKit navigations
+	$: if ($page) {
+		const urlQ = $page.url.searchParams.get("q") || "";
+		if (urlQ && urlQ !== searchQuery) {
+			searchQuery = urlQ;
+		}
+	}
 	let results = [];
 	let isSearching = false;
 	let searchTimeout;
@@ -228,121 +239,123 @@
 </script>
 
 <div class="search-container">
-	<div class="search-input-wrapper">
-		<input
-			bind:this={inputElement}
-			type="text"
-			bind:value={searchQuery}
-			on:keydown={handleKeydown}
-			on:focus={handleFocus}
-			{placeholder}
-			class="search-input"
-			autocomplete="off"
-			spellcheck="false"
-		/>
-		{#if isSearching}
-			<div class="search-spinner"></div>
-		{/if}
-	</div>
-
-	{#if isOpen}
-		<div bind:this={dropdownElement} class="search-dropdown">
-			{#if results.length > 0}
-				{#each results as result, index}
-					<button
-						class="search-result"
-						class:selected={index === selectedIndex}
-						on:click={() => selectResult(result)}
-						type="button"
-					>
-						<div
-							class="result-cover"
-							class:result-cover-icon={result.type === "series"}
-						>
-							{#if getResultCover(result)}
-								<img
-									src={getResultCover(result)}
-									alt={getResultTitle(result)}
-									loading="lazy"
-									decoding="async"
-								/>
-							{:else if result.type === "series"}
-								<div class="result-icon-placeholder">
-									<BookOpen size={32} class="opacity-50" />
-								</div>
-							{:else}
-								<div class="result-cover-placeholder">
-									<svg
-										xmlns="http://www.w3.org/2000/svg"
-										width="24"
-										height="24"
-										viewBox="0 0 24 24"
-										fill="none"
-										stroke="currentColor"
-										stroke-width="2"
-									>
-										<path
-											d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"
-										/>
-										<path
-											d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"
-										/>
-									</svg>
-								</div>
-							{/if}
-						</div>
-						<div class="result-info">
-							<div class="result-title">
-								{getResultTitle(result)}
-							</div>
-							<div class="result-meta">
-								{#if result.type === "series"}
-									<span class="result-tag">Series</span>
-								{:else if result.series}
-									<span class="result-series"
-										>{result.series}</span
-									>
-									<span class="result-separator">•</span>
-								{/if}
-								<span class="result-library"
-									>{result.libraryName}</span
-								>
-							</div>
-						</div>
-					</button>
-				{/each}
-
-				{#if results.length === 8}
-					<button
-						class="search-see-all"
-						on:click={navigateToSearch}
-						type="button"
-					>
-						See all results →
-					</button>
-				{/if}
-			{:else if !isSearching && searchQuery.trim().length >= 2}
-				<div class="no-results">
-					<Search class="w-8 h-8 opacity-50 mb-2" />
-					<p>No comics found matching "{searchQuery}"</p>
-				</div>
+	<div class="search-toolbar">
+		<div class="search-input-wrapper">
+			<input
+				bind:this={inputElement}
+				type="text"
+				bind:value={searchQuery}
+				on:keydown={handleKeydown}
+				on:focus={handleFocus}
+				{placeholder}
+				class="search-input"
+				autocomplete="off"
+				spellcheck="false"
+			/>
+			{#if isSearching}
+				<div class="search-spinner"></div>
 			{/if}
 
-			<button
-				class="search-advanced"
-				on:click={openAdvancedSearch}
-				type="button"
-			>
-				<SlidersHorizontal class="w-4 h-4" />
-				Advanced Search
-			</button>
+			{#if isOpen}
+				<div bind:this={dropdownElement} class="search-dropdown">
+					{#if results.length > 0}
+						{#each results as result, index}
+							<button
+								class="search-result"
+								class:selected={index === selectedIndex}
+								on:click={() => selectResult(result)}
+								type="button"
+							>
+								<div
+									class="result-cover"
+									class:result-cover-icon={result.type === "series"}
+								>
+									{#if getResultCover(result)}
+										<img
+											src={getResultCover(result)}
+											alt={getResultTitle(result)}
+											loading="lazy"
+											decoding="async"
+										/>
+									{:else if result.type === "series"}
+										<div class="result-icon-placeholder">
+											<BookOpen size={32} class="opacity-50" />
+										</div>
+									{:else}
+										<div class="result-cover-placeholder">
+											<svg
+												xmlns="http://www.w3.org/2000/svg"
+												width="24"
+												height="24"
+												viewBox="0 0 24 24"
+												fill="none"
+												stroke="currentColor"
+												stroke-width="2"
+											>
+												<path
+													d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"
+												/>
+												<path
+													d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"
+												/>
+											</svg>
+										</div>
+									{/if}
+								</div>
+								<div class="result-info">
+									<div class="result-title">
+										{getResultTitle(result)}
+									</div>
+									<div class="result-meta">
+										{#if result.type === "series"}
+											<span class="result-tag">Series</span>
+										{:else if result.series}
+											<span class="result-series"
+												>{result.series}</span
+											>
+											<span class="result-separator">•</span>
+										{/if}
+										<span class="result-library"
+											>{result.libraryName}</span
+										>
+									</div>
+								</div>
+							</button>
+						{/each}
+
+						{#if results.length === 8}
+							<button
+								class="search-see-all"
+								on:click={navigateToSearch}
+								type="button"
+							>
+								See all results →
+							</button>
+						{/if}
+					{:else if !isSearching && searchQuery.trim().length >= 2}
+						<div class="no-results">
+							<Search class="w-8 h-8 opacity-50 mb-2" />
+							<p>No comics found matching "{searchQuery}"</p>
+						</div>
+					{/if}
+				</div>
+			{/if}
 		</div>
-	{/if}
+
+		<button
+			class="advanced-trigger"
+			on:click={openAdvancedSearch}
+			type="button"
+			aria-label="Open advanced search"
+		>
+			<SlidersHorizontal class="w-4 h-4" />
+			<span>Advanced</span>
+		</button>
+	</div>
 </div>
 
 {#if $showAdvancedSearch}
 	<AdvancedSearchModal
-		libraryId={null}
 		initialQuery={searchQuery}
 		onClose={() => showAdvancedSearch.set(false)}
 		on:search={handleAdvancedSearch}
@@ -353,14 +366,21 @@
 	.search-container {
 		position: relative;
 		width: 100%;
-		border: 1px solid var(--color-border-strong);
-		border-radius: 8px;
-		background: var(--color-secondary-bg);
 		overflow: visible;
+	}
+
+	.search-toolbar {
+		display: flex;
+		gap: 0.5rem;
+		align-items: center;
 	}
 
 	.search-input-wrapper {
 		position: relative;
+		flex: 1;
+		border: 1px solid var(--color-border-strong);
+		border-radius: 8px;
+		background: var(--color-secondary-bg);
 	}
 
 	.search-input {
@@ -386,7 +406,7 @@
 
 	.search-spinner {
 		position: absolute;
-		right: 2.25rem;
+		right: 0.75rem;
 		top: 50%;
 		transform: translateY(-50%);
 		width: 1rem;
@@ -541,25 +561,32 @@
 		background: color-mix(in srgb, var(--color-accent) 16%, transparent);
 	}
 
-	.search-advanced {
-		width: 100%;
-		padding: 0.75rem;
-		background: transparent;
-		border: none;
-		border-top: 1px solid var(--color-border-strong);
+	.advanced-trigger {
+		padding: 0.625rem 0.75rem;
+		background: var(--color-secondary-bg);
+		border: 1px solid var(--color-border-strong);
+		border-radius: 8px;
 		color: var(--color-accent);
 		font-size: 0.875rem;
 		font-weight: 500;
 		cursor: pointer;
-		transition: background 0.15s;
+		transition: all 0.15s;
 		display: flex;
 		align-items: center;
 		justify-content: center;
 		gap: 0.5rem;
+		white-space: nowrap;
 	}
 
-	.search-advanced:hover {
+	.advanced-trigger:hover {
 		background: color-mix(in srgb, var(--color-accent) 16%, transparent);
+		border-color: var(--color-border-hover);
+	}
+
+	@media (max-width: 768px) {
+		.advanced-trigger span {
+			display: none;
+		}
 	}
 
 	/* Scrollbar styling */

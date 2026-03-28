@@ -22,6 +22,8 @@ from ....database.enhanced_search import (
     search_comics_advanced,
     get_searchable_fields,
     parse_search_query,
+    get_field_suggestions,
+    get_tag_suggestions,
 )
 from ....database.models import Comic, Folder as FolderModel, Series as SeriesModel
 from ....constants import ROOT_FOLDER_MARKER
@@ -387,3 +389,77 @@ async def parse_query_v2(q: str):
         "exclude_terms": parsed.exclude_terms,
         "is_empty": parsed.is_empty()
     })
+
+
+async def get_search_tags_v2(
+    request: Request,
+    library_id: Optional[int] = None,
+    q: Optional[str] = None,
+    limit: int = 25,
+):
+    """
+    Return aggregated tags from existing comics for autocomplete and browsing.
+
+    Args:
+        request: FastAPI request
+        library_id: Optional library to scope tags to
+        q: Optional query substring for autocomplete
+        limit: Maximum tags to return
+    """
+    db = request.app.state.db
+    with db.get_session() as session:
+        if library_id is not None:
+            library = get_library_by_id(session, library_id)
+            if not library:
+                raise HTTPException(status_code=404, detail="Library not found")
+
+        tags = get_tag_suggestions(
+            session,
+            library_id=library_id,
+            query=q,
+            limit=limit,
+        )
+
+        return JSONResponse({
+            "tags": tags,
+            "query": q or "",
+            "library_id": library_id,
+            "limit": limit,
+        })
+
+
+async def get_search_values_v2(
+    request: Request,
+    field: str,
+    library_id: Optional[int] = None,
+    q: Optional[str] = None,
+    limit: int = 25,
+):
+    """
+    Return aggregated existing values for a supported metadata field.
+    """
+    db = request.app.state.db
+    with db.get_session() as session:
+        if library_id is not None:
+            library = get_library_by_id(session, library_id)
+            if not library:
+                raise HTTPException(status_code=404, detail="Library not found")
+
+        try:
+            values = get_field_suggestions(
+                session,
+                field_name=field,
+                library_id=library_id,
+                query=q,
+                limit=limit,
+            )
+        except ValueError as exc:
+            raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+        return JSONResponse({
+            "field": field,
+            "values": values,
+            "query": q or "",
+            "library_id": library_id,
+            "limit": limit,
+        })
