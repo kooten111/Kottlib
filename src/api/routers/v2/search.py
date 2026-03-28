@@ -24,6 +24,8 @@ from ....database.enhanced_search import (
     parse_search_query,
     get_field_suggestions,
     get_tag_suggestions,
+    get_search_facets,
+    get_multi_field_suggestions,
 )
 from ....database.models import Comic, Folder as FolderModel, Series as SeriesModel
 from ....constants import ROOT_FOLDER_MARKER
@@ -459,6 +461,75 @@ async def get_search_values_v2(
         return JSONResponse({
             "field": field,
             "values": values,
+            "query": q or "",
+            "library_id": library_id,
+            "limit": limit,
+        })
+
+
+async def get_search_facets_v2(
+    request: Request,
+    library_id: Optional[int] = None,
+    values_limit: int = 10,
+):
+    """
+    Return discoverable facet fields and top values based on existing metadata.
+    """
+    db = request.app.state.db
+    with db.get_session() as session:
+        if library_id is not None:
+            library = get_library_by_id(session, library_id)
+            if not library:
+                raise HTTPException(status_code=404, detail="Library not found")
+
+        facets = get_search_facets(
+            session,
+            library_id=library_id,
+            values_limit=values_limit,
+        )
+
+        return JSONResponse({
+            "facets": facets,
+            "library_id": library_id,
+            "values_limit": values_limit,
+        })
+
+
+async def get_search_values_batch_v2(
+    request: Request,
+    fields: str,
+    library_id: Optional[int] = None,
+    q: Optional[str] = None,
+    limit: int = 25,
+):
+    """
+    Return value suggestions for multiple fields in a single response.
+    """
+    requested_fields = [field.strip() for field in fields.split(',') if field.strip()]
+    if not requested_fields:
+        raise HTTPException(status_code=400, detail="At least one field is required")
+
+    db = request.app.state.db
+    with db.get_session() as session:
+        if library_id is not None:
+            library = get_library_by_id(session, library_id)
+            if not library:
+                raise HTTPException(status_code=404, detail="Library not found")
+
+        try:
+            values = get_multi_field_suggestions(
+                session,
+                fields=requested_fields,
+                library_id=library_id,
+                query=q,
+                limit=limit,
+            )
+        except ValueError as exc:
+            raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+        return JSONResponse({
+            "values": values,
+            "fields": requested_fields,
             "query": q or "",
             "library_id": library_id,
             "limit": limit,

@@ -84,3 +84,33 @@ async def get_search_values(
 @router.get("/search/query/parse")
 async def parse_search_query(q: str):
     return await v2_search.parse_query_v2(q)
+
+
+@router.get("/libraries/{library_id}/search/facets")
+async def get_library_search_facets(
+    library_id: int,
+    request: Request,
+    values_limit: int = 10,
+):
+    return await v2_search.get_search_facets_v2(
+        request,
+        library_id=library_id,
+        values_limit=values_limit,
+    )
+
+
+@router.get("/libraries/{library_id}/search/facets/values")
+async def get_library_search_facet_values(
+    library_id: int,
+    request: Request,
+    fields: str,
+    q: Optional[str] = None,
+    limit: int = 25,
+):
+    return await v2_search.get_search_values_batch_v2(
+        request,
+        fields=fields,
+        library_id=library_id,
+        q=q,
+        limit=limit,
+    )

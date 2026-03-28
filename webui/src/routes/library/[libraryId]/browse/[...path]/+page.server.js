@@ -12,6 +12,7 @@ export async function load({ params, url: pageUrl, fetch }) {
 
     const sort = pageUrl.searchParams.get('sort') || 'name';
     const seed = pageUrl.searchParams.get('seed');
+    const searchQuery = pageUrl.searchParams.get('q') || '';
 
     // If sort is random but no seed provided, redirect with a new seed
     if (sort === 'random' && !seed) {
@@ -65,7 +66,8 @@ export async function load({ params, url: pageUrl, fetch }) {
                 seriesTree: sidebarData.seriesTree,
                 libraryId: 'all',
                 currentPath: path || '',
-                continueReading
+                continueReading,
+                searchQuery
             };
         } else {
             // Single-library mode
@@ -95,7 +97,8 @@ export async function load({ params, url: pageUrl, fetch }) {
                 seriesTree: sidebarData.seriesTree,
                 libraryId: parseInt(libraryId),
                 currentPath: path || '',
-                continueReading: null
+                continueReading: null,
+                searchQuery
             };
         }
     } catch (error) {

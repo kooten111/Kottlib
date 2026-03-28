@@ -139,6 +139,14 @@
     $: genres = parseList(metadata.genres || metadata.genre || item?.genre);
     $: tags = parseList(metadata.tags || item?.tags);
     $: contentWarnings = parseList(metadata.contentWarning);
+
+    function tagSearchUrl(field, value) {
+        const v = `${value || ''}`.trim();
+        if (!v) return null;
+        const q = /\s/.test(v) ? `${field}:"${v}"` : `${field}:${v}`;
+        const lib = libraryId || 'all';
+        return `/library/${lib}/browse?q=${encodeURIComponent(q)}`;
+    }
 </script>
 
 <div class="detail-header">
@@ -306,7 +314,7 @@
                 {#if genres.length > 0}
                     <div class="tags-row">
                         {#each genres as genre}
-                            <GenreTag variant="genre">{genre}</GenreTag>
+                            <GenreTag variant="genre" href={tagSearchUrl('genre', genre)}>{genre}</GenreTag>
                         {/each}
                     </div>
                 {/if}
@@ -315,7 +323,7 @@
                 {#if tags.length > 0}
                     <div class="tags-row">
                         {#each tags as tag}
-                            <GenreTag variant="tag">{tag}</GenreTag>
+                            <GenreTag variant="tag" href={tagSearchUrl('tags', tag)}>{tag}</GenreTag>
                         {/each}
                     </div>
                 {/if}

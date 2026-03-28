@@ -165,6 +165,14 @@
     $: tags = parseList(item?.tags);
     $: tagsByType = perVolumeMetadata ? parseTags(item?.tags) : {};
 
+    function tagSearchUrl(field, value) {
+        const v = `${value || ''}`.trim();
+        if (!v) return null;
+        const q = /\s/.test(v) ? `${field}:"${v}"` : `${field}:${v}`;
+        const lib = libraryId || 'all';
+        return `/library/${lib}/browse?q=${encodeURIComponent(q)}`;
+    }
+
     // Handle comic scanning in per-volume mode
     async function handleScanComic(overwrite = false) {
         if (!selectedComicId || !perVolumeMetadata) return;
@@ -377,7 +385,7 @@
             <div class="tags-section">
                 <div class="tags-row">
                     {#each genres as genre}
-                        <GenreTag variant="genre">{genre}</GenreTag>
+                        <GenreTag variant="genre" href={tagSearchUrl('genre', genre)}>{genre}</GenreTag>
                     {/each}
                 </div>
             </div>
@@ -393,7 +401,7 @@
                         <span class="category-label">Parodies</span>
                         <div class="tags-row">
                             {#each tagsByType.parody as tag}
-                                <GenreTag variant="tag" class="tag-parody">{tag}</GenreTag>
+                                <GenreTag variant="tag" href={tagSearchUrl('tags', tag)}>{tag}</GenreTag>
                             {/each}
                         </div>
                     </div>
@@ -404,7 +412,7 @@
                         <span class="category-label">Characters</span>
                         <div class="tags-row">
                             {#each tagsByType.character as tag}
-                                <GenreTag variant="tag" class="tag-character">{tag}</GenreTag>
+                                <GenreTag variant="tag" href={tagSearchUrl('tags', tag)}>{tag}</GenreTag>
                             {/each}
                         </div>
                     </div>
@@ -415,7 +423,7 @@
                         <span class="category-label">Artists</span>
                         <div class="tags-row">
                             {#each tagsByType.artist as tag}
-                                <GenreTag variant="tag" class="tag-artist">{tag}</GenreTag>
+                                <GenreTag variant="tag" href={tagSearchUrl('tags', tag)}>{tag}</GenreTag>
                             {/each}
                         </div>
                     </div>
@@ -426,7 +434,7 @@
                         <span class="category-label">Groups</span>
                         <div class="tags-row">
                             {#each tagsByType.group as tag}
-                                <GenreTag variant="tag" class="tag-group">{tag}</GenreTag>
+                                <GenreTag variant="tag" href={tagSearchUrl('tags', tag)}>{tag}</GenreTag>
                             {/each}
                         </div>
                     </div>
@@ -437,7 +445,7 @@
                         <span class="category-label">Languages</span>
                         <div class="tags-row">
                             {#each tagsByType.language as tag}
-                                <GenreTag variant="tag" class="tag-language">{tag}</GenreTag>
+                                <GenreTag variant="tag" href={tagSearchUrl('tags', tag)}>{tag}</GenreTag>
                             {/each}
                         </div>
                     </div>
@@ -448,7 +456,7 @@
                         <span class="category-label">Categories</span>
                         <div class="tags-row">
                             {#each tagsByType.category as tag}
-                                <GenreTag variant="tag" class="tag-category">{tag}</GenreTag>
+                                <GenreTag variant="tag" href={tagSearchUrl('tags', tag)}>{tag}</GenreTag>
                             {/each}
                         </div>
                     </div>
@@ -459,7 +467,7 @@
                         <span class="category-label">Content Tags</span>
                         <div class="tags-row">
                             {#each tagsByType.tag as tag}
-                                <GenreTag variant="tag">{tag}</GenreTag>
+                                <GenreTag variant="tag" href={tagSearchUrl('tags', tag)}>{tag}</GenreTag>
                             {/each}
                         </div>
                     </div>
@@ -471,7 +479,7 @@
                 <h3 class="section-label">Tags</h3>
                 <div class="tags-row">
                     {#each tags as tag}
-                        <GenreTag variant="tag">{tag}</GenreTag>
+                        <GenreTag variant="tag" href={tagSearchUrl('tags', tag)}>{tag}</GenreTag>
                     {/each}
                 </div>
             </div>

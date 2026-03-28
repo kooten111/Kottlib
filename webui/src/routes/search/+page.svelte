@@ -5,10 +5,18 @@
 	import Sidebar from '$lib/components/layout/Sidebar.svelte';
 	import ComicCard from '$lib/components/comic/ComicCard.svelte';
 	import { getLibraries } from '$lib/api/libraries';
-	import { searchComics } from '$lib/api/search';
-	import { Filter, SortAsc, Grid, List } from 'lucide-svelte';
+	import { searchComics, getSearchFacetValues } from '$lib/api/search';
+	import { Filter, Grid, List, Search } from 'lucide-svelte';
 
-	$: searchQuery = $page.url.searchParams.get('q') || '';
+	let searchText = '';
+
+	// Sync from URL on navigation (e.g. navbar search)
+	$: {
+		const urlQ = $page.url.searchParams.get('q') || '';
+		if (urlQ && urlQ !== searchText) {
+			searchText = urlQ;
+		}
+	}
 
 	let libraries = [];
 	let searchResults = [];
@@ -17,6 +25,18 @@
 	let sidebarOpen = false;
 	let viewMode = 'grid';
 	let sortBy = 'relevance';
+	let isReady = false;
+	let selectedFacetFields = ['tags', 'genre'];
+
+	let facets = {
+		tags: [],
+		genre: []
+	};
+	let tagsInput = '';
+	let tagSuggestions = [];
+	let loadingTagSuggestions = false;
+	let lastSearchStateKey = '';
+	let lastFacetScopeKey = '';
 
 	// Filters
 	let filters = {
@@ -25,31 +45,56 @@
 		publishers: [],
 		years: [],
 		tags: [],
+		genre: [],
 		status: [] // 'unread', 'reading', 'completed'
 	};
 
+	$: queryPreview = buildEffectiveQuery();
+
+	$: if (isReady) {
+		const currentStateKey = JSON.stringify({
+			searchText,
+			libraries: [...filters.libraries].sort(),
+			tags: [...filters.tags].sort(),
+			genre: [...filters.genre].sort(),
+			status: [...filters.status].sort(),
+			sortBy,
+			librariesLoaded: libraries.map((library) => library.id).sort()
+		});
+
+		if (currentStateKey !== lastSearchStateKey) {
+			lastSearchStateKey = currentStateKey;
+			performSearch();
+		}
+	}
+
 	onMount(async () => {
 		try {
-			// Load libraries
-			libraries = await getLibraries();
-
-			// If there's a search query, perform search
-			if (searchQuery) {
-				await performSearch();
-			}
+			// Load libraries, excluding hidden ones
+			const allLibraries = await getLibraries();
+			libraries = allLibraries.filter(lib => !lib.exclude_from_webui);
+			await loadFacetValues();
+			isReady = true;
 		} catch (err) {
 			console.error('Failed to initialize search:', err);
 			error = err.message;
 		}
 	});
 
-	// Watch for query changes
-	$: if (searchQuery) {
-		performSearch();
+	$: if (isReady) {
+		const facetScopeKey = JSON.stringify({
+			libraries: [...filters.libraries].sort(),
+			libraryPool: libraries.map((library) => library.id).sort()
+		});
+		if (facetScopeKey !== lastFacetScopeKey) {
+			lastFacetScopeKey = facetScopeKey;
+			loadFacetValues();
+		}
 	}
 
 	async function performSearch() {
-		if (!searchQuery.trim()) {
+		const effectiveQuery = queryPreview;
+		if (!effectiveQuery.trim()) {
 			searchResults = [];
 			return;
 		}
@@ -58,10 +103,20 @@
 			isLoading = true;
 			error = null;
 
-			// Search across all libraries
+			const scopedLibraries = filters.libraries.length > 0
+				? libraries.filter((lib) => filters.libraries.includes(lib.id))
+				: libraries;
+
+			if (scopedLibraries.length === 0) {
+				searchResults = [];
+				isLoading = false;
+				return;
+			}
+
+			// Search across selected libraries
 			const results = await Promise.all(
-				libraries.map((lib) =>
-					searchComics(lib.id, searchQuery)
+				scopedLibraries.map((lib) =>
+					searchComics(lib.id, effectiveQuery)
 						.then(comics => comics.map(comic => ({
 							...comic,
 							libraryId: lib.id,
@@ -94,26 +149,111 @@
 		}
 	}
 
+	async function loadFacetValues() {
+		if (!libraries.length) {
+			facets = { tags: [], genre: [] };
+			return;
+		}
+
+		const scopedLibraries = filters.libraries.length > 0
+			? libraries.filter((lib) => filters.libraries.includes(lib.id))
+			: libraries;
+
+		if (!scopedLibraries.length) {
+			facets = { tags: [], genre: [] };
+			return;
+		}
+
+		try {
+			const responses = await Promise.all(
+				scopedLibraries.map((library) =>
+					getSearchFacetValues({
+						libraryId: library.id,
+						fields: selectedFacetFields,
+						limit: 25
+					})
+				)
+			);
+
+			const merged = mergeFacetValues(responses.map((response) => response.values || {}));
+			facets = {
+				tags: merged.tags || [],
+				genre: merged.genre || []
+			};
+			refreshTagSuggestions();
+		} catch (err) {
+			console.error('Failed to load facet values:', err);
+		}
+	}
+
+	function mergeFacetValues(valueMaps) {
+		const buckets = {};
+		for (const valueMap of valueMaps) {
+			for (const [field, values] of Object.entries(valueMap || {})) {
+				if (!buckets[field]) {
+					buckets[field] = new Map();
+				}
+
+				for (const value of values) {
+					const normalized = `${value.name || ''}`.trim();
+					if (!normalized) continue;
+					const key = normalized.toLowerCase();
+					const previous = buckets[field].get(key) || { name: normalized, count: 0 };
+					previous.count += Number(value.count || 0);
+					buckets[field].set(key, previous);
+				}
+			}
+		}
+
+		const merged = {};
+		for (const [field, valuesMap] of Object.entries(buckets)) {
+			merged[field] = Array.from(valuesMap.values())
+				.sort((a, b) => b.count - a.count || a.name.localeCompare(b.name));
+		}
+
+		return merged;
+	}
+
+	function buildEffectiveQuery() {
+		const parts = [];
+		const normalizedText = (searchText || '').trim();
+		if (normalizedText) {
+			parts.push(normalizedText);
+		}
+
+		for (const tag of filters.tags) {
+			parts.push(formatFieldQuery('tags', tag));
+		}
+
+		for (const genre of filters.genre) {
+			parts.push(formatFieldQuery('genre', genre));
+		}
+
+		return parts.join(' ').trim();
+	}
+
+	function formatFieldQuery(field, value) {
+		const trimmed = `${value || ''}`.trim();
+		if (!trimmed) return '';
+		const needsQuotes = /\s/.test(trimmed);
+		return `${field}:${needsQuotes ? `"${trimmed}"` : trimmed}`;
+	}
+
 	function applyFilters(results) {
 		let filtered = [...results];
-
-		// Filter by libraries
-		if (filters.libraries.length > 0) {
-			filtered = filtered.filter((comic) =>
-				filters.libraries.includes(comic.libraryId)
-			);
-		}
 
 		// Filter by status
 		if (filters.status.length > 0) {
 			filtered = filtered.filter((comic) => {
-				if (filters.status.includes('unread') && (!comic.currentPage || comic.currentPage === 0)) {
+				const currentPage = comic.currentPage ?? comic.current_page ?? 0;
+				const numPages = comic.numPages ?? comic.num_pages ?? 0;
+				if (filters.status.includes('unread') && currentPage === 0) {
 					return true;
 				}
-				if (filters.status.includes('reading') && comic.currentPage > 0 && comic.currentPage < comic.numPages) {
+				if (filters.status.includes('reading') && currentPage > 0 && currentPage < numPages) {
 					return true;
 				}
-				if (filters.status.includes('completed') && comic.currentPage >= comic.numPages) {
+				if (filters.status.includes('completed') && numPages > 0 && currentPage >= numPages) {
 					return true;
 				}
 				return false;
@@ -121,6 +261,14 @@
 		}
 
 		// TODO: Add more filter logic for series, publishers, years, tags
+
+		if (filters.genre.length > 0) {
+			const expectedGenres = filters.genre.map((genre) => genre.toLowerCase());
+			filtered = filtered.filter((comic) => {
+				const comicGenre = `${comic.genre || ''}`.toLowerCase();
+				return expectedGenres.some((genre) => comicGenre.includes(genre));
+			});
+		}
 
 		return filtered;
 	}
@@ -146,15 +294,76 @@
 	}
 
 	function handleFilterChange() {
-		// Re-apply filters when they change
-		if (searchQuery) {
-			performSearch();
+		loadFacetValues();
+	}
+
+	function refreshTagSuggestions() {
+		const normalized = tagsInput.trim().toLowerCase();
+		if (!normalized) {
+			tagSuggestions = facets.tags
+				.filter((tag) => !filters.tags.includes(tag.name))
+				.slice(0, 8);
+			return;
 		}
+
+		tagSuggestions = facets.tags
+			.filter((tag) => !filters.tags.includes(tag.name))
+			.filter((tag) => tag.name.toLowerCase().includes(normalized))
+			.slice(0, 8);
+	}
+
+	function addTag(tagName) {
+		const normalized = `${tagName || ''}`.trim();
+		if (!normalized || filters.tags.includes(normalized)) {
+			return;
+		}
+		filters.tags = [...filters.tags, normalized];
+		tagsInput = '';
+		refreshTagSuggestions();
+	}
+
+	function removeTag(tagName) {
+		filters.tags = filters.tags.filter((tag) => tag !== tagName);
+		refreshTagSuggestions();
+	}
+
+	function toggleGenre(genreName) {
+		if (filters.genre.includes(genreName)) {
+			filters.genre = filters.genre.filter((genre) => genre !== genreName);
+			return;
+		}
+		filters.genre = [...filters.genre, genreName];
+	}
+
+	function clearAdvancedFilters() {
+		filters = {
+			...filters,
+			tags: [],
+			genre: [],
+			status: [],
+			libraries: []
+		};
+		tagsInput = '';
+		tagSuggestions = [];
+	}
+
+	function handleTagInputChange() {
+		loadingTagSuggestions = true;
+		refreshTagSuggestions();
+		loadingTagSuggestions = false;
+	}
+
+	function handleTagInputKeydown(event) {
+		if (event.key !== 'Enter' && event.key !== ',') {
+			return;
+		}
+		event.preventDefault();
+		addTag(tagsInput);
 	}
 </script>
 
 <svelte:head>
-	<title>Search: {searchQuery || 'Comics'} - Kottlib</title>
+	<title>Search: {searchText || 'Comics'} - Kottlib</title>
 </svelte:head>
 
 <div class="flex flex-col min-h-screen">
@@ -224,7 +433,7 @@
 				<button
 					class="btn-secondary w-full mt-4"
 					on:click={() => {
-						filters = { libraries: [], series: [], publishers: [], years: [], tags: [], status: [] };
+						filters = { libraries: [], series: [], publishers: [], years: [], tags: [], genre: [], status: [] };
 						handleFilterChange();
 					}}
 				>
@@ -238,14 +447,16 @@
 			<div class="container mx-auto px-4 py-8 max-w-content">
 				<!-- Search Header -->
 				<div class="search-header">
-					<div>
-						<h1 class="search-title">
-							{#if searchQuery}
-								Search Results for "{searchQuery}"
-							{:else}
-								Search Comics
-							{/if}
-						</h1>
+					<div class="search-header-left">
+						<div class="search-input-wrapper">
+							<Search class="search-input-icon" />
+							<input
+								type="text"
+								class="search-input"
+								placeholder="Search comics..."
+								bind:value={searchText}
+							/>
+						</div>
 						{#if searchResults.length > 0}
 							<p class="search-subtitle">Found {searchResults.length} results</p>
 						{/if}
@@ -285,8 +496,82 @@
 					</div>
 				</div>
 
+				<div class="advanced-filters-panel">
+					<div class="advanced-filters-head">
+						<h2>Advanced Filters</h2>
+						<button class="btn-secondary" on:click={clearAdvancedFilters}>Reset</button>
+					</div>
+
+					<div class="advanced-filters-grid">
+						<div class="advanced-field">
+							<p class="field-heading">Libraries</p>
+							<div class="selectable-list">
+								{#each libraries as library}
+									<button
+										type="button"
+										class="selectable-pill"
+										class:selected={filters.libraries.includes(library.id)}
+										on:click={() => {
+											if (filters.libraries.includes(library.id)) {
+												filters.libraries = filters.libraries.filter((id) => id !== library.id);
+											} else {
+												filters.libraries = [...filters.libraries, library.id];
+											}
+											handleFilterChange();
+										}}
+									>
+										{library.name}
+									</button>
+								{/each}
+							</div>
+						</div>
+
+						<div class="advanced-field">
+							<label for="search-loose-tags">Loose Tags</label>
+							<input
+								id="search-loose-tags"
+								type="text"
+								placeholder="Type tag, press Enter"
+								bind:value={tagsInput}
+								on:input={handleTagInputChange}
+								on:keydown={handleTagInputKeydown}
+								class="advanced-input"
+							/>
+							{#if loadingTagSuggestions}
+								<p class="hint-text">Loading tags...</p>
+							{:else if tagSuggestions.length > 0}
+								<div class="selectable-list compact">
+									{#each tagSuggestions as tag}
+										<button type="button" class="selectable-pill" on:click={() => addTag(tag.name)}>
+											{tag.name} <span>({tag.count})</span>
+										</button>
+									{/each}
+								</div>
+							{/if}
+						</div>
+
+						<div class="advanced-field">
+							<p class="field-heading">Genre</p>
+							<div class="selectable-list compact">
+								{#each facets.genre.slice(0, 20) as genre}
+									<button
+										type="button"
+										class="selectable-pill"
+										class:selected={filters.genre.includes(genre.name)}
+										on:click={() => toggleGenre(genre.name)}
+									>
+										{genre.name} <span>({genre.count})</span>
+									</button>
+								{/each}
+							</div>
+						</div>
+					</div>
+
+					<p class="query-preview">Query: {queryPreview || '(empty)'}</p>
+				</div>
+
 				<!-- Active Filters Display -->
-				{#if filters.status.length > 0 || filters.libraries.length > 0}
+				{#if filters.status.length > 0 || filters.libraries.length > 0 || filters.tags.length > 0 || filters.genre.length > 0}
 					<div class="active-filters">
 						<span class="filter-label">Active filters:</span>
 						<div class="filter-chips">
@@ -302,6 +587,18 @@
 									>
 										×
 									</button>
+								</span>
+							{/each}
+							{#each filters.tags as tag}
+								<span class="filter-chip">
+									tags:{tag}
+									<button class="chip-remove" on:click={() => removeTag(tag)}>×</button>
+								</span>
+							{/each}
+							{#each filters.genre as genre}
+								<span class="filter-chip">
+									genre:{genre}
+									<button class="chip-remove" on:click={() => toggleGenre(genre)}>×</button>
 								</span>
 							{/each}
 							{#each filters.libraries as libraryId}
@@ -336,7 +633,7 @@
 					<div class="error-container">
 						<p class="text-red-400">Search failed: {error}</p>
 					</div>
-				{:else if searchQuery && searchResults.length === 0}
+				{:else if queryPreview && searchResults.length === 0}
 					<!-- No Results -->
 					<div class="empty-state">
 						<svg
@@ -354,7 +651,7 @@
 							<circle cx="11" cy="11" r="8" />
 							<path d="m21 21-4.35-4.35" />
 						</svg>
-						<p class="text-gray-400 mb-2">No comics found for "{searchQuery}"</p>
+						<p class="text-gray-400 mb-2">No comics found for "{queryPreview}"</p>
 						<p class="text-gray-500 text-sm">Try a different search term or adjust your filters</p>
 					</div>
 				{:else if searchResults.length > 0}
@@ -408,6 +705,46 @@
 		gap: 2rem;
 	}
 
+	.search-header-left {
+		flex: 1;
+		min-width: 0;
+	}
+
+	.search-input-wrapper {
+		position: relative;
+		display: flex;
+		align-items: center;
+	}
+
+	.search-input-wrapper :global(.search-input-icon) {
+		position: absolute;
+		left: 0.75rem;
+		width: 1.25rem;
+		height: 1.25rem;
+		color: var(--color-text-muted);
+		pointer-events: none;
+	}
+
+	.search-input {
+		width: 100%;
+		padding: 0.75rem 0.75rem 0.75rem 2.5rem;
+		font-size: 1.125rem;
+		font-weight: 500;
+		background: var(--color-secondary-bg);
+		border: 1px solid rgba(255, 255, 255, 0.1);
+		border-radius: 8px;
+		color: var(--color-text);
+	}
+
+	.search-input:focus {
+		outline: none;
+		border-color: var(--color-accent);
+	}
+
+	.search-input::placeholder {
+		color: var(--color-text-muted);
+	}
+
 	.search-title {
 		font-size: 2rem;
 		font-weight: 700;
@@ -454,6 +791,109 @@
 	.control-button:hover {
 		border-color: var(--color-accent);
 		color: var(--color-text);
+	}
+
+	.advanced-filters-panel {
+		background: color-mix(in srgb, var(--color-secondary-bg) 85%, transparent);
+		border: 1px solid rgba(255, 255, 255, 0.08);
+		border-radius: 12px;
+		padding: 1rem;
+		margin-bottom: 1.25rem;
+	}
+
+	.advanced-filters-head {
+		display: flex;
+		justify-content: space-between;
+		align-items: center;
+		margin-bottom: 1rem;
+	}
+
+	.advanced-filters-head h2 {
+		font-size: 1rem;
+		font-weight: 700;
+		margin: 0;
+	}
+
+	.advanced-filters-grid {
+		display: grid;
+		grid-template-columns: repeat(3, minmax(0, 1fr));
+		gap: 1rem;
+	}
+
+	.advanced-field {
+		display: flex;
+		flex-direction: column;
+		gap: 0.5rem;
+	}
+
+	.advanced-field label {
+		font-size: 0.8125rem;
+		font-weight: 600;
+		color: var(--color-text-secondary);
+	}
+
+	.field-heading {
+		margin: 0;
+		font-size: 0.8125rem;
+		font-weight: 600;
+		color: var(--color-text-secondary);
+	}
+
+	.advanced-input {
+		background: var(--color-secondary-bg);
+		border: 1px solid rgba(255, 255, 255, 0.1);
+		border-radius: 8px;
+		padding: 0.5rem 0.625rem;
+		color: var(--color-text);
+	}
+
+	.advanced-input:focus {
+		outline: none;
+		border-color: var(--color-accent);
+	}
+
+	.selectable-list {
+		display: flex;
+		flex-wrap: wrap;
+		gap: 0.5rem;
+	}
+
+	.selectable-list.compact {
+		max-height: 180px;
+		overflow-y: auto;
+	}
+
+	.selectable-pill {
+		padding: 0.35rem 0.625rem;
+		border-radius: 999px;
+		border: 1px solid rgba(255, 255, 255, 0.1);
+		background: var(--color-secondary-bg);
+		color: var(--color-text);
+		font-size: 0.8125rem;
+		cursor: pointer;
+	}
+
+	.selectable-pill span {
+		opacity: 0.7;
+		font-size: 0.75rem;
+	}
+
+	.selectable-pill.selected {
+		border-color: var(--color-accent);
+		background: color-mix(in srgb, var(--color-accent) 12%, transparent);
+	}
+
+	.query-preview {
+		margin: 0.75rem 0 0;
+		font-size: 0.8125rem;
+		color: var(--color-text-secondary);
+		word-break: break-word;
+	}
+
+	.hint-text {
+		margin: 0;
+		font-size: 0.8125rem;
+		color: var(--color-text-secondary);
 	}
 
 	.active-filters {
@@ -580,6 +1020,10 @@
 		.search-header {
 			flex-direction: column;
 			align-items: flex-start;
+		}
+
+		.advanced-filters-grid {
+			grid-template-columns: 1fr;
 		}
 
 		.search-title {

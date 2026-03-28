@@ -2,13 +2,21 @@
     /**
      * GenreTag - Styled tag/badge component for genres, tags, status indicators.
      * Colors are derived from active theme variables.
+     * Pass `href` to make the tag a clickable link.
      */
     export let variant = "default";
+    export let href = null;
 </script>
 
+{#if href}
+<a {href} class="genre-tag {variant} clickable">
+    <slot />
+</a>
+{:else}
 <span class="genre-tag {variant}">
     <slot />
 </span>
+{/if}
 
 <style>
     .genre-tag {
@@ -22,6 +30,16 @@
         text-transform: uppercase;
         letter-spacing: 0.05em;
         white-space: nowrap;
+    }
+
+    a.genre-tag {
+        text-decoration: none;
+        cursor: pointer;
+        transition: filter 0.15s;
+    }
+
+    a.genre-tag:hover {
+        filter: brightness(1.25);
     }
 
     .genre-tag.default {

@@ -12,7 +12,7 @@ import re
 import logging
 from collections import Counter
 from typing import List, Dict, Any, Optional, Tuple
-from sqlalchemy import text, select
+from sqlalchemy import text, select, func
 from sqlalchemy.orm import Session
 
 from .models import Comic, Series
@@ -44,6 +44,33 @@ FIELD_SUGGESTION_CONFIG: Dict[str, Dict[str, Any]] = {
     'language_iso': {'column': 'language_iso', 'split': True},
     'scanner_source': {'column': 'scanner_source', 'split': False},
     'series_group': {'column': 'series_group', 'split': False},
+}
+
+
+FACET_FIELD_CONFIG: Dict[str, Dict[str, Any]] = {
+    'title': {'column': 'title', 'type': 'text', 'multi_value': False, 'suggestable': True},
+    'series': {'column': 'series', 'type': 'text', 'multi_value': False, 'suggestable': True},
+    'story_arc': {'column': 'story_arc', 'type': 'text', 'multi_value': False, 'suggestable': True},
+    'writer': {'column': 'writer', 'type': 'text', 'multi_value': True, 'suggestable': True},
+    'artist': {'column': 'artist', 'type': 'text', 'multi_value': True, 'suggestable': True},
+    'penciller': {'column': 'penciller', 'type': 'text', 'multi_value': True, 'suggestable': True},
+    'inker': {'column': 'inker', 'type': 'text', 'multi_value': True, 'suggestable': True},
+    'colorist': {'column': 'colorist', 'type': 'text', 'multi_value': True, 'suggestable': True},
+    'letterer': {'column': 'letterer', 'type': 'text', 'multi_value': True, 'suggestable': True},
+    'cover_artist': {'column': 'cover_artist', 'type': 'text', 'multi_value': True, 'suggestable': True},
+    'editor': {'column': 'editor', 'type': 'text', 'multi_value': True, 'suggestable': True},
+    'publisher': {'column': 'publisher', 'type': 'text', 'multi_value': False, 'suggestable': True},
+    'imprint': {'column': 'imprint', 'type': 'text', 'multi_value': False, 'suggestable': True},
+    'genre': {'column': 'genre', 'type': 'text', 'multi_value': True, 'suggestable': True},
+    'tags': {'column': 'tags', 'type': 'text', 'multi_value': True, 'suggestable': True},
+    'characters': {'column': 'characters', 'type': 'text', 'multi_value': True, 'suggestable': True},
+    'teams': {'column': 'teams', 'type': 'text', 'multi_value': True, 'suggestable': True},
+    'locations': {'column': 'locations', 'type': 'text', 'multi_value': True, 'suggestable': True},
+    'language_iso': {'column': 'language_iso', 'type': 'text', 'multi_value': True, 'suggestable': True},
+    'scanner_source': {'column': 'scanner_source', 'type': 'text', 'multi_value': False, 'suggestable': True},
+    'series_group': {'column': 'series_group', 'type': 'text', 'multi_value': False, 'suggestable': True},
+    'year': {'column': 'year', 'type': 'number', 'multi_value': False, 'suggestable': False},
+    'rating': {'column': 'rating', 'type': 'number', 'multi_value': False, 'suggestable': False},
 }
 
 
@@ -449,6 +476,108 @@ def get_tag_suggestions(
     )
 
 
+def get_search_facets(
+    session: Session,
+    library_id: Optional[int] = None,
+    values_limit: int = 10,
+) -> List[Dict[str, Any]]:
+    """
+    Discover available searchable facets for the current data set.
+
+    The response only includes fields that have at least one value in the
+    selected library scope.
+    """
+    facets: List[Dict[str, Any]] = []
+
+    for field_name, config in FACET_FIELD_CONFIG.items():
+        column = getattr(Comic, config['column'])
+
+        count_query = session.query(func.count(Comic.id))
+        if library_id is not None:
+            count_query = count_query.filter(Comic.library_id == library_id)
+
+        if config['type'] == 'number':
+            count_query = count_query.filter(column.isnot(None))
+            non_null_count = int(count_query.scalar() or 0)
+            if non_null_count == 0:
+                continue
+
+            bounds_query = session.query(
+                func.min(column),
+                func.max(column),
+            )
+            if library_id is not None:
+                bounds_query = bounds_query.filter(Comic.library_id == library_id)
+            bounds_query = bounds_query.filter(column.isnot(None))
+            min_value, max_value = bounds_query.one()
+
+            facets.append({
+                'field': field_name,
+                'type': config['type'],
+                'multi_value': config['multi_value'],
+                'count': non_null_count,
+                'min': min_value,
+                'max': max_value,
+            })
+            continue
+
+        # Text facet: ignore empty strings and nulls.
+        count_query = count_query.filter(column.isnot(None)).filter(column != '')
+        non_null_count = int(count_query.scalar() or 0)
+        if non_null_count == 0:
+            continue
+
+        facet_payload: Dict[str, Any] = {
+            'field': field_name,
+            'type': config['type'],
+            'multi_value': config['multi_value'],
+            'count': non_null_count,
+        }
+
+        if config.get('suggestable', False):
+            facet_payload['top_values'] = get_field_suggestions(
+                session,
+                field_name=field_name,
+                library_id=library_id,
+                limit=values_limit,
+            )
+
+        facets.append(facet_payload)
+
+    facets.sort(key=lambda item: (-item['count'], item['field']))
+    return facets
+
+
+def get_multi_field_suggestions(
+    session: Session,
+    fields: List[str],
+    library_id: Optional[int] = None,
+    query: Optional[str] = None,
+    limit: int = 25,
+) -> Dict[str, List[Dict[str, Any]]]:
+    """
+    Return value suggestions for multiple searchable fields in one call.
+    """
+    deduplicated_fields = list(dict.fromkeys(fields))
+    if not deduplicated_fields:
+        return {}
+
+    unsupported = [field for field in deduplicated_fields if field not in FIELD_SUGGESTION_CONFIG]
+    if unsupported:
+        raise ValueError(f"Unsupported fields for suggestions: {', '.join(sorted(unsupported))}")
+
+    return {
+        field: get_field_suggestions(
+            session,
+            field_name=field,
+            library_id=library_id,
+            query=query,
+            limit=limit,
+        )
+        for field in deduplicated_fields
+    }
+
+
 def search_comics_advanced(
     session: Session,
     library_id: Optional[int] = None,
@@ -485,13 +614,21 @@ def search_comics_advanced(
             fts_comics = search_with_fts(session, library_id, query_str, limit=limit)
             return fts_comics, len(fts_comics)
         else:
-            # Fall back to LIKE search
+            # Fall back to LIKE search across all text columns
             search_pattern = f"%{query_str.strip()}%"
             query = query.filter(
                 (Comic.title.ilike(search_pattern)) |
                 (Comic.series.ilike(search_pattern)) |
                 (Comic.writer.ilike(search_pattern)) |
-                (Comic.artist.ilike(search_pattern))
+                (Comic.artist.ilike(search_pattern)) |
+                (Comic.genre.ilike(search_pattern)) |
+                (Comic.tags.ilike(search_pattern)) |
+                (Comic.publisher.ilike(search_pattern)) |
+                (Comic.description.ilike(search_pattern)) |
+                (Comic.characters.ilike(search_pattern)) |
+                (Comic.penciller.ilike(search_pattern)) |
+                (Comic.inker.ilike(search_pattern)) |
+                (Comic.colorist.ilike(search_pattern))
             )
 
     # Apply field filters

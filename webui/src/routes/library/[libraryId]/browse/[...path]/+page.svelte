@@ -19,14 +19,23 @@
         List,
         Loader2,
         SlidersHorizontal,
+        Search,
     } from "lucide-svelte";
     import { browseLibrary, browseAllLibraries, getContinueReading } from "$lib/api/libraries";
+    import { searchComics } from "$lib/api/search";
     import { preferencesStore } from "$lib/stores/preferences";
     import { scanSeries, applySeriesMetadata } from "$lib/api/scanners";
 
     import { X, ExternalLink, Check } from "lucide-svelte";
 
     export let data;
+
+    // ── Inline search state ────────────────────────────────────────────────
+    $: urlSearchQuery = $page.url.searchParams.get('q') || '';
+    let searchResults = [];
+    let isSearching = false;
+    let searchError = null;
+    $: isSearchMode = urlSearchQuery.length > 0;
 
     // Determine if we're in "all libraries" mode
     $: isAllLibraries = data.libraryId === 'all';
@@ -97,6 +106,58 @@
         if (!perVolumeMetadata) {
             selectedComic = null;
         }
+    }
+
+    // ── Inline search: run when URL ?q= changes ────────────────────────────
+    let lastSearchKey = '';
+    $: if (browser && urlSearchQuery) {
+        const key = `${libraryId}:${urlSearchQuery}`;
+        if (key !== lastSearchKey) {
+            lastSearchKey = key;
+            runInlineSearch(urlSearchQuery);
+        }
+    } else if (!urlSearchQuery) {
+        searchResults = [];
+        searchError = null;
+        lastSearchKey = '';
+    }
+
+    async function runInlineSearch(query) {
+        if (!query?.trim()) {
+            searchResults = [];
+            return;
+        }
+        isSearching = true;
+        searchError = null;
+        try {
+            const targetLibraries = isAllLibraries
+                ? (libraries || []).filter(lib => !lib.exclude_from_webui)
+                : [{ id: libraryId }];
+
+            const results = await Promise.all(
+                targetLibraries.map(lib =>
+                    searchComics(lib.id, query)
+                        .then(comics => comics.map(c => ({
+                            ...c,
+                            library_id: c.library_id || lib.id,
+                            type: c.type || 'comic'
+                        })))
+                        .catch(() => [])
+                )
+            );
+            searchResults = results.flat();
+        } catch (err) {
+            searchError = err.message;
+            searchResults = [];
+        } finally {
+            isSearching = false;
+        }
+    }
+
+    function clearSearch() {
+        const url = new URL($page.url);
+        url.searchParams.delete('q');
+        goto(url.pathname + url.search, { replaceState: true });
     }
 
     async function handleScanSeries(overwrite = false) {
@@ -621,6 +682,52 @@
                     <div class="py-4">
                         <Breadcrumbs items={breadcrumbItems} />
                     </div>
+
+                    {#if isSearchMode}
+                        <!-- Search Results -->
+                        {#if isSearching}
+                            <div class="flex flex-col items-center justify-center py-16">
+                                <Loader2 size={32} class="animate-spin text-[var(--color-accent)] mb-3" />
+                                <p class="text-sm text-[var(--color-text-muted)]">Searching…</p>
+                            </div>
+                        {:else if searchResults.length > 0}
+                            <div class="flex items-center justify-between mb-4 mt-2">
+                                <span class="text-sm text-[var(--color-text-secondary)]">
+                                    {searchResults.length} result{searchResults.length !== 1 ? 's' : ''}
+                                </span>
+                                <button
+                                    on:click={clearSearch}
+                                    class="flex items-center gap-1 px-3 py-1.5 text-xs rounded-lg bg-[var(--color-bg-tertiary)] hover:bg-[var(--color-border)] transition-colors"
+                                >
+                                    <X size={12} />
+                                    Clear search
+                                </button>
+                            </div>
+                            <div
+                                class="grid gap-6"
+                                style="{browser ? `--cover-size-multiplier: ${gridCoverSize};` : ''} grid-template-columns: {viewMode === 'grid' ? 'repeat(auto-fill, minmax(calc(160px * var(--cover-size-multiplier, 1)), 1fr))' : '1fr'};"
+                            >
+                                {#each searchResults as result (result.id)}
+                                    <ComicCard
+                                        comic={result}
+                                        libraryId={result.library_id || libraryId}
+                                        variant={viewMode}
+                                        href={`/comic/${result.library_id || libraryId}/${result.id}/read`}
+                                    />
+                                {/each}
+                            </div>
+                        {:else if !searchError}
+                            <div class="flex flex-col items-center justify-center py-16 text-[var(--color-text-muted)]">
+                                <Search size={40} class="mb-3 opacity-20" />
+                                <p class="text-sm">No results found for "{urlSearchQuery}"</p>
+                            </div>
+                        {:else}
+                            <div class="flex flex-col items-center justify-center py-16 text-[var(--color-text-muted)]">
+                                <p class="text-sm text-red-400">Search failed: {searchError}</p>
+                            </div>
+                        {/if}
+                    {:else}
+                    <!-- Normal Browse Content -->
 
                     <!-- Continue Reading (at root for both modes) -->
                     {#if (isAllLibraries || currentPath === "") && continueReadingItems.length > 0}
@@ -1168,6 +1275,7 @@
                                 </div>
                             {/if}
                         {/if}
+                    {/if}
                     {/if}
                 {:else}
                     <!-- Loading State -->

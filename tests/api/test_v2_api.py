@@ -308,6 +308,59 @@ class TestV2Search:
 
         assert response.status_code in [200, 404, 422]
 
+    def test_library_search_facets(self, test_client: TestClient, sample_library):
+        """Test GET /api/libraries/{id}/search/facets - discover metadata-backed facets"""
+        response = test_client.get(
+            f"/api/libraries/{sample_library.id}/search/facets",
+            params={"values_limit": 5}
+        )
+
+        assert response.status_code == 200
+        data = response.json()
+        assert "facets" in data
+        assert isinstance(data["facets"], list)
+        assert "library_id" in data
+        assert str(data["library_id"]) == str(sample_library.id)
+
+        if data["facets"]:
+            facet = data["facets"][0]
+            assert "field" in facet
+            assert "type" in facet
+            assert "count" in facet
+
+    def test_library_search_facet_values_batch(self, test_client: TestClient, sample_library):
+        """Test GET /api/libraries/{id}/search/facets/values - batch field suggestions"""
+        response = test_client.get(
+            f"/api/libraries/{sample_library.id}/search/facets/values",
+            params={
+                "fields": "title,series",
+                "limit": 10
+            }
+        )
+
+        assert response.status_code == 200
+        data = response.json()
+        assert "values" in data
+        assert "fields" in data
+        assert data["fields"] == ["title", "series"]
+        assert "title" in data["values"]
+        assert "series" in data["values"]
+
+        assert isinstance(data["values"]["title"], list)
+        assert isinstance(data["values"]["series"], list)
+        if data["values"]["title"]:
+            assert "name" in data["values"]["title"][0]
+            assert "count" in data["values"]["title"][0]
+
+    def test_library_search_facet_values_batch_requires_fields(self, test_client: TestClient, sample_library):
+        """Test batch facet endpoint rejects empty fields"""
+        response = test_client.get(
+            f"/api/libraries/{sample_library.id}/search/facets/values",
+            params={"fields": "   "}
+        )
+
+        assert response.status_code == 400
+
 
 class TestV2Sync:
     """Test v2 sync endpoints"""
