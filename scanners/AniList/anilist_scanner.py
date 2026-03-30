@@ -75,6 +75,7 @@ class AniListAPI:
         self.session.headers.update({
             'Content-Type': 'application/json',
             'Accept': 'application/json',
+            'User-Agent': 'kottlib/1.0 (AniList Scanner; +https://github.com/kottlib)',
         })
     
     def _wait_for_rate_limit(self):
