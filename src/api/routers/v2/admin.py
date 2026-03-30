@@ -5,6 +5,7 @@ Admin-only endpoints for database maintenance and system operations.
 """
 
 import logging
+import threading
 from typing import Optional
 from fastapi import APIRouter, HTTPException, BackgroundTasks, Request
 from pydantic import BaseModel
@@ -15,6 +16,8 @@ from ....database.migrations import add_search_indexes
 logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/admin", tags=["admin"])
+
+_reindex_lock = threading.Lock()
 
 
 # ============================================================================
@@ -66,14 +69,19 @@ async def reindex_search(
 
         logger.info("Starting search reindex operation...")
 
-        # Run reindex in background
+        # Run reindex in background with mutex to prevent concurrent corruption
         def reindex_task():
+            if not _reindex_lock.acquire(blocking=False):
+                logger.warning("Reindex already in progress, skipping duplicate request")
+                return
             try:
                 with db.get_session() as session:
                     indexed_count = SearchIndexManager.reindex_all_comics(session)
                     logger.info(f"Reindex complete! Indexed {indexed_count} comics.")
             except Exception as e:
                 logger.error(f"Reindex failed: {e}", exc_info=True)
+            finally:
+                _reindex_lock.release()
 
         background_tasks.add_task(reindex_task)
 
@@ -105,21 +113,26 @@ async def reindex_search_sync(request: Request):
     db = request.app.state.db
 
     try:
-        with db.get_session() as session:
-            # Check if FTS table exists
-            if not SearchIndexManager.check_fts_exists(session):
-                logger.warning("FTS table does not exist, creating it first...")
-                SearchIndexManager.create_fts_table(session)
+        if not _reindex_lock.acquire(blocking=False):
+            raise HTTPException(status_code=409, detail="Reindex already in progress")
+        try:
+            with db.get_session() as session:
+                # Check if FTS table exists
+                if not SearchIndexManager.check_fts_exists(session):
+                    logger.warning("FTS table does not exist, creating it first...")
+                    SearchIndexManager.create_fts_table(session)
 
-            logger.info("Starting synchronous search reindex...")
-            indexed_count = SearchIndexManager.reindex_all_comics(session)
-            logger.info(f"Reindex complete! Indexed {indexed_count} comics.")
+                logger.info("Starting synchronous search reindex...")
+                indexed_count = SearchIndexManager.reindex_all_comics(session)
+                logger.info(f"Reindex complete! Indexed {indexed_count} comics.")
 
-            return ReindexResponse(
-                success=True,
-                message=f"Successfully reindexed {indexed_count} comics.",
-                comics_indexed=indexed_count
-            )
+                return ReindexResponse(
+                    success=True,
+                    message=f"Successfully reindexed {indexed_count} comics.",
+                    comics_indexed=indexed_count
+                )
+        finally:
+            _reindex_lock.release()
 
     except Exception as e:
         logger.error(f"Reindex failed: {e}", exc_info=True)

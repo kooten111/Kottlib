@@ -102,7 +102,7 @@ def upgrade(session: Session) -> None:
                 NEW.cover_artist, NEW.editor, NEW.publisher,
                 NEW.description, NEW.genre, NEW.tags, NEW.characters, NEW.teams, NEW.locations, NEW.story_arc,
                 NEW.language_iso, NEW.age_rating, NEW.imprint, NEW.format_type,
-                '', NEW.scanner_source
+                COALESCE(NEW.metadata_json, ''), NEW.scanner_source
             );
         END;
     """))
@@ -137,6 +137,7 @@ def upgrade(session: Session) -> None:
                 age_rating = NEW.age_rating,
                 imprint = NEW.imprint,
                 format_type = NEW.format_type,
+                dynamic_metadata = COALESCE(NEW.metadata_json, ''),
                 scanner_source = NEW.scanner_source
             WHERE comic_id = NEW.id;
         END;

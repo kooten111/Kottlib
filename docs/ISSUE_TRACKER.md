@@ -18,9 +18,10 @@ Mark items `[x]` when resolved.
   - `src/services/scheduler.py` ~L20–31
   - ~~Protect with `threading.Lock`~~
   - **Fixed:** Added `threading.Lock` to `__new__()` and double-checked locking in `get_scheduler()`
-- [ ] **CRIT-04** — Global mutable scan-progress state without full thread safety
+- [x] **CRIT-04** — Global mutable scan-progress state without full thread safety
   - `src/api/routers/v2/libraries.py` ~L60–80
-  - Use concurrent data structure or move to DB/Redis
+  - ~~Use concurrent data structure or move to DB/Redis~~
+  - **Fixed:** Added `_progress_lock_init` for double-checked lock initialization, `_active_scans_lock` for set access; all `_active_scans` mutations/reads now under lock
 
 ---
 
@@ -32,8 +33,9 @@ Mark items `[x]` when resolved.
 - [x] **BUG-02** — Series folder cover lookup: `first_comic[0]` when `first_comic` is `None` → `TypeError`
   - `src/api/routers/v2/search.py` ~L250–300
   - **False alarm:** Code already has `if first_comic:` guard before accessing `[0]`
-- [ ] **BUG-03** — `random.Random(seed)` treats `seed=0` as falsy → unseeded RNG
+- [x] **BUG-03** — `random.Random(seed)` treats `seed=0` as falsy → unseeded RNG
   - `src/api/routers/v2/series.py` ~L200–250
+  - **False alarm:** Code already uses `if seed is not None` check
 - [x] **BUG-04** — `app_api/comics.py` calls functions that don't exist in v2 router
   - `get_comic_progress_v2()`, `update_comic_progress_v2_json()`, `get_cover_v2()`
   - `src/api/routers/app_api/comics.py` ~L70–140
@@ -48,25 +50,30 @@ Mark items `[x]` when resolved.
   - **Fixed:** Replaced with `_flag()` helper using `is not None` check
 - [ ] **BUG-07** — Off-by-one in reading completion: marks done before last page
   - `src/database/operations/progress.py` ~L34
-- [ ] **BUG-08** — `clean_orphaned_thumbnails()` can't find hierarchical subdirs
+- [x] **BUG-08** — `clean_orphaned_thumbnails()` can't find hierarchical subdirs
   - `src/scanner/thumbnail_generator.py` ~L207–254
-- [ ] **BUG-09** — Reindex has no mutex — rapid calls may corrupt FTS
+  - **Fixed:** Changed `glob('*')` to `glob('**/*')` to traverse hierarchical hash-prefix subdirectories
+- [x] **BUG-09** — Reindex has no mutex — rapid calls may corrupt FTS
   - `src/api/routers/v2/admin.py` ~L58–75
+  - **Fixed:** Added `_reindex_lock` mutex; async endpoint skips if locked, sync endpoint returns 409
 - [x] **BUG-10** — `cover_filename` can be `None` → invalid URL built
   - `src/services/mangadex_client.py` ~L143
   - **Fixed:** Added guard in `mangadex.py` `_cover_data_to_option()` for empty/None filename
-- [ ] **BUG-11** — `custom_cover_path` not checked for absolute → unexpected relative paths
+- [x] **BUG-11** — `custom_cover_path` not checked for absolute → unexpected relative paths
   - `src/api/cover_utils.py` ~L85–107
+  - **Fixed:** Added `is_absolute()` guard; non-absolute paths logged and skipped
 - [x] **BUG-12** — `comic.hash` can be `None` → produces `"None_mangadex"` hash
   - `src/api/routers/v2/covers.py` ~L165
   - **Fixed:** Added early guard returning HTTP 400 when `comic.hash` is `None`
-- [ ] **BUG-13** — FTS INSERT trigger uses empty `dynamic_metadata` → never searchable
+- [x] **BUG-13** — FTS INSERT trigger uses empty `dynamic_metadata` → never searchable
   - `src/database/migrations/add_search_indexes.py` ~L108
+  - **Fixed:** INSERT trigger now uses `COALESCE(NEW.metadata_json, '')`; UPDATE trigger also updated to sync dynamic_metadata
 - [x] **BUG-14** — Unbounded recursion in `_get_or_create_parent_recursive()`
   - `src/scanner/folder_manager.py` ~L79–130
   - **Fixed:** Added `_depth` counter with `_MAX_FOLDER_DEPTH=100` guard; removed unreachable dead code
-- [ ] **BUG-15** — `@handle_comic_archive_errors` potentially double-applied
+- [x] **BUG-15** — `@handle_comic_archive_errors` potentially double-applied
   - `src/api/routers/v2/comics.py` ~L350, L380
+  - **False alarm:** Decorator applied to two different endpoints, not double-applied
 
 ---
 
@@ -78,17 +85,20 @@ Mark items `[x]` when resolved.
 - [x] **DEAD-02** — `get_all_libraries_reading()` never route-registered
   - `src/api/routers/v2/reading.py` ~L100–115
   - **Fixed:** Removed unregistered function and cleaned up unused imports
-- [ ] **DEAD-03** — `server_info()` and `api_info()` duplicate each other
+- [x] **DEAD-03** — `server_info()` and `api_info()` duplicate each other
   - `src/api/main.py` ~L250–270 — consolidate to one
-- [ ] **DEAD-04** — Deprecated `sync_config_to_db()` still imported
+  - **False alarm:** Serve different purposes (legacy compat vs native API info)
+- [x] **DEAD-04** — Deprecated `sync_config_to_db()` still imported
   - `src/services/config_sync.py` ~L210–217
-- [ ] **DEAD-05** — `use_thumbnail` param accepted but unused
+  - **Fixed:** Removed deprecated function (was not imported or called anywhere)
+- [x] **DEAD-05** — `use_thumbnail` param accepted but unused
   - `src/services/mangadex_client.py` ~L199
+  - **False alarm:** Parameter is passed to `download_cover()` which uses it
 - [x] **DEAD-06** — `import sys` never used
   - `src/services/metadata_service.py` L4
   - **Fixed:** Removed
 - [x] **DEAD-07** — Unreachable `return` statements
-  - `src/scanner/cleanup.py` ~L135 *(still pending)*
+  - `src/scanner/cleanup.py` ~L135 — **False alarm:** returns are reachable
   - `src/scanner/folder_manager.py` ~L135 — **Fixed** (removed as part of BUG-14 fix)
 - [ ] **DEAD-08** — Calls to non-existent manager methods in demo files
   - `src/scanners/demo_scanners.py` ~L58, L127

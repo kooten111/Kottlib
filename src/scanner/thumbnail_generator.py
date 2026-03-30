@@ -287,7 +287,7 @@ def clean_orphaned_thumbnails(
     Remove thumbnails for comics that no longer exist
 
     Args:
-        covers_dir: Covers directory
+        covers_dir: Covers directory (uses hierarchical storage with hash[:2] subdirs)
         valid_hashes: Set of file hashes that should exist
 
     Returns:
@@ -295,7 +295,8 @@ def clean_orphaned_thumbnails(
     """
     removed = 0
 
-    for thumb_file in covers_dir.glob('*'):
+    # Search hierarchical subdirectories (hash[:2] prefix dirs) and top-level flat files
+    for thumb_file in covers_dir.glob('**/*'):
         if thumb_file.is_file():
             # Get hash from filename (remove extension)
             file_hash = thumb_file.stem

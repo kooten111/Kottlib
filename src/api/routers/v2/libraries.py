@@ -39,21 +39,26 @@ router = APIRouter()
 # Helper Functions
 # ============================================================================
 
+import threading as _threading
+
 # In-memory progress tracking for file system scans
 _file_scan_progress: Dict[int, Dict[str, Any]] = {}
-_progress_lock = {}  # Lock per library_id
+_progress_lock: Dict[int, _threading.Lock] = {}  # Lock per library_id
+_progress_lock_init = _threading.Lock()  # Protects _progress_lock dict init
 _active_scans: set = set()  # Set of library_ids with active scans
+_active_scans_lock = _threading.Lock()  # Protects _active_scans set
 
 # Stale progress detection: progress older than this is considered abandoned
 STALE_PROGRESS_TIMEOUT_SECONDS = 3600  # 1 hour
 
 def update_file_scan_progress(library_id: int, processed: int, total: int, message: str = "", db=None):
     """Update file scan progress in memory and database (thread-safe)"""
-    import threading
 
-    # Ensure we have a lock for this library
+    # Ensure we have a lock for this library (double-checked locking)
     if library_id not in _progress_lock:
-        _progress_lock[library_id] = threading.Lock()
+        with _progress_lock_init:
+            if library_id not in _progress_lock:
+                _progress_lock[library_id] = _threading.Lock()
 
     did_update = False
     current_progress = None
@@ -92,8 +97,6 @@ def update_file_scan_progress(library_id: int, processed: int, total: int, messa
 
         if db and should_write:
             try:
-                # Use a separate thread to avoid blocking
-                import threading
                 progress_to_write = current_progress  # Capture in closure
 
                 def write_to_db():
@@ -110,14 +113,15 @@ def update_file_scan_progress(library_id: int, processed: int, total: int, messa
                         logger.error(f"Failed to persist progress to database: {e}")
 
                 # Don't wait for DB write - fire and forget
-                threading.Thread(target=write_to_db, daemon=True).start()
+                _threading.Thread(target=write_to_db, daemon=True).start()
             except Exception as e:
                 logger.error(f"Failed to start DB write thread: {e}")
 
 def scan_library_background(library_id: int, request: Request):
     """Background task to scan a library"""
     # Register this scan as active
-    _active_scans.add(library_id)
+    with _active_scans_lock:
+        _active_scans.add(library_id)
     
     try:
         db = request.app.state.db
@@ -198,7 +202,8 @@ def scan_library_background(library_id: int, request: Request):
     
     finally:
         # Always unregister the scan, even on crash
-        _active_scans.discard(library_id)
+        with _active_scans_lock:
+            _active_scans.discard(library_id)
 
 
 # ============================================================================
@@ -460,8 +465,9 @@ async def get_file_scan_progress(library_id: int, session: Session = Depends(get
             return False  # Not in progress, not stale
         
         # If there's an active scan running, it's not stale
-        if library_id in _active_scans:
-            return False
+        with _active_scans_lock:
+            if library_id in _active_scans:
+                return False
         
         # Check timestamp - if older than threshold, it's stale
         timestamp = progress.get('timestamp', 0)
@@ -546,7 +552,8 @@ async def clear_file_scan_progress(library_id: int, session: Session = Depends(g
         del _progress_lock[library_id]
     
     # Clean up active scans tracking
-    _active_scans.discard(library_id)
+    with _active_scans_lock:
+        _active_scans.discard(library_id)
 
     # Clear from database
     library = get_library_by_id(session, library_id)

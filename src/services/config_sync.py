@@ -202,22 +202,6 @@ def migrate_legacy_config_to_db(session: Session, config: Optional[Config] = Non
     return stats
 
 
-def sync_config_to_db(session: Session, config: Optional[Config] = None) -> dict:
-    """
-    DEPRECATED: Use migrate_legacy_config_to_db instead.
-    Kept for backward compatibility.
-    
-    This function will be removed in a future version.
-    """
-    import warnings
-    warnings.warn(
-        "sync_config_to_db is deprecated, use migrate_legacy_config_to_db instead",
-        DeprecationWarning,
-        stacklevel=2
-    )
-    return migrate_legacy_config_to_db(session, config)
-
-
 def get_sync_summary(stats: dict) -> str:
     """
     Generate a human-readable summary of migration/sync changes.

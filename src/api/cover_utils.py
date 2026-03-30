@@ -106,7 +106,9 @@ def find_cover_for_comic(
     # Try custom cover first if provided
     if custom_cover_path:
         custom_path = Path(custom_cover_path)
-        if safe_path_exists(custom_path, "custom cover"):
+        if not custom_path.is_absolute():
+            logger.warning(f"Ignoring non-absolute custom cover path: {custom_cover_path}")
+        elif safe_path_exists(custom_path, "custom cover"):
             logger.debug(f"Using custom cover: {custom_path}")
             # Determine media type from extension
             ext = custom_path.suffix.lower()
