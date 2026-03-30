@@ -25,6 +25,23 @@ from ..database import (
 logger = logging.getLogger(__name__)
 
 
+def _build_library_response_dict(library, stats: Dict[str, Any]) -> Dict[str, Any]:
+    """Build a standard library response dictionary."""
+    return {
+        "id": library.id,
+        "uuid": library.uuid,
+        "name": library.name,
+        "path": library.path,
+        "created_at": library.created_at,
+        "updated_at": library.updated_at,
+        "last_scan_started": library.last_scan_started,
+        "last_scan_completed": library.last_scan_completed,
+        "scan_status": library.scan_status,
+        "comic_count": stats.get('comic_count', 0),
+        "folder_count": stats.get('folder_count', 0),
+    }
+
+
 def create_library_with_stats(
     session: Session,
     name: str,
@@ -45,20 +62,7 @@ def create_library_with_stats(
     """
     library = create_library(session, name=name, path=path, settings=settings)
     stats = get_library_stats(session, library.id)
-    
-    return {
-        "id": library.id,
-        "uuid": library.uuid,
-        "name": library.name,
-        "path": library.path,
-        "created_at": library.created_at,
-        "updated_at": library.updated_at,
-        "last_scan_started": library.last_scan_started,
-        "last_scan_completed": library.last_scan_completed,
-        "scan_status": library.scan_status,
-        "comic_count": stats.get('comic_count', 0),
-        "folder_count": stats.get('folder_count', 0),
-    }
+    return _build_library_response_dict(library, stats)
 
 
 def get_library_with_stats(session: Session, library_id: int) -> Optional[Dict[str, Any]]:
@@ -77,20 +81,7 @@ def get_library_with_stats(session: Session, library_id: int) -> Optional[Dict[s
         return None
         
     stats = get_library_stats(session, library.id)
-    
-    return {
-        "id": library.id,
-        "uuid": library.uuid,
-        "name": library.name,
-        "path": library.path,
-        "created_at": library.created_at,
-        "updated_at": library.updated_at,
-        "last_scan_started": library.last_scan_started,
-        "last_scan_completed": library.last_scan_completed,
-        "scan_status": library.scan_status,
-        "comic_count": stats.get('comic_count', 0),
-        "folder_count": stats.get('folder_count', 0),
-    }
+    return _build_library_response_dict(library, stats)
 
 
 def list_libraries_with_stats(session: Session) -> List[Dict[str, Any]]:
@@ -108,20 +99,7 @@ def list_libraries_with_stats(session: Session) -> List[Dict[str, Any]]:
     result = []
     for lib in libraries:
         stats = get_library_stats(session, lib.id)
-        
-        result.append({
-            "id": lib.id,
-            "uuid": lib.uuid,
-            "name": lib.name,
-            "path": lib.path,
-            "created_at": lib.created_at,
-            "updated_at": lib.updated_at,
-            "last_scan_started": lib.last_scan_started,
-            "last_scan_completed": lib.last_scan_completed,
-            "scan_status": lib.scan_status,
-            "comic_count": stats.get('comic_count', 0),
-            "folder_count": stats.get('folder_count', 0),
-        })
+        result.append(_build_library_response_dict(lib, stats))
     
     return result
 
@@ -152,20 +130,7 @@ def update_library_with_stats(
         return None
         
     stats = get_library_stats(session, library.id)
-    
-    return {
-        "id": library.id,
-        "uuid": library.uuid,
-        "name": library.name,
-        "path": library.path,
-        "created_at": library.created_at,
-        "updated_at": library.updated_at,
-        "last_scan_started": library.last_scan_started,
-        "last_scan_completed": library.last_scan_completed,
-        "scan_status": library.scan_status,
-        "comic_count": stats.get('comic_count', 0),
-        "folder_count": stats.get('folder_count', 0),
-    }
+    return _build_library_response_dict(library, stats)
 
 
 def delete_library_with_cleanup(session: Session, library_id: int) -> bool:

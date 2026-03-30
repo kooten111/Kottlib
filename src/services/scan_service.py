@@ -81,7 +81,7 @@ def scan_single_comic(
     
     return {
         "success": application_result.success,
-        "message": application_result.message,
+        "message": application_result.error,
         "comic_id": comic_id,
         "confidence": result.confidence,
     }

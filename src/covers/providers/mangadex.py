@@ -228,8 +228,12 @@ class MangaDexCoverProvider(BaseCoverProvider):
         """
         cover_id = cover.get("id", "unknown")
         attrs = cover.get("attributes", {})
-        filename = attrs.get("fileName", "")
+        filename = attrs.get("fileName") or ""
         volume = attrs.get("volume")
+
+        if not filename:
+            logger.warning(f"Cover {cover_id} for manga {manga_id} has no filename, skipping URL generation")
+            filename = "_missing_"
         locale = attrs.get("locale", "en")
 
         # Build description

@@ -26,18 +26,22 @@ Mark items `[x]` when resolved.
 
 ## Bugs — Likely Runtime Failures
 
-- [ ] **BUG-01** — `MetadataApplicationResult` missing `message` attr → `AttributeError`
+- [x] **BUG-01** — `MetadataApplicationResult` missing `message` attr → `AttributeError`
   - `src/services/metadata_service.py` ~L113, L194
-- [ ] **BUG-02** — Series folder cover lookup: `first_comic[0]` when `first_comic` is `None` → `TypeError`
+  - **Fixed:** Changed `.message` → `.error` (the actual attribute name) in `scan_service.py`
+- [x] **BUG-02** — Series folder cover lookup: `first_comic[0]` when `first_comic` is `None` → `TypeError`
   - `src/api/routers/v2/search.py` ~L250–300
+  - **False alarm:** Code already has `if first_comic:` guard before accessing `[0]`
 - [ ] **BUG-03** — `random.Random(seed)` treats `seed=0` as falsy → unseeded RNG
   - `src/api/routers/v2/series.py` ~L200–250
-- [ ] **BUG-04** — `app_api/comics.py` calls functions that don't exist in v2 router
+- [x] **BUG-04** — `app_api/comics.py` calls functions that don't exist in v2 router
   - `get_comic_progress_v2()`, `update_comic_progress_v2_json()`, `get_cover_v2()`
   - `src/api/routers/app_api/comics.py` ~L70–140
-- [ ] **BUG-05** — `app_api/libraries.py` calls missing v2 functions
+  - **False alarm:** All referenced functions exist in v2 modules
+- [x] **BUG-05** — `app_api/libraries.py` calls missing v2 functions
   - `remove_library()`, `scan_library_manual()`, `get_file_scan_progress()`, `clear_file_scan_progress()`
   - `src/api/routers/app_api/libraries.py` ~L80–100
+  - **False alarm:** All referenced functions exist in v2 modules
 - [x] **BUG-06** — Feature-flag defaults: `get_setting(…) or True` inverts explicit `False`
   - `src/api/routers/config.py` ~L121–138
   - ~~Fix: `… if … is not None else True`~~
@@ -48,8 +52,9 @@ Mark items `[x]` when resolved.
   - `src/scanner/thumbnail_generator.py` ~L207–254
 - [ ] **BUG-09** — Reindex has no mutex — rapid calls may corrupt FTS
   - `src/api/routers/v2/admin.py` ~L58–75
-- [ ] **BUG-10** — `cover_filename` can be `None` → invalid URL built
+- [x] **BUG-10** — `cover_filename` can be `None` → invalid URL built
   - `src/services/mangadex_client.py` ~L143
+  - **Fixed:** Added guard in `mangadex.py` `_cover_data_to_option()` for empty/None filename
 - [ ] **BUG-11** — `custom_cover_path` not checked for absolute → unexpected relative paths
   - `src/api/cover_utils.py` ~L85–107
 - [x] **BUG-12** — `comic.hash` can be `None` → produces `"None_mangadex"` hash
@@ -67,10 +72,12 @@ Mark items `[x]` when resolved.
 
 ## Dead Code
 
-- [ ] **DEAD-01** — Unregistered route functions in `v2/collections.py`
+- [x] **DEAD-01** — Unregistered route functions in `v2/collections.py`
   - `create_tag()`, `delete_tag()`, `add_tag_to_comic()`, `remove_tag_from_comic()`, `check_is_favorite()` ~L280–330
-- [ ] **DEAD-02** — `get_all_libraries_reading()` never route-registered
+  - **Fixed:** Removed 4 truly dead tag functions; kept `check_is_favorite()` (called by app_api bridge); cleaned up unused imports
+- [x] **DEAD-02** — `get_all_libraries_reading()` never route-registered
   - `src/api/routers/v2/reading.py` ~L100–115
+  - **Fixed:** Removed unregistered function and cleaned up unused imports
 - [ ] **DEAD-03** — `server_info()` and `api_info()` duplicate each other
   - `src/api/main.py` ~L250–270 — consolidate to one
 - [ ] **DEAD-04** — Deprecated `sync_config_to_db()` still imported
@@ -98,8 +105,9 @@ Mark items `[x]` when resolved.
 
 ## Code Duplication
 
-- [ ] **DUP-01** — Library response dict built 4× in `library_service.py`
-  - Extract `_build_library_response_dict(lib, stats)`
+- [x] **DUP-01** — Library response dict built 4× in `library_service.py`
+  - ~~Extract `_build_library_response_dict(lib, stats)`~~
+  - **Fixed:** Extracted `_build_library_response_dict()` helper; replaced 4 duplicate constructions
 - [ ] **DUP-02** — 3 comic endpoints ~90% identical in `legacy_v1.py` ~L281–540
   - Extract `_build_comic_info_response()`
 - [ ] **DUP-03** — Cover error handling copy-pasted 3× in `covers.py`
@@ -169,7 +177,8 @@ Mark items `[x]` when resolved.
 ### Broad exception handling
 
 - [ ] **SMELL-20** — Catch-all `Exception` handler hides bugs — `main.py` ~L173
-- [ ] **SMELL-21** — String-matching for `IntegrityError` — `connection.py` ~L95
+- [x] **SMELL-21** — String-matching for `IntegrityError` — `connection.py` ~L95
+  - **Fixed:** Replaced broad `except Exception` with `except IntegrityError` from `sqlalchemy.exc`
 - [ ] **SMELL-22** — String-matching for `BadZipFile` — `error_handling.py` ~L62–80
 - [ ] **SMELL-23** — Cache invalidation errors silently swallowed — `v2/session.py` ~L180
 

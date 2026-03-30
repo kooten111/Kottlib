@@ -10,7 +10,7 @@ Endpoints for user collections:
 import logging
 import json
 from pathlib import Path
-from typing import List, Optional
+from typing import Optional
 
 from fastapi import APIRouter, Request, HTTPException
 from fastapi.responses import JSONResponse, Response
@@ -20,17 +20,12 @@ from ....database import (
     get_comic_by_id,
     get_reading_progress,
     get_user_by_id,
-    get_user_by_username,
     add_favorite,
     remove_favorite,
     get_user_favorites,
     is_favorite,
-    create_label,
     get_label_by_id,
     get_labels_in_library,
-    delete_label,
-    add_label_to_comic,
-    remove_label_from_comic,
     get_comics_with_label,
     get_comic_labels,
     create_reading_list,
@@ -207,6 +202,7 @@ async def check_is_favorite(comic_id: int, request: Request):
     Check if a comic is in the user's favorites (v2 API)
 
     Returns whether the specified comic is in the current user's favorites.
+    Called by app_api bridge (not route-registered directly).
     """
     db = request.app.state.db
 
@@ -326,145 +322,6 @@ async def get_tag_info(library_id: int, tag_id: int, request: Request):
             "colorId": tag.color_id if hasattr(tag, 'color_id') else 0,
             "libraryId": library_id,
             "comicCount": comic_count
-        })
-
-
-async def create_tag(
-    library_id: int,
-    request: Request,
-    name: str = None,
-    color_id: int = 0
-):
-    """
-    Create a new tag (v2 API)
-
-    Creates a new label/tag in the specified library.
-    """
-    db = request.app.state.db
-
-    with db.get_session() as session:
-        # Verify library exists
-        library = get_library_by_id(session, library_id)
-        if not library:
-            raise HTTPException(status_code=404, detail="Library not found")
-
-        if not name:
-            raise HTTPException(status_code=400, detail="Tag name is required")
-
-        # Create label
-        label = create_label(session, library_id, name, color_id)
-
-        return JSONResponse({
-            "success": True,
-            "id": label.id,
-            "name": label.name,
-            "colorId": label.color_id if hasattr(label, 'color_id') else 0
-        })
-
-
-async def delete_tag(library_id: int, tag_id: int, request: Request):
-    """
-    Delete a tag (v2 API)
-
-    Deletes the specified tag from the library.
-    """
-    db = request.app.state.db
-
-    with db.get_session() as session:
-        # Verify library exists
-        library = get_library_by_id(session, library_id)
-        if not library:
-            raise HTTPException(status_code=404, detail="Library not found")
-
-        # Verify tag exists
-        tag = get_label_by_id(session, tag_id)
-        if not tag:
-            raise HTTPException(status_code=404, detail="Tag not found")
-
-        # Delete tag
-        delete_label(session, tag_id)
-
-        return JSONResponse({
-            "success": True,
-            "tag_id": tag_id
-        })
-
-
-async def add_tag_to_comic(
-    library_id: int,
-    comic_id: int,
-    tag_id: int,
-    request: Request
-):
-    """
-    Add a tag to a comic (v2 API)
-
-    Associates the specified tag with the given comic.
-    """
-    db = request.app.state.db
-
-    with db.get_session() as session:
-        # Verify library exists
-        library = get_library_by_id(session, library_id)
-        if not library:
-            raise HTTPException(status_code=404, detail="Library not found")
-
-        # Verify comic exists
-        comic = get_comic_by_id(session, comic_id)
-        if not comic:
-            raise HTTPException(status_code=404, detail="Comic not found")
-
-        # Verify tag exists
-        tag = get_label_by_id(session, tag_id)
-        if not tag:
-            raise HTTPException(status_code=404, detail="Tag not found")
-
-        # Add label to comic
-        add_label_to_comic(session, comic_id, tag_id)
-
-        return JSONResponse({
-            "success": True,
-            "comic_id": comic_id,
-            "tag_id": tag_id
-        })
-
-
-async def remove_tag_from_comic(
-    library_id: int,
-    comic_id: int,
-    tag_id: int,
-    request: Request
-):
-    """
-    Remove a tag from a comic (v2 API)
-
-    Removes the association between the specified tag and comic.
-    """
-    db = request.app.state.db
-
-    with db.get_session() as session:
-        # Verify library exists
-        library = get_library_by_id(session, library_id)
-        if not library:
-            raise HTTPException(status_code=404, detail="Library not found")
-
-        # Verify comic exists
-        comic = get_comic_by_id(session, comic_id)
-        if not comic:
-            raise HTTPException(status_code=404, detail="Comic not found")
-
-        # Verify tag exists
-        tag = get_label_by_id(session, tag_id)
-        if not tag:
-            raise HTTPException(status_code=404, detail="Tag not found")
-
-        # Remove label from comic
-        remove_label_from_comic(session, comic_id, tag_id)
-
-        return JSONResponse({
-            "success": True,
-            "comic_id": comic_id,
-            "tag_id": tag_id
         })
 
 

@@ -11,6 +11,7 @@ from typing import Optional, Generator, Union
 from contextlib import contextmanager
 
 from sqlalchemy import create_engine, text, Engine
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import sessionmaker, Session
 from sqlalchemy.pool import NullPool
 
@@ -90,13 +91,9 @@ class Database:
                     session.add(admin)
                     session.commit()
                     logger.info("Created default admin user")
-        except Exception as e:
-            # If admin user already exists (race condition), silently ignore
-            if "UNIQUE constraint failed" in str(e) or "username" in str(e).lower():
-                logger.debug("Admin user already exists (created by another process)")
-            else:
-                # Re-raise unexpected errors
-                raise
+        except IntegrityError:
+            # Admin user already exists (race condition), silently ignore
+            logger.debug("Admin user already exists (created by another process)")
 
     def _run_migrations(self) -> None:
         """
