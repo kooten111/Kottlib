@@ -216,6 +216,11 @@ async def fetch_mangadex_cover(
 
         # Generate thumbnails
         covers_dir = get_covers_dir(library_name)
+        if not comic.hash:
+            raise HTTPException(
+                status_code=400,
+                detail="Comic has no file hash — cannot generate cover"
+            )
         custom_hash = f"{comic.hash}_mangadex"
 
         jpeg_ok, webp_ok = generate_dual_thumbnails(

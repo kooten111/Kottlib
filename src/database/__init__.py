@@ -73,6 +73,8 @@ from .operations import (
     # User operations
     get_user_by_username,
     get_user_by_id,
+    hash_password,
+    verify_password,
     # Session operations
     create_session,
     get_session_by_id,
@@ -175,6 +177,8 @@ __all__ = [
     'get_first_comic_recursive',
     'get_user_by_username',
     'get_user_by_id',
+    'hash_password',
+    'verify_password',
     'create_session',
     'get_session_by_id',
     'update_session_activity',

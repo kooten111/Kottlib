@@ -49,6 +49,8 @@ from .folder import (
 from .user import (
     get_user_by_username,
     get_user_by_id,
+    hash_password,
+    verify_password,
 )
 from .session import (
     create_session,

@@ -87,10 +87,15 @@ def create_folders(
     # This is cleaner than mixing it with the creation loop
     return folder_map, root_folder_id
 
-def _get_or_create_parent_recursive(session, library_id: int, folder_path: Path, folder_map: dict, root_folder_id: int, library_path: Path) -> int:
+_MAX_FOLDER_DEPTH = 100
+
+def _get_or_create_parent_recursive(session, library_id: int, folder_path: Path, folder_map: dict, root_folder_id: int, library_path: Path, _depth: int = 0) -> int:
     """
     Recursively find or create the parent ID for a given folder path.
     """
+    if _depth > _MAX_FOLDER_DEPTH:
+        raise RuntimeError(f"Folder hierarchy exceeds max depth ({_MAX_FOLDER_DEPTH}) at: {folder_path}")
+
     parent_path = folder_path.parent
     
     # Base case: Parent is library root
@@ -108,7 +113,7 @@ def _get_or_create_parent_recursive(session, library_id: int, folder_path: Path,
         return parent_db.id
         
     # Parent missing: Recursively create grandparent, then create parent
-    grandparent_id = _get_or_create_parent_recursive(session, library_id, parent_path, folder_map, root_folder_id, library_path)
+    grandparent_id = _get_or_create_parent_recursive(session, library_id, parent_path, folder_map, root_folder_id, library_path, _depth + 1)
     
     # Create the missing parent
     logger.info(f"Creating missing parent folder: {parent_path.name}")
@@ -121,6 +126,3 @@ def _get_or_create_parent_recursive(session, library_id: int, folder_path: Path,
     )
     folder_map[str(parent_path)] = new_parent.id
     return new_parent.id
-
-
-    return folder_map, root_folder_id

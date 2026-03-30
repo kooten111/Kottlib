@@ -15,6 +15,7 @@ from sqlalchemy.orm import sessionmaker, Session
 from sqlalchemy.pool import NullPool
 
 from .models import Base, User
+from .operations.user import hash_password
 from .paths import get_default_db_path
 
 
@@ -81,7 +82,7 @@ class Database:
                 if not admin:
                     admin = User(
                         username='admin',
-                        password_hash='changeme',  # Should be hashed in production!
+                        password_hash=hash_password('changeme'),
                         is_admin=True,
                         is_active=True,
                         created_at=int(time.time())

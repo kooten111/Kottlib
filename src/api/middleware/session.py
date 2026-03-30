@@ -19,6 +19,7 @@ from ...database import (
     create_session,
     get_user_by_username,
     get_user_by_id,
+    hash_password,
 )
 from ...database.models import User
 from ...constants import DEFAULT_USER
@@ -244,7 +245,7 @@ def get_request_user(request: Request, session):
 
     user = User(
         username=DEFAULT_USER,
-        password_hash='changeme',
+        password_hash=hash_password('changeme'),
         is_admin=True,
         is_active=True,
         created_at=int(time.time())

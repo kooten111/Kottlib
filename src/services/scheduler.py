@@ -6,6 +6,7 @@ Handles library scanning schedules.
 """
 
 import logging
+import threading
 from typing import Optional
 from apscheduler.schedulers.background import BackgroundScheduler
 from apscheduler.triggers.interval import IntervalTrigger
@@ -18,11 +19,13 @@ logger = logging.getLogger(__name__)
 
 class SchedulerService:
     _instance = None
+    _lock = threading.Lock()
 
     def __new__(cls, *args, **kwargs):
-        if cls._instance is None:
-            cls._instance = super(SchedulerService, cls).__new__(cls)
-        return cls._instance
+        with cls._lock:
+            if cls._instance is None:
+                cls._instance = super(SchedulerService, cls).__new__(cls)
+            return cls._instance
 
     def __init__(self, db: Database):
         # Singleton check
@@ -103,11 +106,15 @@ class SchedulerService:
 
 # Global accessor
 _scheduler_service: Optional[SchedulerService] = None
+_scheduler_lock = threading.Lock()
 
 def get_scheduler(db: Optional[Database] = None) -> SchedulerService:
     global _scheduler_service
-    if _scheduler_service is None:
-        if db is None:
-            raise RuntimeError("Scheduler not initialized and no DB provided")
-        _scheduler_service = SchedulerService(db)
-    return _scheduler_service
+    if _scheduler_service is not None:
+        return _scheduler_service
+    with _scheduler_lock:
+        if _scheduler_service is None:
+            if db is None:
+                raise RuntimeError("Scheduler not initialized and no DB provided")
+            _scheduler_service = SchedulerService(db)
+        return _scheduler_service

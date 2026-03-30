@@ -129,14 +129,17 @@ async def get_configuration(request: Request):
             )
             
             # Load feature flags from database
+            def _flag(value, default=True):
+                return value if value is not None else default
+
             features = FeaturesConfigModel(
-                legacy_api=get_setting(session, 'features.legacy_api') or True,
-                modern_api=get_setting(session, 'features.modern_api') or True,
-                reading_progress=get_setting(session, 'features.reading_progress') or True,
-                series_detection=get_setting(session, 'features.series_detection') or True,
-                collections=get_setting(session, 'features.collections') or True,
-                auto_thumbnails=get_setting(session, 'features.auto_thumbnails') or True,
-                ignore_series_metadata=get_setting(session, 'features.ignore_series_metadata') or True
+                legacy_api=_flag(get_setting(session, 'features.legacy_api')),
+                modern_api=_flag(get_setting(session, 'features.modern_api')),
+                reading_progress=_flag(get_setting(session, 'features.reading_progress')),
+                series_detection=_flag(get_setting(session, 'features.series_detection')),
+                collections=_flag(get_setting(session, 'features.collections')),
+                auto_thumbnails=_flag(get_setting(session, 'features.auto_thumbnails')),
+                ignore_series_metadata=_flag(get_setting(session, 'features.ignore_series_metadata'))
             )
 
         return ConfigResponseModel(

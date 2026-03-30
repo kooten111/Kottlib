@@ -388,9 +388,10 @@ CREATE TABLE users (
 
 CREATE INDEX idx_users_username ON users(username);
 
--- Default admin user (password should be changed on first login)
-INSERT INTO users (id, username, password_hash, is_admin, is_active, created_at)
-VALUES (1, 'admin', 'changeme', 1, 1, strftime('%s', 'now'));
+-- Default admin user is created programmatically by Database.init_db()
+-- with a properly hashed password. Do not use this raw SQL INSERT.
+-- INSERT INTO users (id, username, password_hash, is_admin, is_active, created_at)
+-- VALUES (1, 'admin', '<hashed>', 1, 1, strftime('%s', 'now'));
 
 
 -- ============================================================================

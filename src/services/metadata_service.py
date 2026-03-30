@@ -4,7 +4,6 @@ Metadata Service
 Handles applying scanner results to comics in the database.
 """
 
-import sys
 from pathlib import Path
 from typing import List, Dict, Any, Optional, Tuple
 from sqlalchemy.orm import Session
