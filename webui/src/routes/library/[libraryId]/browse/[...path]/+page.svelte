@@ -707,7 +707,7 @@
                                 class="grid gap-6"
                                 style="{browser ? `--cover-size-multiplier: ${gridCoverSize};` : ''} grid-template-columns: {viewMode === 'grid' ? 'repeat(auto-fill, minmax(calc(160px * var(--cover-size-multiplier, 1)), 1fr))' : '1fr'};"
                             >
-                                {#each searchResults as result (result.id)}
+                                {#each searchResults as result, resultIndex (`${result.library_id || libraryId}::${result.id}::${resultIndex}`)}
                                     <ComicCard
                                         comic={result}
                                         libraryId={result.library_id || libraryId}
@@ -742,7 +742,7 @@
                             </div>
 
                             <HorizontalCarousel itemWidth={160} gap={16}>
-                                {#each continueReadingItems as item (item.id)}
+                                {#each continueReadingItems as item, itemIndex (`${item.library_id || libraryId}::${item.id}::${itemIndex}`)}
                                     <div class="w-[160px] flex-none">
                                         <ComicCard
                                             comic={item}

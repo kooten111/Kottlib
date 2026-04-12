@@ -273,7 +273,7 @@
 			<div class="section-content folders-content">
 				{#if selectedLibraryId}
 					{#if folderNodes.length > 0}
-						{#each folderNodes as node (node.id)}
+						{#each folderNodes as node, nodeIndex (node.path ? `${node.path}::${node.id}` : `${selectedLibraryId}::${node.id}::${nodeIndex}`)}
 							<SeriesTreeNode
 								{node}
 								level={0}

@@ -123,8 +123,8 @@
 
 <div class="h-screen flex flex-col overflow-hidden bg-[var(--color-bg)] text-[var(--color-text)]">
 	<Navbar />
+	<div class="flex flex-1 overflow-hidden">
 
-	<div class="flex-1 flex overflow-hidden">
 		<HomeSidebar
 			{libraries}
 			{seriesTree}
@@ -212,7 +212,7 @@
 					</div>
 				{:else if allLists.length > 0}
 					<div class="lists-grid">
-						{#each allLists as list (list.id)}
+						{#each allLists as list, listIndex (`${list.libraryId || "library"}::${list.id}::${listIndex}`)}
 							<div class="list-card">
 								<button
 									class="list-card-body"

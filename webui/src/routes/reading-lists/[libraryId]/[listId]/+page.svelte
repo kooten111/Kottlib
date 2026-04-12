@@ -299,7 +299,7 @@
 					<!-- Comics -->
 					{#if sortedComics.length > 0}
 						<div class="comics-{viewMode}">
-							{#each sortedComics as comic (comic.id)}
+							{#each sortedComics as comic, comicIndex (`${comic.library_id || libraryId}::${comic.id}::${comicIndex}`)}
 								<div class="comic-item-wrapper">
 									<ComicCard
 										{comic}
