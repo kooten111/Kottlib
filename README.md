@@ -119,6 +119,25 @@ This gives you:
 
 Your configuration is saved in `config.yml`.
 
+**Run as a systemd Service (Linux)**
+
+For a persistent server that starts on boot, install the included service files:
+
+```bash
+sudo cp kottlib-backend.service kottlib-webui.service /etc/systemd/system/
+sudo systemctl daemon-reload
+sudo systemctl enable kottlib-backend kottlib-webui
+sudo systemctl start kottlib-backend kottlib-webui
+```
+
+Check status or follow logs:
+
+```bash
+sudo systemctl status kottlib-backend kottlib-webui
+journalctl -fu kottlib-backend
+journalctl -fu kottlib-webui
+```
+
 **Other Tools:**
 - `./scripts/kottlib-cli.py` - CLI management tool
 

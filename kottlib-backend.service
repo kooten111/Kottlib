@@ -1,0 +1,18 @@
+[Unit]
+Description=Kottlib Backend API
+After=network.target
+
+[Service]
+Type=simple
+User=kooten
+WorkingDirectory=/mnt/Server/kottlib
+ExecStart=/mnt/Server/kottlib/venv/bin/python -m uvicorn src.api.main:app \
+    --host 0.0.0.0 \
+    --port 8081 \
+    --log-level info \
+    --workers 4
+Restart=on-failure
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target

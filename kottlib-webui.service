@@ -1,0 +1,18 @@
+[Unit]
+Description=Kottlib Web UI
+After=network.target kottlib-backend.service
+Wants=kottlib-backend.service
+
+[Service]
+Type=simple
+User=kooten
+WorkingDirectory=/mnt/Server/kottlib/webui
+Environment=PATH=/home/kooten/.bun/bin:/usr/local/bin:/usr/bin:/bin
+Environment=PORT=5173
+Environment=HOST=0.0.0.0
+ExecStart=/home/kooten/.bun/bin/bun run start
+Restart=on-failure
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target
