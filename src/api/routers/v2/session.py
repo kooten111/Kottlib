@@ -101,6 +101,7 @@ async def sync_session_v2(request: Request, yacread_session: Optional[str] = Coo
         synced_count = 0
         server_updates = []  # Comics that are more recent on server
         touched_library_ids = set()
+        missing_comic_ids = []
 
         for comic_data in json_comics:
             try:
@@ -114,6 +115,7 @@ async def sync_session_v2(request: Request, yacread_session: Optional[str] = Coo
                 with main_db.get_session() as session:
                     comic = get_comic_by_id(session, comic_id)
                     if not comic:
+                        missing_comic_ids.append(comic_id)
                         continue
                     if total_pages is None:
                         total_pages = comic.num_pages
@@ -199,7 +201,7 @@ async def sync_session_v2(request: Request, yacread_session: Optional[str] = Coo
                 with main_db.get_session() as session:
                     comic = get_comic_by_id(session, comic_id)
                     if not comic:
-                        logger.warning(f"v2 Sync: Comic {comic_id} not found")
+                        missing_comic_ids.append(comic_id)
                         continue
                     total_pages = comic.num_pages
 
@@ -218,6 +220,17 @@ async def sync_session_v2(request: Request, yacread_session: Optional[str] = Coo
             except Exception as e:
                 logger.error(f"v2 Sync: Error parsing line '{line[:100]}': {e}")
                 continue
+
+        if missing_comic_ids:
+            unique_missing = list(dict.fromkeys(missing_comic_ids))
+            sample_ids = unique_missing[:10]
+            suffix = "..." if len(unique_missing) > 10 else ""
+            logger.warning(
+                "v2 Sync: %d comic IDs from client were not found in database (likely stale local state): %s%s",
+                len(unique_missing),
+                ", ".join(str(cid) for cid in sample_ids),
+                suffix,
+            )
 
         logger.info(f"v2 Sync: Updated {synced_count} comics for user {user.username}")
 

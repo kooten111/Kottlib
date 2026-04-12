@@ -165,3 +165,77 @@ def test_rebuild_series_table_removes_stale_series(test_db, test_data_dir):
         }
 
     assert series_names == {"Current Series": (1, 1)}
+
+
+def test_cleanup_normalizes_paths_for_missing_detection(test_db, test_data_dir):
+    library_root = test_data_dir / "library_norm"
+    library_root.mkdir(parents=True, exist_ok=True)
+
+    existing_file = library_root / "existing.cbz"
+    existing_file.write_bytes(b"EXISTING")
+    stale_file = library_root / "stale.cbz"
+
+    now = int(time.time())
+
+    with test_db.get_session() as session:
+        library = Library(
+            uuid=str(uuid.uuid4()),
+            name="Test Library",
+            path=str(library_root),
+            created_at=now,
+            updated_at=now,
+        )
+        session.add(library)
+        session.flush()
+
+        current = Comic(
+            library_id=library.id,
+            folder_id=None,
+            path=str(existing_file.resolve()),
+            filename=existing_file.name,
+            hash="keep-hash",
+            file_size=existing_file.stat().st_size,
+            file_modified_at=now,
+            format="cbz",
+            num_pages=1,
+            series="Series A",
+            created_at=now,
+            updated_at=now,
+        )
+        missing = Comic(
+            library_id=library.id,
+            folder_id=None,
+            path=str(stale_file.resolve()),
+            filename=stale_file.name,
+            hash="drop-hash",
+            file_size=10,
+            file_modified_at=now,
+            format="cbz",
+            num_pages=1,
+            series="Series B",
+            created_at=now,
+            updated_at=now,
+        )
+        session.add_all([current, missing])
+        session.commit()
+        library_id = library.id
+
+    # Simulate scanner-discovered paths in a different path representation
+    # (non-canonical input) to validate normalization behavior.
+    discovered_paths = {str(library_root / "." / existing_file.name)}
+
+    removed = cleanup_missing_comics(
+        test_db,
+        library_id,
+        library_root,
+        discovered_paths,
+        discovered_folder_paths=set(),
+        library_name="Test Library",
+    )
+
+    assert removed == 1
+
+    with test_db.get_session() as session:
+        remaining = session.query(Comic).filter(Comic.library_id == library_id).all()
+        assert len(remaining) == 1
+        assert remaining[0].filename == "existing.cbz"

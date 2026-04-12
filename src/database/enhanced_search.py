@@ -188,17 +188,19 @@ def build_fts_query(parsed_query: SearchQuery) -> str:
             if ' ' in value:
                 query_parts.append(f'{field}:"{escaped_value}"')
             else:
-                query_parts.append(f'{field}:{escaped_value}')
+                # Prefix matching improves type-ahead behavior (e.g. "bar" -> "barbarian")
+                query_parts.append(f'{field}:{escaped_value}*')
 
     # Add general terms
     for term in parsed_query.general_terms:
         escaped_term = term.replace('"', '""')
-        query_parts.append(escaped_term)
+        # Use prefix search for non-field terms to support partial user input.
+        query_parts.append(f'{escaped_term}*')
 
     # Add exclusions
     for term in parsed_query.exclude_terms:
         escaped_term = term.replace('"', '""')
-        query_parts.append(f'NOT {escaped_term}')
+        query_parts.append(f'NOT {escaped_term}*')
 
     # Join with AND (all terms must match)
     return ' AND '.join(query_parts) if query_parts else ''
@@ -263,7 +265,9 @@ def search_with_fts(
         comic_ids = [row[0] for row in result]
 
         if not comic_ids:
-            return []
+            # FTS is token-based and can miss substring-style queries.
+            # Fall back to LIKE search so the API returns consistent results.
+            return search_comics(session, library_id, query_str)
 
         # Fetch full comic objects in the same order
         comics = session.query(Comic).filter(Comic.id.in_(comic_ids)).all()

@@ -48,6 +48,7 @@
 	let results = [];
 	let isSearching = false;
 	let searchTimeout;
+	let searchRequestId = 0;
 	let selectedIndex = -1;
 	let inputElement;
 	let dropdownElement;
@@ -70,7 +71,10 @@
 	}
 
 	async function performSearch() {
-		if (!searchQuery.trim() || searchQuery.trim().length < 2) {
+		const normalizedQuery = searchQuery.trim();
+		const requestId = ++searchRequestId;
+
+		if (!normalizedQuery || normalizedQuery.length < 2) {
 			results = [];
 			isOpen = false;
 			return;
@@ -83,7 +87,7 @@
 			// Search across all libraries
 			const searchPromises = libraries.map(async (lib) => {
 				try {
-					const comics = await searchComics(lib.id, searchQuery);
+					const comics = await searchComics(lib.id, normalizedQuery);
 					return comics.map((item) => ({
 						...item,
 						libraryId: lib.id,
@@ -95,15 +99,23 @@
 			});
 
 			const searchResults = await Promise.all(searchPromises);
+			if (requestId !== searchRequestId) {
+				return;
+			}
 			results = searchResults.flat().slice(0, 8); // Limit to 8 results
 			isOpen = true; // Always open if search completes
 			selectedIndex = -1;
 		} catch (error) {
+			if (requestId !== searchRequestId) {
+				return;
+			}
 			console.error("Search failed:", error);
 			results = [];
 			isOpen = true; // Open to show error/empty state
 		} finally {
-			isSearching = false;
+			if (requestId === searchRequestId) {
+				isSearching = false;
+			}
 		}
 	}
 

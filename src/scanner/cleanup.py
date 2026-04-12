@@ -19,6 +19,11 @@ from .thumbnail_generator import get_thumbnail_path
 logger = logging.getLogger(__name__)
 
 
+def _normalize_path(path_value: str) -> str:
+    """Return a canonical absolute path string for robust comparisons."""
+    return str(Path(path_value).resolve(strict=False))
+
+
 def cleanup_missing_comics(
     db: Database,
     library_id: int,
@@ -46,18 +51,23 @@ def cleanup_missing_comics(
     """
     removed_count = 0
     removed_hashes = []
+    normalized_discovered_paths = {_normalize_path(path) for path in discovered_paths}
+    normalized_discovered_folder_paths = {
+        _normalize_path(path) for path in (discovered_folder_paths or set())
+    }
+    normalized_library_path = _normalize_path(str(library_path))
 
     with db.get_session() as session:
         # Get all comics in this library
         comics = get_comics_in_library(session, library_id)
         
         for comic in comics:
-            comic_path = Path(comic.path)
+            comic_path = _normalize_path(comic.path)
             
             # Check if the file path is in our discovered set
             # STRICT MODE: If it's not in the discovered set, it's gone.
             # We trust discover_files returned the complete state of the library.
-            if str(comic_path) not in discovered_paths:
+            if comic_path not in normalized_discovered_paths:
                 logger.info(f"Removing missing comic: {comic.filename} (was at {comic.path})")
                 
                 # Track hash for thumbnail cleanup
@@ -87,7 +97,7 @@ def cleanup_missing_comics(
             session.rollback()
 
         removed_folders = 0
-        existing_folder_paths = discovered_folder_paths or set()
+        existing_folder_paths = normalized_discovered_folder_paths
 
         # Remove folders that no longer exist on disk, deepest first.
         folders = session.query(Folder).filter(Folder.library_id == library_id).all()
@@ -95,8 +105,8 @@ def cleanup_missing_comics(
             (
                 folder for folder in folders
                 if folder.name != ROOT_FOLDER_MARKER
-                and folder.path != str(library_path)
-                and folder.path not in existing_folder_paths
+                and _normalize_path(folder.path) != normalized_library_path
+                and _normalize_path(folder.path) not in existing_folder_paths
             ),
             key=lambda folder: len(Path(folder.path).parts),
             reverse=True,

@@ -63,11 +63,12 @@ def process_single_comic(
         # FAST PATH: Check by path + mtime first (avoids expensive hash calculation)
         # This makes re-scans MUCH faster by skipping unchanged files
         file_mtime = int(comic_path.stat().st_mtime)
+        normalized_comic_path = str(comic_path.resolve(strict=False))
 
         with db.get_session() as session:
             existing = get_comic_by_path_and_mtime(
                 session,
-                str(comic_path),
+                normalized_comic_path,
                 file_mtime,
                 library_id=library_id
             )
@@ -107,7 +108,7 @@ def process_single_comic(
             existing = get_comic_by_hash(session, file_hash, library_id=library_id)
             if existing:
                 # Same content, different path/mtime - update the record
-                existing.path = str(comic_path)
+                existing.path = normalized_comic_path
                 existing.filename = comic_path.name
                 existing.file_modified_at = file_mtime
                 existing.folder_id = folder_id
@@ -146,7 +147,7 @@ def process_single_comic(
                     session,
                     library_id=library_id,
                     folder_id=folder_id,
-                    path=str(comic_path),
+                    path=normalized_comic_path,
                     filename=comic_path.name,
                     file_hash=file_hash,
                     file_size=comic_path.stat().st_size,

@@ -172,17 +172,49 @@ async def search_comics_v2(
         # Add series results first
         for series in series_results:
             series_meta = series_meta_map.get(series.name)
+            cover_hash = folder_covers.get(series.name)
+            comic_count = series_comic_counts.get(series.name, 0)
+
+            try:
+                relative_path = str(Path(series.path).relative_to(library.path))
+            except ValueError:
+                relative_path = series.name
+
+            api_path = f"/{relative_path}"
+            added_timestamp = int(series.created_at.timestamp()) if hasattr(series.created_at, "timestamp") else series.created_at
+            updated_timestamp = int(series.updated_at.timestamp()) if hasattr(series.updated_at, "timestamp") else series.updated_at
+
             results.append({
-                "type": "series",
+                # Use folder shape/type for app compatibility.
+                "type": "folder",
+                "entity_type": "series",
                 "id": str(series.id),
                 "libraryId": str(library_id),
+                "library_id": str(library_id),
+                "library_uuid": library.uuid,
                 "name": series.name,
+                "folder_name": series.name,
+                "title": series.name,
                 "publisher": series_meta.publisher if series_meta else None,
-                "comic_count": series_comic_counts.get(series.name, 0),
+                "comic_count": comic_count,
+                "total_issues": comic_count,
                 # Helper for frontend icon/display
                 "file_name": series.name, 
-                "path": f"/library/{library_id}/browse/{series.id}",
-                "coverHash": folder_covers.get(series.name),
+                "path": api_path,
+                "browse_path": f"/library/{library_id}/browse/{series.id}",
+                "coverHash": cover_hash,
+                "cover_hash": cover_hash,
+                "first_comic_hash": cover_hash,
+                # Compatibility fields used by app-style folder rendering
+                "item_type": "folder",
+                "file_type": 0,
+                "num_children": comic_count,
+                "finished": False,
+                "completed": False,
+                "custom_image": "",
+                "added": added_timestamp,
+                "updated": updated_timestamp,
+                "parent_id": str(series.parent_id) if series.parent_id is not None else "0",
             })
             
         for comic in comics_results:

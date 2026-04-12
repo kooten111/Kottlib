@@ -110,6 +110,7 @@
 
     // ── Inline search: run when URL ?q= changes ────────────────────────────
     let lastSearchKey = '';
+    let inlineSearchRequestId = 0;
     $: if (browser && urlSearchQuery) {
         const key = `${libraryId}:${urlSearchQuery}`;
         if (key !== lastSearchKey) {
@@ -123,7 +124,10 @@
     }
 
     async function runInlineSearch(query) {
-        if (!query?.trim()) {
+        const normalizedQuery = query?.trim() || '';
+        const requestId = ++inlineSearchRequestId;
+
+        if (!normalizedQuery) {
             searchResults = [];
             return;
         }
@@ -136,7 +140,7 @@
 
             const results = await Promise.all(
                 targetLibraries.map(lib =>
-                    searchComics(lib.id, query)
+                    searchComics(lib.id, normalizedQuery)
                         .then(comics => comics.map(c => ({
                             ...c,
                             library_id: c.library_id || lib.id,
@@ -145,12 +149,20 @@
                         .catch(() => [])
                 )
             );
+            if (requestId !== inlineSearchRequestId) {
+                return;
+            }
             searchResults = results.flat();
         } catch (err) {
+            if (requestId !== inlineSearchRequestId) {
+                return;
+            }
             searchError = err.message;
             searchResults = [];
         } finally {
-            isSearching = false;
+            if (requestId === inlineSearchRequestId) {
+                isSearching = false;
+            }
         }
     }
 
@@ -428,6 +440,30 @@
                 : `${item.id}`;
             goto(`/library/${libraryId}/browse/${rawPath}`);
         }
+    }
+
+    function getResultLibraryId(result) {
+        return result.library_id || result.libraryId || libraryId;
+    }
+
+    function normalizeSearchFolderResult(result) {
+        return {
+            ...result,
+            type: result.type || "series",
+            library_id: getResultLibraryId(result),
+            cover_hash: result.cover_hash || result.coverHash,
+            total_issues: result.total_issues || result.comic_count || 0,
+        };
+    }
+
+    function handleSearchFolderClick(result) {
+        if (result.path) {
+            goto(result.path);
+            return;
+        }
+
+        const itemLibraryId = getResultLibraryId(result);
+        goto(`/library/${itemLibraryId}/browse/${result.id}`);
     }
 
     function handleComicSelect(item) {
@@ -708,12 +744,20 @@
                                 style="{browser ? `--cover-size-multiplier: ${gridCoverSize};` : ''} grid-template-columns: {viewMode === 'grid' ? 'repeat(auto-fill, minmax(calc(160px * var(--cover-size-multiplier, 1)), 1fr))' : '1fr'};"
                             >
                                 {#each searchResults as result, resultIndex (`${result.library_id || libraryId}::${result.id}::${resultIndex}`)}
-                                    <ComicCard
-                                        comic={result}
-                                        libraryId={result.library_id || libraryId}
-                                        variant={viewMode}
-                                        href={`/comic/${result.library_id || libraryId}/${result.id}/read`}
-                                    />
+                                    {#if result.type === "series" || result.type === "collection" || result.type === "folder" || result.item_type === "folder"}
+                                        <FolderCard
+                                            item={normalizeSearchFolderResult(result)}
+                                            libraryId={getResultLibraryId(result)}
+                                            on:click={() => handleSearchFolderClick(result)}
+                                        />
+                                    {:else}
+                                        <ComicCard
+                                            comic={result}
+                                            libraryId={getResultLibraryId(result)}
+                                            variant={viewMode}
+                                            href={`/comic/${getResultLibraryId(result)}/${result.id}/read`}
+                                        />
+                                    {/if}
                                 {/each}
                             </div>
                         {:else if !searchError}

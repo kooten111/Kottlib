@@ -6,6 +6,7 @@ Verifies JSON structure, data correctness, and feature completeness.
 """
 import pytest
 import json
+import logging
 from fastapi.testclient import TestClient
 
 
@@ -412,6 +413,33 @@ class TestV2Sync:
 
         # Should handle gracefully
         assert response.status_code in [200, 409]
+
+    def test_sync_aggregates_missing_comic_warnings(
+        self,
+        test_client: TestClient,
+        sample_library,
+        sample_user,
+        caplog,
+    ):
+        """Test sync emits a single summary warning for stale comic IDs"""
+        caplog.set_level(logging.WARNING, logger="src.api.routers.v2.session")
+
+        missing_id = 99999999
+        raw_sync_line = f"{sample_library.id}\t{missing_id}\tabc123\t5\t0\t0\t0\t0\t{{}}"
+
+        response = test_client.post(
+            "/v2/sync",
+            data=raw_sync_line,
+            headers={"Content-Type": "text/plain"},
+        )
+
+        assert response.status_code == 200
+
+        warning_messages = [
+            record.getMessage() for record in caplog.records if record.levelno >= logging.WARNING
+        ]
+        assert any("comic IDs from client were not found in database" in msg for msg in warning_messages)
+        assert not any(f"Comic {missing_id} not found" in msg for msg in warning_messages)
 
 
 class TestV2Series:
