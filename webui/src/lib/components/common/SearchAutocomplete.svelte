@@ -165,9 +165,12 @@
 		if (onSelect) {
 			onSelect(result);
 		} else {
-			if (result.type === "series") {
-				window.location.href =
-					result.path || `/series/${result.libraryId}/${result.name}`;
+			const itemLibraryId = result.libraryId || result.library_id;
+
+			if (result.browse_path) {
+				window.location.href = result.browse_path;
+			} else if (result.type === "series" || result.type === "folder" || result.item_type === "folder") {
+				window.location.href = `/library/${itemLibraryId}/browse/${result.id}`;
 			} else {
 				// Navigate to the parent folder's browse view
 				const segments = result.path
@@ -176,7 +179,7 @@
 				const folderPath = segments
 					.map((s) => encodeURIComponent(s))
 					.join("/");
-				window.location.href = `/library/${result.libraryId}/browse/${folderPath}`;
+				window.location.href = `/library/${itemLibraryId}/browse/${folderPath}`;
 			}
 		}
 		isOpen = false;
@@ -236,8 +239,8 @@
 	});
 
 	function getResultTitle(result) {
-		if (result.type === "series") {
-			return result.name;
+		if (result.type === "series" || result.type === "folder" || result.item_type === "folder") {
+			return result.name || result.title;
 		}
 		return (
 			result.title ||
@@ -282,7 +285,7 @@
 							>
 								<div
 									class="result-cover"
-									class:result-cover-icon={result.type === "series"}
+									class:result-cover-icon={result.type === "series" || result.type === "folder" || result.item_type === "folder"}
 								>
 									{#if getResultCover(result)}
 										<img
@@ -291,7 +294,7 @@
 											loading="lazy"
 											decoding="async"
 										/>
-									{:else if result.type === "series"}
+									{:else if result.type === "series" || result.type === "folder" || result.item_type === "folder"}
 										<div class="result-icon-placeholder">
 											<BookOpen size={32} class="opacity-50" />
 										</div>
@@ -321,7 +324,7 @@
 										{getResultTitle(result)}
 									</div>
 									<div class="result-meta">
-										{#if result.type === "series"}
+										{#if result.type === "series" || result.type === "folder" || result.item_type === "folder"}
 											<span class="result-tag">Series</span>
 										{:else if result.series}
 											<span class="result-series"

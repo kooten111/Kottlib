@@ -110,7 +110,7 @@
 		<!-- Children (recursively rendered) -->
 		{#if hasChildren && expanded}
 			<div class="children">
-				{#each node.children as child, childIndex (child.path ? `${child.path}::${child.id}` : `${child.name || "node"}::${child.id}::${childIndex}`)}
+				{#each node.children as child, childIndex}
 					<svelte:self
 						node={child}
 						level={level + 1}

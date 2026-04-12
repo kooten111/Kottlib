@@ -662,11 +662,11 @@
 								{comic}
 								libraryId={comic.libraryId}
 								variant={viewMode}
-								isFolder={comic.type === 'series'}
+								isFolder={comic.type === 'series' || comic.type === 'folder' || comic.item_type === 'folder'}
 								itemCount={comic.comic_count || comic.item_count || 0}
-								href={comic.type === 'series'
-									? `/library/${comic.libraryId}/browse/${comic.id || encodeURIComponent(comic.name || comic.series_name || comic.title || '')}`
-									: null}
+								href={comic.browse_path || ((comic.type === 'series' || comic.type === 'folder' || comic.item_type === 'folder')
+									? `/library/${comic.libraryId}/browse/${comic.id}`
+									: null)}
 							/>
 						{/each}
 					</div>

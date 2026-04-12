@@ -457,13 +457,14 @@
     }
 
     function handleSearchFolderClick(result) {
-        if (result.path) {
-            goto(result.path);
+        if (result.browse_path) {
+            goto(result.browse_path);
             return;
         }
 
         const itemLibraryId = getResultLibraryId(result);
-        goto(`/library/${itemLibraryId}/browse/${result.id}`);
+        const fallbackPath = `/library/${itemLibraryId}/browse/${result.id}`;
+        goto(fallbackPath);
     }
 
     function handleComicSelect(item) {
@@ -743,7 +744,7 @@
                                 class="grid gap-6"
                                 style="{browser ? `--cover-size-multiplier: ${gridCoverSize};` : ''} grid-template-columns: {viewMode === 'grid' ? 'repeat(auto-fill, minmax(calc(160px * var(--cover-size-multiplier, 1)), 1fr))' : '1fr'};"
                             >
-                                {#each searchResults as result, resultIndex (`${result.library_id || libraryId}::${result.id}::${resultIndex}`)}
+                                {#each searchResults as result, resultIndex}
                                     {#if result.type === "series" || result.type === "collection" || result.type === "folder" || result.item_type === "folder"}
                                         <FolderCard
                                             item={normalizeSearchFolderResult(result)}
@@ -786,7 +787,7 @@
                             </div>
 
                             <HorizontalCarousel itemWidth={160} gap={16}>
-                                {#each continueReadingItems as item, itemIndex (`${item.library_id || libraryId}::${item.id}::${itemIndex}`)}
+                                {#each continueReadingItems as item, itemIndex}
                                     <div class="w-[160px] flex-none">
                                         <ComicCard
                                             comic={item}
@@ -995,7 +996,7 @@
                                             ? `--cover-size-multiplier: ${gridCoverSize};`
                                             : ""}
                                     >
-                                        {#each items as item (item.id + "_" + item.type)}
+                                        {#each items as item, itemIndex}
                                             {#if item.type === "collection" || item.type === "series"}
                                                 <FolderCard
                                                     {item}
@@ -1277,7 +1278,7 @@
                                     ? 'repeat(auto-fill, minmax(calc(160px * var(--cover-size-multiplier, 1)), 1fr))'
                                     : ''};"
                             >
-                                {#each items as item (item.id + "_" + item.type)}
+                                {#each items as item, itemIndex}
                                     {#if item.type === "collection" || item.type === "series"}
                                         <FolderCard
                                             {item}
