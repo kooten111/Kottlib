@@ -18,14 +18,17 @@ from fastapi.responses import JSONResponse, Response
 from ....database import (
     get_library_by_id,
     get_comic_by_id,
+    get_comics_in_library,
     get_reading_progress,
     get_user_by_id,
     add_favorite,
     remove_favorite,
     get_user_favorites,
     is_favorite,
+    create_label,
     get_label_by_id,
     get_labels_in_library,
+    add_label_to_comic,
     get_comics_with_label,
     get_comic_labels,
     create_reading_list,
@@ -37,7 +40,7 @@ from ....database import (
     remove_comic_from_reading_list,
     get_reading_list_comics,
 )
-from ....database.models import Comic, Label, ReadingListItem
+from ....database.models import Comic, Label, ReadingListItem, Series
 from ...middleware import get_current_user_id, get_request_user
 from ._shared import get_comic_display_name
 
@@ -52,6 +55,65 @@ def _legacy_json_response(payload) -> Response:
         content=json.dumps(payload, ensure_ascii=True, separators=(",", ":")),
         media_type="text/plain; charset=utf-8",
     )
+
+
+def _split_comic_tags(raw_tags: Optional[str]) -> list[str]:
+    """Split stored metadata tags into normalized tag names."""
+    if not raw_tags:
+        return []
+
+    parts = [part.strip() for part in raw_tags.split(",")]
+    return [part for part in parts if part]
+
+
+def _sync_labels_from_comic_tags(session, library_id: int) -> int:
+    """Backfill labels from comic metadata tags for compatibility clients.
+
+    Returns the number of label links that were created.
+    """
+    comics = get_comics_in_library(session, library_id)
+    if not comics:
+        return 0
+
+    # Build a lookup for series-level tags so scanner metadata is included.
+    series_tag_lookup: dict[str, list[str]] = {}
+    series_rows = session.query(Series).filter(Series.library_id == library_id).all()
+    for series in series_rows:
+        merged_tags = _split_comic_tags(getattr(series, "tags", None))
+        if not merged_tags:
+            continue
+
+        for candidate in (getattr(series, "name", None), getattr(series, "display_name", None)):
+            if candidate:
+                series_tag_lookup[candidate.strip().lower()] = merged_tags
+
+    labels_by_name = {label.name.lower(): label for label in get_labels_in_library(session, library_id)}
+    created_links = 0
+
+    for comic in comics:
+        tag_names = _split_comic_tags(getattr(comic, "tags", None))
+        if getattr(comic, "series", None):
+            tag_names.extend(series_tag_lookup.get(comic.series.strip().lower(), []))
+        if not tag_names:
+            continue
+
+        existing_label_ids = {label.id for label in get_comic_labels(session, comic.id)}
+
+        for tag_name in tag_names:
+            key = tag_name.lower()
+            label = labels_by_name.get(key)
+            if label is None:
+                label = create_label(session, library_id, tag_name)
+                labels_by_name[key] = label
+
+            if label.id in existing_label_ids:
+                continue
+
+            add_label_to_comic(session, comic.id, label.id)
+            existing_label_ids.add(label.id)
+            created_links += 1
+
+    return created_links
 
 
 # ============================================================================
@@ -240,8 +302,18 @@ async def get_tags(library_id: int, request: Request):
         if not library:
             raise HTTPException(status_code=404, detail="Library not found")
 
-        # Get all labels in library
+        # Get all labels in library. If none exist, derive them from comic metadata tags.
         labels = get_labels_in_library(session, library_id)
+        if not labels:
+            created_links = _sync_labels_from_comic_tags(session, library_id)
+            if created_links:
+                session.commit()
+                logger.info(
+                    "Backfilled %s tag links from comic metadata for library %s",
+                    created_links,
+                    library_id,
+                )
+            labels = get_labels_in_library(session, library_id)
 
         result = []
         for label in labels:

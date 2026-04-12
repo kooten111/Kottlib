@@ -49,6 +49,15 @@ Living backlog for feature ideas, UX parity goals, and implementation notes.
   - [ ] Persist per-view sort options in UI state (and optionally user prefs)
   - [ ] Confirm API sorting params are context-specific and do not leak between views
 
+- [ ] Comic metadata editor parity (YACReader-inspired)
+  - [ ] General info tab fields: `series`, `title`, `issue number`, `issue count`, `volume`, `story arc`, `arc number`, `arc count`, `alternate series`, `alternate number`, `alternate count`, `series group`, `genre`
+  - [ ] Plot tab fields: `synopsis`, `characters`, `teams`, `locations`, `main character or team`
+  - [ ] Authors tab fields: `writer(s)`, `penciller(s)`, `inker(s)`, `colorist(s)`, `letterer(s)`, `cover artist(s)`, `editor(s)`, `imprint`
+  - [ ] Publishing tab fields: `day`, `month`, `year`, `publisher`, `format`, `color/BW`, `age rating`, `type`, `language (ISO)`
+  - [ ] Notes tab field: `notes`
+  - [ ] Add editable `tags` field in metadata editor (series + comic scope)
+  - [ ] Define tag UX behavior: add/remove chips, dedupe/case handling, and comma/newline paste parsing
+
 ## UX Parity Targets (Inspired by YACReader)
 
 - [ ] Context menu actions at folder/series/comic level
