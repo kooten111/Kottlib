@@ -272,3 +272,42 @@ Mark items `[x]` when resolved.
   - Cookie-injected `authenticated_client`
   - Coupled fixtures
   - No negative / concurrency tests
+
+---
+
+## UI Responsiveness (Manual QA - 2026-04-24)
+
+- [ ] **UI-RESP-01** - Sort action latency spike on `Last Updated` in Manga browse
+  - **Where:** `/library/2/browse`
+  - **Repro:** Open Manga -> click `Name` sort -> choose `Last Updated`
+  - **Observed:** URL update to `?sort=updated` took about 4.07s in this session; library switching was much faster (about 0.19s to 0.78s for URL changes)
+  - **Likely cause:** Expensive sort query or missing DB/index optimization for updated timestamp sorting
+
+- [ ] **UI-RESP-02** - Repeated aborted route data requests during normal SPA navigation
+  - **Where:** Browse routes (All/Manga/Comics and sorted variants)
+  - **Repro:** Switch libraries repeatedly and change sort mode
+  - **Observed:** Frequent `__data.json?...x-sveltekit-invalidated=01` `net::ERR_ABORTED` requests on route/sort changes
+  - **Likely cause:** Overlapping invalidations/prefetches where previous request is canceled by next navigation; may be expected in part, but volume suggests redundant fetch churn
+
+- [ ] **UI-RESP-03** - Aborted image/favorite requests when entering a series route from sidebar
+  - **Where:** `/library/2/browse/92?sort=updated` (and likely similar series routes)
+  - **Repro:** In Manga browse, click a folder entry in sidebar (for example `67% Inertia`)
+  - **Observed:** Multiple cover and favorite-check requests logged as `net::ERR_ABORTED` during route transition
+  - **Likely cause:** In-flight requests from prior view are not fully canceled/debounced before new view fetch starts; possible over-eager parallel loading
+
+- [ ] **UI-RESP-04** - Sort dropdown overlay blocks other controls until explicitly closed or option selected
+  - **Where:** Browse header sort control
+  - **Repro:** Click `Name` to open sort menu, then immediately try clicking a library button in sidebar
+  - **Observed:** Full-screen overlay intercepts pointer events; background click target is blocked
+  - **Likely cause:** Modal-style click-capture layer (`fixed inset-0`) is intentional, but interaction can feel sticky because users must close dropdown first
+
+- [ ] **UI-RESP-05** - Toolbar discoverability issue for view controls
+  - **Where:** Browse header controls (`Cover Size`, `Grid View`, `List View`)
+  - **Repro:** Use view controls without prior context/tooltips
+  - **Observed:** Icon-only controls are not self-explanatory; slows first-time interaction despite controls functioning correctly
+  - **Likely cause:** Missing visible text labels/tooltips and reduced affordance for icon-only actions
+
+### Notes from this pass
+
+- Visible (in-viewport) cover image loading looked good during library switches in this run (about 0.4ms to 0.6ms to reach >=95% loaded for visible covers after route update).
+- I could not reliably force a true mobile viewport in this browser harness, so mobile-specific responsiveness still needs a real-device or emulation pass.
