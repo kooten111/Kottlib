@@ -6,7 +6,9 @@
 import { redirect } from '@sveltejs/kit';
 import { API_ENDPOINTS, fetchSidebarData } from '$lib/server/config.js';
 
-export async function load({ params, url: pageUrl, fetch }) {
+
+/** @type {import('./$types').PageServerLoad} */
+export const load = async ({ params, url: pageUrl, fetch }) => {
     const { libraryId, path } = params;
     const isAllLibraries = libraryId === 'all';
 
@@ -108,4 +110,4 @@ export async function load({ params, url: pageUrl, fetch }) {
             error: error.message
         };
     }
-}
+};

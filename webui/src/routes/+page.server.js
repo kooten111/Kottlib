@@ -5,6 +5,9 @@
 
 import { redirect } from '@sveltejs/kit';
 
-export async function load() {
+
+
+/** @type {import('./$types').PageServerLoad} */
+export const load = async () => {
 	throw redirect(302, '/library/all/browse');
-}
+};

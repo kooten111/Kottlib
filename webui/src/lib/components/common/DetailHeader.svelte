@@ -36,7 +36,9 @@
 
     export let item; // Series/collection/comic data
     export let libraryId;
+    /** @type {() => void} */
     export let onBack = () => history.back();
+    /** @type {(() => void) | null} */
     export let onStartReading = null;
     export let firstComicId = null; // Comic ID for favorites (passed from parent)
 

@@ -65,6 +65,7 @@
     $: totalItems = browseData?.total || 0;
 
     // Local state for items to support appending (infinite scroll)
+    /** @type {any[]} */
     let items = [];
     let currentOffset = 0;
     let limit = 50;
@@ -77,6 +78,7 @@
     // Series scanner state
     let isScanningSeries = false;
     let seriesScanError = null;
+    /** @type {any[]} */
     let scanCandidates = [];
     let showCandidateModal = false;
     let isApplyingCandidate = false;
@@ -87,6 +89,7 @@
     $: firstComicMetadata = browseData?.first_comic_metadata || null;
 
     // Selected comic for info panel in per-volume mode
+    /** @type {any} */
     let selectedComic = null;
     let currentFolderPath = null; // Track current folder to reset selection on navigation
 
@@ -975,13 +978,14 @@
                                                 step="0.1"
                                                 value={gridCoverSize}
                                                 on:input={(e) =>
-                                                    preferencesStore.setFolderCoverSize(
-                                                        parseFloat(
-                                                            e.target.value,
-                                                        ),
-                                                        libraryId,
-                                                        currentPath,
-                                                    )}
+                                                    {
+                                                        const target = /** @type {HTMLInputElement} */ (e.currentTarget);
+                                                        preferencesStore.setFolderCoverSize(
+                                                            parseFloat(target.value),
+                                                            libraryId,
+                                                            currentPath,
+                                                        );
+                                                    }}
                                                 class="flex-1 accent-[var(--color-accent)] cursor-pointer"
                                             />
                                         </div>
@@ -1015,7 +1019,6 @@
                                                     {libraryId}
                                                     on:click={() =>
                                                         handleFolderClick(item)}
-                                                    {viewMode}
                                                 />
                                             {:else if item.type === "comic"}
                                                 <!-- svelte-ignore a11y-click-events-have-key-events -->
@@ -1042,7 +1045,7 @@
                                                         comic={item}
                                                         {libraryId}
                                                         variant={viewMode}
-                                                        href={perVolumeMetadata ? null : `/comic/${libraryId}/${item.id}/read`}
+                                                        href={perVolumeMetadata ? undefined : `/comic/${libraryId}/${item.id}/read`}
                                                         noLink={perVolumeMetadata}
                                                     />
                                                 </div>
@@ -1081,7 +1084,6 @@
                                 {libraryId}
                                 {firstComicId}
                                 onBack={() => history.back()}
-                                showBack={true}
                                 onStartReading={isComicView
                                     ? () => {
                                           const page =
@@ -1231,11 +1233,13 @@
                                         step="0.1"
                                         value={gridCoverSize}
                                         on:input={(e) => {
+                                            const target = /** @type {HTMLInputElement} */ (e.currentTarget);
+                                            const value = parseFloat(target.value);
                                             if (isAllLibraries) {
-                                                preferencesStore.setGridCoverSize(parseFloat(e.target.value));
+                                                preferencesStore.setGridCoverSize(value);
                                             } else {
                                                 preferencesStore.setFolderCoverSize(
-                                                    parseFloat(e.target.value),
+                                                    value,
                                                     libraryId,
                                                     currentPath,
                                                 );
@@ -1296,7 +1300,6 @@
                                             libraryId={isAllLibraries ? item.library_id : libraryId}
                                             on:click={() =>
                                                 handleFolderClick(item)}
-                                            {viewMode}
                                         />
                                     {:else if item.type === "comic"}
                                         <ComicCard

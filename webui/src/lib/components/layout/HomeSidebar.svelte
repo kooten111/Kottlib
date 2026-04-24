@@ -51,8 +51,11 @@
 		localStorage.setItem("sidebar-width", sidebarWidth.toString());
 	}
 
+	/** @type {any[]} */
 	export let libraries = [];
+	/** @type {any[]} */
 	export let seriesTree = [];
+	/** @type {any} */
 	export let currentFilter = null;
 
 	// Derive current view from URL path

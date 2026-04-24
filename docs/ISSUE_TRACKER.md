@@ -203,13 +203,17 @@ Mark items `[x]` when resolved.
   - **Observed:** Frequent `__data.json?...x-sveltekit-invalidated=01` `net::ERR_ABORTED` requests on route/sort changes
   - **Likely cause:** Overlapping invalidations/prefetches where previous request is canceled by next navigation; may be expected in part, but volume suggests redundant fetch churn
   - **Mitigation:** Sidebar browse navigation now skips same-URL `goto()` calls to avoid redundant route churn from repeated clicks
+  - **Latest retest:** Three repeated Manga -> All -> Manga passes now consistently produced two aborted `__data.json` requests per roundtrip (one per route transition), with stable timings (Manga -> All about 137-158ms, All -> Manga about 849-865ms)
 
 - [ ] **UI-RESP-03** - Aborted image/favorite requests when entering a series route from sidebar
-  - **Where:** `/library/2/browse/92?sort=updated` (and likely similar series routes)
+  - **Where:** Sidebar entry into series browse routes (for example `/library/2/browse/67%25%20Inertia?sort=updated`)
   - **Repro:** In Manga browse, click a folder entry in sidebar (for example `67% Inertia`)
   - **Observed:** Multiple cover and favorite-check requests logged as `net::ERR_ABORTED` during route transition
   - **Likely cause:** In-flight requests from prior view are not fully canceled/debounced before new view fetch starts; possible over-eager parallel loading
   - **Mitigation:** Favorite status checks in series/detail panels now use `AbortController` so stale requests are canceled cleanly during fast route or selection changes
+  - **Local root cause identified:** Sidebar folder nodes were issuing both the anchor's default navigation and the parent `goto()` navigation on plain clicks, and those two paths could differ (`/browse/{id}` vs `/browse/{encoded-name}`), creating competing route loads plus duplicate favorite checks
+  - **Local fix applied:** `SeriesTreeNode` now prevents the default plain-click navigation and aligns folder href generation to the encoded folder path
+  - **Latest retest:** Three repeated clicks into `67% Inertia` all navigated directly to the encoded-name route in about 358-426ms with no `/browse/{id}` fallback observed; residual aborted requests remain (1-2 `__data.json` plus occasional `/api/favorites/{id}/check` per entry)
 
 - [x] **UI-RESP-04** - Sort dropdown overlay blocks other controls until explicitly closed or option selected
   - **Where:** Browse header sort control
@@ -240,3 +244,14 @@ Mark items `[x]` when resolved.
   - Re-test median: about 484ms (3 runs)
 - Visible cover image readiness remained strong (>=95% in-viewport covers effectively immediate after route update in measured runs).
 - `__data.json` `net::ERR_ABORTED` requests still appear during fast route/sort transitions, but UX responsiveness is currently much better than the earlier baseline.
+
+### Re-test (2026-04-24, post-restart pass)
+
+- Library switching remained stable over 3 repeat runs:
+  - Manga -> All: about 137-158ms
+  - All -> Manga: about 849-865ms
+  - Aborted route data fetches were consistent at 2 per roundtrip (one per transition), with no large burst behavior seen.
+- Sidebar series entry (`67% Inertia`) now consistently lands on encoded-name route over 3 runs:
+  - Click-to-route timing: about 358-426ms
+  - No competing `/browse/{id}` route loads detected in failed-request traces.
+  - Residual aborts still occur during transition (`__data.json` and occasional `/api/favorites/{id}/check`), but route targeting behavior appears corrected.

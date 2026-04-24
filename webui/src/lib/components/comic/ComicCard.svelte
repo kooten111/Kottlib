@@ -7,6 +7,7 @@
 	export let showProgress = true;
 	export let isFolder = false; // New prop to indicate if this is a folder/series
 	export let itemCount = 0; // Number of items in folder
+	/** @type {string | null | undefined} */
 	export let href = null; // Optional custom href for the card
 	export let noLink = false; // If true, render as div instead of link
 

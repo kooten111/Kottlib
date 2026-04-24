@@ -11,9 +11,13 @@
 
 	const dispatch = createEventDispatcher();
 
+	/** @type {any} */
 	export let node = null;
+	/** @type {number} */
 	export let level = 0;
+	/** @type {(nodeId: any) => boolean} */
 	export let isExpanded = () => false;
+	/** @type {number | string | null} */
 	export let activeNodeId = null;
 
 	function handleToggle(e) {
@@ -22,6 +26,10 @@
 	}
 
 	function handleSelect(e) {
+		const isPlainLeftClick = e.button === 0 && !e.metaKey && !e.ctrlKey && !e.shiftKey && !e.altKey;
+		if (isPlainLeftClick) {
+			e.preventDefault();
+		}
 		e.stopPropagation();
 		dispatch("select", { node, event: e });
 	}
@@ -34,7 +42,9 @@
 			if (node.name === "__ROOT__") {
 				return `/library/${node.libraryId}/browse`;
 			}
-			const browsePath = node.idPath || `${node.id}`;
+			const browsePath = node.path
+				? node.path.split("/").map((segment) => encodeURIComponent(segment)).join("/")
+				: node.idPath || `${node.id}`;
 			return `/library/${node.libraryId}/browse/${browsePath}`;
 		}
 		if (node.type === "comic") {
