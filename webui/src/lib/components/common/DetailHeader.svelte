@@ -32,7 +32,7 @@
     import GenreTag from "./GenreTag.svelte";
     import StarRating from "./StarRating.svelte";
     import ProgressBar from "./ProgressBar.svelte";
-    import { onMount } from "svelte";
+    import { onDestroy, onMount } from "svelte";
 
     export let item; // Series/collection/comic data
     export let libraryId;
@@ -44,6 +44,9 @@
     let isFav = false;
     let favLoading = false;
     let showListModal = false;
+    let favoriteStatusController = null;
+    let favoriteStatusRequestId = 0;
+    let lastFavoriteComicId = null;
 
     // Get the comic ID for favorites
     // For comic view: use item.id directly
@@ -55,17 +58,45 @@
     // Check favorite status on mount and when item changes
     onMount(async () => {
         if (favoriteComicId) {
-            isFav = await isFavorite(favoriteComicId);
+            await checkFavoriteStatus(favoriteComicId);
         }
     });
 
-    $: if (favoriteComicId) {
+    onDestroy(() => {
+        if (favoriteStatusController) {
+            favoriteStatusController.abort();
+            favoriteStatusController = null;
+        }
+    });
+
+    $: if (favoriteComicId && favoriteComicId !== lastFavoriteComicId) {
         checkFavoriteStatus(favoriteComicId);
+    } else if (!favoriteComicId) {
+        lastFavoriteComicId = null;
+        isFav = false;
     }
 
     async function checkFavoriteStatus(comicId) {
         if (!comicId) return;
-        isFav = await isFavorite(comicId);
+        if (favoriteStatusController) {
+            favoriteStatusController.abort();
+        }
+
+        favoriteStatusController = new AbortController();
+        const requestId = ++favoriteStatusRequestId;
+
+        try {
+            const fav = await isFavorite(comicId, {
+                signal: favoriteStatusController.signal,
+            });
+
+            if (requestId === favoriteStatusRequestId) {
+                isFav = fav;
+                lastFavoriteComicId = comicId;
+            }
+        } catch {
+            // Abort is expected during navigation or rapid selection changes.
+        }
     }
 
     async function toggleFavorite() {

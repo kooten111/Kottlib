@@ -32,7 +32,7 @@
     import GenreTag from "$lib/components/common/GenreTag.svelte";
     import { scanComic, applyComicMetadata } from "$lib/api/scanners";
     import { goto } from "$app/navigation";
-    import { onMount } from "svelte";
+    import { onDestroy, onMount } from "svelte";
     import { X, ExternalLink, Check, Loader2 } from "lucide-svelte";
 
     export let item; // Series/folder data
@@ -62,6 +62,9 @@
     let isFav = false;
     let favLoading = false;
     let showListModal = false;
+    let favoriteStatusController = null;
+    let favoriteStatusRequestId = 0;
+    let lastFavoriteComicId = null;
 
     // Get the comic ID for favorite operations
     // For per-volume mode: use selectedComicId (a real comic ID)
@@ -73,17 +76,45 @@
     // Check favorite status when comic changes
     onMount(async () => {
         if (favoriteComicId) {
-            isFav = await isFavorite(favoriteComicId);
+            await checkFavoriteStatus(favoriteComicId);
         }
     });
 
-    $: if (favoriteComicId) {
+    onDestroy(() => {
+        if (favoriteStatusController) {
+            favoriteStatusController.abort();
+            favoriteStatusController = null;
+        }
+    });
+
+    $: if (favoriteComicId && favoriteComicId !== lastFavoriteComicId) {
         checkFavoriteStatus(favoriteComicId);
+    } else if (!favoriteComicId) {
+        lastFavoriteComicId = null;
+        isFav = false;
     }
 
     async function checkFavoriteStatus(comicId) {
         if (!comicId) return;
-        isFav = await isFavorite(comicId);
+        if (favoriteStatusController) {
+            favoriteStatusController.abort();
+        }
+
+        favoriteStatusController = new AbortController();
+        const requestId = ++favoriteStatusRequestId;
+
+        try {
+            const fav = await isFavorite(comicId, {
+                signal: favoriteStatusController.signal,
+            });
+
+            if (requestId === favoriteStatusRequestId) {
+                isFav = fav;
+                lastFavoriteComicId = comicId;
+            }
+        } catch {
+            // Abort is expected during navigation or quick comic selection changes.
+        }
     }
 
     async function toggleFavorite() {

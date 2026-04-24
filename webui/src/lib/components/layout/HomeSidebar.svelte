@@ -13,6 +13,7 @@
 	import { treeExpandedNodes } from "$stores/library";
 	import { uiStore } from "$stores/ui";
 	import { page } from "$app/stores";
+    import { preferencesStore } from "$lib/stores/preferences";
 
 	import { goto } from "$app/navigation";
 	import { browser } from "$app/environment";
@@ -112,21 +113,52 @@
 		currentFilter?.type === "library" && currentFilter.libraryId === libId;
 	$: isAllLibrariesActive = !currentFilter || currentFilter.type === "all";
 
+	function buildBrowseUrl(targetLibraryId, encodedPath = "") {
+		const url = new URL(`/library/${targetLibraryId}/browse${encodedPath ? `/${encodedPath}` : ""}`, window.location.origin);
+		const isAllTarget = String(targetLibraryId) === "all";
+		const preferredSort = isAllTarget
+			? preferencesStore.getSortBy()
+			: preferencesStore.getSortBy(Number(targetLibraryId));
+		const currentSort = $page.url.searchParams.get("sort");
+		const currentSeed = $page.url.searchParams.get("seed");
+		const sort = preferredSort || currentSort;
+
+		if (sort && sort !== "name") {
+			url.searchParams.set("sort", sort);
+		}
+
+		if (sort === "random") {
+			url.searchParams.set("seed", currentSeed || String(Date.now()));
+		}
+
+		return `${url.pathname}${url.search}`;
+	}
+
+	function navigateTo(targetUrl) {
+		const currentUrl = `${$page.url.pathname}${$page.url.search}`;
+		if (targetUrl === currentUrl) {
+			return false;
+		}
+
+		goto(targetUrl, { noScroll: true, keepFocus: true });
+		return true;
+	}
+
 	function handleLibraryClick(lib) {
-		goto(`/library/${lib.id}/browse`);
+		navigateTo(buildBrowseUrl(lib.id));
 	}
 
 	function handleAllLibrariesClick() {
-		goto("/library/all/browse");
+		navigateTo(buildBrowseUrl("all"));
 	}
 
 	function handleViewChange(view) {
 		if (view === 'favorites') {
-			goto('/favorites');
+			navigateTo('/favorites');
 		} else if (view === 'continue') {
-			goto('/continue-reading');
+			navigateTo('/continue-reading');
 		} else if (view === 'reading-lists') {
-			goto('/reading-lists');
+			navigateTo('/reading-lists');
 		}
 	}
 
@@ -137,7 +169,7 @@
 			const encodedPath = node.path
 				? node.path.split('/').map(s => encodeURIComponent(s)).join('/')
 				: '';
-			goto(`/library/${node.libraryId}/browse/${encodedPath}`);
+			navigateTo(buildBrowseUrl(node.libraryId, encodedPath));
 			closeSidebarOnMobile();
 		}
 	}

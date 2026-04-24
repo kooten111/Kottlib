@@ -178,6 +178,9 @@ CREATE INDEX idx_comics_file_modified ON comics(file_modified_at);
 CREATE INDEX idx_comics_library_count ON comics(library_id);
 CREATE INDEX idx_comics_normalized_series ON comics(normalized_series_name);
 CREATE INDEX idx_comics_library_normalized_series ON comics(library_id, normalized_series_name);
+CREATE INDEX idx_comics_folder_created ON comics(folder_id, created_at DESC);
+CREATE INDEX idx_comics_library_created ON comics(library_id, created_at DESC);
+CREATE INDEX idx_comics_library_path_created ON comics(library_id, path, created_at DESC);
 
 -- Scanner metadata indexes
 CREATE INDEX idx_comics_scanner_source ON comics(scanner_source);

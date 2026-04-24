@@ -307,23 +307,26 @@
         { value: "random", label: "Shuffle" },
     ];
 
-    // Reactive: Check sort when libraryId changes (handles navigation between libraries)
-    $: if (browser && libraryId) {
-        const urlSort = $page.url.searchParams.get("sort");
-        const storeSort = isAllLibraries
-            ? $preferencesStore.sortBy
-            : $preferencesStore.librarySortBy?.[libraryId];
-
-        // Only apply if URL is missing sort but store has one
-        if (!urlSort && storeSort && storeSort !== "name") {
-            const url = new URL(window.location.href);
-            url.searchParams.set("sort", storeSort);
-
-            if (storeSort === "random") {
-                url.searchParams.set("seed", String(Date.now()));
+    function clickOutside(node) {
+        const handleClick = (event) => {
+            if (!showSortDropdown) return;
+            if (!node.contains(event.target)) {
+                showSortDropdown = false;
             }
+        };
 
-            goto(url.toString(), { replaceState: true });
+        document.addEventListener("click", handleClick, true);
+
+        return {
+            destroy() {
+                document.removeEventListener("click", handleClick, true);
+            },
+        };
+    }
+
+    function handleGlobalKeydown(event) {
+        if (event.key === "Escape" && showSortDropdown) {
+            showSortDropdown = false;
         }
     }
 
@@ -351,10 +354,18 @@
             url.searchParams.delete("seed");
         }
 
+        const nextUrl = url.toString();
+        const currentUrl = $page.url.toString();
+
+        if (nextUrl === currentUrl) {
+            showSortDropdown = false;
+            return;
+        }
+
         // Reset offset? SvelteKit load will reset data, but our client-side 'loadMore' logic needs reset
         // Actually, if we navigate, 'items' reactive statement will handle it.
         // We just navigate.
-        goto(url.toString(), { noScroll: true });
+        goto(nextUrl, { noScroll: true });
         showSortDropdown = false;
     }
 
@@ -680,6 +691,8 @@
     }
 </script>
 
+<svelte:window on:keydown={handleGlobalKeydown} />
+
 <div
     class="h-screen flex flex-col overflow-hidden bg-[var(--color-bg)] text-[var(--color-text)]"
 >
@@ -841,7 +854,7 @@
                                             class="flex bg-[var(--color-bg-tertiary)] rounded-lg p-1 items-center gap-1"
                                         >
                                             <!-- Sort Dropdown -->
-                                            <div class="relative">
+                                            <div class="relative" use:clickOutside>
                                                 <button
                                                     type="button"
                                                     on:click={() =>
@@ -868,13 +881,6 @@
                                                     </svg>
                                                 </button>
                                                 {#if showSortDropdown}
-                                                    <!-- svelte-ignore a11y-click-events-have-key-events -->
-                                                    <!-- svelte-ignore a11y-no-static-element-interactions -->
-                                                    <div
-                                                        class="fixed inset-0 z-40"
-                                                        on:click={() =>
-                                                            (showSortDropdown = false)}
-                                                    ></div>
                                                     <div
                                                         class="absolute top-full left-0 mt-1 z-50 min-w-[140px] py-1 rounded-lg shadow-lg"
                                                         style="background-color: var(--color-secondary-bg); border: 1px solid var(--color-border);"
@@ -910,8 +916,10 @@
                                                     (showSizeSlider =
                                                         !showSizeSlider)}
                                                 title="Cover Size"
+                                                aria-label="Cover Size"
                                             >
                                                 <SlidersHorizontal size={14} />
+                                                <span class="ml-1 hidden md:inline text-xs">Size</span>
                                             </button>
 
                                             <div
@@ -928,8 +936,10 @@
                                                         "grid",
                                                     )}
                                                 title="Grid View"
+                                                aria-label="Grid View"
                                             >
                                                 <Grid size={14} />
+                                                <span class="ml-1 hidden md:inline text-xs">Grid</span>
                                             </button>
                                             <button
                                                 class="p-1.5 rounded transition-colors {viewMode ===
@@ -941,8 +951,10 @@
                                                         "list",
                                                     )}
                                                 title="List View"
+                                                aria-label="List View"
                                             >
                                                 <List size={14} />
+                                                <span class="ml-1 hidden md:inline text-xs">List</span>
                                             </button>
                                         </div>
                                     </div>
@@ -1099,7 +1111,7 @@
                                     class="flex bg-[var(--color-bg-tertiary)] rounded-lg p-1 items-center gap-1"
                                 >
                                     <!-- Custom Sort Dropdown -->
-                                    <div class="relative">
+                                    <div class="relative" use:clickOutside>
                                         <button
                                             type="button"
                                             on:click={() =>
@@ -1125,13 +1137,6 @@
                                             </svg>
                                         </button>
                                         {#if showSortDropdown}
-                                            <!-- svelte-ignore a11y-click-events-have-key-events -->
-                                            <!-- svelte-ignore a11y-no-static-element-interactions -->
-                                            <div
-                                                class="fixed inset-0 z-40"
-                                                on:click={() =>
-                                                    (showSortDropdown = false)}
-                                            ></div>
                                             <div
                                                 class="absolute top-full left-0 mt-1 z-50 min-w-[140px] py-1 rounded-lg shadow-lg"
                                                 style="background-color: var(--color-secondary-bg); border: 1px solid var(--color-border);"
@@ -1167,8 +1172,10 @@
                                         on:click={() =>
                                             (showSizeSlider = !showSizeSlider)}
                                         title="Cover Size"
+                                        aria-label="Cover Size"
                                     >
                                         <SlidersHorizontal size={16} />
+                                        <span class="ml-1 hidden md:inline text-xs">Size</span>
                                     </button>
 
                                     <div
@@ -1185,8 +1192,10 @@
                                                 "grid",
                                             )}
                                         title="Grid View"
+                                        aria-label="Grid View"
                                     >
                                         <Grid size={16} />
+                                        <span class="ml-1 hidden md:inline text-xs">Grid</span>
                                     </button>
                                     <button
                                         class="p-2 rounded transition-colors {viewMode ===
@@ -1198,8 +1207,10 @@
                                                 "list",
                                             )}
                                         title="List View"
+                                        aria-label="List View"
                                     >
                                         <List size={16} />
+                                        <span class="ml-1 hidden md:inline text-xs">List</span>
                                     </button>
                                 </div>
                             </div>

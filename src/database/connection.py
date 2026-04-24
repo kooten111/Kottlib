@@ -163,6 +163,20 @@ class Database:
                     conn.commit()
                     logger.info("Migration complete: favorites table created")
 
+                # Migration 4: Add missing browse/sort performance indexes
+                logger.info("Running migration: Ensuring browse performance indexes")
+                conn.execute(text(
+                    "CREATE INDEX IF NOT EXISTS idx_comics_folder_created ON comics(folder_id, created_at DESC)"
+                ))
+                conn.execute(text(
+                    "CREATE INDEX IF NOT EXISTS idx_comics_library_created ON comics(library_id, created_at DESC)"
+                ))
+                conn.execute(text(
+                    "CREATE INDEX IF NOT EXISTS idx_comics_library_path_created ON comics(library_id, path, created_at DESC)"
+                ))
+                conn.commit()
+                logger.info("Migration complete: browse performance indexes ensured")
+
         except Exception as e:
             logger.error(f"Error running migrations: {e}")
             # Don't fail startup if migrations fail - the app might still work

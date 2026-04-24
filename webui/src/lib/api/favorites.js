@@ -24,9 +24,9 @@ export async function removeFavorite(comicId) {
 /**
  * Check if a comic is in favorites
  */
-export async function isFavorite(comicId) {
+export async function isFavorite(comicId, options = {}) {
 	try {
-		const result = await appApi.get(`/favorites/${comicId}/check`);
+		const result = await appApi.get(`/favorites/${comicId}/check`, options);
 		return result?.isFavorite || false;
 	} catch {
 		return false;

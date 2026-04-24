@@ -9,97 +9,16 @@ Mark items `[x]` when resolved.
 
 - [ ] **CRIT-01** — `src/scanners/` duplicates `src/metadata_providers/` (7 files, ~1000+ lines)
   - Make `src/scanners/` a thin re-export layer
-- [x] **CRIT-02** — Admin user with plaintext password created at request time
-  - `src/api/middleware/session.py` ~L217–222
-  - `src/database/connection.py` ~L87
-  - ~~Move creation to DB init only; hash the default password~~
-  - **Fixed:** Added PBKDF2-SHA256 `hash_password()`/`verify_password()` in `user.py`; all 3 locations now store hashed passwords; `schema.sql` INSERT commented out
-- [x] **CRIT-03** — Thread-unsafe singleton in `ScanScheduler`
-  - `src/services/scheduler.py` ~L20–31
-  - ~~Protect with `threading.Lock`~~
-  - **Fixed:** Added `threading.Lock` to `__new__()` and double-checked locking in `get_scheduler()`
-- [x] **CRIT-04** — Global mutable scan-progress state without full thread safety
-  - `src/api/routers/v2/libraries.py` ~L60–80
-  - ~~Use concurrent data structure or move to DB/Redis~~
-  - **Fixed:** Added `_progress_lock_init` for double-checked lock initialization, `_active_scans_lock` for set access; all `_active_scans` mutations/reads now under lock
-
 ---
 
 ## Bugs — Likely Runtime Failures
 
-- [x] **BUG-01** — `MetadataApplicationResult` missing `message` attr → `AttributeError`
-  - `src/services/metadata_service.py` ~L113, L194
-  - **Fixed:** Changed `.message` → `.error` (the actual attribute name) in `scan_service.py`
-- [x] **BUG-02** — Series folder cover lookup: `first_comic[0]` when `first_comic` is `None` → `TypeError`
-  - `src/api/routers/v2/search.py` ~L250–300
-  - **False alarm:** Code already has `if first_comic:` guard before accessing `[0]`
-- [x] **BUG-03** — `random.Random(seed)` treats `seed=0` as falsy → unseeded RNG
-  - `src/api/routers/v2/series.py` ~L200–250
-  - **False alarm:** Code already uses `if seed is not None` check
-- [x] **BUG-04** — `app_api/comics.py` calls functions that don't exist in v2 router
-  - `get_comic_progress_v2()`, `update_comic_progress_v2_json()`, `get_cover_v2()`
-  - `src/api/routers/app_api/comics.py` ~L70–140
-  - **False alarm:** All referenced functions exist in v2 modules
-- [x] **BUG-05** — `app_api/libraries.py` calls missing v2 functions
-  - `remove_library()`, `scan_library_manual()`, `get_file_scan_progress()`, `clear_file_scan_progress()`
-  - `src/api/routers/app_api/libraries.py` ~L80–100
-  - **False alarm:** All referenced functions exist in v2 modules
-- [x] **BUG-06** — Feature-flag defaults: `get_setting(…) or True` inverts explicit `False`
-  - `src/api/routers/config.py` ~L121–138
-  - ~~Fix: `… if … is not None else True`~~
-  - **Fixed:** Replaced with `_flag()` helper using `is not None` check
 - [ ] **BUG-07** — Off-by-one in reading completion: marks done before last page
   - `src/database/operations/progress.py` ~L34
-- [x] **BUG-08** — `clean_orphaned_thumbnails()` can't find hierarchical subdirs
-  - `src/scanner/thumbnail_generator.py` ~L207–254
-  - **Fixed:** Changed `glob('*')` to `glob('**/*')` to traverse hierarchical hash-prefix subdirectories
-- [x] **BUG-09** — Reindex has no mutex — rapid calls may corrupt FTS
-  - `src/api/routers/v2/admin.py` ~L58–75
-  - **Fixed:** Added `_reindex_lock` mutex; async endpoint skips if locked, sync endpoint returns 409
-- [x] **BUG-10** — `cover_filename` can be `None` → invalid URL built
-  - `src/services/mangadex_client.py` ~L143
-  - **Fixed:** Added guard in `mangadex.py` `_cover_data_to_option()` for empty/None filename
-- [x] **BUG-11** — `custom_cover_path` not checked for absolute → unexpected relative paths
-  - `src/api/cover_utils.py` ~L85–107
-  - **Fixed:** Added `is_absolute()` guard; non-absolute paths logged and skipped
-- [x] **BUG-12** — `comic.hash` can be `None` → produces `"None_mangadex"` hash
-  - `src/api/routers/v2/covers.py` ~L165
-  - **Fixed:** Added early guard returning HTTP 400 when `comic.hash` is `None`
-- [x] **BUG-13** — FTS INSERT trigger uses empty `dynamic_metadata` → never searchable
-  - `src/database/migrations/add_search_indexes.py` ~L108
-  - **Fixed:** INSERT trigger now uses `COALESCE(NEW.metadata_json, '')`; UPDATE trigger also updated to sync dynamic_metadata
-- [x] **BUG-14** — Unbounded recursion in `_get_or_create_parent_recursive()`
-  - `src/scanner/folder_manager.py` ~L79–130
-  - **Fixed:** Added `_depth` counter with `_MAX_FOLDER_DEPTH=100` guard; removed unreachable dead code
-- [x] **BUG-15** — `@handle_comic_archive_errors` potentially double-applied
-  - `src/api/routers/v2/comics.py` ~L350, L380
-  - **False alarm:** Decorator applied to two different endpoints, not double-applied
-
 ---
 
 ## Dead Code
 
-- [x] **DEAD-01** — Unregistered route functions in `v2/collections.py`
-  - `create_tag()`, `delete_tag()`, `add_tag_to_comic()`, `remove_tag_from_comic()`, `check_is_favorite()` ~L280–330
-  - **Fixed:** Removed 4 truly dead tag functions; kept `check_is_favorite()` (called by app_api bridge); cleaned up unused imports
-- [x] **DEAD-02** — `get_all_libraries_reading()` never route-registered
-  - `src/api/routers/v2/reading.py` ~L100–115
-  - **Fixed:** Removed unregistered function and cleaned up unused imports
-- [x] **DEAD-03** — `server_info()` and `api_info()` duplicate each other
-  - `src/api/main.py` ~L250–270 — consolidate to one
-  - **False alarm:** Serve different purposes (legacy compat vs native API info)
-- [x] **DEAD-04** — Deprecated `sync_config_to_db()` still imported
-  - `src/services/config_sync.py` ~L210–217
-  - **Fixed:** Removed deprecated function (was not imported or called anywhere)
-- [x] **DEAD-05** — `use_thumbnail` param accepted but unused
-  - `src/services/mangadex_client.py` ~L199
-  - **False alarm:** Parameter is passed to `download_cover()` which uses it
-- [x] **DEAD-06** — `import sys` never used
-  - `src/services/metadata_service.py` L4
-  - **Fixed:** Removed
-- [x] **DEAD-07** — Unreachable `return` statements
-  - `src/scanner/cleanup.py` ~L135 — **False alarm:** returns are reachable
-  - `src/scanner/folder_manager.py` ~L135 — **Fixed** (removed as part of BUG-14 fix)
 - [ ] **DEAD-08** — Calls to non-existent manager methods in demo files
   - `src/scanners/demo_scanners.py` ~L58, L127
   - `src/metadata_providers/demo.py` — same
@@ -115,9 +34,6 @@ Mark items `[x]` when resolved.
 
 ## Code Duplication
 
-- [x] **DUP-01** — Library response dict built 4× in `library_service.py`
-  - ~~Extract `_build_library_response_dict(lib, stats)`~~
-  - **Fixed:** Extracted `_build_library_response_dict()` helper; replaced 4 duplicate constructions
 - [ ] **DUP-02** — 3 comic endpoints ~90% identical in `legacy_v1.py` ~L281–540
   - Extract `_build_comic_info_response()`
 - [ ] **DUP-03** — Cover error handling copy-pasted 3× in `covers.py`
@@ -187,8 +103,6 @@ Mark items `[x]` when resolved.
 ### Broad exception handling
 
 - [ ] **SMELL-20** — Catch-all `Exception` handler hides bugs — `main.py` ~L173
-- [x] **SMELL-21** — String-matching for `IntegrityError` — `connection.py` ~L95
-  - **Fixed:** Replaced broad `except Exception` with `except IntegrityError` from `sqlalchemy.exc`
 - [ ] **SMELL-22** — String-matching for `BadZipFile` — `error_handling.py` ~L62–80
 - [ ] **SMELL-23** — Cache invalidation errors silently swallowed — `v2/session.py` ~L180
 
@@ -288,26 +202,41 @@ Mark items `[x]` when resolved.
   - **Repro:** Switch libraries repeatedly and change sort mode
   - **Observed:** Frequent `__data.json?...x-sveltekit-invalidated=01` `net::ERR_ABORTED` requests on route/sort changes
   - **Likely cause:** Overlapping invalidations/prefetches where previous request is canceled by next navigation; may be expected in part, but volume suggests redundant fetch churn
+  - **Mitigation:** Sidebar browse navigation now skips same-URL `goto()` calls to avoid redundant route churn from repeated clicks
 
 - [ ] **UI-RESP-03** - Aborted image/favorite requests when entering a series route from sidebar
   - **Where:** `/library/2/browse/92?sort=updated` (and likely similar series routes)
   - **Repro:** In Manga browse, click a folder entry in sidebar (for example `67% Inertia`)
   - **Observed:** Multiple cover and favorite-check requests logged as `net::ERR_ABORTED` during route transition
   - **Likely cause:** In-flight requests from prior view are not fully canceled/debounced before new view fetch starts; possible over-eager parallel loading
+  - **Mitigation:** Favorite status checks in series/detail panels now use `AbortController` so stale requests are canceled cleanly during fast route or selection changes
 
-- [ ] **UI-RESP-04** - Sort dropdown overlay blocks other controls until explicitly closed or option selected
+- [x] **UI-RESP-04** - Sort dropdown overlay blocks other controls until explicitly closed or option selected
   - **Where:** Browse header sort control
   - **Repro:** Click `Name` to open sort menu, then immediately try clicking a library button in sidebar
   - **Observed:** Full-screen overlay intercepts pointer events; background click target is blocked
-  - **Likely cause:** Modal-style click-capture layer (`fixed inset-0`) is intentional, but interaction can feel sticky because users must close dropdown first
+  - ~~**Likely cause:** Modal-style click-capture layer (`fixed inset-0`) is intentional, but interaction can feel sticky because users must close dropdown first~~
+  - **Fixed:** Replaced the blocking full-screen overlay with local click-outside handling and `Escape` close behavior in the browse sort dropdown
 
-- [ ] **UI-RESP-05** - Toolbar discoverability issue for view controls
+- [x] **UI-RESP-05** - Toolbar discoverability issue for view controls
   - **Where:** Browse header controls (`Cover Size`, `Grid View`, `List View`)
   - **Repro:** Use view controls without prior context/tooltips
   - **Observed:** Icon-only controls are not self-explanatory; slows first-time interaction despite controls functioning correctly
-  - **Likely cause:** Missing visible text labels/tooltips and reduced affordance for icon-only actions
+  - ~~**Likely cause:** Missing visible text labels/tooltips and reduced affordance for icon-only actions~~
+  - **Fixed:** Added visible text labels alongside the icons while retaining titles/ARIA labels for the controls
 
 ### Notes from this pass
 
 - Visible (in-viewport) cover image loading looked good during library switches in this run (about 0.4ms to 0.6ms to reach >=95% loaded for visible covers after route update).
 - I could not reliably force a true mobile viewport in this browser harness, so mobile-specific responsiveness still needs a real-device or emulation pass.
+
+### Re-test (2026-04-24, later pass)
+
+- Library switch times improved and stabilized in this run:
+  - Manga -> All: median about 180ms (3 runs)
+  - All -> Manga: median about 437ms (3 runs)
+- Sort latency for `Last Updated` in Manga improved significantly:
+  - Previous sample: about 4.07s
+  - Re-test median: about 484ms (3 runs)
+- Visible cover image readiness remained strong (>=95% in-viewport covers effectively immediate after route update in measured runs).
+- `__data.json` `net::ERR_ABORTED` requests still appear during fast route/sort transitions, but UX responsiveness is currently much better than the earlier baseline.
