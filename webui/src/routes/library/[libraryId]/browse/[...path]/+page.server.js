@@ -1,14 +1,18 @@
 /**
  * Server-side data loading for library items browsing
  * Handles both single-library (libraryId = number) and all-libraries (libraryId = 'all') modes
+ *
+ * Sidebar data (libraries + shallow seriesTree) is sourced from the root layout server load
+ * via parent() — it is cached for the session and not re-fetched on every navigation.
+ * Only browse content and the per-library folder tree are fetched per navigation.
  */
 
 import { redirect } from '@sveltejs/kit';
-import { API_ENDPOINTS, fetchSidebarData } from '$lib/server/config.js';
+import { API_ENDPOINTS } from '$lib/server/config.js';
 
 
 /** @type {import('./$types').PageServerLoad} */
-export const load = async ({ params, url: pageUrl, fetch }) => {
+export const load = async ({ params, url: pageUrl, fetch, parent }) => {
     const { libraryId, path } = params;
     const isAllLibraries = libraryId === 'all';
 
@@ -31,9 +35,10 @@ export const load = async ({ params, url: pageUrl, fetch }) => {
                 apiUrl += `&seed=${seed}`;
             }
 
-            const [browseRes, sidebarData, continueReadingRes] = await Promise.all([
+            // Fetch browse data and continue-reading in parallel; sidebar data comes from cached layout.
+            const [{ libraries, seriesTree }, browseRes, continueReadingRes] = await Promise.all([
+                parent(),
                 fetch(apiUrl),
-                fetchSidebarData(fetch),
                 fetch(API_ENDPOINTS.continueReading(50))
             ]);
 
@@ -49,9 +54,9 @@ export const load = async ({ params, url: pageUrl, fetch }) => {
             let continueReading = continueReadingRes.ok ? await continueReadingRes.json() : [];
 
             // Filter out continue reading items from hidden libraries
-            if (sidebarData.libraries && continueReading.length > 0) {
+            if (libraries && continueReading.length > 0) {
                 const hiddenLibraryIds = new Set(
-                    sidebarData.libraries
+                    libraries
                         .filter(lib => lib.exclude_from_webui)
                         .map(lib => String(lib.id))
                 );
@@ -64,8 +69,8 @@ export const load = async ({ params, url: pageUrl, fetch }) => {
 
             return {
                 browseData,
-                libraries: sidebarData.libraries,
-                seriesTree: sidebarData.seriesTree,
+                libraries,
+                seriesTree,
                 libraryId: 'all',
                 currentPath: path || '',
                 continueReading,
@@ -78,9 +83,11 @@ export const load = async ({ params, url: pageUrl, fetch }) => {
                 apiUrl += `&seed=${seed}`;
             }
 
-            const [browseRes, sidebarData] = await Promise.all([
+            // Fetch browse data and per-library folder tree in parallel; base sidebar data from layout cache.
+            const [{ libraries, seriesTree: baseSeriesTree }, browseRes, libraryTreeRes] = await Promise.all([
+                parent(),
                 fetch(apiUrl),
-                fetchSidebarData(fetch, libraryId)
+                fetch(API_ENDPOINTS.libraryTree(libraryId))
             ]);
 
             if (!browseRes.ok) {
@@ -93,10 +100,22 @@ export const load = async ({ params, url: pageUrl, fetch }) => {
 
             const browseData = await browseRes.json();
 
+            // Merge per-library folder tree into the cached shallow series tree
+            let seriesTree = baseSeriesTree;
+            if (libraryTreeRes.ok) {
+                const libTree = await libraryTreeRes.json();
+                seriesTree = baseSeriesTree.map(node => {
+                    if (node.id === parseInt(libraryId)) {
+                        return { ...node, children: libTree.children || [] };
+                    }
+                    return node;
+                });
+            }
+
             return {
                 browseData,
-                libraries: sidebarData.libraries,
-                seriesTree: sidebarData.seriesTree,
+                libraries,
+                seriesTree,
                 libraryId: parseInt(libraryId),
                 currentPath: path || '',
                 continueReading: null,

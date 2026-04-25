@@ -196,6 +196,7 @@ Mark items `[x]` when resolved.
   - **Repro:** Open Manga -> click `Name` sort -> choose `Last Updated`
   - **Observed:** URL update to `?sort=updated` took about 4.07s in this session; library switching was much faster (about 0.19s to 0.78s for URL changes)
   - **Likely cause:** Expensive sort query or missing DB/index optimization for updated timestamp sorting
+  - **Latest restart-pass retest:** Three `Name` -> `Last Updated` runs completed in about 823-887ms with no aborted requests observed during the sort transition
 
 - [ ] **UI-RESP-02** - Repeated aborted route data requests during normal SPA navigation
   - **Where:** Browse routes (All/Manga/Comics and sorted variants)
@@ -203,9 +204,11 @@ Mark items `[x]` when resolved.
   - **Observed:** Frequent `__data.json?...x-sveltekit-invalidated=01` `net::ERR_ABORTED` requests on route/sort changes
   - **Likely cause:** Overlapping invalidations/prefetches where previous request is canceled by next navigation; may be expected in part, but volume suggests redundant fetch churn
   - **Mitigation:** Sidebar browse navigation now skips same-URL `goto()` calls to avoid redundant route churn from repeated clicks
+  - **Additional local fix applied:** Browse page folder navigation now prefers canonical encoded folder paths over numeric folder-id routes and skips same-URL `goto()` calls, reducing duplicate route loads from folder cards and inline browse search results
   - **Latest retest:** Three repeated Manga -> All -> Manga passes now consistently produced two aborted `__data.json` requests per roundtrip (one per route transition), with stable timings (Manga -> All about 137-158ms, All -> Manga about 849-865ms)
+  - **Latest restart-pass retest:** Three Manga -> All -> Manga roundtrips took about 590-599ms to All and about 728-748ms back to Manga; aborted route-data requests dropped to 2 total across 6 transitions in this pass
 
-- [ ] **UI-RESP-03** - Aborted image/favorite requests when entering a series route from sidebar
+- [x] **UI-RESP-03** - Aborted image/favorite requests when entering a series route from sidebar
   - **Where:** Sidebar entry into series browse routes (for example `/library/2/browse/67%25%20Inertia?sort=updated`)
   - **Repro:** In Manga browse, click a folder entry in sidebar (for example `67% Inertia`)
   - **Observed:** Multiple cover and favorite-check requests logged as `net::ERR_ABORTED` during route transition
@@ -213,7 +216,11 @@ Mark items `[x]` when resolved.
   - **Mitigation:** Favorite status checks in series/detail panels now use `AbortController` so stale requests are canceled cleanly during fast route or selection changes
   - **Local root cause identified:** Sidebar folder nodes were issuing both the anchor's default navigation and the parent `goto()` navigation on plain clicks, and those two paths could differ (`/browse/{id}` vs `/browse/{encoded-name}`), creating competing route loads plus duplicate favorite checks
   - **Local fix applied:** `SeriesTreeNode` now prevents the default plain-click navigation and aligns folder href generation to the encoded folder path
+  - **Additional local fix applied:** Main browse-page folder entry points now also prefer canonical encoded folder paths instead of numeric folder-id routes, removing another source of competing folder loads outside the sidebar
   - **Latest retest:** Three repeated clicks into `67% Inertia` all navigated directly to the encoded-name route in about 358-426ms with no `/browse/{id}` fallback observed; residual aborted requests remain (1-2 `__data.json` plus occasional `/api/favorites/{id}/check` per entry)
+  - **Additional local root cause identified:** `SeriesInfoPanel` and `DetailHeader` were each calling `checkFavoriteStatus()` twice on first render, once from `onMount()` and once from the reactive `favoriteComicId` watcher; the second call aborts the first immediately
+  - **Additional local fix applied:** Removed the duplicate `onMount()` favorite-status request so only the reactive watcher issues the initial check
+  - **Latest post-restart retest:** Three Webtoon sidebar entries into `Of All Things, I Became a Crow` landed on the encoded-name route in about 830-841ms with no aborted favorite, image, or route-data requests during entry; one later return-to-root transition showed a single aborted `__data.json` request, which is better tracked under `UI-RESP-02`
 
 - [x] **UI-RESP-04** - Sort dropdown overlay blocks other controls until explicitly closed or option selected
   - **Where:** Browse header sort control

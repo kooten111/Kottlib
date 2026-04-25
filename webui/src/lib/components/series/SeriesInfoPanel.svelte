@@ -32,7 +32,7 @@
     import GenreTag from "$lib/components/common/GenreTag.svelte";
     import { scanComic, applyComicMetadata } from "$lib/api/scanners";
     import { goto } from "$app/navigation";
-    import { onDestroy, onMount } from "svelte";
+    import { onDestroy } from "svelte";
     import { X, ExternalLink, Check, Loader2 } from "lucide-svelte";
 
     export let item; // Series/folder data
@@ -72,13 +72,6 @@
     $: favoriteComicId = perVolumeMetadata && selectedComicId
         ? selectedComicId
         : firstComicId || null;
-
-    // Check favorite status when comic changes
-    onMount(async () => {
-        if (favoriteComicId) {
-            await checkFavoriteStatus(favoriteComicId);
-        }
-    });
 
     onDestroy(() => {
         if (favoriteStatusController) {

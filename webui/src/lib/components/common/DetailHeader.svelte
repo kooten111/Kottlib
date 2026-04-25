@@ -32,7 +32,7 @@
     import GenreTag from "./GenreTag.svelte";
     import StarRating from "./StarRating.svelte";
     import ProgressBar from "./ProgressBar.svelte";
-    import { onDestroy, onMount } from "svelte";
+    import { onDestroy } from "svelte";
 
     export let item; // Series/collection/comic data
     export let libraryId;
@@ -56,13 +56,6 @@
     $: favoriteComicId = (item?.type === 'comic')
         ? item?.id
         : firstComicId || null;
-
-    // Check favorite status on mount and when item changes
-    onMount(async () => {
-        if (favoriteComicId) {
-            await checkFavoriteStatus(favoriteComicId);
-        }
-    });
 
     onDestroy(() => {
         if (favoriteStatusController) {

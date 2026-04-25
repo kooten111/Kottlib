@@ -440,20 +440,54 @@
             .join("/");
     }
 
-    function handleFolderClick(item) {
-        if (isAllLibraries) {
-            // In all-libraries mode, navigate to the specific library
-            const itemLibraryId = item.library_id;
-            if (item.type === "collection" || item.type === "series") {
-                goto(`/library/${itemLibraryId}/browse/${item.id}`);
-            }
-        } else {
-            // Navigate to subfolder within same library
-            const rawPath = currentPath
-                ? `${currentPath}/${item.id}`
-                : `${item.id}`;
-            goto(`/library/${libraryId}/browse/${rawPath}`);
+    function navigateTo(targetUrl, options = { noScroll: true }) {
+        if (!targetUrl) {
+            return false;
         }
+
+        const resolvedUrl = new URL(targetUrl, $page.url);
+        const nextUrl = `${resolvedUrl.pathname}${resolvedUrl.search}`;
+        const currentUrl = `${$page.url.pathname}${$page.url.search}`;
+
+        if (nextUrl === currentUrl) {
+            return false;
+        }
+
+        goto(nextUrl, options);
+        return true;
+    }
+
+    function getFolderBrowseUrl(item) {
+        if (!item) {
+            return null;
+        }
+
+        const itemLibraryId = getResultLibraryId(item);
+        const itemPath = typeof item.path === "string"
+            ? item.path.replace(/^\/+|\/+$/g, "")
+            : "";
+
+        if (itemLibraryId && itemPath) {
+            return `/library/${itemLibraryId}/browse/${encodePath(itemPath)}`;
+        }
+
+        if (item.browse_path) {
+            return item.browse_path;
+        }
+
+        if (itemLibraryId && item.id) {
+            return `/library/${itemLibraryId}/browse/${item.id}`;
+        }
+
+        return null;
+    }
+
+    function handleFolderClick(item) {
+        if (item.type !== "collection" && item.type !== "series") {
+            return;
+        }
+
+        navigateTo(getFolderBrowseUrl(item));
     }
 
     function getResultLibraryId(result) {
@@ -471,14 +505,7 @@
     }
 
     function handleSearchFolderClick(result) {
-        if (result.browse_path) {
-            goto(result.browse_path);
-            return;
-        }
-
-        const itemLibraryId = getResultLibraryId(result);
-        const fallbackPath = `/library/${itemLibraryId}/browse/${result.id}`;
-        goto(fallbackPath);
+        navigateTo(getFolderBrowseUrl(result));
     }
 
     function handleComicSelect(item) {
