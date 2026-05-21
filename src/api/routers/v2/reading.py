@@ -104,3 +104,70 @@ async def get_reading_list(
             })
 
         return JSONResponse(comics_list)
+
+
+async def get_all_libraries_reading(request: Request, limit: int = 100):
+    """
+    Get continue reading list across all libraries (Kottlib native endpoint)
+    """
+    db = request.app.state.db
+
+    with db.get_session() as session:
+        user = get_request_user(request, session)
+        if not user:
+            return JSONResponse([])
+
+        results = get_continue_reading(session, user.id, limit)
+
+        library_cache = {}
+        comics_list = []
+
+        for progress, comic in results:
+            library_id = comic.library_id
+            if library_id not in library_cache:
+                library_cache[library_id] = get_library_by_id(session, library_id)
+            library = library_cache[library_id]
+
+            if not library:
+                continue
+
+            try:
+                relative_path = str(Path(comic.path).relative_to(library.path))
+            except ValueError:
+                relative_path = comic.filename
+
+            api_path = f"/{relative_path}"
+
+            comics_list.append({
+                "type": "comic",
+                "id": str(comic.id),
+                "comic_info_id": str(comic.id),
+                "parent_id": str(comic.folder_id) if comic.folder_id is not None else "0",
+                "library_id": str(library_id),
+                "library_uuid": library.uuid if library else "",
+                "file_name": comic.filename,
+                "file_size": str(comic.file_size),
+                "hash": comic.hash,
+                "path": api_path,
+                "current_page": progress.current_page,
+                "num_pages": progress.total_pages or comic.num_pages,
+                "read": progress.is_completed,
+                "manga": getattr(comic, 'reading_direction', 'ltr') == 'rtl',
+                "file_type": 1,
+                "cover_size_ratio": comic.cover_size_ratio if comic.cover_size_ratio > 0 else 0.67,
+                "number": 0,
+                "count": 0,
+                "date": "",
+                "rating": 0,
+                "synopsis": "",
+                "title": get_comic_display_name(comic),
+                "has_been_opened": progress.current_page > 0,
+                "last_time_opened": progress.last_read_at,
+                "current_page_bookmarked": False,
+                "cover_page": 0,
+                "brightness": 0,
+                "contrast": 0,
+                "gamma": 1.0,
+            })
+
+        return JSONResponse(comics_list)
