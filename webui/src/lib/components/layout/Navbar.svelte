@@ -4,7 +4,7 @@
 	import { currentFilterStore, treeExpandedNodes } from "$stores/library";
 	import { uiStore } from "$stores/ui";
 	import SearchAutocomplete from "$lib/components/common/SearchAutocomplete.svelte";
-	import { Moon, Sun, BookOpen, Menu } from "lucide-svelte";
+	import { Moon, Sun, BookOpen, Menu, Settings } from "lucide-svelte";
 
 	function clearFilters() {
 		currentFilterStore.set(null);
@@ -27,8 +27,8 @@
 </script>
 
 <nav class="bg-dark-bg-secondary border-b border-gray-700 sticky top-0 z-50">
-	<div class="px-4">
-		<div class="flex items-center justify-between h-16 gap-4">
+	<div class="px-2 sm:px-4">
+		<div class="flex items-center justify-between h-16 gap-2 sm:gap-4 min-w-0">
 			<!-- Hamburger Menu Button (Mobile only) -->
 			<button
 				class="lg:hidden p-2 rounded-button hover:bg-dark-bg-tertiary transition-colors focus-ring"
@@ -39,14 +39,15 @@
 			</button>
 
 			<!-- Logo and Brand -->
-			<div class="flex items-center">
+			<div class="flex items-center min-w-0">
 				<a
 					href="/"
-					class="flex items-center space-x-2 hover:opacity-80 transition-opacity"
+					class="flex items-center space-x-2 hover:opacity-80 transition-opacity min-w-0"
 					on:click={handleHomeClick}
 				>
-					<BookOpen class="w-8 h-8 text-accent-orange" />
-					<span class="text-xl font-bold text-dark-text">Kottlib</span
+					<BookOpen class="w-8 h-8 text-accent-orange shrink-0" />
+					<span class="hidden sm:inline text-xl font-bold text-dark-text truncate"
+						>Kottlib</span
 					>
 				</a>
 
@@ -61,7 +62,7 @@
 			</div>
 
 			<!-- Right Side Actions -->
-			<div class="flex items-center space-x-4">
+			<div class="flex items-center space-x-2 sm:space-x-4 shrink-0">
 				<!-- Theme Toggle -->
 				<button
 					on:click={() => themeStore.toggle()}
@@ -78,9 +79,11 @@
 				<!-- Admin Link -->
 				<a
 					href="/admin"
-					class="hidden md:inline-block btn-secondary text-sm"
+					class="btn-secondary text-sm px-2 py-2 lg:px-4"
+					aria-label="Admin"
 				>
-					Admin
+					<Settings class="w-5 h-5 lg:hidden" />
+					<span class="hidden lg:inline">Admin</span>
 				</a>
 			</div>
 		</div>
