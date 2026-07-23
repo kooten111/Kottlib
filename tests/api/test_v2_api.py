@@ -179,7 +179,7 @@ class TestV2ReadingProgress:
         """Test GET /v2/library/{id}/comic/{comicId}/progress - Get reading progress"""
         response = test_client.get(f"/v2/library/{sample_library.id}/comic/{sample_comic.id}/progress")
 
-        assert response.status_code in [200, 404]
+        assert response.status_code == 200
 
         if response.status_code == 200:
             data = response.json()
@@ -197,8 +197,7 @@ class TestV2ReadingProgress:
             json=progress_data
         )
 
-        # Should accept the update
-        assert response.status_code in [200, 201]
+        assert response.status_code == 200
 
     def test_get_continue_reading(self, test_client: TestClient, sample_user, sample_reading_progress):
         """Test GET /v2/continue-reading - Get continue reading list (JSON)"""
@@ -273,7 +272,6 @@ class TestV2Search:
 
         assert response.status_code == 200
 
-        # Can be JSON or text depending on implementation
         if "application/json" in response.headers.get("content-type", ""):
             data = response.json()
             assert isinstance(data, list) or isinstance(data, dict)

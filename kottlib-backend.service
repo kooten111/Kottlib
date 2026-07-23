@@ -6,7 +6,7 @@ After=network.target
 Type=simple
 User=kooten
 WorkingDirectory=/mnt/Server/kottlib
-ExecStart=/mnt/Server/kottlib/venv/bin/python -m uvicorn src.api.main:app \
+ExecStart=/mnt/Server/kottlib/venv/bin/uvicorn src.api.main:app \
     --host 0.0.0.0 \
     --port 8081 \
     --log-level info \

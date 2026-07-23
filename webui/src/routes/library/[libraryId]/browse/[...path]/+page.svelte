@@ -25,8 +25,16 @@
     import { searchComics } from "$lib/api/search";
     import { preferencesStore } from "$lib/stores/preferences";
     import { scanSeries, applySeriesMetadata } from "$lib/api/scanners";
+    import {
+        encodePath,
+        getResultLibraryId as resolveResultLibraryId,
+        getFolderBrowseUrl as buildFolderBrowseUrl,
+        normalizeSearchFolderResult as normalizeFolderSearchResult,
+    } from "$lib/browse/browseNavigation";
+        import { infiniteScroll, isNearListEnd } from "$lib/browse/browsePagination";
+    import ScanCandidateModal from "$lib/components/series/ScanCandidateModal.svelte";
 
-    import { X, ExternalLink, Check } from "lucide-svelte";
+    import { X } from "lucide-svelte";
 
     export let data;
 
@@ -272,6 +280,11 @@
 
     $: hasMore = items.length < totalItems;
     $: hasContent = items.length > 0;
+    $: infiniteScrollOptions = {
+        scrollContainer,
+        onLoadMore: loadMoreItems,
+        onPrefetch: prefetchNextPage,
+    };
 
     // Construct currentFilter for sidebar highlighting
     $: currentFilter = isAllLibraries
@@ -431,13 +444,16 @@
             }),
         ];
 
-    // Helper to encode path segments for URL (handles special chars like %, #, etc.)
-    function encodePath(path) {
-        if (!path) return "";
-        return path
-            .split("/")
-            .map((s) => encodeURIComponent(s))
-            .join("/");
+    function getResultLibraryId(result) {
+        return resolveResultLibraryId(result, libraryId);
+    }
+
+    function getFolderBrowseUrl(item) {
+        return buildFolderBrowseUrl(item, libraryId);
+    }
+
+    function normalizeSearchFolderResult(result) {
+        return normalizeFolderSearchResult(result, libraryId);
     }
 
     function navigateTo(targetUrl, options = { noScroll: true }) {
@@ -457,51 +473,12 @@
         return true;
     }
 
-    function getFolderBrowseUrl(item) {
-        if (!item) {
-            return null;
-        }
-
-        const itemLibraryId = getResultLibraryId(item);
-        const itemPath = typeof item.path === "string"
-            ? item.path.replace(/^\/+|\/+$/g, "")
-            : "";
-
-        if (itemLibraryId && itemPath) {
-            return `/library/${itemLibraryId}/browse/${encodePath(itemPath)}`;
-        }
-
-        if (item.browse_path) {
-            return item.browse_path;
-        }
-
-        if (itemLibraryId && item.id) {
-            return `/library/${itemLibraryId}/browse/${item.id}`;
-        }
-
-        return null;
-    }
-
     function handleFolderClick(item) {
         if (item.type !== "collection" && item.type !== "series") {
             return;
         }
 
         navigateTo(getFolderBrowseUrl(item));
-    }
-
-    function getResultLibraryId(result) {
-        return result.library_id || result.libraryId || libraryId;
-    }
-
-    function normalizeSearchFolderResult(result) {
-        return {
-            ...result,
-            type: result.type || "series",
-            library_id: getResultLibraryId(result),
-            cover_hash: result.cover_hash || result.coverHash,
-            total_issues: result.total_issues || result.comic_count || 0,
-        };
     }
 
     function handleSearchFolderClick(result) {
@@ -606,95 +583,12 @@
 
                     // On very wide screens each page can be visually short.
                     // Chain another load if we're still close to the bottom.
-                    if (isNearListEnd()) {
+                    if (isNearListEnd(scrollContainer)) {
                         loadMoreItems();
                     }
                 });
             }
         }
-    }
-
-    const INFINITE_SCROLL_MIN_PRELOAD_PX = 2500;
-    const INFINITE_SCROLL_VIEWPORT_MULTIPLIER = 3.5;
-
-    function getPreloadDistancePx() {
-        const viewportHeight = scrollContainer?.clientHeight || (browser ? window.innerHeight : 0);
-        return Math.max(
-            INFINITE_SCROLL_MIN_PRELOAD_PX,
-            Math.round(viewportHeight * INFINITE_SCROLL_VIEWPORT_MULTIPLIER),
-        );
-    }
-
-    function isNearListEnd() {
-        if (!browser) return false;
-
-        const preloadDistance = getPreloadDistancePx();
-
-        if (scrollContainer) {
-            const remaining =
-                scrollContainer.scrollHeight -
-                scrollContainer.scrollTop -
-                scrollContainer.clientHeight;
-            return remaining <= preloadDistance;
-        }
-
-        const doc = document.documentElement;
-        const remaining = doc.scrollHeight - window.scrollY - window.innerHeight;
-        return remaining <= preloadDistance;
-    }
-
-    function infiniteScroll(node) {
-        const createObserver = () =>
-            new IntersectionObserver(
-            (entries) => {
-                if (entries[0].isIntersecting) {
-                    loadMoreItems();
-                }
-            },
-            {
-                // Start loading well before reaching the visual bottom of the list.
-                root: scrollContainer || null,
-                rootMargin: `0px 0px ${getPreloadDistancePx()}px 0px`,
-                threshold: 0,
-            },
-        );
-
-        let observer = createObserver();
-        const onScroll = () => {
-            // Keep a prefetched page warm while the user is moving through the list.
-            prefetchNextPage();
-            if (isNearListEnd()) {
-                loadMoreItems();
-            }
-        };
-
-        const onResize = () => {
-            observer.disconnect();
-            observer = createObserver();
-            observer.observe(node);
-
-            // If viewport got larger, we may need to immediately fetch another page.
-            if (isNearListEnd()) {
-                loadMoreItems();
-            }
-        };
-
-        observer.observe(node);
-        (scrollContainer || window).addEventListener("scroll", onScroll, {
-            passive: true,
-        });
-        window.addEventListener("resize", onResize);
-
-        // Initial kick so first load can happen before user hits bottom.
-        onScroll();
-
-        return {
-            destroy() {
-                observer.disconnect();
-                (scrollContainer || window).removeEventListener("scroll", onScroll);
-                window.removeEventListener("resize", onResize);
-            },
-        };
     }
 
     // Determine if we should show the detail header (only for comic view now)
@@ -1082,7 +976,7 @@
 
                                     {#if hasMore}
                                         <div
-                                            use:infiniteScroll
+                                            use:infiniteScroll={infiniteScrollOptions}
                                             class="flex justify-center mt-6 py-6"
                                         >
                                             <div
@@ -1346,7 +1240,7 @@
                             <!-- Infinite Scroll Sentinel -->
                             {#if hasMore}
                                 <div
-                                    use:infiniteScroll
+                                    use:infiniteScroll={infiniteScrollOptions}
                                     class="flex justify-center mt-8 py-8"
                                 >
                                     <div
@@ -1381,225 +1275,14 @@
     </div>
 </div>
 
-<!-- Candidate Selection Modal -->
-{#if showCandidateModal && scanCandidates.length > 0}
-    <div
-        class="fixed inset-0 bg-black/70 backdrop-blur-sm z-50 flex items-center justify-center p-4"
-        on:click|self={closeCandidateModal}
-        on:keydown={(e) => e.key === "Escape" && closeCandidateModal()}
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby="candidate-modal-title"
-        tabindex="-1"
-    >
-        <div
-            class="bg-dark-bg-secondary rounded-2xl shadow-2xl max-w-3xl w-full max-h-[85vh] overflow-hidden border"
-            style="border-color: var(--color-border);"
-        >
-            <!-- Modal Header -->
-            <div
-                class="flex items-center justify-between p-5 border-b bg-gradient-to-r from-accent-orange/10 to-accent-orange/5"
-                style="border-color: var(--color-border);"
-            >
-                <div>
-                    <h2
-                        id="candidate-modal-title"
-                        class="text-xl font-bold text-dark-text"
-                    >
-                        Select Match
-                    </h2>
-                    <p class="text-sm text-accent-orange/80 mt-1">
-                        No automatic match found. Choose from {scanCandidates.length}
-                        candidate{scanCandidates.length > 1 ? "s" : ""} below:
-                    </p>
-                </div>
-                <button
-                    on:click={closeCandidateModal}
-                    class="p-2 hover:bg-dark-bg-tertiary rounded-lg transition-colors text-dark-text-secondary hover:text-dark-text"
-                    aria-label="Close modal"
-                >
-                    <X class="w-5 h-5" />
-                </button>
-            </div>
-
-            <!-- Candidates List -->
-            <div class="overflow-y-auto max-h-[calc(85vh-120px)] p-4 space-y-3">
-                {#each scanCandidates as candidate, index}
-                    <button
-                        on:click={() => handleSelectCandidate(candidate, index)}
-                        disabled={isApplyingCandidate}
-                        class="w-full text-left p-4 rounded-xl border transition-all duration-200
-                               {selectedCandidateIndex === index
-                            ? 'border-status-success bg-status-success/20'
-                            : 'bg-dark-bg-tertiary hover:border-accent-orange/50 hover:bg-accent-orange/10'}
-                               disabled:opacity-50 disabled:cursor-not-allowed"
-                        style="border-color: {selectedCandidateIndex === index
-                            ? ''
-                            : 'var(--color-border)'}"
-                    >
-                        <div class="flex items-start gap-4">
-                            <!-- Confidence Badge -->
-                            <div class="flex-shrink-0">
-                                <div
-                                    class="w-14 h-14 rounded-xl flex flex-col items-center justify-center
-                                           {candidate.confidence >= 0.7
-                                        ? 'bg-status-success/20 text-status-success'
-                                        : candidate.confidence >= 0.5
-                                          ? 'bg-status-warning/20 text-status-warning'
-                                          : 'bg-status-error/20 text-status-error'}"
-                                >
-                                    <span class="text-lg font-bold"
-                                        >{Math.round(
-                                            candidate.confidence * 100,
-                                        )}</span
-                                    >
-                                    <span class="text-xs opacity-70">%</span>
-                                </div>
-                            </div>
-
-                            <!-- Candidate Info -->
-                            <div class="flex-1 min-w-0">
-                                <h3
-                                    class="text-dark-text font-semibold text-lg truncate"
-                                >
-                                    {candidate.title ||
-                                        candidate.metadata?.title ||
-                                        "Unknown Title"}
-                                </h3>
-
-                                {#if candidate.metadata}
-                                    <div
-                                        class="mt-2 flex flex-wrap gap-2 text-sm"
-                                    >
-                                        {#if candidate.metadata.year}
-                                            <span
-                                                class="px-2 py-0.5 rounded bg-dark-bg text-dark-text-secondary"
-                                            >
-                                                {candidate.metadata.year}
-                                            </span>
-                                        {/if}
-                                        {#if candidate.metadata.status}
-                                            <span
-                                                class="px-2 py-0.5 rounded
-                                                   {candidate.metadata
-                                                    .status === 'FINISHED'
-                                                    ? 'bg-status-success/20 text-status-success'
-                                                    : candidate.metadata
-                                                            .status ===
-                                                        'RELEASING'
-                                                      ? 'bg-accent-blue/20 text-accent-blue'
-                                                      : 'bg-dark-bg text-dark-text-muted'}"
-                                            >
-                                                {candidate.metadata.status}
-                                            </span>
-                                        {/if}
-                                        {#if candidate.metadata.format}
-                                            <span
-                                                class="px-2 py-0.5 rounded bg-accent-blue/20 text-accent-blue"
-                                            >
-                                                {candidate.metadata.format}
-                                            </span>
-                                        {/if}
-                                        {#if candidate.metadata.count}
-                                            <span
-                                                class="px-2 py-0.5 rounded bg-dark-bg text-dark-text-secondary"
-                                            >
-                                                {candidate.metadata.count} chapters
-                                            </span>
-                                        {/if}
-                                    </div>
-
-                                    {#if candidate.metadata.writer || candidate.metadata.artist}
-                                        <p
-                                            class="mt-2 text-sm text-dark-text-secondary truncate"
-                                        >
-                                            {#if candidate.metadata.writer}
-                                                <span
-                                                    >By {candidate.metadata
-                                                        .writer}</span
-                                                >
-                                            {/if}
-                                            {#if candidate.metadata.writer && candidate.metadata.artist && candidate.metadata.writer !== candidate.metadata.artist}
-                                                <span>
-                                                    • Art by {candidate.metadata
-                                                        .artist}</span
-                                                >
-                                            {:else if candidate.metadata.artist && !candidate.metadata.writer}
-                                                <span
-                                                    >Art by {candidate.metadata
-                                                        .artist}</span
-                                                >
-                                            {/if}
-                                        </p>
-                                    {/if}
-
-                                    {#if candidate.metadata.description}
-                                        <p
-                                            class="mt-2 text-sm text-dark-text-muted line-clamp-2"
-                                        >
-                                            {candidate.metadata.description
-                                                .replace(/<[^>]*>/g, "")
-                                                .substring(0, 150)}...
-                                        </p>
-                                    {/if}
-                                {/if}
-                            </div>
-
-                            <!-- Action -->
-                            <div class="flex-shrink-0 flex items-center">
-                                {#if selectedCandidateIndex === index && isApplyingCandidate}
-                                    <Loader2
-                                        class="w-5 h-5 animate-spin text-status-success"
-                                    />
-                                {:else}
-                                    <div
-                                        class="p-2 rounded-lg bg-dark-bg group-hover:bg-accent-orange/20 transition-colors"
-                                    >
-                                        <Check
-                                            class="w-5 h-5 text-dark-text-muted"
-                                        />
-                                    </div>
-                                {/if}
-                            </div>
-                        </div>
-
-                        <!-- Source Link -->
-                        {#if candidate.source_url}
-                            <a
-                                href={candidate.source_url}
-                                target="_blank"
-                                rel="noopener noreferrer"
-                                on:click|stopPropagation
-                                class="mt-3 inline-flex items-center gap-1 text-xs text-accent-blue hover:text-accent-orange-hover transition-colors"
-                            >
-                                <ExternalLink class="w-3 h-3" />
-                                View on AniList
-                            </a>
-                        {/if}
-                    </button>
-                {/each}
-            </div>
-
-            <!-- Modal Footer -->
-            <div
-                class="p-4 border-t bg-dark-bg-tertiary"
-                style="border-color: var(--color-border);"
-            >
-                <div class="flex justify-between items-center">
-                    <p class="text-xs text-dark-text-muted">
-                        Click on a result to apply its metadata
-                    </p>
-                    <button
-                        on:click={closeCandidateModal}
-                        class="px-4 py-2 rounded-lg bg-dark-bg text-dark-text-secondary hover:bg-dark-bg-secondary transition-colors text-sm font-medium"
-                    >
-                        Cancel
-                    </button>
-                </div>
-            </div>
-        </div>
-    </div>
-{/if}
+<ScanCandidateModal
+    open={showCandidateModal}
+    candidates={scanCandidates}
+    isApplying={isApplyingCandidate}
+    selectedIndex={selectedCandidateIndex}
+    on:close={closeCandidateModal}
+    on:select={(event) => handleSelectCandidate(event.detail.candidate, event.detail.index)}
+/>
 
 <style>
     /* Two-column series layout */

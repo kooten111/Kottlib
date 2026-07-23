@@ -171,3 +171,15 @@ async def get_all_libraries_reading(request: Request, limit: int = 100):
             })
 
         return JSONResponse(comics_list)
+
+
+@router.get("/reading")
+async def get_all_libraries_reading_route(request: Request, limit: int = 100):
+    """Get continue reading across all libraries (Kottlib native)."""
+    return await get_all_libraries_reading(request, limit)
+
+
+@router.get("/continue-reading")
+async def continue_reading_v2(request: Request, limit: int = 10):
+    """Get continue reading list (v2 JSON format)."""
+    return await get_all_libraries_reading(request, limit)

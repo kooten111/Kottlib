@@ -91,18 +91,15 @@ class CBRArchive(ComicArchive):
         Returns:
             File contents as bytes or None if not found
         """
-        try:
-            return self.archive.read(filename)
-        except (KeyError, rarfile.NoRarEntry):
-            # Try case-insensitive search
-            for name in self.archive.namelist():
-                if name.lower() == filename.lower():
-                    return self.archive.read(name)
-            # Not found - return None silently (expected for optional files)
-            return None
-        except Exception as e:
-            logger.error(f"Failed to read {filename} from RAR: {e}")
-        return None
+        from .base import read_archive_file_case_insensitive
+
+        return read_archive_file_case_insensitive(
+            filename,
+            self.archive.namelist(),
+            self.archive.read,
+            not_found_errors=(KeyError, rarfile.NoRarEntry),
+            archive_label="RAR",
+        )
 
     def close(self):
         """Close RAR archive."""

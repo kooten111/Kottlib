@@ -77,16 +77,15 @@ class CBZArchive(ComicArchive):
         Returns:
             File contents as bytes or None if not found
         """
-        try:
-            return self.archive.read(filename)
-        except KeyError:
-            # Try case-insensitive search
-            for name in self.archive.namelist():
-                if name.lower() == filename.lower():
-                    return self.archive.read(name)
-        except Exception as e:
-            logger.error(f"Failed to read {filename} from ZIP: {e}")
-        return None
+        from .base import read_archive_file_case_insensitive
+
+        return read_archive_file_case_insensitive(
+            filename,
+            self.archive.namelist(),
+            self.archive.read,
+            not_found_errors=(KeyError,),
+            archive_label="ZIP",
+        )
 
     def close(self):
         """Close ZIP archive."""

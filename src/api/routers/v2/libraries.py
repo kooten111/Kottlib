@@ -188,8 +188,12 @@ def scan_library_background(library_id: int, request: Request):
         try:
             with db.get_session() as session:
                 update_library_scan_status(session, library_id, status="error")
-        except Exception:
-            pass  # Don't fail if we can't update status
+        except Exception as status_err:
+            logger.warning(
+                "Failed to update scan status after error for library %s: %s",
+                library_id,
+                status_err,
+            )
 
         _file_scan_progress[library_id] = {
             "current": 0,
@@ -215,6 +219,7 @@ class LibrarySimple(BaseModel):
     id: int
     name: str
     uuid: str
+    path: str
 
 
 class LibraryInfo(BaseModel):
@@ -314,9 +319,15 @@ async def list_libraries(session: Session = Depends(get_db_session)):
     result = []
     for lib in libraries:
         uuid_formatted = f"{{{lib.uuid}}}" if not str(lib.uuid).startswith('{') else str(lib.uuid)
-        result.append(LibrarySimple(id=lib.id, name=lib.name, uuid=uuid_formatted))
+        result.append(LibrarySimple(id=lib.id, name=lib.name, uuid=uuid_formatted, path=lib.path))
 
     return result
+
+
+@router.get("/library/{library_id}", response_model=LibraryInfo)
+async def get_library_route(library_id: int, session: Session = Depends(get_db_session)):
+    """Get library by ID"""
+    return await get_library(library_id, session)
 
 
 async def get_library(library_id: int, session: Session = Depends(get_db_session)):

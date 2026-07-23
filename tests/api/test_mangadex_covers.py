@@ -218,9 +218,9 @@ class TestDatabaseMigration:
 
     def test_migration_module_exists(self):
         """Test that the migration module exists and can be imported"""
-        from src.database.migrations import add_cover_source_fields
-        assert hasattr(add_cover_source_fields, 'upgrade')
-        assert hasattr(add_cover_source_fields, 'downgrade')
+        from src.database.migrations import add_cover_source_columns
+        assert hasattr(add_cover_source_columns, 'upgrade')
+        assert hasattr(add_cover_source_columns, 'downgrade')
 
 
 class TestCreateCoverFunction:

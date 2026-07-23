@@ -243,6 +243,9 @@ async def sync_session_v2(request: Request, yacread_session: Optional[str] = Coo
             except Exception as cache_err:
                 logger.warning(f"Failed to invalidate browse cache after sync: {cache_err}")
 
+        if json_comics:
+            return JSONResponse({"synced": synced_count, "updates": server_updates})
+
         return JSONResponse(server_updates)
 
     except Exception as e:

@@ -8,14 +8,16 @@ to improve readability and maintainability.
 from typing import Optional, List, Dict, Tuple
 import random
 
-from sqlalchemy.orm import Session
+from sqlalchemy import func, desc
+from sqlalchemy.orm import Session, Query
 
 from ....database.models import (
     Folder as FolderModel,
     Comic,
     Series,
-    ReadingProgress
+    ReadingProgress,
 )
+from ._item_builders import build_folder_item, build_comic_item
 
 
 def apply_random_sort(
@@ -163,5 +165,250 @@ def get_cover_hash_fallback(
     
     if cover_comic:
         return cover_comic[0]
-    
+
+    return None
+
+
+def count_folder_children(
+    session: Session,
+    folder_id: int,
+    library_id: int,
+) -> Tuple[int, int]:
+    """Return (folder_count, comic_count) for direct children of a folder."""
+    num_folders = session.query(func.count(FolderModel.id)).filter(
+        FolderModel.parent_id == folder_id
+    ).scalar()
+    num_comics = session.query(func.count(Comic.id)).filter(
+        Comic.library_id == library_id,
+        Comic.folder_id == folder_id,
+    ).scalar()
+    return num_folders, num_comics
+
+
+def apply_browse_sort_queries(
+    session: Session,
+    library_id: int,
+    current_folder: FolderModel,
+    normalized_sort: str,
+    user,
+) -> Tuple[Query, Query]:
+    """Build sorted folder and comic queries for standard browse pagination."""
+    folders_query = session.query(FolderModel).filter(
+        FolderModel.parent_id == current_folder.id
+    )
+    comics_query = session.query(Comic).filter(
+        Comic.library_id == library_id,
+        Comic.folder_id == current_folder.id,
+    )
+
+    if normalized_sort in ("created", "recent"):
+        folders_query = folders_query.order_by(desc(FolderModel.created_at), FolderModel.name)
+        comics_query = comics_query.order_by(desc(Comic.created_at), Comic.path)
+    elif normalized_sort == "updated":
+        latest_descendant_created_subq = session.query(func.max(Comic.created_at)).filter(
+            Comic.library_id == library_id,
+            Comic.path.like(FolderModel.path + "/%"),
+        ).correlate(FolderModel).scalar_subquery()
+        folders_query = folders_query.order_by(
+            desc(func.coalesce(latest_descendant_created_subq, FolderModel.created_at)),
+            FolderModel.name,
+        )
+        comics_query = comics_query.order_by(desc(Comic.created_at), Comic.path)
+    elif normalized_sort == "progress" and user:
+        comics_query = comics_query.outerjoin(
+            ReadingProgress,
+            (ReadingProgress.comic_id == Comic.id) & (ReadingProgress.user_id == user.id),
+        ).order_by(
+            ReadingProgress.last_read_at.desc().nulls_last(),
+            ReadingProgress.progress_percent.desc().nulls_last(),
+            Comic.path,
+        )
+        folders_query = folders_query.order_by(FolderModel.name)
+    else:
+        folders_query = folders_query.order_by(FolderModel.name)
+        comics_query = comics_query.order_by(Comic.path)
+
+    return folders_query, comics_query
+
+
+def _folder_items_for_folders(
+    session: Session,
+    library_id: int,
+    folders: List[FolderModel],
+    breadcrumbs: List[dict],
+) -> List[dict]:
+    if not folders:
+        return []
+
+    series_map, folders_with_children = batch_fetch_folder_metadata(
+        session, folders, library_id
+    )
+    items: List[dict] = []
+    for folder in folders:
+        cover_hash = folder.first_child_hash
+        if not cover_hash:
+            cover_hash = get_cover_hash_fallback(session, library_id, folder)
+        items.append(
+            build_folder_item(
+                folder=folder,
+                series_record=series_map.get(folder.name),
+                has_children=folder.id in folders_with_children,
+                breadcrumbs=breadcrumbs,
+                cover_hash=cover_hash,
+            )
+        )
+    return items
+
+
+def _comic_items_for_comics(
+    session: Session,
+    comics: List[Comic],
+    user,
+    per_volume_metadata: bool,
+) -> List[dict]:
+    if not comics:
+        return []
+
+    progress_map: Dict[int, ReadingProgress] = {}
+    if user:
+        progress_map = batch_fetch_comic_progress(
+            session, [comic.id for comic in comics], user.id
+        )
+
+    return [
+        build_comic_item(
+            comic=comic,
+            progress=progress_map.get(comic.id),
+            include_size=True,
+            include_metadata=per_volume_metadata,
+        )
+        for comic in comics
+    ]
+
+
+def fetch_random_browse_items(
+    session: Session,
+    library_id: int,
+    current_folder: FolderModel,
+    breadcrumbs: List[dict],
+    user,
+    offset: int,
+    limit: int,
+    seed: Optional[int],
+    per_volume_metadata: bool,
+) -> Tuple[List[dict], int]:
+    """Fetch a shuffled, paginated browse page."""
+    paged_items, total_items = apply_random_sort(
+        session,
+        current_folder.id,
+        library_id,
+        offset,
+        limit,
+        seed,
+    )
+
+    paged_folder_ids = [item_id for item_type, item_id in paged_items if item_type == "folder"]
+    paged_comic_ids = [item_id for item_type, item_id in paged_items if item_type == "comic"]
+
+    folder_map: Dict[int, FolderModel] = {}
+    if paged_folder_ids:
+        fetched_folders = session.query(FolderModel).filter(
+            FolderModel.id.in_(paged_folder_ids)
+        ).all()
+        folder_map = {folder.id: folder for folder in fetched_folders}
+
+    comic_map: Dict[int, Comic] = {}
+    if paged_comic_ids:
+        fetched_comics = session.query(Comic).filter(Comic.id.in_(paged_comic_ids)).all()
+        comic_map = {comic.id: comic for comic in fetched_comics}
+
+    series_map: Dict[str, Series] = {}
+    folders_with_children: set = set()
+    if folder_map:
+        series_map, folders_with_children = batch_fetch_folder_metadata(
+            session, list(folder_map.values()), library_id
+        )
+
+    progress_map: Dict[int, ReadingProgress] = {}
+    if user and paged_comic_ids:
+        progress_map = batch_fetch_comic_progress(session, paged_comic_ids, user.id)
+
+    items: List[dict] = []
+    for item_type, item_id in paged_items:
+        if item_type == "folder":
+            folder = folder_map.get(item_id)
+            if not folder:
+                continue
+            cover_hash = folder.first_child_hash or get_cover_hash_fallback(
+                session, library_id, folder
+            )
+            items.append(
+                build_folder_item(
+                    folder=folder,
+                    series_record=series_map.get(folder.name),
+                    has_children=folder.id in folders_with_children,
+                    breadcrumbs=breadcrumbs,
+                    cover_hash=cover_hash,
+                )
+            )
+        elif item_type == "comic":
+            comic = comic_map.get(item_id)
+            if not comic:
+                continue
+            items.append(
+                build_comic_item(
+                    comic=comic,
+                    progress=progress_map.get(comic.id),
+                    include_size=True,
+                    include_metadata=per_volume_metadata,
+                )
+            )
+
+    return items, total_items
+
+
+def fetch_sorted_browse_items(
+    session: Session,
+    library_id: int,
+    current_folder: FolderModel,
+    breadcrumbs: List[dict],
+    user,
+    normalized_sort: str,
+    offset: int,
+    limit: int,
+    per_volume_metadata: bool,
+) -> Tuple[List[dict], int]:
+    """Fetch a sorted, paginated browse page (folders first, then comics)."""
+    folders_query, comics_query = apply_browse_sort_queries(
+        session, library_id, current_folder, normalized_sort, user
+    )
+
+    num_folders, num_comics = count_folder_children(
+        session, current_folder.id, library_id
+    )
+    total_items = num_folders + num_comics
+    items: List[dict] = []
+
+    if offset < num_folders:
+        fetched_folders = folders_query.offset(offset).limit(limit).all()
+        items.extend(
+            _folder_items_for_folders(session, library_id, fetched_folders, breadcrumbs)
+        )
+
+    remaining_limit = limit - len(items)
+    if remaining_limit > 0:
+        comic_offset = max(0, offset - num_folders)
+        fetched_comics = comics_query.offset(comic_offset).limit(remaining_limit).all()
+        items.extend(
+            _comic_items_for_comics(session, fetched_comics, user, per_volume_metadata)
+        )
+
+    return items, total_items
+
+
+def find_first_comic_metadata(items: List[dict]) -> Optional[dict]:
+    """Return the first comic item dict from a browse items list."""
+    for item in items:
+        if item.get("type") == "comic":
+            return item
     return None

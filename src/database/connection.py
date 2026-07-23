@@ -10,7 +10,7 @@ from pathlib import Path
 from typing import Optional, Generator, Union
 from contextlib import contextmanager
 
-from sqlalchemy import create_engine, text, Engine
+from sqlalchemy import create_engine, Engine
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import sessionmaker, Session
 from sqlalchemy.pool import NullPool
@@ -96,91 +96,10 @@ class Database:
             logger.debug("Admin user already exists (created by another process)")
 
     def _run_migrations(self) -> None:
-        """
-        Run database migrations to update schema for existing databases.
+        """Run database migrations to update schema for existing databases."""
+        from .migrations.runner import run_startup_migrations
 
-        This ensures that databases created with older versions of the code
-        are updated to match the current schema.
-        """
-        try:
-            with self.engine.connect() as conn:
-                # Migration 1: Add missing columns to sessions table
-                # Check if device_type column exists
-                result = conn.execute(text("PRAGMA table_info(sessions)")).fetchall()
-                column_names = [row[1] for row in result]
-
-                if 'device_type' not in column_names:
-                    logger.info("Running migration: Adding device_type to sessions table")
-                    conn.execute(text("ALTER TABLE sessions ADD COLUMN device_type TEXT NULL"))
-                    conn.commit()
-                    logger.info("Migration complete: device_type column added")
-
-                if 'display_type' not in column_names:
-                    logger.info("Running migration: Adding display_type to sessions table")
-                    conn.execute(text("ALTER TABLE sessions ADD COLUMN display_type TEXT NULL"))
-                    conn.commit()
-                    logger.info("Migration complete: display_type column added")
-
-                if 'downloaded_comics' not in column_names:
-                    logger.info("Running migration: Adding downloaded_comics to sessions table")
-                    conn.execute(text("ALTER TABLE sessions ADD COLUMN downloaded_comics TEXT NULL"))
-                    conn.commit()
-                    logger.info("Migration complete: downloaded_comics column added")
-
-                # Migration 2: Add cover source columns
-                result = conn.execute(text("PRAGMA table_info(covers)")).fetchall()
-                cover_columns = [row[1] for row in result]
-
-                if 'source' not in cover_columns:
-                    logger.info("Running migration: Adding source to covers table")
-                    conn.execute(text("ALTER TABLE covers ADD COLUMN source TEXT NOT NULL DEFAULT 'archive'"))
-                    conn.commit()
-                    logger.info("Migration complete: source column added")
-
-                if 'source_url' not in cover_columns:
-                    logger.info("Running migration: Adding source_url to covers table")
-                    conn.execute(text("ALTER TABLE covers ADD COLUMN source_url TEXT NULL"))
-                    conn.commit()
-                    logger.info("Migration complete: source_url column added")
-
-                # Migration 3: Create favorites table if missing (was only in schema_v3.sql)
-                result = conn.execute(text("SELECT name FROM sqlite_master WHERE type='table' AND name='favorites'")).fetchone()
-                if not result:
-                    logger.info("Running migration: Creating favorites table")
-                    conn.execute(text("""
-                        CREATE TABLE favorites (
-                            id INTEGER PRIMARY KEY AUTOINCREMENT,
-                            user_id INTEGER NOT NULL DEFAULT 1,
-                            library_id INTEGER NOT NULL,
-                            comic_id INTEGER NOT NULL,
-                            created_at INTEGER NOT NULL,
-                            FOREIGN KEY (comic_id) REFERENCES comics(id) ON DELETE CASCADE,
-                            UNIQUE(user_id, comic_id)
-                        )
-                    """))
-                    conn.execute(text("CREATE INDEX idx_favorites_user ON favorites(user_id)"))
-                    conn.execute(text("CREATE INDEX idx_favorites_comic ON favorites(comic_id)"))
-                    conn.commit()
-                    logger.info("Migration complete: favorites table created")
-
-                # Migration 4: Add missing browse/sort performance indexes
-                logger.info("Running migration: Ensuring browse performance indexes")
-                conn.execute(text(
-                    "CREATE INDEX IF NOT EXISTS idx_comics_folder_created ON comics(folder_id, created_at DESC)"
-                ))
-                conn.execute(text(
-                    "CREATE INDEX IF NOT EXISTS idx_comics_library_created ON comics(library_id, created_at DESC)"
-                ))
-                conn.execute(text(
-                    "CREATE INDEX IF NOT EXISTS idx_comics_library_path_created ON comics(library_id, path, created_at DESC)"
-                ))
-                conn.commit()
-                logger.info("Migration complete: browse performance indexes ensured")
-
-        except Exception as e:
-            logger.error(f"Error running migrations: {e}")
-            # Don't fail startup if migrations fail - the app might still work
-            # This is a best-effort attempt to update the schema
+        run_startup_migrations(self.engine)
 
     @contextmanager
     def get_session(self) -> Generator[Session, None, None]:

@@ -71,12 +71,12 @@ async def search_comics_v2(
             body = await request.json()
             # YACReader uses "query" field in POST body, but also support "q" for compatibility
             query = body.get("query", body.get("q", ""))
-        except:
+        except Exception:
             # If JSON parsing fails, try form data
             try:
                 form = await request.form()
                 query = form.get("query", form.get("q", ""))
-            except:
+            except Exception:
                 pass
 
     if not query or not query.strip():
@@ -301,7 +301,7 @@ async def search_comics_advanced_v2(
             query = body.get("query", body.get("q", ""))
             limit = body.get("limit", limit)
             offset = body.get("offset", offset)
-        except:
+        except Exception:
             pass
 
     if not query or not query.strip():

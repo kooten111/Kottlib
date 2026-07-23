@@ -14,6 +14,30 @@ import logging
 logger = logging.getLogger(__name__)
 
 
+def read_archive_file_case_insensitive(
+    filename: str,
+    names,
+    read_fn,
+    not_found_errors: tuple = (KeyError,),
+    archive_label: str = "archive",
+) -> Optional[bytes]:
+    """Read a file from an archive, falling back to case-insensitive name match."""
+    try:
+        return read_fn(filename)
+    except not_found_errors:
+        for name in names:
+            if name.lower() == filename.lower():
+                try:
+                    return read_fn(name)
+                except Exception as e:
+                    logger.error(f"Failed to read {name} from {archive_label}: {e}")
+                    return None
+        return None
+    except Exception as e:
+        logger.error(f"Failed to read {filename} from {archive_label}: {e}")
+        return None
+
+
 class ComicArchive:
     """
     Base class for comic archives.

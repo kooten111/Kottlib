@@ -6,9 +6,8 @@ Sessions are tracked via the 'yacread_session' cookie.
 """
 
 import logging
-import time
 from typing import Optional
-from fastapi import Request, Response
+from fastapi import Request
 from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.responses import Response as StarletteResponse
 
@@ -19,9 +18,7 @@ from ...database import (
     create_session,
     get_user_by_username,
     get_user_by_id,
-    hash_password,
 )
-from ...database.models import User
 from ...constants import DEFAULT_USER
 
 logger = logging.getLogger(__name__)
@@ -216,6 +213,16 @@ def require_user(request: Request) -> int:
     return user_id
 
 
+def require_admin_user(request: Request, session):
+    """Require an authenticated admin user."""
+    from fastapi import HTTPException
+
+    user = get_request_user(request, session)
+    if not user.is_admin:
+        raise HTTPException(status_code=403, detail="Admin access required")
+    return user
+
+
 def get_request_user(request: Request, session):
     """
     Get the current user from request or fallback to default admin user
@@ -243,14 +250,9 @@ def get_request_user(request: Request, session):
     if user:
         return user
 
-    user = User(
-        username=DEFAULT_USER,
-        password_hash=hash_password('changeme'),
-        is_admin=True,
-        is_active=True,
-        created_at=int(time.time())
+    from fastapi import HTTPException
+
+    raise HTTPException(
+        status_code=503,
+        detail="Default admin user not initialized. Run init_db before starting the server.",
     )
-    session.add(user)
-    session.flush()
-    logger.info("Auto-created default admin user for request compatibility")
-    return user

@@ -50,12 +50,10 @@ def upgrade(session: Session) -> None:
         else:
             logger.info("Column 'source_id' already exists, skipping...")
 
-        session.commit()
         logger.info("Cover source columns migration complete!")
 
     except Exception as e:
         logger.error(f"Migration failed: {e}")
-        session.rollback()
         raise
 
 
@@ -100,3 +98,4 @@ if __name__ == "__main__":
             print(f"Migration needed: {needed}")
         else:
             upgrade(session)
+            session.commit()

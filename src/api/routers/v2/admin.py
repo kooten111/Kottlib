@@ -12,6 +12,7 @@ from pydantic import BaseModel
 
 from ....database.search_index import SearchIndexManager
 from ....database.migrations import add_search_indexes
+from ...middleware import require_admin_user
 
 logger = logging.getLogger(__name__)
 
@@ -61,6 +62,9 @@ async def reindex_search(
     db = request.app.state.db
 
     try:
+        with db.get_session() as session:
+            require_admin_user(request, session)
+
         with db.get_session() as session:
             # Check if FTS table exists
             if not SearchIndexManager.check_fts_exists(session):
@@ -117,6 +121,8 @@ async def reindex_search_sync(request: Request):
             raise HTTPException(status_code=409, detail="Reindex already in progress")
         try:
             with db.get_session() as session:
+                require_admin_user(request, session)
+
                 # Check if FTS table exists
                 if not SearchIndexManager.check_fts_exists(session):
                     logger.warning("FTS table does not exist, creating it first...")
@@ -159,6 +165,7 @@ async def run_search_indexes_migration(request: Request):
 
     try:
         with db.get_session() as session:
+            require_admin_user(request, session)
             logger.info("Running search indexes migration...")
             add_search_indexes.upgrade(session)
 
@@ -188,6 +195,7 @@ async def get_search_index_status(request: Request):
 
     try:
         with db.get_session() as session:
+            require_admin_user(request, session)
             fts_exists = SearchIndexManager.check_fts_exists(session)
 
             if not fts_exists:

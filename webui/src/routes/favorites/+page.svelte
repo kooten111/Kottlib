@@ -6,6 +6,7 @@
 	import { getFavorites } from '$lib/api/favorites';
 	import { getLibraries, getLibrariesSeriesTree } from '$lib/api/libraries';
 	import { Heart, Grid, List } from 'lucide-svelte';
+	import { encodePath } from '$lib/browse/browseNavigation';
 
 	let favorites = [];
 	let isLoading = true;
@@ -66,14 +67,6 @@
 
 	function toggleViewMode() {
 		viewMode = viewMode === 'grid' ? 'list' : 'grid';
-	}
-
-	function encodePath(path) {
-		if (!path) return '';
-		return path
-			.split('/')
-			.map((segment) => encodeURIComponent(segment))
-			.join('/');
 	}
 
 	function getFavoriteHref(comic) {

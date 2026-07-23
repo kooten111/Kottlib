@@ -146,7 +146,7 @@ sequenceDiagram
 | Framework | SvelteKit | 2.x | Modern SSR-capable frontend |
 | Styling | TailwindCSS | 3.x | Utility-first CSS framework |
 | State Management | Svelte Stores | native | Reactive state management |
-| Data Fetching | TanStack Query | 5.x | Server state caching (15min stale, 30min cache) |
+| Data Fetching | Custom APIClient + IndexedDB | — | Stale-while-revalidate client cache (`webui/src/lib/api/client.js`) |
 | Build Tool | Vite | 5.x | Fast development and production builds |
 
 ### External APIs
@@ -360,10 +360,8 @@ Metadata scanners are discovered dynamically from the `scanners/` directory:
 - Scanners define their own configuration schemas
 - ScannerManager handles registration and instantiation
 
-### 3. Per-Library Database
-While there's a main database for configuration, each library can have its own data:
-- Enables library-specific settings
-- Supports distributed/federated setups
+### 3. Single Shared Database
+All libraries share one SQLite database (`data/main.db`). Libraries are rows in the `libraries` table; comics and folders reference `library_id`. Per-library paths on disk (`data/{library_name}/`) store files and browse cache, not separate database files.
 
 ### 4. Dual Thumbnail Format
 Covers are generated in both JPEG and WebP:

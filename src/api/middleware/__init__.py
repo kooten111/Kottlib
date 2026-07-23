@@ -10,6 +10,7 @@ from .session import (
     get_current_session_id,
     require_session,
     require_user,
+    require_admin_user,
     get_request_user,
 )
 
@@ -19,5 +20,6 @@ __all__ = [
     'get_current_session_id',
     'require_session',
     'require_user',
+    'require_admin_user',
     'get_request_user',
 ]

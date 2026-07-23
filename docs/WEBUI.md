@@ -11,7 +11,7 @@ The SvelteKit frontend provides a modern web interface for browsing and reading 
 | Framework | SvelteKit | 2.x |
 | Styling | TailwindCSS | 3.x |
 | State Management | Svelte Stores | Native |
-| Data Fetching | TanStack Query | 5.x |
+| Data Fetching | Custom APIClient + IndexedDB | — |
 | Build Tool | Vite | 5.x |
 | Package Manager | Bun | - |
 
@@ -403,17 +403,13 @@ preferences.update(p => ({ ...p, gridSize: 'large' }));
 ```
 
 ### Server Data
-TanStack Query for caching and synchronization.
+Custom `APIClient` with IndexedDB stale-while-revalidate caching.
 
 ```javascript
-import { createQuery } from '@tanstack/svelte-query';
+import { api, appApi } from '$lib/api/client.js';
 
-const librariesQuery = createQuery({
-    queryKey: ['libraries'],
-    queryFn: () => getLibraries(),
-    staleTime: 15 * 60 * 1000,    // 15 minutes
-    cacheTime: 30 * 60 * 1000     // 30 minutes
-});
+// Same-origin requests proxied to backend via hooks.server.js
+const libraries = await appApi.get('/libraries');
 ```
 
 ---

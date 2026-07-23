@@ -309,6 +309,17 @@ async def get_folder_v2(
         return JSONResponse(result)
 
 
+@router.get("/library/{library_id}/folder/{folder_id}")
+async def get_folder(
+    library_id: int,
+    folder_id: int,
+    request: Request,
+    sort: Optional[str] = "folders_first",
+):
+    """Get folder contents (YACReader v2 JSON format)."""
+    return await get_folder_v2(library_id, folder_id, request, sort)
+
+
 @router.get("/library/{library_id}/folder/{folder_id}/info")
 async def get_folder_info_v2(
     library_id: int,

@@ -1,0 +1,541 @@
+============================= test session starts ==============================
+platform linux -- Python 3.14.4, pytest-9.0.3, pluggy-1.6.0
+rootdir: /mnt/Server/kottlib
+configfile: pytest.ini (WARNING: ignoring pytest config in pyproject.toml!)
+testpaths: tests
+plugins: anyio-4.13.0, asyncio-1.3.0, cov-7.1.0
+asyncio: mode=Mode.AUTO, debug=False, asyncio_default_fixture_loop_scope=None, asyncio_default_test_loop_scope=function
+collected 269 items
+
+tests/api/test_app_api_favorites.py ..                                   [  0%]
+tests/api/test_app_api_reading_lists.py ...                              [  1%]
+tests/api/test_covers.py ..................                              [  8%]
+tests/api/test_integration.py ...F.............F.......                  [ 17%]
+tests/api/test_mangadex_covers.py .............                          [ 22%]
+tests/api/test_v1_api.py .................................               [ 34%]
+tests/api/test_v2_api.py FF.F.F...........FF.........F.................F [ 52%]
+F...                                                                     [ 53%]
+tests/api/test_v2_favorites_compat.py ..                                 [ 54%]
+tests/api/test_v2_reading_lists_compat.py ...                            [ 55%]
+tests/scanner/test_cleanup.py ...                                        [ 56%]
+tests/scanner/test_comic_loader.py .............................         [ 67%]
+tests/scanners/test_mangadex_scanner.py .............................    [ 78%]
+tests/services/test_metadata_service.py ...........                      [ 82%]
+tests/test_api_config_sync.py ...                                        [ 83%]
+tests/test_config_sync.py .....                                          [ 85%]
+tests/test_database_operations.py ...................                    [ 92%]
+tests/test_services.py ....                                              [ 94%]
+tests/test_settings.py ................/usr/lib/python3.14/ast.py:46: ResourceWarning: unclosed database in <sqlite3.Connection object at 0x71ce6184d8a0>
+  return compile(source, filename, mode, flags,
+ResourceWarning: Enable tracemalloc to get the object allocation traceback
+/usr/lib/python3.14/ast.py:46: ResourceWarning: unclosed database in <sqlite3.Connection object at 0x71ce6216fc40>
+  return compile(source, filename, mode, flags,
+ResourceWarning: Enable tracemalloc to get the object allocation traceback
+/usr/lib/python3.14/ast.py:46: ResourceWarning: unclosed database in <sqlite3.Connection object at 0x71ce60bd62f0>
+  return compile(source, filename, mode, flags,
+ResourceWarning: Enable tracemalloc to get the object allocation traceback
+/usr/lib/python3.14/ast.py:46: ResourceWarning: unclosed database in <sqlite3.Connection object at 0x71ce648562f0>
+  return compile(source, filename, mode, flags,
+ResourceWarning: Enable tracemalloc to get the object allocation traceback
+/usr/lib/python3.14/ast.py:46: ResourceWarning: unclosed database in <sqlite3.Connection object at 0x71ce616b6200>
+  return compile(source, filename, mode, flags,
+ResourceWarning: Enable tracemalloc to get the object allocation traceback
+/usr/lib/python3.14/ast.py:46: ResourceWarning: unclosed database in <sqlite3.Connection object at 0x71ce616b73d0>
+  return compile(source, filename, mode, flags,
+ResourceWarning: Enable tracemalloc to get the object allocation traceback
+/usr/lib/python3.14/ast.py:46: ResourceWarning: unclosed database in <sqlite3.Connection object at 0x71ce622bd5d0>
+  return compile(source, filename, mode, flags,
+ResourceWarning: Enable tracemalloc to get the object allocation traceback
+/usr/lib/python3.14/ast.py:46: ResourceWarning: unclosed database in <sqlite3.Connection object at 0x71ce607cec50>
+  return compile(source, filename, mode, flags,
+ResourceWarning: Enable tracemalloc to get the object allocation traceback
+/usr/lib/python3.14/ast.py:46: ResourceWarning: unclosed database in <sqlite3.Connection object at 0x71ce606d1120>
+  return compile(source, filename, mode, flags,
+ResourceWarning: Enable tracemalloc to get the object allocation traceback
+/usr/lib/python3.14/ast.py:46: ResourceWarning: unclosed database in <sqlite3.Connection object at 0x71ce625f5030>
+  return compile(source, filename, mode, flags,
+ResourceWarning: Enable tracemalloc to get the object allocation traceback
+/usr/lib/python3.14/ast.py:46: ResourceWarning: unclosed database in <sqlite3.Connection object at 0x71ce627484f0>
+  return compile(source, filename, mode, flags,
+ResourceWarning: Enable tracemalloc to get the object allocation traceback
+/usr/lib/python3.14/ast.py:46: ResourceWarning: unclosed database in <sqlite3.Connection object at 0x71ce617d5030>
+  return compile(source, filename, mode, flags,
+ResourceWarning: Enable tracemalloc to get the object allocation traceback
+/usr/lib/python3.14/ast.py:46: ResourceWarning: unclosed database in <sqlite3.Connection object at 0x71ce5be664d0>
+  return compile(source, filename, mode, flags,
+ResourceWarning: Enable tracemalloc to get the object allocation traceback
+/usr/lib/python3.14/ast.py:46: ResourceWarning: unclosed database in <sqlite3.Connection object at 0x71ce5be885e0>
+  return compile(source, filename, mode, flags,
+ResourceWarning: Enable tracemalloc to get the object allocation traceback
+/usr/lib/python3.14/ast.py:46: ResourceWarning: unclosed database in <sqlite3.Connection object at 0x71ce5be8a890>
+  return compile(source, filename, mode, flags,
+ResourceWarning: Enable tracemalloc to get the object allocation traceback
+/usr/lib/python3.14/ast.py:46: ResourceWarning: unclosed database in <sqlite3.Connection object at 0x71ce5bee0b80>
+  return compile(source, filename, mode, flags,
+ResourceWarning: Enable tracemalloc to get the object allocation traceback
+/usr/lib/python3.14/ast.py:46: ResourceWarning: unclosed database in <sqlite3.Connection object at 0x71ce5bee2e30>
+  return compile(source, filename, mode, flags,
+ResourceWarning: Enable tracemalloc to get the object allocation traceback
+/usr/lib/python3.14/ast.py:46: ResourceWarning: unclosed database in <sqlite3.Connection object at 0x71ce5b85d120>
+  return compile(source, filename, mode, flags,
+ResourceWarning: Enable tracemalloc to get the object allocation traceback
+/usr/lib/python3.14/ast.py:46: ResourceWarning: unclosed database in <sqlite3.Connection object at 0x71ce5b85f3d0>
+  return compile(source, filename, mode, flags,
+ResourceWarning: Enable tracemalloc to get the object allocation traceback
+/usr/lib/python3.14/ast.py:46: ResourceWarning: unclosed database in <sqlite3.Connection object at 0x71ce5b8dc400>
+  return compile(source, filename, mode, flags,
+ResourceWarning: Enable tracemalloc to get the object allocation traceback
+/usr/lib/python3.14/ast.py:46: ResourceWarning: unclosed database in <sqlite3.Connection object at 0x71ce5b705030>
+  return compile(source, filename, mode, flags,
+ResourceWarning: Enable tracemalloc to get the object allocation traceback
+/usr/lib/python3.14/ast.py:46: ResourceWarning: unclosed database in <sqlite3.Connection object at 0x71ce5b707010>
+  return compile(source, filename, mode, flags,
+ResourceWarning: Enable tracemalloc to get the object allocation traceback
+/usr/lib/python3.14/ast.py:46: ResourceWarning: unclosed database in <sqlite3.Connection object at 0x71ce5b7a5300>
+  return compile(source, filename, mode, flags,
+ResourceWarning: Enable tracemalloc to get the object allocation traceback
+/usr/lib/python3.14/ast.py:46: ResourceWarning: unclosed database in <sqlite3.Connection object at 0x71ce5b7a72e0>
+  return compile(source, filename, mode, flags,
+ResourceWarning: Enable tracemalloc to get the object allocation traceback
+/usr/lib/python3.14/ast.py:46: ResourceWarning: unclosed database in <sqlite3.Connection object at 0x71ce5b7d54e0>
+  return compile(source, filename, mode, flags,
+ResourceWarning: Enable tracemalloc to get the object allocation traceback
+/usr/lib/python3.14/ast.py:46: ResourceWarning: unclosed database in <sqlite3.Connection object at 0x71ce5b7d71f0>
+  return compile(source, filename, mode, flags,
+ResourceWarning: Enable tracemalloc to get the object allocation traceback
+/usr/lib/python3.14/ast.py:46: ResourceWarning: unclosed database in <sqlite3.Connection object at 0x71ce5b609300>
+  return compile(source, filename, mode, flags,
+ResourceWarning: Enable tracemalloc to get the object allocation traceback
+/usr/lib/python3.14/ast.py:46: ResourceWarning: unclosed database in <sqlite3.Connection object at 0x71ce5b60b1f0>
+  return compile(source, filename, mode, flags,
+ResourceWarning: Enable tracemalloc to get the object allocation traceback
+/usr/lib/python3.14/ast.py:46: ResourceWarning: unclosed database in <sqlite3.Connection object at 0x71ce5b6413f0>
+  return compile(source, filename, mode, flags,
+ResourceWarning: Enable tracemalloc to get the object allocation traceback
+/usr/lib/python3.14/ast.py:46: ResourceWarning: unclosed database in <sqlite3.Connection object at 0x71ce5b6435b0>
+  return compile(source, filename, mode, flags,
+ResourceWarning: Enable tracemalloc to get the object allocation traceback
+/usr/lib/python3.14/ast.py:46: ResourceWarning: unclosed database in <sqlite3.Connection object at 0x71ce5b6794e0>
+  return compile(source, filename, mode, flags,
+ResourceWarning: Enable tracemalloc to get the object allocation traceback
+/usr/lib/python3.14/ast.py:46: ResourceWarning: unclosed database in <sqlite3.Connection object at 0x71ce5b67b5b0>
+  return compile(source, filename, mode, flags,
+ResourceWarning: Enable tracemalloc to get the object allocation traceback
+/usr/lib/python3.14/ast.py:46: ResourceWarning: unclosed database in <sqlite3.Connection object at 0x71ce5b6d97b0>
+  return compile(source, filename, mode, flags,
+ResourceWarning: Enable tracemalloc to get the object allocation traceback
+/usr/lib/python3.14/ast.py:46: ResourceWarning: unclosed database in <sqlite3.Connection object at 0x71ce5b6dba60>
+  return compile(source, filename, mode, flags,
+ResourceWarning: Enable tracemalloc to get the object allocation traceback
+/usr/lib/python3.14/ast.py:46: ResourceWarning: unclosed database in <sqlite3.Connection object at 0x71ce5b565990>
+  return compile(source, filename, mode, flags,
+ResourceWarning: Enable tracemalloc to get the object allocation traceback
+/usr/lib/python3.14/ast.py:46: ResourceWarning: unclosed database in <sqlite3.Connection object at 0x71ce5b567d30>
+  return compile(source, filename, mode, flags,
+ResourceWarning: Enable tracemalloc to get the object allocation traceback
+/usr/lib/python3.14/ast.py:46: ResourceWarning: unclosed database in <sqlite3.Connection object at 0x71ce5b5d6110>
+  return compile(source, filename, mode, flags,
+ResourceWarning: Enable tracemalloc to get the object allocation traceback
+/usr/lib/python3.14/ast.py:46: ResourceWarning: unclosed database in <sqlite3.Connection object at 0x71ce5b430310>
+  return compile(source, filename, mode, flags,
+ResourceWarning: Enable tracemalloc to get the object allocation traceback
+/usr/lib/python3.14/ast.py:46: ResourceWarning: unclosed database in <sqlite3.Connection object at 0x71ce5b4326b0>
+  return compile(source, filename, mode, flags,
+ResourceWarning: Enable tracemalloc to get the object allocation traceback
+/usr/lib/python3.14/ast.py:46: ResourceWarning: unclosed database in <sqlite3.Connection object at 0x71ce5b3046d0>
+  return compile(source, filename, mode, flags,
+ResourceWarning: Enable tracemalloc to get the object allocation traceback
+/usr/lib/python3.14/ast.py:46: ResourceWarning: unclosed database in <sqlite3.Connection object at 0x71ce5b306890>
+  return compile(source, filename, mode, flags,
+ResourceWarning: Enable tracemalloc to get the object allocation traceback
+/usr/lib/python3.14/ast.py:46: ResourceWarning: unclosed database in <sqlite3.Connection object at 0x71ce5b384c70>
+  return compile(source, filename, mode, flags,
+ResourceWarning: Enable tracemalloc to get the object allocation traceback
+/usr/lib/python3.14/ast.py:46: ResourceWarning: unclosed database in <sqlite3.Connection object at 0x71ce5b386e30>
+  return compile(source, filename, mode, flags,
+ResourceWarning: Enable tracemalloc to get the object allocation traceback
+/usr/lib/python3.14/ast.py:46: ResourceWarning: unclosed database in <sqlite3.Connection object at 0x71ce5b269120>
+  return compile(source, filename, mode, flags,
+ResourceWarning: Enable tracemalloc to get the object allocation traceback
+/usr/lib/python3.14/ast.py:46: ResourceWarning: unclosed database in <sqlite3.Connection object at 0x71ce5b26b100>
+  return compile(source, filename, mode, flags,
+ResourceWarning: Enable tracemalloc to get the object allocation traceback
+/usr/lib/python3.14/ast.py:46: ResourceWarning: unclosed database in <sqlite3.Connection object at 0x71ce5b2e9120>
+  return compile(source, filename, mode, flags,
+ResourceWarning: Enable tracemalloc to get the object allocation traceback
+/usr/lib/python3.14/ast.py:46: ResourceWarning: unclosed database in <sqlite3.Connection object at 0x71ce5b2eb100>
+  return compile(source, filename, mode, flags,
+ResourceWarning: Enable tracemalloc to get the object allocation traceback
+/usr/lib/python3.14/ast.py:46: ResourceWarning: unclosed database in <sqlite3.Connection object at 0x71ce5b12d030>
+  return compile(source, filename, mode, flags,
+ResourceWarning: Enable tracemalloc to get the object allocation traceback
+/usr/lib/python3.14/ast.py:46: ResourceWarning: unclosed database in <sqlite3.Connection object at 0x71ce5b12f2e0>
+  return compile(source, filename, mode, flags,
+ResourceWarning: Enable tracemalloc to get the object allocation traceback
+/usr/lib/python3.14/ast.py:46: ResourceWarning: unclosed database in <sqlite3.Connection object at 0x71ce5b169300>
+  return compile(source, filename, mode, flags,
+ResourceWarning: Enable tracemalloc to get the object allocation traceback
+/usr/lib/python3.14/ast.py:46: ResourceWarning: unclosed database in <sqlite3.Connection object at 0x71ce5b16b2e0>
+  return compile(source, filename, mode, flags,
+ResourceWarning: Enable tracemalloc to get the object allocation traceback
+/usr/lib/python3.14/ast.py:46: ResourceWarning: unclosed database in <sqlite3.Connection object at 0x71ce5b19d120>
+  return compile(source, filename, mode, flags,
+ResourceWarning: Enable tracemalloc to get the object allocation traceback
+/usr/lib/python3.14/ast.py:46: ResourceWarning: unclosed database in <sqlite3.Connection object at 0x71ce5b19f2e0>
+  return compile(source, filename, mode, flags,
+ResourceWarning: Enable tracemalloc to get the object allocation traceback
+/usr/lib/python3.14/ast.py:46: ResourceWarning: unclosed database in <sqlite3.Connection object at 0x71ce5b1e5300>
+  return compile(source, filename, mode, flags,
+ResourceWarning: Enable tracemalloc to get the object allocation traceback
+/usr/lib/python3.14/ast.py:46: ResourceWarning: unclosed database in <sqlite3.Connection object at 0x71ce5b1e7100>
+  return compile(source, filename, mode, flags,
+ResourceWarning: Enable tracemalloc to get the object allocation traceback
+/usr/lib/python3.14/ast.py:46: ResourceWarning: unclosed database in <sqlite3.Connection object at 0x71ce5b015210>
+  return compile(source, filename, mode, flags,
+ResourceWarning: Enable tracemalloc to get the object allocation traceback
+/usr/lib/python3.14/ast.py:46: ResourceWarning: unclosed database in <sqlite3.Connection object at 0x71ce5b0171f0>
+  return compile(source, filename, mode, flags,
+ResourceWarning: Enable tracemalloc to get the object allocation traceback
+/usr/lib/python3.14/ast.py:46: ResourceWarning: unclosed database in <sqlite3.Connection object at 0x71ce5b04d3f0>
+  return compile(source, filename, mode, flags,
+ResourceWarning: Enable tracemalloc to get the object allocation traceback
+/usr/lib/python3.14/ast.py:46: ResourceWarning: unclosed database in <sqlite3.Connection object at 0x71ce5b04f1f0>
+  return compile(source, filename, mode, flags,
+ResourceWarning: Enable tracemalloc to get the object allocation traceback
+/usr/lib/python3.14/ast.py:46: ResourceWarning: unclosed database in <sqlite3.Connection object at 0x71ce5b08d210>
+  return compile(source, filename, mode, flags,
+ResourceWarning: Enable tracemalloc to get the object allocation traceback
+/usr/lib/python3.14/ast.py:46: ResourceWarning: unclosed database in <sqlite3.Connection object at 0x71ce5b08f3d0>
+  return compile(source, filename, mode, flags,
+ResourceWarning: Enable tracemalloc to get the object allocation traceback
+/usr/lib/python3.14/ast.py:46: ResourceWarning: unclosed database in <sqlite3.Connection object at 0x71ce5b0bd3f0>
+  return compile(source, filename, mode, flags,
+ResourceWarning: Enable tracemalloc to get the object allocation traceback
+/usr/lib/python3.14/ast.py:46: ResourceWarning: unclosed database in <sqlite3.Connection object at 0x71ce5b0bf1f0>
+  return compile(source, filename, mode, flags,
+ResourceWarning: Enable tracemalloc to get the object allocation traceback
+/usr/lib/python3.14/ast.py:46: ResourceWarning: unclosed database in <sqlite3.Connection object at 0x71ce617d74c0>
+  return compile(source, filename, mode, flags,
+ResourceWarning: Enable tracemalloc to get the object allocation traceback
+/usr/lib/python3.14/ast.py:46: ResourceWarning: unclosed database in <sqlite3.Connection object at 0x71ce60319b70>
+  return compile(source, filename, mode, flags,
+ResourceWarning: Enable tracemalloc to get the object allocation traceback
+/usr/lib/python3.14/ast.py:46: ResourceWarning: unclosed database in <sqlite3.Connection object at 0x71ce625f6980>
+  return compile(source, filename, mode, flags,
+ResourceWarning: Enable tracemalloc to get the object allocation traceback
+/mnt/Server/kottlib/venv/lib/python3.14/site-packages/coverage/bytecode.py:29: ResourceWarning: unclosed database in <sqlite3.Connection object at 0x71ce608fd8a0>
+  code = compile(text, filename or "<string>", "exec", dont_inherit=True)
+ResourceWarning: Enable tracemalloc to get the object allocation traceback
+/usr/lib/python3.14/ast.py:46: ResourceWarning: unclosed database in <sqlite3.Connection object at 0x71ce60bd4220>
+  return compile(source, filename, mode, flags,
+ResourceWarning: Enable tracemalloc to get the object allocation traceback
+/usr/lib/python3.14/ast.py:46: ResourceWarning: unclosed database in <sqlite3.Connection object at 0x71ce608fe4d0>
+  return compile(source, filename, mode, flags,
+ResourceWarning: Enable tracemalloc to get the object allocation traceback
+/usr/lib/python3.14/ast.py:46: ResourceWarning: unclosed database in <sqlite3.Connection object at 0x71ce6184fd30>
+  return compile(source, filename, mode, flags,
+ResourceWarning: Enable tracemalloc to get the object allocation traceback
+/usr/lib/python3.14/ast.py:46: ResourceWarning: unclosed database in <sqlite3.Connection object at 0x71ce62209990>
+  return compile(source, filename, mode, flags,
+ResourceWarning: Enable tracemalloc to get the object allocation traceback
+/usr/lib/python3.14/ast.py:46: ResourceWarning: unclosed database in <sqlite3.Connection object at 0x71ce6220a4d0>
+  return compile(source, filename, mode, flags,
+ResourceWarning: Enable tracemalloc to get the object allocation traceback
+                                  [100%]/mnt/Server/kottlib/venv/lib/python3.14/site-packages/_pytest/unraisableexception.py:33: ResourceWarning: unclosed database in <sqlite3.Connection object at 0x71ce6220a6b0>
+  gc.collect()
+ResourceWarning: Enable tracemalloc to get the object allocation traceback
+
+
+=================================== FAILURES ===================================
+________________ TestWebUIWorkflow.test_webui_browsing_workflow ________________
+tests/api/test_integration.py:118: in test_webui_browsing_workflow
+    assert folder_response.status_code == 200
+E   assert 404 == 200
+E    +  where 404 = <Response [404 Not Found]>.status_code
+------------------------------ Captured log setup ------------------------------
+INFO     src.database.connection:connection.py:68 Database initialized: /tmp/kottlib_test_kt5q9nux/test.db
+------------------------------ Captured log call -------------------------------
+WARNING  src.api.middleware.session:session.py:125 Cannot create session: admin user not found
+INFO     httpx:_client.py:1025 HTTP Request: GET http://testserver/v2/libraries "HTTP/1.1 200 OK"
+WARNING  src.api.middleware.session:session.py:125 Cannot create session: admin user not found
+INFO     httpx:_client.py:1025 HTTP Request: GET http://testserver/v2/library/1/folder/1 "HTTP/1.1 404 Not Found"
+______________ TestDataConsistency.test_library_data_consistency _______________
+tests/api/test_integration.py:382: in test_library_data_consistency
+    assert library_detail.status_code == 200
+E   assert 404 == 200
+E    +  where 404 = <Response [404 Not Found]>.status_code
+------------------------------ Captured log setup ------------------------------
+INFO     src.database.connection:connection.py:68 Database initialized: /tmp/kottlib_test_kt5q9nux/test.db
+------------------------------ Captured log call -------------------------------
+WARNING  src.api.middleware.session:session.py:125 Cannot create session: admin user not found
+INFO     httpx:_client.py:1025 HTTP Request: GET http://testserver/v2/libraries "HTTP/1.1 200 OK"
+WARNING  src.api.middleware.session:session.py:125 Cannot create session: admin user not found
+INFO     httpx:_client.py:1025 HTTP Request: GET http://testserver/v2/library/1 "HTTP/1.1 404 Not Found"
+_____________________ TestV2Libraries.test_list_libraries ______________________
+tests/api/test_v2_api.py:31: in test_list_libraries
+    assert "path" in lib
+E   AssertionError: assert 'path' in {'id': 1, 'name': 'Test Library', 'uuid': '{f4f1e431-045a-402e-97b3-5fa2710e047e}'}
+------------------------------ Captured log setup ------------------------------
+INFO     src.database.connection:connection.py:68 Database initialized: /tmp/kottlib_test_kt5q9nux/test.db
+------------------------------ Captured log call -------------------------------
+WARNING  src.api.middleware.session:session.py:125 Cannot create session: admin user not found
+INFO     httpx:_client.py:1025 HTTP Request: GET http://testserver/v2/libraries "HTTP/1.1 200 OK"
+____________________ TestV2Libraries.test_get_library_by_id ____________________
+tests/api/test_v2_api.py:37: in test_get_library_by_id
+    assert response.status_code == 200
+E   assert 404 == 200
+E    +  where 404 = <Response [404 Not Found]>.status_code
+------------------------------ Captured log setup ------------------------------
+INFO     src.database.connection:connection.py:68 Database initialized: /tmp/kottlib_test_kt5q9nux/test.db
+------------------------------ Captured log call -------------------------------
+WARNING  src.api.middleware.session:session.py:125 Cannot create session: admin user not found
+INFO     httpx:_client.py:1025 HTTP Request: GET http://testserver/v2/library/1 "HTTP/1.1 404 Not Found"
+____________________ TestV2Folders.test_get_folder_content _____________________
+tests/api/test_v2_api.py:57: in test_get_folder_content
+    assert response.status_code == 200
+E   assert 404 == 200
+E    +  where 404 = <Response [404 Not Found]>.status_code
+------------------------------ Captured log setup ------------------------------
+INFO     src.database.connection:connection.py:68 Database initialized: /tmp/kottlib_test_kt5q9nux/test.db
+------------------------------ Captured log call -------------------------------
+WARNING  src.api.middleware.session:session.py:125 Cannot create session: admin user not found
+INFO     httpx:_client.py:1025 HTTP Request: GET http://testserver/v2/library/1/folder/1 "HTTP/1.1 404 Not Found"
+______________________ TestV2Folders.test_get_root_folder ______________________
+tests/api/test_v2_api.py:78: in test_get_root_folder
+    assert response.status_code == 200
+E   assert 404 == 200
+E    +  where 404 = <Response [404 Not Found]>.status_code
+------------------------------ Captured log setup ------------------------------
+INFO     src.database.connection:connection.py:68 Database initialized: /tmp/kottlib_test_kt5q9nux/test.db
+------------------------------ Captured log call -------------------------------
+WARNING  src.api.middleware.session:session.py:125 Cannot create session: admin user not found
+INFO     httpx:_client.py:1025 HTTP Request: GET http://testserver/v2/library/1/folder/1 "HTTP/1.1 404 Not Found"
+_______________ TestV2ReadingProgress.test_get_continue_reading ________________
+tests/api/test_v2_api.py:207: in test_get_continue_reading
+    assert response.status_code == 200
+E   assert 404 == 200
+E    +  where 404 = <Response [404 Not Found]>.status_code
+------------------------------ Captured log setup ------------------------------
+INFO     src.database.connection:connection.py:68 Database initialized: /tmp/kottlib_test_kt5q9nux/test.db
+------------------------------ Captured log call -------------------------------
+WARNING  src.api.middleware.session:session.py:125 Cannot create session: admin user not found
+INFO     httpx:_client.py:1025 HTTP Request: GET http://testserver/v2/continue-reading "HTTP/1.1 404 Not Found"
+_____________ TestV2ReadingProgress.test_get_all_libraries_reading _____________
+tests/api/test_v2_api.py:219: in test_get_all_libraries_reading
+    assert response.status_code == 200
+E   assert 404 == 200
+E    +  where 404 = <Response [404 Not Found]>.status_code
+------------------------------ Captured log setup ------------------------------
+INFO     src.database.connection:connection.py:68 Database initialized: /tmp/kottlib_test_kt5q9nux/test.db
+------------------------------ Captured log call -------------------------------
+WARNING  src.api.middleware.session:session.py:125 Cannot create session: admin user not found
+INFO     httpx:_client.py:1025 HTTP Request: GET http://testserver/v2/reading "HTTP/1.1 404 Not Found"
+____________________ TestV2Sync.test_sync_reading_progress _____________________
+tests/api/test_v2_api.py:393: in test_sync_reading_progress
+    assert "synced" in data or "count" in data or "success" in data
+E   AssertionError: assert ('synced' in [] or 'count' in [] or 'success' in [])
+------------------------------ Captured log setup ------------------------------
+INFO     src.database.connection:connection.py:68 Database initialized: /tmp/kottlib_test_kt5q9nux/test.db
+------------------------------ Captured log call -------------------------------
+WARNING  src.api.middleware.session:session.py:125 Cannot create session: admin user not found
+INFO     src.api.routers.v2.session:session.py:75 v2 Sync: Received raw body: {"comics":[{"comicId":1,"currentPage":5,"totalPages":24},{"comicId":2,"currentPage":10,"totalPages":25}]}
+INFO     src.api.middleware.session:session.py:255 Auto-created default admin user for request compatibility
+INFO     src.api.routers.v2.session:session.py:235 v2 Sync: Updated 2 comics for user admin
+INFO     src.utils.platform:platform.py:89 Found project root: /mnt/Server/kottlib
+INFO     src.services.library_cache:library_cache.py:74 Invalidated browse cache for library 1
+INFO     src.utils.platform:platform.py:89 Found project root: /mnt/Server/kottlib
+INFO     src.services.library_cache:library_cache.py:74 Invalidated browse cache for library 0
+INFO     httpx:_client.py:1025 HTTP Request: POST http://testserver/v2/sync "HTTP/1.1 200 OK"
+____________________ TestV2ErrorHandling.test_rate_limiting ____________________
+tests/api/test_v2_api.py:611: in test_rate_limiting
+    assert response.status_code in [200, 429]
+E   assert 404 in [200, 429]
+E    +  where 404 = <Response [404 Not Found]>.status_code
+------------------------------ Captured log setup ------------------------------
+INFO     src.database.connection:connection.py:68 Database initialized: /tmp/kottlib_test_kt5q9nux/test.db
+------------------------------ Captured log call -------------------------------
+WARNING  src.api.middleware.session:session.py:125 Cannot create session: admin user not found
+INFO     httpx:_client.py:1025 HTTP Request: GET http://testserver/v2/library/1 "HTTP/1.1 404 Not Found"
+WARNING  src.api.middleware.session:session.py:125 Cannot create session: admin user not found
+INFO     httpx:_client.py:1025 HTTP Request: GET http://testserver/v2/library/1 "HTTP/1.1 404 Not Found"
+WARNING  src.api.middleware.session:session.py:125 Cannot create session: admin user not found
+INFO     httpx:_client.py:1025 HTTP Request: GET http://testserver/v2/library/1 "HTTP/1.1 404 Not Found"
+WARNING  src.api.middleware.session:session.py:125 Cannot create session: admin user not found
+INFO     httpx:_client.py:1025 HTTP Request: GET http://testserver/v2/library/1 "HTTP/1.1 404 Not Found"
+WARNING  src.api.middleware.session:session.py:125 Cannot create session: admin user not found
+INFO     httpx:_client.py:1025 HTTP Request: GET http://testserver/v2/library/1 "HTTP/1.1 404 Not Found"
+WARNING  src.api.middleware.session:session.py:125 Cannot create session: admin user not found
+INFO     httpx:_client.py:1025 HTTP Request: GET http://testserver/v2/library/1 "HTTP/1.1 404 Not Found"
+WARNING  src.api.middleware.session:session.py:125 Cannot create session: admin user not found
+INFO     httpx:_client.py:1025 HTTP Request: GET http://testserver/v2/library/1 "HTTP/1.1 404 Not Found"
+WARNING  src.api.middleware.session:session.py:125 Cannot create session: admin user not found
+INFO     httpx:_client.py:1025 HTTP Request: GET http://testserver/v2/library/1 "HTTP/1.1 404 Not Found"
+WARNING  src.api.middleware.session:session.py:125 Cannot create session: admin user not found
+INFO     httpx:_client.py:1025 HTTP Request: GET http://testserver/v2/library/1 "HTTP/1.1 404 Not Found"
+WARNING  src.api.middleware.session:session.py:125 Cannot create session: admin user not found
+INFO     httpx:_client.py:1025 HTTP Request: GET http://testserver/v2/library/1 "HTTP/1.1 404 Not Found"
+_________________ TestV2Performance.test_large_folder_listing __________________
+tests/api/test_v2_api.py:622: in test_large_folder_listing
+    assert response.status_code == 200
+E   assert 404 == 200
+E    +  where 404 = <Response [404 Not Found]>.status_code
+------------------------------ Captured log setup ------------------------------
+INFO     src.database.connection:connection.py:68 Database initialized: /tmp/kottlib_test_kt5q9nux/test.db
+------------------------------ Captured log call -------------------------------
+WARNING  src.api.middleware.session:session.py:125 Cannot create session: admin user not found
+INFO     httpx:_client.py:1025 HTTP Request: GET http://testserver/v2/library/1/folder/1 "HTTP/1.1 404 Not Found"
+================================ tests coverage ================================
+_______________ coverage: platform linux, python 3.14.4-final-0 ________________
+
+Name                                                  Stmts   Miss  Cover   Missing
+-----------------------------------------------------------------------------------
+src/api/cover_utils.py                                   41     16    61%   56-57, 62-63, 69-70, 75-76, 108-116
+src/api/dependencies.py                                  36     22    39%   21, 60-65, 81-86, 92-94, 117-127
+src/api/error_handling.py                               102     50    51%   45-59, 80-81, 88-89, 92-93, 99-100, 136-137, 141-146, 151, 186-191, 196, 218-223, 237-244, 261
+src/api/main.py                                         124     81    35%   45-185, 227-228, 241, 247, 253-255, 273, 284, 290, 330-332
+src/api/middleware/__init__.py                            2      0   100%
+src/api/middleware/session.py                           107     19    82%   71-72, 97-98, 141-143, 167, 186, 196-201, 211-216
+src/api/response_builders.py                             65     50    23%   91-113, 122-128, 135-140, 157-183, 210-245
+src/api/routers/__init__.py                               0      0   100%
+src/api/routers/app_api/__init__.py                      19      0   100%
+src/api/routers/app_api/collections.py                  142     44    69%   20-22, 28-34, 40-41, 64-76, 123, 133, 145, 161, 178-179, 207-211, 219, 228, 233-237, 242, 252
+src/api/routers/app_api/comics.py                        41     20    51%   16, 21, 26, 31, 36, 41, 46-52, 57-63
+src/api/routers/app_api/libraries.py                     98     55    44%   20-22, 26-48, 53-55, 60, 65-70, 75-77, 86, 91-93, 98, 103-105, 110-112, 122-128, 137, 148, 159, 170, 181, 194
+src/api/routers/app_api/reading.py                        9      2    78%   14, 19
+src/api/routers/app_api/search.py                        36      8    78%   17, 29, 34, 45, 61, 66, 76, 86
+src/api/routers/config.py                               101     58    43%   93-101, 117-154, 168-221, 231, 245-256
+src/api/routers/legacy_v1.py                            433    106    76%   65-70, 135, 149-158, 164, 173, 236, 240-245, 250, 263, 284-305, 309-310, 346, 357-358, 382, 388, 390, 392, 394, 396, 418, 429-430, 438, 440, 460, 561, 569, 581-582, 612-613, 620, 627, 639-679, 704, 718-745, 783, 789-790, 828, 887-893, 907, 958, 981-983
+src/api/routers/libraries.py                             59     17    71%   67-89, 95-104, 161, 188
+src/api/routers/scanners/__init__.py                      5      0   100%
+src/api/routers/scanners/endpoints/__init__.py            7      0   100%
+src/api/routers/scanners/endpoints/apply_comic.py        26     19    27%   30-71
+src/api/routers/scanners/endpoints/available.py          80     70    12%   29-111, 121-162
+src/api/routers/scanners/endpoints/configure.py          51     39    24%   44-103, 130-155
+src/api/routers/scanners/endpoints/metadata.py           74     67     9%   29-111
+src/api/routers/scanners/endpoints/scan_comic.py         44     36    18%   31-137
+src/api/routers/scanners/endpoints/scan_library.py       64     52    19%   42-101, 113-150, 159-168
+src/api/routers/scanners/endpoints/scan_single.py       269    256     5%   45-116, 134-213, 234-428, 451-557, 576-597
+src/api/routers/scanners/manager.py                       9      3    67%   25-27
+src/api/routers/scanners/models.py                       86      0   100%
+src/api/routers/scanners/progress.py                     67     51    24%   28-45, 50-57, 62-79, 84-93, 98-109, 121-139, 152, 157-158, 172-180, 185
+src/api/routers/scanners/router.py                       51     15    71%   59, 70, 97, 116, 138, 157, 174, 188, 210, 228, 242, 261, 271, 281, 298
+src/api/routers/scanners/tasks/__init__.py              164    154     6%   37-320
+src/api/routers/user_interactions.py                     76     53    30%   47-57, 68-100, 105-119, 128-132, 143-167, 176-180
+src/api/routers/v2/__init__.py                           17      0   100%
+src/api/routers/v2/_browse_helpers.py                    35     27    23%   49-71, 92-110, 129-137, 159-167
+src/api/routers/v2/_item_builders.py                     27     22    19%   40-73, 96-133
+src/api/routers/v2/_shared.py                            35     24    31%   31, 66-100
+src/api/routers/v2/admin.py                              86     64    26%   61-96, 113-139, 158-173, 187-218
+src/api/routers/v2/collections.py                       285    139    51%   62-66, 74-116, 137, 143, 156, 158, 204, 209, 214, 218, 246, 251, 276, 297-327, 337-364, 374-391, 417, 459, 464, 472, 479-480, 534, 539, 575, 578, 611-627, 650, 655, 660-661, 668, 698-719, 737-758
+src/api/routers/v2/comics.py                            449    264    41%   54-177, 199, 203, 226, 255, 264, 272-273, 292-293, 329, 354-430, 460, 464, 472-498, 530, 535-536, 546, 557-594, 623-691, 706, 710, 714, 720, 742, 746, 750-751, 757, 761, 765, 770-771, 810-872
+src/api/routers/v2/folders.py                           234    187    20%   48-309, 333, 357-379, 385, 397, 402, 421, 442-583
+src/api/routers/v2/libraries.py                         248    190    23%   58-118, 123-206, 269, 274-277, 296-297, 324-328, 337-363, 382-408, 427-441, 446-456, 462-536, 547-566
+src/api/routers/v2/reading.py                            55     32    42%   49, 54, 62-74, 113-173
+src/api/routers/v2/search.py                            194     88    55%   74-80, 83, 92, 112, 141, 156, 180-181, 228-230, 235-236, 295-376, 394-402, 417-419, 443-457, 475-493, 515, 549, 559-560
+src/api/routers/v2/series.py                            652    620     5%   52-60, 65-85, 90-130, 135-137, 165-717, 738-920, 935-1252, 1274-1517
+src/api/routers/v2/session.py                           131     48    63%   45, 97-98, 113, 118-119, 121, 133-135, 140, 148-169, 173-174, 180-182, 185-186, 197-198, 206-222, 243-244, 248-250
+src/api/routers/v2/tree.py                               58     42    28%   39-141, 156-172
+src/config.py                                           100     32    68%   77-93, 128-129, 142, 145-161, 192-196, 247-248
+src/constants.py                                         28      0   100%
+src/covers/__init__.py                                    3      0   100%
+src/covers/base_provider.py                              42      4    90%   85, 102, 118, 135
+src/covers/provider_manager.py                           60     20    67%   96, 109-123, 144, 164, 172-175
+src/covers/providers/__init__.py                          2      0   100%
+src/covers/providers/mangadex.py                        146     63    57%   74, 110, 114, 116, 118, 150-157, 189, 213, 229-251, 279-280, 287, 295-300, 312-314, 329-368
+src/database/__init__.py                                  5      0   100%
+src/database/connection.py                               97     61    37%   38, 72-96, 105-181
+src/database/enhanced_search.py                         208    140    33%   81-83, 87-89, 93-94, 98-99, 103, 120-165, 180-206, 233-284, 305-315, 334-363, 385, 394, 400-431, 435, 474, 509-526, 534-549, 567, 571, 608-655
+src/database/migrations/__init__.py                       3      0   100%
+src/database/migrations/add_cover_source_columns.py      48     40    17%   21-59, 69-74, 81-86, 91-102
+src/database/migrations/add_cover_source_fields.py       31     24    23%   20-48, 58, 66-74
+src/database/migrations/add_search_indexes.py            47     40    15%   21-160, 167-181, 186-194
+src/database/models/__init__.py                          10      0   100%
+src/database/models/base.py                               3      0   100%
+src/database/models/collection.py                        41      0   100%
+src/database/models/comic.py                            109      1    99%   180
+src/database/models/library.py                           45      0   100%
+src/database/models/reading.py                           19      0   100%
+src/database/models/reading_list.py                      24      0   100%
+src/database/models/series.py                            33      0   100%
+src/database/models/setting.py                           12      0   100%
+src/database/models/user.py                              34      0   100%
+src/database/operations/__init__.py                      13      0   100%
+src/database/operations/comic.py                        120     34    72%   19-21, 113, 138-141, 155, 172, 208, 254-264, 275-289, 315, 334
+src/database/operations/cover.py                         44     29    34%   44-80, 115, 130-145
+src/database/operations/favorite.py                      31      3    90%   37, 75, 92
+src/database/operations/folder.py                        62     45    27%   14-16, 31-46, 51, 56, 86-148, 153, 172-190
+src/database/operations/label.py                         50     36    28%   31-51, 65, 79, 93-100, 116-133, 148-159, 173-177, 191-195
+src/database/operations/library.py                       68     16    76%   76, 96, 99, 110, 129-134, 150-155
+src/database/operations/progress.py                      37      4    89%   57-58, 145-157
+src/database/operations/reading_list.py                  66     29    56%   95, 111-118, 135-160, 175-186, 211, 214, 216
+src/database/operations/session.py                       22      0   100%
+src/database/operations/setting.py                       72      2    97%   45, 94
+src/database/operations/stats.py                          7      0   100%
+src/database/operations/user.py                          25      9    64%   40-55
+src/database/paths.py                                    35     15    57%   14-16, 31-47
+src/database/search_index.py                             76     53    30%   30-83, 98-135, 148-200, 210-259, 265-270, 275-279
+src/init_db.py                                           23     23     0%   9-51
+src/metadata_providers/__init__.py                        6      0   100%
+src/metadata_providers/base.py                           92     20    78%   49, 53, 57-58, 67, 98, 100, 108, 110, 112, 116, 120, 159, 171, 190, 210, 244, 271, 279, 282
+src/metadata_providers/config.py                         41     16    61%   72-98
+src/metadata_providers/demo.py                           79     79     0%   8-145
+src/metadata_providers/manager.py                        95     34    64%   46-47, 78-89, 110-114, 118, 139, 171-172, 175-176, 182, 189, 213-215, 226-237
+src/metadata_providers/schema.py                         78      6    92%   284-286, 309-312
+src/metadata_providers/utils.py                          15      0   100%
+src/scanner/__init__.py                                   3      0   100%
+src/scanner/base.py                                      13      0   100%
+src/scanner/cleanup.py                                   75     19    75%   84-89, 95-97, 124-126, 154-159, 162
+src/scanner/comic_loader.py                             158     40    75%   134-135, 141-142, 148, 251-254, 265-266, 279-286, 289-303, 310-316, 323, 325
+src/scanner/comic_processor.py                          219    207     5%   56-169, 184-376, 390-420
+src/scanner/file_discovery.py                            24     18    25%   29-54
+src/scanner/folder_manager.py                            42     34    19%   45-88, 96-128
+src/scanner/loaders/__init__.py                           6      0   100%
+src/scanner/loaders/base.py                              65     12    82%   96-98, 135, 159-165, 173
+src/scanner/loaders/rar.py                               46     30    35%   39-43, 56-82, 94-105, 109-110
+src/scanner/loaders/sevenzip.py                         144    111    23%   31, 34, 37, 40, 43, 46, 49, 60-61, 73-77, 91-92, 101-132, 144-171, 175-176, 194-196, 205-249, 259-289, 301-321, 325
+src/scanner/loaders/utils.py                             27      9    67%   36, 46, 50, 53-55, 81-88
+src/scanner/loaders/zip.py                               39      5    87%   48, 52, 86-88
+src/scanner/series_builder.py                           101     69    32%   61-65, 73, 83-86, 118-254
+src/scanner/structure_classifier.py                      49     41    16%   34-85, 98-110
+src/scanner/threaded_scanner.py                         128    105    18%   71-97, 109-233, 257-314, 324-348, 371-372
+src/scanner/thumbnail_generator.py                       90     63    30%   46-52, 82-85, 115-146, 169-174, 194-213, 235, 251-252, 265-279, 296-312
+src/scanner/tool_check.py                                86     86     0%   8-166
+src/scanners/__init__.py                                  5      5     0%   10-59
+src/scanners/base_scanner.py                             76     76     0%   7-226
+src/scanners/config_schema.py                            41     41     0%   9-98
+src/scanners/demo_scanners.py                            79     79     0%   8-145
+src/scanners/metadata_schema.py                          83     83     0%   8-462
+src/scanners/scanner_manager.py                          79     79     0%   8-194
+src/scanners/utils.py                                    15     15     0%   5-54
+src/services/__init__.py                                  8      0   100%
+src/services/comic_info_service.py                       69     69     0%   8-175
+src/services/config_sync.py                              92     27    71%   61-62, 99, 124, 127, 168-200, 229-230
+src/services/cover_service.py                            92     76    17%   58-68, 94-126, 154-208, 240-295
+src/services/library_cache.py                            53     27    49%   31-33, 37-50, 54-66, 75-76
+src/services/library_service.py                          43     16    63%   127-133, 155-165, 179-185
+src/services/mangadex_client.py                         153     62    59%   75-78, 91-111, 133, 155-156, 159, 172-173, 195-197, 218, 237, 254-256, 269-280, 293-301, 317-343
+src/services/metadata_service.py                        101     19    81%   126-130, 146-149, 254-274
+src/services/reading_service.py                         116     97    16%   45-67, 94-117, 126-128, 158-180, 189-200, 209-211, 228-236, 265-294, 305-324, 337-348, 368-378, 409-445, 456-475
+src/services/scan_service.py                             99     88    11%   44-82, 115-211, 244-266, 284-286, 310-312
+src/services/scheduler.py                                70     48    31%   25-28, 32-41, 45-46, 50-51, 58-74, 78-96, 100-105, 113-120
+src/services/search_service.py                           31     22    29%   44-59, 83-95, 137-157
+src/utils/__init__.py                                     3      0   100%
+src/utils/hashing.py                                     16     10    38%   25-40, 53
+src/utils/platform.py                                    43     18    58%   29-40, 56-57, 93-101
+src/utils/series_utils.py                                21     13    38%   9-11, 35, 42-54
+src/utils/sorting.py                                     22      0   100%
+-----------------------------------------------------------------------------------
+TOTAL                                                 10026   5807    42%
+=========================== short test summary info ============================
+FAILED tests/api/test_integration.py::TestWebUIWorkflow::test_webui_browsing_workflow
+FAILED tests/api/test_integration.py::TestDataConsistency::test_library_data_consistency
+FAILED tests/api/test_v2_api.py::TestV2Libraries::test_list_libraries - Asser...
+FAILED tests/api/test_v2_api.py::TestV2Libraries::test_get_library_by_id - as...
+FAILED tests/api/test_v2_api.py::TestV2Folders::test_get_folder_content - ass...
+FAILED tests/api/test_v2_api.py::TestV2Folders::test_get_root_folder - assert...
+FAILED tests/api/test_v2_api.py::TestV2ReadingProgress::test_get_continue_reading
+FAILED tests/api/test_v2_api.py::TestV2ReadingProgress::test_get_all_libraries_reading
+FAILED tests/api/test_v2_api.py::TestV2Sync::test_sync_reading_progress - Ass...
+FAILED tests/api/test_v2_api.py::TestV2ErrorHandling::test_rate_limiting - as...
+FAILED tests/api/test_v2_api.py::TestV2Performance::test_large_folder_listing
+======================= 11 failed, 258 passed in 12.76s ========================

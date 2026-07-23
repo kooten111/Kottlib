@@ -7,9 +7,12 @@ Mark items `[x]` when resolved.
 
 ## Critical — Security & Concurrency
 
-- [ ] **CRIT-01** — `src/scanners/` duplicates `src/metadata_providers/` (7 files, ~1000+ lines)
-  - Make `src/scanners/` a thin re-export layer
----
+- [x] **CRIT-01** — `src/scanners/` duplicates `src/metadata_providers/` (7 files, ~1000+ lines)
+  - Resolved 2025-06-28: deleted duplicate files; `__init__.py` re-exports from `metadata_providers`
+- [x] **CRIT-02** — Request-time admin creation with password `changeme` in `session.py`
+  - Resolved 2025-06-28: admin only created via `init_db()` in `connection.py`
+- [x] **CRIT-03** — Global exception handler leaks `str(exc)` to clients
+  - Resolved 2025-06-28: generic error message only
 
 ## Bugs — Likely Runtime Failures
 
@@ -17,16 +20,18 @@ Mark items `[x]` when resolved.
   - `src/database/operations/progress.py` ~L34
 ---
 
-## Dead Code
+- [x] **DEAD-01** — Orphan cover routers never mounted
+  - Resolved 2025-06-28: deleted (cover serving lives in `v2/comics.py`)
+- [x] **DEAD-02** — Broken `sync_db_to_config` import in `scripts/scan_library.py`
+  - Resolved 2025-06-28: removed dead sync block (libraries live in DB)
 
 - [ ] **DEAD-08** — Calls to non-existent manager methods in demo files
   - `src/scanners/demo_scanners.py` ~L58, L127
   - `src/metadata_providers/demo.py` — same
 - [ ] **DEAD-09** — `get_searchable_fields()` TODO never implemented
   - `src/database/enhanced_search.py` ~L355
-- [ ] **DEAD-10** — Duplicate migrations do the same thing
-  - `src/database/migrations/add_cover_source_columns.py`
-  - `src/database/migrations/add_cover_source_fields.py`
+- [x] **DEAD-10** — Duplicate migrations do the same thing
+  - Resolved 2025-06-28: removed `add_cover_source_fields.py`; canonical module is `add_cover_source_columns.py`
 - [ ] **DEAD-11** — `get_comics_in_folder_simple()` is redundant
   - `src/database/operations/comic.py` — `get_comics_in_folder()` with `library_id=None` does the same
 
@@ -40,8 +45,8 @@ Mark items `[x]` when resolved.
   - Create `@handle_cover_errors` decorator
 - [ ] **DUP-04** — `_handle_file_error()` / `_handle_archive_error()` same pattern
   - `src/api/error_handling.py` ~L32–102 — unify into `_to_http_exception()`
-- [ ] **DUP-05** — Case-insensitive filename lookup duplicated in zip.py & rar.py
-  - Move to `src/scanner/loaders/base.py`
+- [x] **DUP-05** — Case-insensitive filename lookup duplicated in zip.py & rar.py
+  - Resolved 2025-06-28: `read_archive_file_case_insensitive()` in `loaders/base.py`
 - [ ] **DUP-06** — Scanner config extraction duplicated in `scan_service.py`
   - ~L55–59 and ~L151–159 — extract `_get_scanner_config()`
 - [ ] **DUP-07** — 16 repetitive field assignments in `scan_service.py` ~L196–214

@@ -1,0 +1,92 @@
+src/config.py
+    F 104:0 load_config - C (11)
+src/metadata_providers/demo.py
+    F 15:0 demo_nhentai_scanner - C (13)
+src/metadata_providers/manager.py
+    F 156:0 discover_scanners - C (16)
+src/scanners/scanner_manager.py
+    F 120:0 discover_scanners - C (15)
+src/scanners/demo_scanners.py
+    F 15:0 demo_nhentai_scanner - C (13)
+src/services/mangadex_client.py
+    M 144:4 MangaDexClient._parse_manga - C (11)
+src/services/scan_service.py
+    F 90:0 scan_series - E (31)
+src/services/config_sync.py
+    F 76:0 migrate_legacy_config_to_db - C (16)
+src/services/metadata_service.py
+    M 52:4 MetadataService.apply_scan_result_to_comic - C (17)
+src/scanner/threaded_scanner.py
+    M 99:4 ThreadedScanner.scan_library - C (15)
+src/scanner/comic_loader.py
+    F 212:0 open_comic - D (25)
+src/scanner/comic_processor.py
+    F 172:0 extract_metadata - F (61)
+    F 31:0 process_single_comic - C (11)
+src/scanner/cleanup.py
+    F 27:0 cleanup_missing_comics - C (20)
+src/scanner/structure_classifier.py
+    F 22:0 classify_series_structure - D (23)
+src/scanner/series_builder.py
+    F 107:0 build_series_tree_cache - C (18)
+    F 26:0 rebuild_series_table - C (11)
+src/api/response_builders.py
+    F 72:0 add_optional_fields - C (12)
+src/api/middleware/session.py
+    M 46:4 SessionMiddleware.dispatch - C (12)
+src/api/routers/covers.py
+    F 123:0 search_external_covers - C (12)
+src/api/routers/legacy_v1.py
+    F 180:0 get_folder_content - D (30)
+    F 324:0 get_comic_full_info - C (19)
+    F 402:0 get_comic_remote - C (15)
+    F 595:0 set_custom_cover - C (11)
+src/api/routers/v2/collections.py
+    F 124:0 get_favorites - C (16)
+    F 69:0 _sync_labels_from_comic_tags - C (14)
+src/api/routers/v2/search.py
+    F 45:0 search_comics_v2 - E (33)
+    F 265:0 search_comics_advanced_v2 - C (14)
+src/api/routers/v2/_item_builders.py
+    F 13:0 build_folder_item - C (14)
+src/api/routers/v2/folders.py
+    F 36:0 get_folder_v2 - F (43)
+    F 424:0 get_library_folders - D (24)
+    F 313:0 get_folder_info_v2 - C (12)
+src/api/routers/v2/_shared.py
+    F 52:0 get_comic_sort_key - C (19)
+src/api/routers/v2/session.py
+    F 49:0 sync_session_v2 - F (45)
+src/api/routers/v2/comics.py
+    F 347:0 open_reading_list_comic_remote_v2 - D (23)
+    F 238:0 open_comic_remote_v2 - D (22)
+    F 44:0 get_comic_fullinfo_v2 - D (21)
+    F 609:0 update_comic_progress_v2 - C (13)
+    F 508:0 get_comic_page_v2_remote - C (11)
+src/api/routers/v2/series.py
+    F 152:0 browse_folder - F (105)
+    F 924:0 browse_all_content - F (57)
+    F 1257:0 get_series_detail - F (48)
+    F 724:0 get_series_list - D (28)
+    F 88:0 _apply_progress_overlay - D (21)
+src/api/routers/v2/libraries.py
+    F 54:0 update_file_scan_progress - C (16)
+src/api/routers/scanners/endpoints/scan_single.py
+    F 221:0 scan_and_save_series - F (41)
+    F 435:0 apply_series_metadata - D (30)
+    F 31:0 scan_single - C (14)
+    F 119:0 scan_bulk - C (12)
+src/api/routers/scanners/endpoints/scan_comic.py
+    F 21:0 scan_comic - C (12)
+src/api/routers/scanners/endpoints/available.py
+    F 23:0 get_available_scanners - D (22)
+src/api/routers/scanners/tasks/__init__.py
+    F 28:0 run_library_scan_task - F (60)
+src/database/search_index.py
+    M 86:4 SearchIndexManager.extract_dynamic_metadata - C (12)
+src/database/enhanced_search.py
+    F 370:0 get_field_suggestions - D (21)
+    F 106:0 parse_search_query - C (13)
+
+55 blocks (classes, functions, methods) analyzed.
+Average complexity: D (23.163636363636364)

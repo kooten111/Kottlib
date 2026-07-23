@@ -48,28 +48,31 @@ def update_reading_progress(
     ).first()
     
     if not progress:
+        now = int(time.time())
         progress = ReadingProgress(
             user_id=user_id,
             comic_id=comic_id,
             current_page=current_page,
-            updated_at=int(time.time())
+            total_pages=total_pages or 0,
+            started_at=now,
+            last_read_at=now,
         )
         session.add(progress)
     else:
         progress.current_page = current_page
-        progress.updated_at = int(time.time())
-        
+        progress.last_read_at = int(time.time())
+
     if total_pages is not None:
         progress.total_pages = total_pages
-        
+
     session.commit()
-    
+
     return {
         "user_id": user_id,
         "comic_id": comic_id,
         "current_page": current_page,
         "total_pages": progress.total_pages,
-        "updated_at": progress.updated_at,
+        "updated_at": progress.last_read_at,
     }
 
 
@@ -102,7 +105,7 @@ def get_continue_reading(
         query = query.filter(Comic.library_id == library_id)
         
     # Order by most recently updated
-    query = query.order_by(ReadingProgress.updated_at.desc()).limit(limit)
+    query = query.order_by(ReadingProgress.last_read_at.desc()).limit(limit)
     
     results = []
     for progress, comic in query.all():
@@ -111,7 +114,7 @@ def get_continue_reading(
             "comic": comic,
             "current_page": progress.current_page,
             "total_pages": progress.total_pages,
-            "updated_at": progress.updated_at,
+            "updated_at": progress.last_read_at,
         })
         
     return results

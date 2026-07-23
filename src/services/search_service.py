@@ -143,10 +143,8 @@ def advanced_search(
         session,
         library_id,
         filters=filters,
-        sort_by=sort_by,
-        sort_order=sort_order,
-        limit=limit,
-        offset=offset
+        limit=limit or 100,
+        offset=offset or 0,
     )
     
     logger.info(

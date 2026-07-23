@@ -140,7 +140,7 @@ Modern web interface browsing experience.
 sequenceDiagram
     participant Browser
     participant SvelteKit
-    participant TanStackQuery
+    participant IndexedDBCache
     participant FastAPI
     participant Database
 
@@ -151,9 +151,9 @@ sequenceDiagram
     FastAPI-->>SvelteKit: JSON [{id, name, ...}]
     SvelteKit-->>Browser: Render library list
 
-    Note over Browser: TanStack Query caching
-    Browser->>TanStackQuery: Check cache
-    TanStackQuery-->>Browser: Cached data (if fresh)
+    Note over Browser: IndexedDB stale-while-revalidate
+    Browser->>IndexedDBCache: Check cache
+    IndexedDBCache-->>Browser: Cached data (if fresh)
 
     Browser->>SvelteKit: Select library
     SvelteKit->>FastAPI: GET /v2/libraries/series-tree
@@ -161,8 +161,7 @@ sequenceDiagram
     Database-->>FastAPI: JSON tree structure
     FastAPI-->>SvelteKit: Tree data
     
-    TanStackQuery->>TanStackQuery: Cache response
-    Note over TanStackQuery: 15min stale, 30min cache
+    IndexedDBCache->>IndexedDBCache: Store response
     
     SvelteKit-->>Browser: Render folder tree
 
@@ -176,7 +175,7 @@ sequenceDiagram
 
 ### Caching Strategy
 
-- **TanStack Query**: Client-side caching
+- **IndexedDB (`persistentCache.js`)**: Client-side stale-while-revalidate cache
   - `staleTime`: 15 minutes
   - `cacheTime`: 30 minutes
 - **HTTP Cache**: Server sets appropriate headers

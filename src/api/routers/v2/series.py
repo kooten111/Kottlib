@@ -33,115 +33,31 @@ from ....database import (
 )
 from ....database.models import Comic, ReadingProgress, Folder as FolderModel
 from ...middleware import get_current_user_id, get_request_user
+from ....services.browse_service import (
+    BrowsePathNotFoundError,
+    normalize_sort,
+    cache_safe_copy,
+    apply_progress_overlay,
+    timed_browse_response,
+    parse_library_settings,
+    get_primary_scanner,
+    detect_per_volume_metadata,
+    resolve_browse_path,
+    build_folder_metadata,
+    build_single_comic_folder_metadata,
+    get_library_root_folder,
+)
 from ._shared import get_comic_display_name, series_tree_cache, get_comic_sort_key
 from ._item_builders import build_folder_item, build_comic_item
 from ._browse_helpers import (
-    apply_random_sort,
-    batch_fetch_folder_metadata,
-    batch_fetch_comic_progress,
-    get_cover_hash_fallback,
+    fetch_random_browse_items,
+    fetch_sorted_browse_items,
+    find_first_comic_metadata,
 )
 
 logger = logging.getLogger(__name__)
 
 router = APIRouter()
-
-
-def _normalize_sort(sort: Optional[str]) -> str:
-    """Normalize sort aliases used by different clients into canonical values."""
-    sort_aliases = {
-        "date_added": "recent",
-        "recently_added": "recent",
-        "last_updated": "updated",
-        "recently_updated": "updated",
-        "date_updated": "updated",
-    }
-    normalized = (sort or "name").lower()
-    return sort_aliases.get(normalized, normalized)
-
-
-def _cache_safe_copy(data: dict) -> dict:
-    """Return a deep-copied response with reading-progress fields stripped."""
-    cache_data = deepcopy(data)
-    items = cache_data.get("items", [])
-    for item in items:
-        if item.get("type") == "comic":
-            item["progress_percent"] = 0
-            item["is_completed"] = False
-            item["current_page"] = 0
-
-    comic = cache_data.get("comic")
-    if isinstance(comic, dict):
-        comic["progress_percent"] = 0
-        comic["is_completed"] = False
-        comic["current_page"] = 0
-
-    first_comic_metadata = cache_data.get("first_comic_metadata")
-    if isinstance(first_comic_metadata, dict):
-        first_comic_metadata["progress_percent"] = 0
-        first_comic_metadata["is_completed"] = False
-        first_comic_metadata["current_page"] = 0
-
-    return cache_data
-
-
-def _apply_progress_overlay(data: dict, session, user) -> dict:
-    """Overlay per-user reading progress onto a browse response payload."""
-    if not user:
-        return data
-
-    response = deepcopy(data)
-    comic_ids = [item["id"] for item in response.get("items", []) if item.get("type") == "comic"]
-
-    comic_obj = response.get("comic")
-    if isinstance(comic_obj, dict) and comic_obj.get("id"):
-        comic_ids.append(comic_obj["id"])
-
-    if not comic_ids:
-        return response
-
-    progress_records = session.query(ReadingProgress).filter(
-        ReadingProgress.user_id == user.id,
-        ReadingProgress.comic_id.in_(comic_ids)
-    ).all()
-    progress_map = {p.comic_id: p for p in progress_records}
-
-    for item in response.get("items", []):
-        if item.get("type") != "comic":
-            continue
-        progress = progress_map.get(item.get("id"))
-        item["progress_percent"] = progress.progress_percent if progress else 0
-        item["is_completed"] = progress.is_completed if progress else False
-        item["current_page"] = progress.current_page if progress else 0
-
-    if isinstance(comic_obj, dict):
-        progress = progress_map.get(comic_obj.get("id"))
-        comic_obj["progress_percent"] = progress.progress_percent if progress else 0
-        comic_obj["is_completed"] = progress.is_completed if progress else False
-        comic_obj["current_page"] = progress.current_page if progress else 0
-
-    first_comic_metadata = response.get("first_comic_metadata")
-    if isinstance(first_comic_metadata, dict):
-        progress = progress_map.get(first_comic_metadata.get("id"))
-        first_comic_metadata["progress_percent"] = progress.progress_percent if progress else 0
-        first_comic_metadata["is_completed"] = progress.is_completed if progress else False
-        first_comic_metadata["current_page"] = progress.current_page if progress else 0
-
-    return response
-
-
-def _timed_browse_response(payload: dict, endpoint: str, cache_status: str, started_at: float) -> JSONResponse:
-    """Build a JSON response with browse timing + cache status headers."""
-    elapsed_ms = int((perf_counter() - started_at) * 1000)
-    logger.info(f"[BROWSE] endpoint={endpoint} cache={cache_status} duration_ms={elapsed_ms}")
-    return JSONResponse(
-        payload,
-        headers={
-            "X-Browse-Cache": cache_status,
-            "X-Browse-Endpoint": endpoint,
-            "X-Browse-Time-Ms": str(elapsed_ms),
-        }
-    )
 
 
 # ============================================================================
@@ -162,10 +78,7 @@ async def browse_folder(
     Unified endpoint with Pagination.
     Returns mixed list of items (Folders and Comics).
     """
-    from sqlalchemy import func, desc, case
     from ....services.library_cache import get_library_cache
-    from ....database.models import Series
-    import random
     started_at = perf_counter()
 
     # --------------------------------------------------------------------------
@@ -183,7 +96,7 @@ async def browse_folder(
     db = request.app.state.db
 
     with db.get_session() as session:
-        normalized_sort = _normalize_sort(sort)
+        normalized_sort = normalize_sort(sort)
         # Get library - query directly to ensure fresh data
         from ....database.models import Library
         library = session.query(Library).filter(Library.id == library_id).first()
@@ -191,39 +104,15 @@ async def browse_folder(
             raise HTTPException(status_code=404, detail="Library not found")
 
         # Check if library uses a FILE-level scanner (per-volume metadata mode)
-        # Use the exact same logic as the scanner config endpoint
-        per_volume_metadata = False
-        
-        # Get settings - handle both dict and JSON string
-        settings = library.settings
-        if settings is None:
-            settings = {}
-        elif isinstance(settings, str):
-            # If settings is a string, try to parse it as JSON
-            try:
-                import json
-                settings = json.loads(settings)
-            except:
-                settings = {}
-        
-        scanner_config = settings.get('scanner', {}) if isinstance(settings, dict) else {}
-        primary_scanner = scanner_config.get('primary_scanner') if isinstance(scanner_config, dict) else None
-        
-        # Debug logging
-        logger.info(f"Browse: Library {library_id} - settings type={type(settings)}, settings={settings}, scanner_config={scanner_config}, primary_scanner={primary_scanner}")
-        
-        if primary_scanner:
-            from ..scanners.manager import get_scanner_manager
-            try:
-                manager = get_scanner_manager()
-                scanner_class = manager._available_scanners.get(primary_scanner)
-                logger.info(f"Per-volume check: scanner={primary_scanner}, class_found={scanner_class is not None}")
-                if scanner_class:
-                    temp_scanner = scanner_class()
-                    per_volume_metadata = temp_scanner.scan_level.value == 'file'
-                    logger.info(f"Per-volume check: scan_level={temp_scanner.scan_level.value}, enabled={per_volume_metadata}")
-            except Exception as e:
-                logger.warning(f"Per-volume metadata check failed: {e}")
+        settings = parse_library_settings(library.settings)
+        primary_scanner = get_primary_scanner(settings)
+        per_volume_metadata = detect_per_volume_metadata(primary_scanner)
+        logger.info(
+            "Browse: Library %s primary_scanner=%s per_volume=%s",
+            library_id,
+            primary_scanner,
+            per_volume_metadata,
+        )
 
         user = get_request_user(request, session)
 
@@ -238,461 +127,90 @@ async def browse_folder(
         if normalized_sort not in ('random', 'progress'):
             cached_data = cache_service.get_cached_response(cache_path, cache_params)
             if cached_data:
-                response = _apply_progress_overlay(cached_data, session, user)
-                return _timed_browse_response(response, "library", "hit", started_at)
+                response = apply_progress_overlay(cached_data, session, user)
+                return timed_browse_response(response, "library", "hit", started_at)
 
-        # Find root folder
-        root_folder = session.query(FolderModel).filter(
-            FolderModel.library_id == library_id,
-            FolderModel.name == ROOT_FOLDER_MARKER
-        ).first()
-
+        root_folder = get_library_root_folder(session, library_id)
         if not root_folder:
             raise HTTPException(status_code=404, detail="Library root not found")
 
-        # Determine target folder
-        current_folder = root_folder
-        breadcrumbs = []
-        
-        if path:
-            decoded_path = unquote(path).strip('/')
-            path_parts = decoded_path.split('/') if decoded_path else []
-            
-            for i, part in enumerate(path_parts):
-                if not part:
-                    continue
+        try:
+            current_folder, breadcrumbs, path_comic = resolve_browse_path(
+                session, library_id, root_folder, path
+            )
+        except BrowsePathNotFoundError as exc:
+            raise HTTPException(status_code=404, detail=f"Folder not found: {exc}") from exc
 
-                # Prefer name lookup (backward compatible), but allow folder-id
-                # path segments so URLs can stay stable and readable.
-                child = session.query(FolderModel).filter(
-                    FolderModel.parent_id == current_folder.id,
-                    FolderModel.name == part
-                ).first()
-                if not child and part.isdigit():
-                    child = session.query(FolderModel).filter(
-                        FolderModel.parent_id == current_folder.id,
-                        FolderModel.id == int(part)
-                    ).first()
-                if not child:
-                    # Check if this is a comic file (by title or filename without extension)
-                    # Only valid as the last path segment
-                    if i == len(path_parts) - 1:
-                        # First, support comic-id browse paths in this folder.
-                        comic = None
-                        if part.isdigit():
-                            comic = session.query(Comic).filter(
-                                Comic.id == int(part),
-                                Comic.library_id == library_id,
-                                Comic.folder_id == current_folder.id,
-                            ).first()
+        if path_comic:
+            progress = None
+            if user:
+                progress = get_reading_progress(session, user.id, path_comic.id)
 
-                        # Try to find comic by title first
-                        if not comic:
-                            comic = session.query(Comic).filter(
-                                Comic.library_id == library_id,
-                                Comic.folder_id == current_folder.id,
-                                Comic.title == part
-                            ).first()
-                        
-                        # If not found by title, try by filename (with various extensions)
-                        if not comic:
-                            # SQLite doesn't have regexp_replace, so use OR with LIKE patterns
-                            from sqlalchemy import or_
-                            comic = session.query(Comic).filter(
-                                Comic.library_id == library_id,
-                                Comic.folder_id == current_folder.id,
-                                or_(
-                                    Comic.filename == part,  # Exact match (already without extension)
-                                    Comic.filename == part + '.cbz',
-                                    Comic.filename == part + '.cbr',
-                                    Comic.filename == part + '.cb7',
-                                    Comic.filename == part + '.cbt',
-                                    Comic.filename == part + '.CBZ',
-                                    Comic.filename == part + '.CBR',
-                                    Comic.filename == part + '.CB7',
-                                    Comic.filename == part + '.CBT',
-                                )
-                            ).first()
-                        
-                        if comic:
-                            # Get user progress
-                            user = get_request_user(request, session)
-                            progress = None
-                            if user:
-                                progress = get_reading_progress(session, user.id, comic.id)
-                            
-                            # Build comic item for the items list
-                            comic_item = build_comic_item(
-                                comic=comic,
-                                progress=progress,
-                                include_size=True,
-                                include_metadata=per_volume_metadata
-                            )
-                            
-                            # Treat single comic as "a series with one volume"
-                            # Build folder-like metadata from the comic's info
-                            folder_metadata = {
-                                "id": comic.id,  # Use comic ID since there's no real folder
-                                "name": get_comic_display_name(comic),
-                                "total_issues": 1,
-                                "cover_hash": comic.hash,
-                                # Comic metadata for the info panel
-                                "synopsis": comic.description,
-                                "writer": comic.writer,
-                                "artist": comic.penciller,
-                                "publisher": comic.publisher,
-                                "year": comic.year,
-                                "genre": comic.genre,
-                            }
-                            
-                            # Return as series-style browse response (unified view)
-                            # Include per_volume_metadata and first_comic_metadata for FILE-level scanners
-                            return _timed_browse_response({
-                                "library": {"id": library.id, "name": library.name},
-                                "folder": folder_metadata,
-                                "comic": None,
-                                "is_comic_view": False,
-                                "per_volume_metadata": per_volume_metadata,
-                                "first_comic_metadata": comic_item if per_volume_metadata else None,
-                                "breadcrumbs": breadcrumbs,
-                                "items": [comic_item],
-                                "total": 1,
-                                "offset": 0,
-                                "limit": 1
-                            }, "library", "bypass", started_at)
-                    
-                    raise HTTPException(status_code=404, detail=f"Folder not found: {part}")
-                current_folder = child
-                breadcrumbs.append({
-                    "name": child.name,
-                    "path": '/'.join(p["name"] for p in breadcrumbs) + ('/' if breadcrumbs else '') + child.name
-                })
+            comic_item = build_comic_item(
+                comic=path_comic,
+                progress=progress,
+                include_size=True,
+                include_metadata=per_volume_metadata,
+            )
+            folder_metadata = build_single_comic_folder_metadata(
+                path_comic, get_comic_display_name(path_comic)
+            )
+
+            return timed_browse_response(
+                {
+                    "library": {"id": library.id, "name": library.name},
+                    "folder": folder_metadata,
+                    "comic": None,
+                    "is_comic_view": False,
+                    "per_volume_metadata": per_volume_metadata,
+                    "first_comic_metadata": comic_item if per_volume_metadata else None,
+                    "breadcrumbs": breadcrumbs,
+                    "items": [comic_item],
+                    "total": 1,
+                    "offset": 0,
+                    "limit": 1,
+                },
+                "library",
+                "bypass",
+                started_at,
+            )
 
         # -------------------
         # SORTING STRATEGY
         # -------------------
-        user = get_request_user(request, session)
-        
-        items = []
-        total_items = 0
-
-        # Special Handling for Random Sort
-        if normalized_sort == 'random':
-             # 1. Fetch ALL IDs for this view
-             all_folders = session.query(FolderModel.id).filter(
-                 FolderModel.parent_id == current_folder.id
-             ).all()
-             folder_ids = [f.id for f in all_folders]
-
-             all_comics = session.query(Comic.id).filter(
-                 Comic.library_id == library_id,
-                 Comic.folder_id == current_folder.id
-             ).all()
-             comic_ids = [c.id for c in all_comics]
-
-             # Combine into a list of (id, type) tuples
-             combined_items = [('folder', fid) for fid in folder_ids] + [('comic', cid) for cid in comic_ids]
-             total_items = len(combined_items)
-
-             # 2. Shuffle
-             # Use provided seed or default
-             rng = random.Random(seed) if seed is not None else random.Random()
-             rng.shuffle(combined_items)
-
-             # 3. Slice for pagination
-             paged_items = combined_items[offset : offset + limit]
-
-             # 4. Fetch details for sliced items
-             # Split back into folders and comics
-             paged_folder_ids = [i[1] for i in paged_items if i[0] == 'folder']
-             paged_comic_ids = [i[1] for i in paged_items if i[0] == 'comic']
-
-             # Batch fetch folders
-             fetched_folders = []
-             if paged_folder_ids:
-                 fetched_folders = session.query(FolderModel).filter(
-                     FolderModel.id.in_(paged_folder_ids)
-                 ).all()
-                 # Sort them back to match the shuffled order? No, we iterate paged_items
-             
-             # Batch fetch comics
-             fetched_comics = []
-             if paged_comic_ids:
-                 fetched_comics = session.query(Comic).filter(
-                     Comic.id.in_(paged_comic_ids)
-                 ).all()
-
-             # Map for O(1) retrieval
-             folder_map = {f.id: f for f in fetched_folders}
-             comic_map = {c.id: c for c in fetched_comics}
-
-             # Batch fetch metadata for folders
-             series_map = {}
-             if fetched_folders:
-                 sub_folder_names = [f.name for f in fetched_folders]
-                 series_records = session.query(Series).filter(
-                     Series.library_id == library_id,
-                     Series.name.in_(sub_folder_names)
-                 ).all()
-                 series_map = {s.name: s for s in series_records}
-             
-             # Batch fetch children info for folders
-             folders_with_children = set()
-             if paged_folder_ids:
-                 parents = session.query(FolderModel.parent_id).filter(
-                     FolderModel.parent_id.in_(paged_folder_ids)
-                 ).distinct().all()
-                 folders_with_children = {p[0] for p in parents}
-
-             # Batch fetch progress for comics
-             progress_map = {}
-             if user and fetched_comics:
-                 progs = session.query(ReadingProgress).filter(
-                     ReadingProgress.user_id == user.id, 
-                     ReadingProgress.comic_id.in_(paged_comic_ids)
-                 ).all()
-                 progress_map = {p.comic_id: p for p in progs}
-
-             # Reconstruct ordered list
-             for item_type, item_id in paged_items:
-                 if item_type == 'folder':
-                     folder = folder_map.get(item_id)
-                     if not folder: continue
-                     
-                     series_record = series_map.get(folder.name)
-                     has_children = folder.id in folders_with_children
-                     
-                     cover_hash = folder.first_child_hash
-                     
-                     if not cover_hash:
-                         cover_comic = session.query(Comic.hash).filter(
-                            Comic.library_id == library_id,
-                            Comic.path.startswith(folder.path + "/")
-                         ).order_by(Comic.path).first()
-                         if cover_comic: cover_hash = cover_comic[0]
-
-                     item_data = build_folder_item(
-                         folder=folder,
-                         series_record=series_record,
-                         has_children=has_children,
-                         breadcrumbs=breadcrumbs,
-                         cover_hash=cover_hash
-                     )
-                     items.append(item_data)
-                 
-                 elif item_type == 'comic':
-                     comic = comic_map.get(item_id)
-                     if not comic: continue
-                     
-                     p = progress_map.get(comic.id)
-                     item_data = build_comic_item(
-                         comic=comic,
-                         progress=p,
-                         include_size=True,
-                         include_metadata=per_volume_metadata
-                     )
-                     items.append(item_data)
-
+        if normalized_sort == "random":
+            items, total_items = fetch_random_browse_items(
+                session,
+                library_id,
+                current_folder,
+                breadcrumbs,
+                user,
+                offset,
+                limit,
+                seed,
+                per_volume_metadata,
+            )
         else:
-            # Standard Sorting Logic (Base queries + Sort + Limits)
-            base_folders_query = session.query(FolderModel).filter(
-                FolderModel.parent_id == current_folder.id
+            items, total_items = fetch_sorted_browse_items(
+                session,
+                library_id,
+                current_folder,
+                breadcrumbs,
+                user,
+                normalized_sort,
+                offset,
+                limit,
+                per_volume_metadata,
             )
-            base_comics_query = session.query(Comic).filter(
-                Comic.library_id == library_id,
-                Comic.folder_id == current_folder.id
-            )
 
-            # Apply Sort
-            folders_query = base_folders_query
-            comics_query = base_comics_query
-
-            if normalized_sort in ('created', 'recent'):
-                folders_query = folders_query.order_by(desc(FolderModel.created_at), FolderModel.name)
-                comics_query = comics_query.order_by(desc(Comic.created_at), Comic.path)
-            elif normalized_sort == 'updated':
-                # "updated" means recently added content inside an existing series.
-                latest_descendant_created_subq = session.query(func.max(Comic.created_at)).filter(
-                    Comic.library_id == library_id,
-                    Comic.path.like(FolderModel.path + "/%")
-                ).correlate(FolderModel).scalar_subquery()
-                folders_query = folders_query.order_by(
-                    desc(func.coalesce(latest_descendant_created_subq, FolderModel.created_at)),
-                    FolderModel.name
-                )
-                comics_query = comics_query.order_by(desc(Comic.created_at), Comic.path)
-            elif normalized_sort == 'progress' and user:
-                # Sort comics by progress
-                comics_query = comics_query.outerjoin(
-                    ReadingProgress, 
-                    (ReadingProgress.comic_id == Comic.id) & (ReadingProgress.user_id == user.id)
-                ).order_by(
-                    ReadingProgress.last_read_at.desc().nulls_last(),
-                    ReadingProgress.progress_percent.desc().nulls_last(),
-                    Comic.path
-                )
-                folders_query = folders_query.order_by(FolderModel.name)
-            else:
-                # Default: Name
-                folders_query = folders_query.order_by(FolderModel.name)
-                comics_query = comics_query.order_by(Comic.path)
-
-            # PAGINATION LOGIC (Standard: Folders First)
-            num_folders = session.query(func.count(FolderModel.id)).filter(
-                FolderModel.parent_id == current_folder.id
-            ).scalar()
-            
-            num_comics = session.query(func.count(Comic.id)).filter(
-                Comic.library_id == library_id,
-                Comic.folder_id == current_folder.id
-            ).scalar()
-            
-            total_items = num_folders + num_comics
-            
-            # Fetch Folders
-            if offset < num_folders:
-                folder_limit = limit
-                fetched_folders = folders_query.offset(offset).limit(folder_limit).all()
-                
-                # Fetch metadata
-                sub_folder_names = [f.name for f in fetched_folders]
-                series_map = {}
-                if sub_folder_names:
-                    series_records = session.query(Series).filter(
-                        Series.library_id == library_id,
-                        Series.name.in_(sub_folder_names)
-                    ).all()
-                    series_map = {s.name: s for s in series_records}
-                    
-                # Check children
-                sub_folder_ids = [f.id for f in fetched_folders]
-                folders_with_children = set()
-                if sub_folder_ids:
-                    parents = session.query(FolderModel.parent_id).filter(
-                        FolderModel.parent_id.in_(sub_folder_ids)
-                    ).distinct().all()
-                    folders_with_children = {p[0] for p in parents}
-
-                for folder in fetched_folders:
-                    series_record = series_map.get(folder.name)
-                    has_children = folder.id in folders_with_children
-                    
-                    cover_hash = folder.first_child_hash
-                    
-                    if not cover_hash:
-                         cover_hash = get_cover_hash_fallback(session, library_id, folder)
-
-                    item_data = build_folder_item(
-                        folder=folder,
-                        series_record=series_record,
-                        has_children=has_children,
-                        breadcrumbs=breadcrumbs,
-                        cover_hash=cover_hash
-                    )
-                    items.append(item_data)
-            
-            # Fetch Comics
-            folders_fetched = len(items)
-            remaining_limit = limit - folders_fetched
-            
-            if remaining_limit > 0:
-                comic_offset = max(0, offset - num_folders)
-                fetched_comics = comics_query.offset(comic_offset).limit(remaining_limit).all()
-                
-                progress_map = {}
-                if user and fetched_comics:
-                    c_ids = [c.id for c in fetched_comics]
-                    progs = session.query(ReadingProgress).filter(
-                        ReadingProgress.user_id == user.id, 
-                        ReadingProgress.comic_id.in_(c_ids)
-                    ).all()
-                    progress_map = {p.comic_id: p for p in progs}
-                
-                for comic in fetched_comics:
-                    p = progress_map.get(comic.id)
-                    item_data = build_comic_item(
-                        comic=comic,
-                        progress=p,
-                        include_size=True,
-                        include_metadata=per_volume_metadata
-                    )
-                    items.append(item_data)
-
-        # Header metadata (only for non-root)
-        folder_metadata = None
-        if current_folder.id != root_folder.id:
-             folder_metadata = {
-                 "id": current_folder.id,
-                 "name": current_folder.name,
-                 "total_issues": total_items,
-                 "cover_hash": current_folder.first_child_hash
-             }
-             
-             # Fallback if no hash pre-calculated
-             if not folder_metadata["cover_hash"]:
-                 first_comic = session.query(Comic).filter(
-                    Comic.library_id == library_id,
-                    Comic.path.startswith(current_folder.path)
-                 ).order_by(Comic.path).first()
-                 
-                 if first_comic:
-                     folder_metadata["cover_hash"] = first_comic.hash
-             
-             # Look up Series record for this folder to include series metadata
-             from ....database.models import Series as SeriesModel
-             series_record = session.query(SeriesModel).filter(
-                 SeriesModel.library_id == library_id,
-                 SeriesModel.name == current_folder.name
-             ).first()
-             
-             if series_record:
-                 # Add series metadata fields for display
-                 if series_record.display_name:
-                     folder_metadata["display_name"] = series_record.display_name
-                 if series_record.description:
-                     folder_metadata["synopsis"] = series_record.description
-                 if series_record.writer:
-                     folder_metadata["writer"] = series_record.writer
-                 if series_record.artist:
-                     folder_metadata["artist"] = series_record.artist
-                 if series_record.genre:
-                     folder_metadata["genre"] = series_record.genre
-                 if series_record.tags:
-                     folder_metadata["tags"] = series_record.tags
-                 if series_record.publisher:
-                     folder_metadata["publisher"] = series_record.publisher
-                 if series_record.year_start:
-                     folder_metadata["year"] = series_record.year_start
-                 if series_record.status:
-                     folder_metadata["status"] = series_record.status
-                 if series_record.format:
-                     folder_metadata["format"] = series_record.format
-                 if series_record.chapters:
-                     folder_metadata["chapters"] = series_record.chapters
-                 if series_record.volumes:
-                     folder_metadata["volumes_count"] = series_record.volumes
-                 
-                 # Add scanner metadata
-                 if series_record.scanner_source:
-                     folder_metadata["scanner_source"] = series_record.scanner_source
-                 if series_record.scanner_source_id:
-                     folder_metadata["scanner_source_id"] = series_record.scanner_source_id
-                 if series_record.scanner_source_url:
-                     folder_metadata["scanner_source_url"] = series_record.scanner_source_url
-                 if series_record.scan_confidence is not None:
-                     folder_metadata["scan_confidence"] = series_record.scan_confidence
-                 if series_record.scanned_at:
-                     folder_metadata["scanned_at"] = series_record.scanned_at
+        folder_metadata = build_folder_metadata(
+            session, library_id, current_folder, root_folder, total_items
+        )
 
         # Build first comic metadata for per-volume mode
         first_comic_metadata = None
         if per_volume_metadata and items:
-            # Find first comic item
-            for item in items:
-                if item.get("type") == "comic":
-                    # Use the item data that already has all metadata (since include_metadata=True was passed)
-                    first_comic_metadata = item
-                    break
+            first_comic_metadata = find_first_comic_metadata(items)
 
         result = {
             "library": {"id": library.id, "name": library.name},
@@ -707,14 +225,14 @@ async def browse_folder(
         }
 
         # Cache (unless sorting by progress which is per-user, or random)
-        response_result = _apply_progress_overlay(result, session, user)
+        response_result = apply_progress_overlay(result, session, user)
 
         if normalized_sort not in ('random', 'progress'):
             cache_service = get_library_cache(library_id)
-            cache_service.cache_response(cache_path, _cache_safe_copy(result), cache_params)
+            cache_service.cache_response(cache_path, cache_safe_copy(result), cache_params)
 
         cache_status = "bypass" if normalized_sort in ('random', 'progress') else "miss"
-        return _timed_browse_response(response_result, "library", cache_status, started_at)
+        return timed_browse_response(response_result, "library", cache_status, started_at)
 
 # ============================================================================
 # Series Browsing
@@ -739,7 +257,7 @@ async def get_series_list(
     from ....services.library_cache import get_library_cache
     from ....database.models import Series
 
-    normalized_sort = _normalize_sort(sort)
+    normalized_sort = normalize_sort(sort)
 
     # --------------------------------------------------------------------------
     # CACHE CHECK
@@ -940,7 +458,7 @@ async def browse_all_content(
     db = request.app.state.db
 
     with db.get_session() as session:
-        normalized_sort = _normalize_sort(sort)
+        normalized_sort = normalize_sort(sort)
         user = get_request_user(request, session)
         cache_service = get_library_cache(0)
         cache_path = "browse/all"
@@ -948,8 +466,8 @@ async def browse_all_content(
         if normalized_sort not in ('random', 'progress'):
             cached_data = cache_service.get_cached_response(cache_path, cache_params)
             if cached_data:
-                response = _apply_progress_overlay(cached_data, session, user)
-                return _timed_browse_response(response, "all-libraries", "hit", started_at)
+                response = apply_progress_overlay(cached_data, session, user)
+                return timed_browse_response(response, "all-libraries", "hit", started_at)
 
         # 1. Get all libraries and their root folders
         # We need mapping of root_folder_id -> library_id
@@ -962,7 +480,7 @@ async def browse_all_content(
         ).all()
         
         if not root_folders:
-            return _timed_browse_response({
+            return timed_browse_response({
                 "items": [],
                 "total": 0,
                 "offset": offset,
@@ -1243,13 +761,13 @@ async def browse_all_content(
             "limit": limit
         }
 
-        response_result = _apply_progress_overlay(result, session, user)
+        response_result = apply_progress_overlay(result, session, user)
 
         if normalized_sort not in ('random', 'progress'):
-            cache_service.cache_response(cache_path, _cache_safe_copy(result), cache_params)
+            cache_service.cache_response(cache_path, cache_safe_copy(result), cache_params)
 
         cache_status = "bypass" if normalized_sort in ('random', 'progress') else "miss"
-        return _timed_browse_response(response_result, "all-libraries", cache_status, started_at)
+        return timed_browse_response(response_result, "all-libraries", cache_status, started_at)
 
 
 

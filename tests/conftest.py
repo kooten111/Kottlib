@@ -9,14 +9,13 @@ from pathlib import Path
 from typing import Generator
 import pytest
 from fastapi.testclient import TestClient
-from sqlalchemy import create_engine
-from sqlalchemy.orm import sessionmaker
 
 # Add src to path for imports
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
 from src.database.models import Base, Library, Comic, User, Folder, ReadingProgress
 from src.database import Database
+from src.constants import ROOT_FOLDER_MARKER
 
 
 @pytest.fixture(scope="session")
@@ -41,12 +40,9 @@ def test_db(test_db_path: Path) -> Generator[Database, None, None]:
     if test_db_path.exists():
         test_db_path.unlink()
 
-    # Create new database
+    # Create new database with schema + default admin user (via init_db)
     db = Database(str(test_db_path))
-
-    # Create tables
-    engine = create_engine(f"sqlite:///{test_db_path}")
-    Base.metadata.create_all(engine)
+    db.init_db()
 
     yield db
 
@@ -91,6 +87,17 @@ def sample_library(test_db: Database, test_data_dir: Path) -> Library:
             updated_at=int(time.time())
         )
         session.add(library)
+        session.flush()
+
+        root_folder = Folder(
+            name=ROOT_FOLDER_MARKER,
+            path=str(library_path),
+            parent_id=None,
+            library_id=library.id,
+            created_at=int(time.time()),
+            updated_at=int(time.time()),
+        )
+        session.add(root_folder)
         session.commit()
         session.refresh(library)
         return library
@@ -102,10 +109,15 @@ def sample_folder(test_db: Database, sample_library: Library) -> Folder:
     import time
     
     with test_db.get_session() as session:
+        root_folder = session.query(Folder).filter_by(
+            library_id=sample_library.id,
+            name=ROOT_FOLDER_MARKER,
+        ).first()
+
         folder = Folder(
             name="Test Folder",
             path=str(Path(sample_library.path) / "Test Folder"),
-            parent_id=None,
+            parent_id=root_folder.id if root_folder else None,
             library_id=sample_library.id,
             created_at=int(time.time()),
             updated_at=int(time.time())
@@ -188,13 +200,18 @@ def multiple_comics(test_db: Database, sample_library: Library, sample_folder: F
 
 
 @pytest.fixture(scope="function")
-def sample_reading_progress(test_db: Database, sample_user: User, sample_comic: Comic) -> ReadingProgress:
+def sample_reading_progress(test_db: Database, sample_comic: Comic) -> ReadingProgress:
     """Create sample reading progress for testing"""
     import time
+    from src.database import get_user_by_username
+
     now = int(time.time())
     with test_db.get_session() as session:
+        admin = get_user_by_username(session, "admin")
+        user_id = admin.id if admin else 1
+
         progress = ReadingProgress(
-            user_id=sample_user.id,
+            user_id=user_id,
             comic_id=sample_comic.id,
             current_page=5,
             total_pages=sample_comic.num_pages,

@@ -884,12 +884,12 @@ async def search_comics(
             body = await request.json()
             # Support both "query" and "q" field names
             query = body.get("query", body.get("q", ""))
-        except:
+        except Exception:
             # If JSON parsing fails, try form data
             try:
                 form = await request.form()
                 query = form.get("query", form.get("q", ""))
-            except:
+            except Exception:
                 pass
 
     if not query or not query.strip():

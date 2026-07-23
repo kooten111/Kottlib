@@ -249,8 +249,8 @@ def extract_metadata(comic, library_path: Optional[Path], structure_cache: Dict[
         try:
             from src.config import get_config
             ignore_series_metadata = get_config().features.ignore_series_metadata
-        except Exception:
-            pass
+        except Exception as config_err:
+            logger.debug("Could not load ignore_series_metadata config: %s", config_err)
 
         if info.series and not ignore_series_metadata:
             metadata['series'] = info.series

@@ -142,20 +142,12 @@ class CB7Archive(ComicArchive):
             File contents as bytes or None if not found
         """
         try:
-            # Find the actual filename (might be case-insensitive)
             target_name = filename
-            found = False
-
             for name in self.archive.getnames():
-                if name == filename:
-                    found = True
-                    break
-                elif name.lower() == filename.lower():
+                if name == filename or name.lower() == filename.lower():
                     target_name = name
-                    found = True
                     break
-
-            if not found:
+            else:
                 return None
 
             # Extract to memory using factory pattern
