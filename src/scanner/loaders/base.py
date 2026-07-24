@@ -163,12 +163,23 @@ class ComicArchive:
 
     def get_cover(self) -> Optional[bytes]:
         """
-        Get cover page (first page).
-        
-        Returns:
-            Cover page data as bytes or None if no pages
+        Get cover page (first image) without requiring a full page index when possible.
         """
+        cover_name = self._first_image_filename()
+        if cover_name:
+            return self.get_file(cover_name)
         return self.get_page(0) if self.page_count > 0 else None
+
+    def _first_image_filename(self) -> Optional[str]:
+        """
+        Return the filename of the first image in natural sort order.
+
+        Subclasses may override for a cheaper path than building the full page list.
+        Default implementation uses pages (may trigger full archive listing).
+        """
+        if self.page_count > 0:
+            return self.pages[0].filename
+        return None
 
     def extract_page_as_image(self, index: int) -> Optional[Image.Image]:
         """
@@ -186,6 +197,16 @@ class ComicArchive:
                 return Image.open(BytesIO(page_data))
             except Exception as e:
                 logger.error(f"Failed to open image at index {index}: {e}")
+        return None
+
+    def extract_cover_as_image(self) -> Optional[Image.Image]:
+        """Extract cover as PIL Image using the cover-only path when available."""
+        page_data = self.get_cover()
+        if page_data:
+            try:
+                return Image.open(BytesIO(page_data))
+            except Exception as e:
+                logger.error(f"Failed to open cover image: {e}")
         return None
 
     def close(self):

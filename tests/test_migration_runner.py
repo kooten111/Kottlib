@@ -26,4 +26,4 @@ def test_startup_migrations_are_idempotent(test_db):
 
 def test_startup_migration_list_order():
     names = [name for name, _ in STARTUP_MIGRATIONS]
-    assert names == ["inline_schema", "cover_source_columns"]
+    assert names == ["inline_schema", "cover_source_columns", "folder_last_content_at"]

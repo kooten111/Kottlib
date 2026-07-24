@@ -45,6 +45,7 @@ from .folder import (
     get_or_create_root_folder,
     get_subfolders,
     get_first_comic_recursive,
+    touch_folder_last_content,
 )
 from .user import (
     get_user_by_username,
@@ -60,6 +61,7 @@ from .session import (
 )
 from .stats import (
     get_library_stats,
+    get_all_library_stats,
 )
 from .progress import (
     update_reading_progress,
@@ -138,6 +140,7 @@ __all__ = [
     "get_or_create_root_folder",
     "get_subfolders",
     "get_first_comic_recursive",
+    "touch_folder_last_content",
     # User
     "get_user_by_username",
     "get_user_by_id",
@@ -148,6 +151,7 @@ __all__ = [
     "cleanup_expired_sessions",
     # Stats
     "get_library_stats",
+    "get_all_library_stats",
     # Progress
     "update_reading_progress",
     "get_reading_progress",

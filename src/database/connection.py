@@ -10,7 +10,7 @@ from pathlib import Path
 from typing import Optional, Generator, Union
 from contextlib import contextmanager
 
-from sqlalchemy import create_engine, Engine
+from sqlalchemy import create_engine, Engine, event
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import sessionmaker, Session
 from sqlalchemy.pool import NullPool
@@ -21,6 +21,18 @@ from .paths import get_default_db_path
 
 
 logger = logging.getLogger(__name__)
+
+
+def _configure_sqlite_connection(dbapi_connection, connection_record):
+    """Enable WAL and sensible pragmas on every new SQLite connection."""
+    cursor = dbapi_connection.cursor()
+    try:
+        cursor.execute("PRAGMA journal_mode=WAL")
+        cursor.execute("PRAGMA synchronous=NORMAL")
+        cursor.execute("PRAGMA busy_timeout=30000")
+        cursor.execute("PRAGMA foreign_keys=ON")
+    finally:
+        cursor.close()
 
 
 class Database:
@@ -56,6 +68,7 @@ class Database:
                 "timeout": 30  # 30 second timeout for lock acquisition
             }
         )
+        event.listen(self.engine, "connect", _configure_sqlite_connection)
 
         # Create session factory
         self.SessionLocal = sessionmaker(

@@ -1,10 +1,10 @@
 <script>
 	import { onMount } from 'svelte';
+	import { page } from '$app/stores';
 	import Navbar from '$lib/components/layout/Navbar.svelte';
 	import HomeSidebar from '$lib/components/layout/HomeSidebar.svelte';
 	import ComicCard from '$lib/components/comic/ComicCard.svelte';
 	import { getFavorites } from '$lib/api/favorites';
-	import { getLibraries, getLibrariesSeriesTree } from '$lib/api/libraries';
 	import { Heart, Grid, List } from 'lucide-svelte';
 	import { encodePath } from '$lib/browse/browseNavigation';
 
@@ -14,26 +14,13 @@
 	let viewMode = 'grid';
 	let sortBy = 'recent';
 
-	// Sidebar data
-	let libraries = [];
-	let seriesTree = [];
+	// Sidebar data from root layout (avoid re-fetch)
+	$: libraries = $page.data.libraries || [];
+	$: seriesTree = $page.data.seriesTree || [];
 
 	onMount(async () => {
-		await Promise.all([loadFavorites(), loadSidebarData()]);
+		await loadFavorites();
 	});
-
-	async function loadSidebarData() {
-		try {
-			const [libs, tree] = await Promise.all([
-				getLibraries(),
-				getLibrariesSeriesTree()
-			]);
-			libraries = libs || [];
-			seriesTree = tree || [];
-		} catch (err) {
-			console.error('Failed to load sidebar data:', err);
-		}
-	}
 
 	async function loadFavorites() {
 		try {

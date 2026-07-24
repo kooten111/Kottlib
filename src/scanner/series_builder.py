@@ -23,6 +23,56 @@ from sqlalchemy import func
 logger = logging.getLogger(__name__)
 
 
+def refresh_folder_content_metadata(db: Database, library_id: int) -> None:
+    """
+    Recompute folders.last_content_at and first_child_hash for a library.
+
+    Called after scans so browse sort=updated and cover hashes stay accurate
+    even for comics that were moved/renamed without a full recreate.
+    """
+    logger.info(f"Refreshing folder content metadata for library {library_id}...")
+
+    with db.get_session() as session:
+        all_folders = session.query(FolderModel).filter_by(library_id=library_id).all()
+        all_comics = session.query(Comic).filter_by(library_id=library_id).all()
+
+        comics_by_folder: dict = {}
+        for comic in all_comics:
+            comics_by_folder.setdefault(comic.folder_id, []).append(comic)
+
+        folders_by_parent: dict = {}
+        for folder in all_folders:
+            folders_by_parent.setdefault(folder.parent_id, []).append(folder)
+
+        def compute_for_folder(folder):
+            comics_in_folder = comics_by_folder.get(folder.id, [])
+            sorted_comics = sorted(
+                comics_in_folder,
+                key=lambda c: (c.volume or 0, c.issue_number or 0, c.title or c.filename),
+            )
+
+            max_created = max((c.created_at for c in comics_in_folder), default=None)
+            cover_hash = sorted_comics[0].hash if sorted_comics else None
+
+            for child in folders_by_parent.get(folder.id, []):
+                child_max, child_cover = compute_for_folder(child)
+                if child_max is not None and (max_created is None or child_max > max_created):
+                    max_created = child_max
+                if not cover_hash and child_cover:
+                    cover_hash = child_cover
+
+            folder.last_content_at = max_created if max_created is not None else folder.created_at
+            folder.first_child_hash = cover_hash
+            return folder.last_content_at, cover_hash
+
+        roots = [f for f in all_folders if f.parent_id is None]
+        for root in roots:
+            compute_for_folder(root)
+
+        session.commit()
+        logger.info(f"Folder content metadata refreshed for library {library_id}")
+
+
 def rebuild_series_table(db: Database, library_id: int) -> None:
     """
     Rebuild the series table from comics.

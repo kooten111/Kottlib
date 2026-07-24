@@ -6,6 +6,7 @@ Sessions are tracked via the 'yacread_session' cookie.
 """
 
 import logging
+import time
 from typing import Optional
 from fastapi import Request
 from starlette.middleware.base import BaseHTTPMiddleware
@@ -23,6 +24,23 @@ from ...constants import DEFAULT_USER
 
 logger = logging.getLogger(__name__)
 
+# Throttle activity writes so cover/browse stampedes don't serialize on SQLite.
+SESSION_ACTIVITY_THROTTLE_SECONDS = 60
+
+
+def is_static_asset_path(path: str) -> bool:
+    """True for covers, pages, health, and other paths that must not touch the session DB."""
+    if path in ("/v2/version", "/version", "/", "/health", "/api/health"):
+        return True
+    if "/covers/" in path:
+        return True
+    # Comic page image bytes (WebUI <img> / YACReader) — same as covers: no session chatter
+    if "/pages/" in path or "/page/" in path:
+        return True
+    if path.endswith((".jpg", ".jpeg", ".png", ".webp", ".gif", ".ico")):
+        return True
+    return False
+
 
 class SessionMiddleware(BaseHTTPMiddleware):
     """
@@ -32,6 +50,7 @@ class SessionMiddleware(BaseHTTPMiddleware):
     - Validates sessions and extends their expiry on activity
     - Cleans up expired sessions periodically
     - Creates sessions for new connections
+    - Skips all DB work for cover/static/health paths
     """
 
     def __init__(self, app, auto_create_session: bool = True):
@@ -51,6 +70,11 @@ class SessionMiddleware(BaseHTTPMiddleware):
         request.state.user_id = None
         request.state.db_session = None
 
+        # Covers and static assets never need session DB (avoids stampede on grid load)
+        if is_static_asset_path(request.url.path):
+            response = await call_next(request)
+            return response
+
         # Validate and refresh session if it exists
         if session_id:
             db = request.app.state.db
@@ -62,9 +86,13 @@ class SessionMiddleware(BaseHTTPMiddleware):
                     request.state.user_id = session.user_id
                     request.state.db_session = session
 
-                    # Update last activity timestamp
+                    # Throttled activity update on the already-loaded row
                     try:
-                        update_session_activity(db_session, session_id)
+                        update_session_activity(
+                            db_session,
+                            session,
+                            throttle_seconds=SESSION_ACTIVITY_THROTTLE_SECONDS,
+                        )
                     except Exception as e:
                         logger.warning(f"Failed to update session activity: {e}")
 
@@ -147,21 +175,20 @@ def should_create_session(request: Request) -> bool:
     Only create sessions for:
     - Library browsing endpoints
     - Comic reading endpoints
-    - Not for static assets, version checks, etc.
+    - Not for static assets, version checks, covers, etc.
     """
     path = request.url.path
 
-    # Create sessions for library/comic access
+    if is_static_asset_path(path):
+        return False
+
+    # Create sessions for library/comic access (covers already excluded above)
     if '/library/' in path or '/libraries' in path:
         return True
 
     # Create sessions for v2 API endpoints (except version)
     if path.startswith('/v2/') and path != '/v2/version':
         return True
-
-    # Don't create for version checks, covers, static assets
-    if path in ['/v2/version', '/version', '/']:
-        return False
 
     return False
 

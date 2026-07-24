@@ -50,6 +50,8 @@ from ....services.browse_service import (
 from ._shared import get_comic_display_name, series_tree_cache, get_comic_sort_key
 from ._item_builders import build_folder_item, build_comic_item
 from ._browse_helpers import (
+    apply_browse_sort_queries,
+    apply_progress_order_to_queries,
     fetch_random_browse_items,
     fetch_sorted_browse_items,
     find_first_comic_metadata,
@@ -253,7 +255,7 @@ async def get_series_list(
     Replaces old metadata-based series grouping with a direct Folder Browse view.
     This ensures the structure matches the Sidebar/File System exactly.
     """
-    from sqlalchemy import func, desc
+    from sqlalchemy import func
     from ....services.library_cache import get_library_cache
     from ....database.models import Series
 
@@ -311,29 +313,15 @@ async def get_series_list(
         ).scalar()
         
         total_items = num_folders + num_comics
-        
+
+        user = get_request_user(request, session)
+        folders_base_query, comics_base_query = apply_browse_sort_queries(
+            session, library_id, current_folder, normalized_sort, user
+        )
+
         # 2. Fetch Folders
         if offset < num_folders:
             folder_limit = limit
-            folders_base_query = session.query(FolderModel).filter(
-                FolderModel.parent_id == current_folder.id
-            )
-            if normalized_sort in ('created', 'recent'):
-                folders_base_query = folders_base_query.order_by(desc(FolderModel.created_at), FolderModel.name)
-            elif normalized_sort == 'updated':
-                # "updated" means latest issue/chapter added in that series subtree,
-                # not folder metadata timestamps.
-                latest_descendant_created_subq = session.query(func.max(Comic.created_at)).filter(
-                    Comic.library_id == library_id,
-                    Comic.path.like(FolderModel.path + "/%")
-                ).correlate(FolderModel).scalar_subquery()
-                folders_base_query = folders_base_query.order_by(
-                    desc(func.coalesce(latest_descendant_created_subq, FolderModel.created_at)),
-                    FolderModel.name
-                )
-            else:
-                folders_base_query = folders_base_query.order_by(FolderModel.name)
-
             folders_query = folders_base_query.offset(offset).limit(folder_limit).all()
             
             # Metadata Batch Fetch
@@ -380,29 +368,6 @@ async def get_series_list(
         
         if remaining_limit > 0:
             comic_offset = max(0, offset - num_folders)
-            comics_base_query = session.query(Comic).filter(
-                Comic.library_id == library_id,
-                Comic.folder_id == current_folder.id
-            )
-
-            user = get_request_user(request, session)
-            if normalized_sort in ('created', 'recent'):
-                comics_base_query = comics_base_query.order_by(desc(Comic.created_at), Comic.path)
-            elif normalized_sort == 'updated':
-                # "updated" should track newly added comics, not source file mtime.
-                comics_base_query = comics_base_query.order_by(desc(Comic.created_at), Comic.path)
-            elif normalized_sort == 'progress' and user:
-                comics_base_query = comics_base_query.outerjoin(
-                    ReadingProgress,
-                    (ReadingProgress.comic_id == Comic.id) & (ReadingProgress.user_id == user.id)
-                ).order_by(
-                    ReadingProgress.last_read_at.desc().nulls_last(),
-                    ReadingProgress.progress_percent.desc().nulls_last(),
-                    Comic.path
-                )
-            else:
-                comics_base_query = comics_base_query.order_by(Comic.path)
-
             comics_query = comics_base_query.offset(comic_offset).limit(remaining_limit).all()
             
             # Progress
@@ -633,28 +598,16 @@ async def browse_all_content(
                  folders_query = folders_query.order_by(desc(FolderModel.created_at), FolderModel.name)
                  comics_query = comics_query.order_by(desc(Comic.created_at), Comic.path)
              elif normalized_sort == 'updated':
-                 # "updated" ranks series by newest comic added in that series subtree.
-                 latest_descendant_created_subq = session.query(func.max(Comic.created_at)).filter(
-                     Comic.library_id == FolderModel.library_id,
-                     Comic.path.like(FolderModel.path + "/%")
-                 ).correlate(FolderModel).scalar_subquery()
+                 # Precomputed at scan time (folders.last_content_at).
                  folders_query = folders_query.order_by(
-                     desc(func.coalesce(latest_descendant_created_subq, FolderModel.created_at)),
+                     desc(func.coalesce(FolderModel.last_content_at, FolderModel.created_at)),
                      FolderModel.name
                  )
                  comics_query = comics_query.order_by(desc(Comic.created_at), Comic.path)
              elif normalized_sort == 'progress' and user:
-                 # Sort comics by progress
-                 comics_query = comics_query.outerjoin(
-                     ReadingProgress, 
-                     (ReadingProgress.comic_id == Comic.id) & (ReadingProgress.user_id == user.id)
-                 ).order_by(
-                     desc(ReadingProgress.last_read_at.nullslast()),
-                     desc(ReadingProgress.progress_percent.nullslast()),
-                     Comic.path
+                 folders_query, comics_query = apply_progress_order_to_queries(
+                     session, folders_query, comics_query, user_id=user.id
                  )
-                 # Folders sort by name for now
-                 folders_query = folders_query.order_by(FolderModel.name)
              else:
                  # Default: Name
                  folders_query = folders_query.order_by(FolderModel.name)
@@ -1023,10 +976,16 @@ async def get_series_detail(
                     if first_comic.genre:
                         series_detail["genre"] = first_comic.genre
 
-                # Calculate overall reading progress
+                # Calculate overall reading progress (completed = 100%, else volume %)
                 completed_volumes = sum(1 for v in volumes if v["is_completed"])
                 series_detail["completed_volumes"] = completed_volumes
-                series_detail["overall_progress"] = (completed_volumes / len(volumes) * 100) if volumes else 0
+                series_detail["overall_progress"] = (
+                    sum(
+                        100.0 if v["is_completed"] else (v.get("progress_percent") or 0)
+                        for v in volumes
+                    )
+                    / len(volumes)
+                ) if volumes else 0
 
                 logger.debug(f"v2 API: Returning series detail for '{decoded_series_name}' with {len(volumes)} volumes")
                 return JSONResponse(series_detail)

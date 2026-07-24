@@ -5,7 +5,8 @@
 	import { readerSettings } from "$lib/stores/reader";
 	import {
 		getComic,
-		getComicPage,
+		getComicPageUrl,
+		preloadComicPageUrl,
 		updateReadingProgress,
 	} from "$lib/api/comics";
 	import PageViewer from "$lib/components/reader/PageViewer.svelte";
@@ -63,10 +64,12 @@
 	// Load comic data
 	onMount(async () => {
 		try {
-			// Load library-specific reader settings
-			await readerSettings.loadForLibrary(libraryId);
-
-			comic = await getComic(libraryId, comicId);
+			// Parallelize settings + comic meta, then first page (cuts reader TTFB waterfall)
+			const [, comicData] = await Promise.all([
+				readerSettings.loadForLibrary(libraryId),
+				getComic(libraryId, comicId),
+			]);
+			comic = comicData;
 			totalPages = comic.num_pages || comic.numPages || 0;
 
 			// Set initial page
@@ -127,8 +130,8 @@
 				currentPageImage = preloadedPages.get(pageNum);
 				isLoading = false;
 			} else {
-				const blob = await getComicPage(libraryId, comicId, pageNum);
-				const url = URL.createObjectURL(blob);
+				const url = getComicPageUrl(libraryId, comicId, pageNum);
+				await preloadComicPageUrl(url);
 				currentPageImage = url;
 				preloadedPages.set(pageNum, url);
 				isLoading = false;
@@ -142,8 +145,8 @@
 						secondPageImage = preloadedPages.get(secondPageNum);
 					} else {
 						try {
-							const blob2 = await getComicPage(libraryId, comicId, secondPageNum);
-							const url2 = URL.createObjectURL(blob2);
+							const url2 = getComicPageUrl(libraryId, comicId, secondPageNum);
+							await preloadComicPageUrl(url2);
 							preloadedPages.set(secondPageNum, url2);
 							secondPageImage = url2;
 						} catch (e) {
@@ -222,8 +225,8 @@
 	// Preload a single page
 	async function preloadPage(pageNum) {
 		try {
-			const blob = await getComicPage(libraryId, comicId, pageNum);
-			const url = URL.createObjectURL(blob);
+			const url = getComicPageUrl(libraryId, comicId, pageNum);
+			await preloadComicPageUrl(url);
 			preloadedPages.set(pageNum, url);
 			preloadedPages = preloadedPages; // Force Svelte reactivity
 		} catch (error) {
@@ -235,7 +238,7 @@
 	async function loadInitialPages() {
 		if (totalPages === 0) return;
 
-		const preloadCount = $readerSettings.preloadPages || 3;
+		const preloadCount = $readerSettings.preloadPages || 5;
 		const isRTL = $readerSettings.readingDirection === "rtl";
 		
 		// Load current page and nearby pages

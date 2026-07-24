@@ -11,7 +11,7 @@ from typing import Callable, List, Optional, Tuple
 from sqlalchemy.engine import Engine
 from sqlalchemy.orm import Session, sessionmaker
 
-from . import add_cover_source_columns, inline_schema
+from . import add_cover_source_columns, add_folder_last_content_at, inline_schema
 
 logger = logging.getLogger(__name__)
 
@@ -20,6 +20,7 @@ MigrationFn = Callable[[Session], None]
 STARTUP_MIGRATIONS: List[Tuple[str, MigrationFn]] = [
     ("inline_schema", inline_schema.upgrade),
     ("cover_source_columns", add_cover_source_columns.upgrade),
+    ("folder_last_content_at", add_folder_last_content_at.upgrade),
 ]
 
 

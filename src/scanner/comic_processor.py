@@ -395,8 +395,8 @@ def _generate_thumbnails(comic, file_hash: str, library_name: Optional[str], loc
         if thumbnail_exists(covers_dir, file_hash, 'JPEG'):
             return
 
-        # Extract cover image
-        cover_image = comic.extract_page_as_image(0)
+        # Extract cover image (cover-only path; avoids full page materialization when possible)
+        cover_image = comic.extract_cover_as_image()
         if not cover_image:
             logger.warning(f"Failed to extract cover for hash {file_hash}")
             return

@@ -60,6 +60,8 @@ class Folder(Base):
     position: Mapped[int] = mapped_column(Integer, default=0)
     created_at: Mapped[int] = mapped_column(Integer, nullable=False)
     updated_at: Mapped[int] = mapped_column(Integer, nullable=False)
+    # Newest comic created_at under this folder (direct or descendant); used for sort=updated
+    last_content_at: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)
 
     # Relationships
     library: Mapped["Library"] = relationship(back_populates="folders")
@@ -74,4 +76,5 @@ class Folder(Base):
         # Performance indexes
         Index('idx_folders_library_path', 'library_id', 'path'),
         Index('idx_folders_name', 'name'),
+        Index('idx_folders_library_last_content', 'library_id', 'last_content_at'),
     )

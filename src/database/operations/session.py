@@ -4,7 +4,7 @@ Session database operations.
 
 import time
 import uuid
-from typing import Optional
+from typing import Optional, Union
 
 from sqlalchemy.orm import Session
 
@@ -42,12 +42,32 @@ def get_session_by_id(session: Session, session_id: str) -> Optional[DBSession]:
     return session.query(DBSession).filter_by(id=session_id).first()
 
 
-def update_session_activity(session: Session, session_id: str):
-    """Update session last activity timestamp."""
-    db_session = get_session_by_id(session, session_id)
-    if db_session:
-        db_session.last_activity_at = int(time.time())
-        session.flush()  # Flush changes without committing
+def update_session_activity(
+    session: Session,
+    session_or_id: Union[DBSession, str],
+    throttle_seconds: int = 0,
+) -> None:
+    """
+    Update session last activity timestamp.
+
+    Prefer passing the already-loaded DBSession to avoid a second SELECT.
+    When throttle_seconds > 0, skip the write if last_activity_at is recent.
+    """
+    if isinstance(session_or_id, DBSession):
+        db_session = session_or_id
+    else:
+        db_session = get_session_by_id(session, session_or_id)
+
+    if not db_session:
+        return
+
+    now = int(time.time())
+    if throttle_seconds > 0 and db_session.last_activity_at:
+        if now - db_session.last_activity_at < throttle_seconds:
+            return
+
+    db_session.last_activity_at = now
+    session.flush()
 
 
 def cleanup_expired_sessions(session: Session):

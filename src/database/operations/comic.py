@@ -11,6 +11,7 @@ from sqlalchemy.orm import Session
 from sqlalchemy import text
 
 from ..models import Comic, Series as SeriesModel
+from .folder import touch_folder_last_content
 
 # Import series utilities
 try:
@@ -83,6 +84,13 @@ def create_comic(
 
     session.add(comic)
     session.flush()  # Flush to get the ID without committing
+
+    touch_folder_last_content(
+        session,
+        folder_id,
+        timestamp=now,
+        cover_hash=file_hash,
+    )
 
     logger.debug(f"Created comic: {filename} (series: {comic.series})")
     return comic

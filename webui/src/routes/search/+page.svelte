@@ -70,8 +70,11 @@
 
 	onMount(async () => {
 		try {
-			// Load libraries, excluding hidden ones
-			const allLibraries = await getLibraries();
+			// Prefer layout libraries when available
+			const layoutLibraries = $page.data.libraries || [];
+			const allLibraries = layoutLibraries.length
+				? layoutLibraries
+				: await getLibraries();
 			libraries = allLibraries.filter(lib => !lib.exclude_from_webui);
 			await loadFacetValues();
 			isReady = true;
@@ -113,21 +116,27 @@
 				return;
 			}
 
-			// Search across selected libraries
-			const results = await Promise.all(
-				scopedLibraries.map((lib) =>
-					searchComics(lib.id, effectiveQuery)
-						.then(comics => comics.map(comic => ({
-							...comic,
-							libraryId: lib.id,
-							libraryName: lib.name
-						})))
-						.catch((err) => {
-							console.error(`Search failed for library ${lib.id}:`, err);
-							return [];
-						})
-				)
-			);
+			// Search across selected libraries with bounded concurrency
+			const SEARCH_CONCURRENCY = 4;
+			const results = [];
+			for (let i = 0; i < scopedLibraries.length; i += SEARCH_CONCURRENCY) {
+				const batch = scopedLibraries.slice(i, i + SEARCH_CONCURRENCY);
+				const batchResults = await Promise.all(
+					batch.map((lib) =>
+						searchComics(lib.id, effectiveQuery)
+							.then(comics => comics.map(comic => ({
+								...comic,
+								libraryId: lib.id,
+								libraryName: lib.name
+							})))
+							.catch((err) => {
+								console.error(`Search failed for library ${lib.id}:`, err);
+								return [];
+							})
+					)
+				);
+				results.push(...batchResults);
+			}
 
 			// Combine and flatten results
 			searchResults = results.flat().map((comic, index) => ({

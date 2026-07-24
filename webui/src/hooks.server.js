@@ -10,6 +10,27 @@ export async function handle({ event, resolve }) {
         const backendUrl = process.env.BACKEND_URL || 'http://localhost:8081';
         const targetUrl = `${backendUrl}${url.pathname}${url.search}`;
 
+        // Cover images and comic pages: prefer a 307 redirect to the backend so the
+        // browser fetches bytes directly (avoids Node proxy overhead). Only when
+        // PUBLIC_BACKEND_URL is a client-reachable URL.
+        const isCover =
+            url.pathname.includes('/covers/') &&
+            (url.pathname.endsWith('.jpg') ||
+                url.pathname.endsWith('.jpeg') ||
+                url.pathname.endsWith('.webp') ||
+                url.pathname.endsWith('.png'));
+        const isComicPage =
+            /\/comics\/\d+\/pages\/\d+(\/remote)?$/.test(url.pathname) ||
+            /\/comic\/\d+\/(remote\/)?page\/\d+(\/remote)?$/.test(url.pathname);
+        const publicBackend = process.env.PUBLIC_BACKEND_URL;
+        if ((isCover || isComicPage) && publicBackend && request.method === 'GET') {
+            const redirectBase = publicBackend.replace(/\/$/, '');
+            return Response.redirect(
+                `${redirectBase}${url.pathname}${url.search}`,
+                307
+            );
+        }
+
         try {
             // Forward the request to the backend
             // We copy valid headers, excluding ones that might confuse the backend or are controlled by fetch

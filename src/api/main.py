@@ -53,8 +53,11 @@ async def lifespan(app: FastAPI):
     # Store in app state
     app.state.db = db
     app.state.config = config
-    # Note: Database schema initialization is handled by init_db.py script
-    # which must be run before starting the server (see start.sh)
+
+    # Idempotent schema migrations (e.g. new columns) — must run before any queries
+    from ..database.migrations.runner import run_startup_migrations
+    logger.info("Running startup database migrations...")
+    run_startup_migrations(db.engine)
 
     # Initialize database settings and migrate legacy config if needed
     from ..database import initialize_default_settings, get_setting

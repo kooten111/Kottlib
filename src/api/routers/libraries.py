@@ -16,6 +16,7 @@ from ...database import (
     get_library_by_id,
     create_library,
     get_library_stats,
+    get_all_library_stats,
     update_library,
     delete_library,
 )
@@ -68,10 +69,11 @@ async def list_libraries(request: Request):
 
     with db.get_session() as session:
         libraries = get_all_libraries(session)
+        stats_by_id = get_all_library_stats(session)
 
         result = []
         for lib in libraries:
-            stats = get_library_stats(session, lib.id)
+            stats = stats_by_id.get(lib.id, {})
 
             result.append(LibraryInfo(
                 id=lib.id,

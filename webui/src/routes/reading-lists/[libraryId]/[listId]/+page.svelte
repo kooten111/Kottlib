@@ -12,7 +12,6 @@
 		deleteReadingList,
 		removeComicFromReadingList
 	} from '$lib/api/readingLists';
-	import { getLibraries, getLibrariesSeriesTree } from '$lib/api/libraries';
 	import {
 		BookOpen, ArrowLeft, Grid, List, Trash2, Pencil, X, Check,
 		Loader2, Minus
@@ -41,30 +40,17 @@
 	// Remove comic state
 	let removingComicId = null;
 
-	// Sidebar data
-	let libraries = [];
-	let seriesTree = [];
+	// Sidebar data from root layout
+	$: libraries = $page.data.libraries || [];
+	$: seriesTree = $page.data.seriesTree || [];
 
 	onMount(async () => {
-		await Promise.all([loadListData(), loadSidebarData()]);
+		await loadListData();
 	});
 
 	// Reload when route params change
 	$: if (libraryId && listId) {
 		loadListData();
-	}
-
-	async function loadSidebarData() {
-		try {
-			const [libs, tree] = await Promise.all([
-				getLibraries(),
-				getLibrariesSeriesTree()
-			]);
-			libraries = libs || [];
-			seriesTree = tree || [];
-		} catch (err) {
-			console.error('Failed to load sidebar data:', err);
-		}
 	}
 
 	async function loadListData() {

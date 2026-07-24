@@ -12,6 +12,25 @@ from sqlalchemy.orm import Session
 from ..models import Setting
 
 
+def _coerce_setting_value(setting: Setting) -> Optional[Any]:
+    """Convert a Setting row to a typed Python value."""
+    if setting.value is None:
+        return None
+
+    if setting.value_type == 'string':
+        return setting.value
+    elif setting.value_type == 'int':
+        return int(setting.value)
+    elif setting.value_type == 'float':
+        return float(setting.value)
+    elif setting.value_type == 'bool':
+        return setting.value.lower() in ('true', '1', 'yes')
+    elif setting.value_type == 'json':
+        return json.loads(setting.value)
+    else:
+        return setting.value
+
+
 def get_setting(session: Session, key: str) -> Optional[Any]:
     """
     Get a setting value from the database
@@ -26,23 +45,8 @@ def get_setting(session: Session, key: str) -> Optional[Any]:
     setting = session.query(Setting).filter(Setting.key == key).first()
     if not setting:
         return None
-    
-    # Convert based on type
-    if setting.value is None:
-        return None
-    
-    if setting.value_type == 'string':
-        return setting.value
-    elif setting.value_type == 'int':
-        return int(setting.value)
-    elif setting.value_type == 'float':
-        return float(setting.value)
-    elif setting.value_type == 'bool':
-        return setting.value.lower() in ('true', '1', 'yes')
-    elif setting.value_type == 'json':
-        return json.loads(setting.value)
-    else:
-        return setting.value
+
+    return _coerce_setting_value(setting)
 
 
 def set_setting(
@@ -118,13 +122,7 @@ def get_all_settings(session: Session) -> Dict[str, Any]:
         Dictionary of all settings
     """
     settings = session.query(Setting).all()
-    result = {}
-    
-    for setting in settings:
-        value = get_setting(session, setting.key)
-        result[setting.key] = value
-    
-    return result
+    return {setting.key: _coerce_setting_value(setting) for setting in settings}
 
 
 def delete_setting(session: Session, key: str) -> bool:

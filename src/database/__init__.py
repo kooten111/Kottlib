@@ -70,6 +70,7 @@ from .operations import (
     get_subfolders,
     get_or_create_root_folder,
     get_first_comic_recursive,
+    touch_folder_last_content,
     # User operations
     get_user_by_username,
     get_user_by_id,
@@ -82,6 +83,7 @@ from .operations import (
     cleanup_expired_sessions,
     # Statistics
     get_library_stats,
+    get_all_library_stats,
     # Reading Progress operations
     update_reading_progress,
     get_reading_progress,
@@ -175,6 +177,7 @@ __all__ = [
     'get_subfolders',
     'get_or_create_root_folder',
     'get_first_comic_recursive',
+    'touch_folder_last_content',
     'get_user_by_username',
     'get_user_by_id',
     'hash_password',
@@ -184,6 +187,7 @@ __all__ = [
     'update_session_activity',
     'cleanup_expired_sessions',
     'get_library_stats',
+    'get_all_library_stats',
     'update_reading_progress',
     'get_reading_progress',
     'get_continue_reading',

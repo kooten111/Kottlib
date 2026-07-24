@@ -40,7 +40,9 @@ export const API_ENDPOINTS = {
         `${API_BASE_URL}/browse/libraries?sort=${sort}&offset=${offset}&limit=${limit}`,
     comicFullInfo: (libraryId, comicId) =>
         `${API_BASE_URL}/libraries/${libraryId}/comics/${comicId}`,
-    continueReading: (limit = 50) => `${API_BASE_URL}/reading?limit=${limit}`
+    continueReading: (limit = 50) => `${API_BASE_URL}/reading?limit=${limit}`,
+    libraryContinueReading: (libraryId, limit = 50) =>
+        `${API_BASE_URL}/libraries/${libraryId}/reading?limit=${limit}`,
 };
 
 /**

@@ -30,6 +30,23 @@ class CBZArchive(ComicArchive):
         super().__init__(file_path)
         self.archive = zipfile.ZipFile(file_path, 'r')
 
+    def _first_image_filename(self) -> Optional[str]:
+        """Find first image via namelist without building ComicPage objects."""
+        candidates = []
+        for info in self.archive.infolist():
+            if info.is_dir():
+                continue
+            name = info.filename
+            base = Path(name).name
+            if base.startswith('.') or base.lower() == 'comicinfo.xml':
+                continue
+            if Path(name).suffix.lower() in IMAGE_EXTENSIONS:
+                candidates.append(name)
+        if not candidates:
+            return None
+        candidates.sort(key=natural_filename_sort_key)
+        return candidates[0]
+
     def _load_pages(self) -> List:
         """
         Load pages from ZIP archive.

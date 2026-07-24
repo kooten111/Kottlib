@@ -21,7 +21,7 @@
         SlidersHorizontal,
         Search,
     } from "lucide-svelte";
-    import { browseLibrary, browseAllLibraries, getContinueReading } from "$lib/api/libraries";
+    import { browseLibrary, browseAllLibraries } from "$lib/api/libraries";
     import { searchComics } from "$lib/api/search";
     import { preferencesStore } from "$lib/stores/preferences";
     import { scanSeries, applySeriesMetadata } from "$lib/api/scanners";
@@ -57,11 +57,11 @@
     $: libraries = data.libraries || [];
     $: seriesTree = data.seriesTree || [];
 
-    // Continue reading (server-loaded for all-libraries, client-fetched for single library)
+    // Continue reading (SSR for all-libraries and single-library root)
     $: serverContinueReading = data.continueReading || [];
-    let clientContinueReading = [];
-    let loadingContinueReading = false;
-    $: continueReadingItems = isAllLibraries ? serverContinueReading : clientContinueReading;
+    $: continueReadingItems = Array.isArray(serverContinueReading)
+        ? serverContinueReading
+        : [];
 
     $: folder = browseData?.folder;
     $: comic = browseData?.comic;
@@ -149,17 +149,23 @@
                 ? (libraries || []).filter(lib => !lib.exclude_from_webui)
                 : [{ id: libraryId }];
 
-            const results = await Promise.all(
-                targetLibraries.map(lib =>
-                    searchComics(lib.id, normalizedQuery)
-                        .then(comics => comics.map(c => ({
-                            ...c,
-                            library_id: c.library_id || lib.id,
-                            type: c.type || 'comic'
-                        })))
-                        .catch(() => [])
-                )
-            );
+            const SEARCH_CONCURRENCY = 4;
+            const results = [];
+            for (let i = 0; i < targetLibraries.length; i += SEARCH_CONCURRENCY) {
+                const batch = targetLibraries.slice(i, i + SEARCH_CONCURRENCY);
+                const batchResults = await Promise.all(
+                    batch.map(lib =>
+                        searchComics(lib.id, normalizedQuery)
+                            .then(comics => comics.map(c => ({
+                                ...c,
+                                library_id: c.library_id || lib.id,
+                                type: c.type || 'comic'
+                            })))
+                            .catch(() => [])
+                    )
+                );
+                results.push(...batchResults);
+            }
             if (requestId !== inlineSearchRequestId) {
                 return;
             }
@@ -255,26 +261,6 @@
             queueMicrotask(() => {
                 prefetchNextPage();
             });
-        }
-        // Only fetch continue reading client-side for single-library mode
-        if (browser && !isAllLibraries) {
-            fetchContinueReading();
-        }
-    }
-
-    async function fetchContinueReading() {
-        // Only fetch reading list at root of library
-        if (currentPath === "" && !isAllLibraries) {
-            loadingContinueReading = true;
-            try {
-                clientContinueReading = await getContinueReading(libraryId);
-            } catch (e) {
-                console.error("Failed to fetch continue reading:", e);
-            } finally {
-                loadingContinueReading = false;
-            }
-        } else {
-            clientContinueReading = [];
         }
     }
 

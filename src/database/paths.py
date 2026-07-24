@@ -47,36 +47,40 @@ def get_default_db_path() -> Path:
     return db_path
 
 
-def get_library_data_dir(library_name: str) -> Path:
+def get_library_data_dir(library_name: str, create: bool = True) -> Path:
     """
     Get the data directory for a specific library.
 
     Args:
         library_name: Name of the library (e.g., 'Manga', 'Comics')
+        create: Whether to create the directory if missing
 
     Returns:
         Path to library-specific data directory (./data/<LibraryName>/)
     """
     data_dir = get_data_dir()
     library_dir = data_dir / library_name
-    library_dir.mkdir(parents=True, exist_ok=True)
+    if create:
+        library_dir.mkdir(parents=True, exist_ok=True)
     return library_dir
 
 
-def get_covers_dir(library_name: str) -> Path:
+def get_covers_dir(library_name: str, create: bool = True) -> Path:
     """
     Get the covers directory for a library.
 
     Args:
         library_name: Name of the library (required)
+        create: Whether to create the directory if missing
 
     Returns:
         Path to library-specific covers directory: ./data/<LibraryName>/covers/
     """
     logger.debug(f"[DB] get_covers_dir: library_name={library_name}")
-    library_dir = get_library_data_dir(library_name)
+    library_dir = get_library_data_dir(library_name, create=create)
     covers_dir = library_dir / 'covers'
-    
+
     logger.debug(f"[DB] Covers directory: {covers_dir}, exists={covers_dir.exists()}")
-    covers_dir.mkdir(parents=True, exist_ok=True)
+    if create:
+        covers_dir.mkdir(parents=True, exist_ok=True)
     return covers_dir

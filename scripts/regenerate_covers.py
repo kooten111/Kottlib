@@ -27,16 +27,22 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 
-def regenerate_cover(comic, library_name, force=False):
+def regenerate_cover(comic, library_name, force=False, db=None):
     """Regenerate cover for a single comic using centralized service"""
-    db = Database()
-    with db.get_session() as session:
-        return regenerate_cover_for_comic(
-            session=session,
-            comic=comic,
-            library_name=library_name,
-            force=force
-        )
+    owned_db = db is None
+    if owned_db:
+        db = Database()
+    try:
+        with db.get_session() as session:
+            return regenerate_cover_for_comic(
+                session=session,
+                comic=comic,
+                library_name=library_name,
+                force=force
+            )
+    finally:
+        if owned_db:
+            db.close()
 
 
 def main():
@@ -98,9 +104,9 @@ def main():
     failed_comics = []
 
     with ThreadPoolExecutor(max_workers=workers) as executor:
-        # Submit all tasks
+        # Submit all tasks (share one Database across workers)
         futures = {
-            executor.submit(regenerate_cover, comic, library.name, force): comic
+            executor.submit(regenerate_cover, comic, library.name, force, db): comic
             for comic in comics
         }
 

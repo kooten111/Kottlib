@@ -1,9 +1,9 @@
 <script>
 	import { onMount } from 'svelte';
+	import { page } from '$app/stores';
 	import Navbar from '$lib/components/layout/Navbar.svelte';
 	import HomeSidebar from '$lib/components/layout/HomeSidebar.svelte';
 	import { getReadingLists, createReadingList, deleteReadingList } from '$lib/api/readingLists';
-	import { getLibraries, getLibrariesSeriesTree } from '$lib/api/libraries';
 	import { List, Plus, Trash2, BookOpen, Grid, Loader2 } from 'lucide-svelte';
 	import { goto } from '$app/navigation';
 
@@ -22,34 +22,18 @@
 	let deleteConfirmId = null;
 	let isDeleting = false;
 
-	// Sidebar data
-	let libraries = [];
-	let seriesTree = [];
+	// Sidebar data from root layout
+	$: libraries = $page.data.libraries || [];
+	$: seriesTree = $page.data.seriesTree || [];
 
 	onMount(async () => {
-		await Promise.all([loadData(), loadSidebarData()]);
+		await loadData();
 	});
-
-	async function loadSidebarData() {
-		try {
-			const [libs, tree] = await Promise.all([
-				getLibraries(),
-				getLibrariesSeriesTree()
-			]);
-			libraries = libs || [];
-			seriesTree = tree || [];
-		} catch (err) {
-			console.error('Failed to load sidebar data:', err);
-		}
-	}
 
 	async function loadData() {
 		try {
 			isLoading = true;
 			error = null;
-
-			const libs = await getLibraries();
-			libraries = libs || [];
 
 			// Filter out hidden libraries
 			const visibleLibraries = libraries.filter(lib => !lib.exclude_from_webui);

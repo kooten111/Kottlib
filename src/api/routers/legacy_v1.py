@@ -7,6 +7,7 @@ Implements the original YACReader Server protocol for mobile app compatibility.
 The mobile app expects text-based responses (not JSON).
 """
 
+import asyncio
 import logging
 from typing import Optional
 from pathlib import Path
@@ -696,6 +697,8 @@ async def get_comic_page(
 
     This extracts the page from the comic archive and returns it
     """
+    from ...services.page_cache import extract_page_bytes, schedule_warm_neighbors
+
     db = request.app.state.db
 
     with db.get_session() as session:
@@ -703,50 +706,25 @@ async def get_comic_page(
         if not comic:
             raise HTTPException(status_code=404, detail="Comic not found")
 
-        # Import here to avoid circular imports
-        from ...scanner import open_comic
-
-        # Open comic archive
         if page_num < 0:
             raise HTTPException(status_code=404, detail="Page not found")
 
         comic_path = Path(comic.path)
-        archive_obj = open_comic(comic_path)
-        if archive_obj is None:
-            raise HTTPException(status_code=500, detail="Failed to open comic")
 
-        with archive_obj as archive:
-            if archive is None:
-                raise HTTPException(status_code=500, detail="Failed to open comic")
+    loop = asyncio.get_running_loop()
+    page_data, content_type = await loop.run_in_executor(
+        None, extract_page_bytes, comic_path, page_num
+    )
+    if page_data is None:
+        raise HTTPException(status_code=404, detail="Page not found")
 
-            if page_num < 0 or page_num >= archive.page_count:
-                raise HTTPException(status_code=404, detail="Page not found")
+    schedule_warm_neighbors(comic_path, page_num)
 
-            # Get page data
-            page_data = archive.get_page(page_num)
-            if page_data is None:
-                raise HTTPException(status_code=404, detail="Failed to read page")
-
-            # Determine content type from page filename
-            page = archive.pages[page_num]
-            ext = Path(page.filename).suffix.lower()
-
-            content_type_map = {
-                '.jpg': 'image/jpeg',
-                '.jpeg': 'image/jpeg',
-                '.png': 'image/png',
-                '.gif': 'image/gif',
-                '.webp': 'image/webp',
-                '.bmp': 'image/bmp',
-            }
-
-            content_type = content_type_map.get(ext, 'image/jpeg')
-
-            return Response(
-                content=page_data,
-                media_type=content_type,
-                headers={"Cache-Control": "public, max-age=86400"}  # Cache for 24 hours
-            )
+    return Response(
+        content=page_data,
+        media_type=content_type,
+        headers={"Cache-Control": "public, max-age=86400"}  # Cache for 24 hours
+    )
 
 
 # ============================================================================

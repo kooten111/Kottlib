@@ -50,7 +50,7 @@
 	let isScrolling = false;
 	let scrollListenerAdded = false;
 	let intersectionObserver = null;
-	const PREFETCH_AHEAD = 3; // Number of pages to prefetch ahead
+	const PREFETCH_AHEAD = 5; // Number of pages to prefetch ahead
 	const PREFETCH_BEHIND = 1; // Number of pages to keep loaded behind
 
 	// Touch/swipe state

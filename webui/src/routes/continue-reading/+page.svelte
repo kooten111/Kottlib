@@ -1,19 +1,18 @@
 <script>
 	import { onMount } from "svelte";
+	import { page } from "$app/stores";
 	import Navbar from "$lib/components/layout/Navbar.svelte";
 	import HomeSidebar from "$lib/components/layout/HomeSidebar.svelte";
 	import ComicCard from "$lib/components/comic/ComicCard.svelte";
 	import {
-		getLibraries,
 		getContinueReading,
 		getContinueReadingAll,
-		getLibrariesSeriesTree,
 	} from "$lib/api/libraries";
 	import { BookOpen, Grid, List, SortAsc } from "lucide-svelte";
 	import { navigationContext } from "$lib/stores/library";
 
-	let libraries = [];
-	let seriesTree = [];
+	$: libraries = $page.data.libraries || [];
+	$: seriesTree = $page.data.seriesTree || [];
 	let continueReading = [];
 	let filteredContinueReading = [];
 	let isLoading = true;
@@ -28,25 +27,12 @@
 	});
 
 	onMount(async () => {
-		await Promise.all([loadContinueReading(), loadSidebarData()]);
+		await loadContinueReading();
 
 		return () => {
 			unsubscribeContext();
 		};
 	});
-
-	async function loadSidebarData() {
-		try {
-			const [libs, tree] = await Promise.all([
-				getLibraries(),
-				getLibrariesSeriesTree()
-			]);
-			libraries = libs || [];
-			seriesTree = tree || [];
-		} catch (err) {
-			console.error('Failed to load sidebar data:', err);
-		}
-	}
 
 	// Reactively apply filter when context or data changes
 	$: if (continueReading.length > 0 && currentContext) {
@@ -69,9 +55,6 @@
 		try {
 			isLoading = true;
 			error = null;
-
-			// Load libraries first
-			libraries = await getLibraries();
 
 			// Check if we're viewing all libraries or a specific library
 			if (currentContext.type === "all" || !currentContext.libraryId) {

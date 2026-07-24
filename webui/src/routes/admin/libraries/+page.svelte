@@ -182,7 +182,7 @@
         fitMode: 'fit-height',
         readingMode: 'single',
         readingDirection: 'ltr',
-        preloadPages: 3,
+        preloadPages: 5,
         backgroundColor: '#1a1a1a',
         autoHideControls: true,
         autoHideDelay: 3000
@@ -413,33 +413,14 @@
                                     >
                                         {library.path}
                                     </p>
-                                    <div
-                                        class="flex gap-4 mt-3 text-sm text-dark-text-muted"
-                                    >
-                                        <span
-                                            >{library.comic_count || 0} comics</span
-                                        >
-                                        <span
-                                            >{library.folder_count || 0} folders</span
-                                        >
-                                        {#if library.last_scan_at}
-                                            <span
-                                                >Last scanned: {new Date(
-                                                    library.last_scan_at * 1000,
-                                                ).toLocaleDateString()}</span
-                                            >
-                                        {/if}
-                                    </div>
-
-                                    <!-- Progress Bar -->
                                     {#if scanProgress[library.id]}
-                                        <div class="mt-4 space-y-2">
+                                        <div class="mt-3 space-y-1.5">
                                             <div
                                                 class="flex justify-between text-sm {scanProgress[
                                                     library.id
                                                 ].in_progress
                                                     ? 'text-dark-text-secondary'
-                                                    : 'text-accent-green font-medium'}"
+                                                    : 'text-status-success font-medium'}"
                                             >
                                                 <span
                                                     >{scanProgress[library.id]
@@ -460,7 +441,7 @@
                                                     class="w-full bg-dark-bg-tertiary rounded-full h-2 overflow-hidden"
                                                 >
                                                     <div
-                                                        class="bg-accent-green h-full transition-all duration-300"
+                                                        class="bg-status-success h-full transition-all duration-300"
                                                         style="width: {Math.min(
                                                             100,
                                                             (scanProgress[
@@ -478,9 +459,27 @@
                                                     class="w-full bg-dark-bg-tertiary rounded-full h-2 overflow-hidden"
                                                 >
                                                     <div
-                                                        class="bg-accent-green h-full w-1/4 animate-pulse"
+                                                        class="bg-status-success h-full w-1/4 animate-pulse"
                                                     ></div>
                                                 </div>
+                                            {/if}
+                                        </div>
+                                    {:else}
+                                        <div
+                                            class="flex gap-4 mt-3 text-sm text-dark-text-muted"
+                                        >
+                                            <span
+                                                >{library.comic_count || 0} comics</span
+                                            >
+                                            <span
+                                                >{library.folder_count || 0} folders</span
+                                            >
+                                            {#if library.last_scan_at}
+                                                <span
+                                                    >Last scanned: {new Date(
+                                                        library.last_scan_at * 1000,
+                                                    ).toLocaleDateString()}</span
+                                                >
                                             {/if}
                                         </div>
                                     {/if}
@@ -490,7 +489,7 @@
                                 <button
                                     on:click={() => handleScan(library)}
                                     disabled={scanningLibraries.has(library.id)}
-                                    class="p-2 text-dark-text-secondary hover:text-accent-green hover:bg-dark-bg-secondary rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                                    class="p-2 text-dark-text-secondary hover:text-status-success hover:bg-dark-bg-secondary rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                                     title="Scan Files"
                                 >
                                     <RefreshCw

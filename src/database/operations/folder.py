@@ -36,7 +36,8 @@ def create_folder(
         path=str(Path(path).resolve()),
         name=name,
         created_at=now,
-        updated_at=now
+        updated_at=now,
+        last_content_at=now,
     )
 
     session.add(folder)
@@ -131,7 +132,8 @@ def get_or_create_root_folder(session: Session, library_id: int, library_path: s
         path=str(Path(library_path).resolve()),
         name=ROOT_FOLDER_MARKER,  # Special marker name
         created_at=now,
-        updated_at=now
+        updated_at=now,
+        last_content_at=now,
     )
 
     session.add(root)
@@ -188,3 +190,36 @@ def get_first_comic_recursive(session: Session, folder_id: int, library_id: int)
             return comic
 
     return None
+
+
+def touch_folder_last_content(
+    session: Session,
+    folder_id: Optional[int],
+    timestamp: Optional[int] = None,
+    cover_hash: Optional[str] = None,
+) -> None:
+    """
+    Walk from folder to root and bump last_content_at (and optionally first_child_hash).
+
+    Used when comics are added so sort=updated stays correct without correlated subqueries.
+    """
+    if folder_id is None:
+        return
+
+    now = timestamp if timestamp is not None else int(time.time())
+    current_id = folder_id
+    visited = set()
+
+    while current_id is not None and current_id not in visited:
+        visited.add(current_id)
+        folder = session.query(Folder).filter_by(id=current_id).first()
+        if not folder:
+            break
+
+        if folder.last_content_at is None or folder.last_content_at < now:
+            folder.last_content_at = now
+
+        if cover_hash and not folder.first_child_hash:
+            folder.first_child_hash = cover_hash
+
+        current_id = folder.parent_id

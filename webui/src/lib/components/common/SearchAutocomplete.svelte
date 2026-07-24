@@ -84,21 +84,27 @@
 			isSearching = true;
 			const libraries = await getVisibleLibraries();
 
-			// Search across all libraries
-			const searchPromises = libraries.map(async (lib) => {
-				try {
-					const comics = await searchComics(lib.id, normalizedQuery);
-					return comics.map((item) => ({
-						...item,
-						libraryId: lib.id,
-						libraryName: lib.name,
-					}));
-				} catch {
-					return [];
-				}
-			});
-
-			const searchResults = await Promise.all(searchPromises);
+			// Search across libraries with bounded concurrency
+			const SEARCH_CONCURRENCY = 4;
+			const searchResults = [];
+			for (let i = 0; i < libraries.length; i += SEARCH_CONCURRENCY) {
+				const batch = libraries.slice(i, i + SEARCH_CONCURRENCY);
+				const batchResults = await Promise.all(
+					batch.map(async (lib) => {
+						try {
+							const comics = await searchComics(lib.id, normalizedQuery);
+							return comics.map((item) => ({
+								...item,
+								libraryId: lib.id,
+								libraryName: lib.name,
+							}));
+						} catch {
+							return [];
+						}
+					})
+				);
+				searchResults.push(...batchResults);
+			}
 			if (requestId !== searchRequestId) {
 				return;
 			}

@@ -10,6 +10,7 @@ from pathlib import Path
 
 from fastapi import APIRouter, Request, HTTPException
 from fastapi.responses import JSONResponse
+from sqlalchemy import func, or_
 
 from ....database import (
     get_library_by_id,
@@ -128,11 +129,15 @@ async def search_comics_v2(
             series_meta_map = {s.name: s for s in series_metadata}
 
             # First try to get folders with cached first_child_hash
-            folders = session.query(FolderModel.name, FolderModel.first_child_hash, FolderModel.path).filter(
+            folders = session.query(
+                FolderModel.name,
+                FolderModel.first_child_hash,
+                FolderModel.path,
+            ).filter(
                 FolderModel.library_id == library_id,
                 FolderModel.name.in_(series_names)
             ).all()
-            
+
             # Build initial map and track series needing fallback lookup
             series_needing_cover = []
             folder_paths = {}
@@ -142,25 +147,47 @@ async def search_comics_v2(
                 else:
                     series_needing_cover.append(f.name)
                     folder_paths[f.name] = f.path
-            
-            # Fallback: Get first comic hash for series without cached cover
-            if series_needing_cover:
-                for series_name in series_needing_cover:
-                    folder_path = folder_paths.get(series_name)
-                    if folder_path:
-                        first_comic = session.query(Comic.hash).filter(
-                            Comic.library_id == library_id,
-                            Comic.path.startswith(folder_path + "/")
-                        ).order_by(Comic.path).first()
-                        if first_comic:
-                            folder_covers[series_name] = first_comic[0]
 
-            for folder_name, _, folder_path in folders:
-                if folder_path:
-                    series_comic_counts[folder_name] = session.query(Comic.id).filter(
+            # Batch fallback: first comic hash per missing folder path
+            if series_needing_cover:
+                path_prefixes = [
+                    folder_paths[name] + "/"
+                    for name in series_needing_cover
+                    if folder_paths.get(name)
+                ]
+                if path_prefixes:
+                    # One query for all comics under any missing series path, then pick first per series
+                    comics_for_covers = session.query(Comic.hash, Comic.path).filter(
                         Comic.library_id == library_id,
-                        Comic.path.startswith(folder_path + "/")
-                    ).count()
+                        or_(
+                            *[Comic.path.startswith(prefix) for prefix in path_prefixes]
+                        ),
+                    ).order_by(Comic.path).all()
+                    for series_name in series_needing_cover:
+                        prefix = folder_paths.get(series_name, "") + "/"
+                        for comic_hash, comic_path in comics_for_covers:
+                            if comic_path.startswith(prefix):
+                                folder_covers[series_name] = comic_hash
+                                break
+
+            # Batch comic counts for series folders
+            if folders:
+                count_rows = session.query(
+                    FolderModel.name,
+                    func.count(Comic.id),
+                ).outerjoin(
+                    Comic,
+                    (Comic.library_id == library_id)
+                    & (
+                        (Comic.folder_id == FolderModel.id)
+                        | (Comic.path.like(FolderModel.path + "/%"))
+                    ),
+                ).filter(
+                    FolderModel.library_id == library_id,
+                    FolderModel.name.in_(series_names),
+                ).group_by(FolderModel.name).all()
+                for folder_name, count in count_rows:
+                    series_comic_counts[folder_name] = count or 0
 
         # Get user for reading progress
         user = get_request_user(request, session)

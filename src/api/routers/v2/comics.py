@@ -6,7 +6,8 @@ Endpoints for comic information, pages, and covers.
 
 import json
 import logging
-from typing import Optional
+import asyncio
+from typing import Optional, Tuple
 from pathlib import Path
 
 from fastapi import APIRouter, Request, Response, HTTPException
@@ -34,6 +35,31 @@ from ._shared import get_comic_display_name
 logger = logging.getLogger(__name__)
 
 router = APIRouter()
+
+
+def _detect_page_count(comic_path: Path) -> int:
+    """Open archive and return page count (runs in a worker thread)."""
+    from ....scanner import open_comic
+
+    with open_comic(comic_path) as archive:
+        if archive is None:
+            return 0
+        return archive.page_count or 0
+
+
+def _extract_page_bytes(comic_path: Path, page_num: int) -> Tuple[Optional[bytes], str]:
+    """
+    Extract a page from an archive (runs in a worker thread).
+
+    Uses the process-local open-archive + page-bytes caches so remote readers
+    do not reopen CBZ/CBR on every turn.
+
+    Returns:
+        (page_bytes, content_type) or (None, "") on failure / out of range.
+    """
+    from ....services.page_cache import extract_page_bytes
+
+    return extract_page_bytes(comic_path, page_num)
 
 
 # ============================================================================
@@ -81,33 +107,31 @@ async def get_comic_fullinfo_v2(
 
         logger.info(f"[FULLINFO] Comic found: filename={comic.filename}, path={comic.path}, num_pages={comic.num_pages}, hash={comic.hash[:12]}...")
 
-        # Fix missing page count: if num_pages is 0, open archive to get actual count
+        # Fix missing page count off the event loop (scan should usually populate this)
         if comic.num_pages == 0:
-            logger.warning(f"[FULLINFO] Comic has num_pages=0, attempting to detect actual page count from archive")
+            logger.warning(
+                "[FULLINFO] Comic has num_pages=0, detecting page count from archive"
+            )
             comic_path = Path(comic.path)
-            
-            # Import here to avoid circular imports
-            from ....scanner import open_comic
-            
             try:
                 if comic_path.exists():
-                    with open_comic(comic_path) as archive:
-                        if archive is not None:
-                            actual_page_count = archive.page_count
-                            if actual_page_count > 0:
-                                logger.info(f"[FULLINFO] Detected {actual_page_count} pages in archive, updating database")
-                                comic.num_pages = actual_page_count
-                                session.commit()
-                                logger.info(f"[FULLINFO] Updated comic.num_pages to {actual_page_count}")
-                            else:
-                                logger.warning(f"[FULLINFO] Archive opened but page_count is 0, keeping database value")
-                        else:
-                            logger.error(f"[FULLINFO] Failed to open comic archive: {comic_path}")
+                    loop = asyncio.get_running_loop()
+                    actual_page_count = await loop.run_in_executor(
+                        None, _detect_page_count, comic_path
+                    )
+                    if actual_page_count > 0:
+                        comic.num_pages = actual_page_count
+                        session.commit()
+                        logger.info(
+                            "[FULLINFO] Updated comic.num_pages to %s",
+                            actual_page_count,
+                        )
                 else:
-                    logger.error(f"[FULLINFO] Comic file does not exist: {comic_path}")
+                    logger.error("[FULLINFO] Comic file does not exist: %s", comic_path)
             except Exception as e:
-                logger.error(f"[FULLINFO] Error opening archive to detect page count: {e}", exc_info=True)
-                # Continue with num_pages=0 rather than failing the request
+                logger.error(
+                    "[FULLINFO] Error detecting page count: %s", e, exc_info=True
+                )
 
         # Get reading progress
         current_page = 0
@@ -463,43 +487,24 @@ async def get_comic_page_v2_nonremote(
         if not comic:
             raise HTTPException(status_code=404, detail="Comic not found")
 
-        # Import here to avoid circular imports
-        from ....scanner import open_comic
-
-        # Open comic archive
         comic_path = Path(comic.path)
-        with open_comic(comic_path) as archive:
-            if archive is None:
-                raise HTTPException(status_code=500, detail="Failed to open comic")
 
-            if page_num < 0 or page_num >= archive.page_count:
-                raise HTTPException(status_code=404, detail="Page not found")
+    loop = asyncio.get_running_loop()
+    page_data, content_type = await loop.run_in_executor(
+        None, _extract_page_bytes, comic_path, page_num
+    )
+    if page_data is None:
+        raise HTTPException(status_code=404, detail="Page not found")
 
-            # Get page data
-            page_data = archive.get_page(page_num)
-            if page_data is None:
-                raise HTTPException(status_code=404, detail="Failed to read page")
+    from ....services.page_cache import schedule_warm_neighbors
 
-            # Determine content type from page filename
-            page = archive.pages[page_num]
-            ext = Path(page.filename).suffix.lower()
+    schedule_warm_neighbors(comic_path, page_num)
 
-            content_type_map = {
-                '.jpg': 'image/jpeg',
-                '.jpeg': 'image/jpeg',
-                '.png': 'image/png',
-                '.gif': 'image/gif',
-                '.webp': 'image/webp',
-                '.bmp': 'image/bmp',
-            }
-
-            content_type = content_type_map.get(ext, 'image/jpeg')
-
-            return Response(
-                content=page_data,
-                media_type=content_type,
-                headers={"Cache-Control": "public, max-age=86400"}
-            )
+    return Response(
+        content=page_data,
+        media_type=content_type,
+        headers={"Cache-Control": "public, max-age=86400"}
+    )
 
 
 @router.get("/library/{library_id}/comic/{comic_id}/page/{page_num}/remote")
@@ -517,88 +522,44 @@ async def get_comic_page_v2_remote(
     Same as v1 but accessed via v2 path
     """
     logger.info(f"[PAGE] Request: library_id={library_id}, comic_id={comic_id}, page_num={page_num}")
-    logger.debug(f"[PAGE] Client: {request.client.host if request.client else 'unknown'}")
 
-    # Get main database for library metadata
     db = request.app.state.db
 
-    # Use main database for everything
     with db.get_session() as session:
-        # Verify library exists
         library = get_library_by_id(session, library_id)
         if not library:
             raise HTTPException(status_code=404, detail="Library not found")
 
-        logger.debug(f"[PAGE] Fetching comic from main database: comic_id={comic_id}")
         comic = get_comic_by_id(session, comic_id)
         if not comic:
-            logger.error(f"[PAGE] Comic not found: comic_id={comic_id}")
             raise HTTPException(status_code=404, detail="Comic not found")
 
-        logger.info(f"[PAGE] Comic found: filename={comic.filename}, path={comic.path}, num_pages={comic.num_pages}")
-        logger.debug(f"[PAGE] Checking page bounds: page_num={page_num}, num_pages={comic.num_pages}")
-
-        # Import here to avoid circular imports
-        from ....scanner import open_comic
-
-        # Open comic archive
         if page_num < 0:
             raise HTTPException(status_code=404, detail="Page not found")
 
         comic_path = Path(comic.path)
-        logger.debug(f"[PAGE] Opening comic archive: {comic_path}")
-        logger.debug(f"[PAGE] Archive exists: {comic_path.exists()}, is_file: {comic_path.is_file()}")
 
-        try:
-            archive_obj = open_comic(comic_path)
-            if archive_obj is None:
-                raise HTTPException(status_code=404, detail="Page not found")
+    loop = asyncio.get_running_loop()
+    try:
+        page_data, content_type = await loop.run_in_executor(
+            None, _extract_page_bytes, comic_path, page_num
+        )
+    except Exception as e:
+        logger.error(f"[PAGE] Exception while processing page: {type(e).__name__}: {e}", exc_info=True)
+        raise
 
-            with archive_obj as archive:
-                if archive is None:
-                    logger.error(f"[PAGE] Failed to open comic archive: {comic_path}")
-                    raise HTTPException(status_code=500, detail="Failed to open comic")
+    if page_data is None:
+        raise HTTPException(status_code=404, detail="Page not found")
 
-                logger.info(f"[PAGE] Archive opened successfully: page_count={archive.page_count}, type={type(archive).__name__}")
+    from ....services.page_cache import schedule_warm_neighbors
 
-                if page_num < 0 or page_num >= archive.page_count:
-                    logger.error(f"[PAGE] Page number out of bounds: page_num={page_num}, page_count={archive.page_count}")
-                    raise HTTPException(status_code=404, detail="Page not found")
+    schedule_warm_neighbors(comic_path, page_num)
 
-                # Get page data
-                logger.debug(f"[PAGE] Extracting page {page_num} from archive")
-                page_data = archive.get_page(page_num)
-                if page_data is None:
-                    logger.error(f"[PAGE] Failed to read page {page_num} from archive")
-                    raise HTTPException(status_code=404, detail="Failed to read page")
-
-                logger.info(f"[PAGE] Page extracted successfully: size={len(page_data)} bytes")
-
-                # Determine content type
-                page = archive.pages[page_num]
-                ext = Path(page.filename).suffix.lower()
-
-                content_type_map = {
-                    '.jpg': 'image/jpeg',
-                    '.jpeg': 'image/jpeg',
-                    '.png': 'image/png',
-                    '.gif': 'image/gif',
-                    '.webp': 'image/webp',
-                    '.bmp': 'image/bmp',
-                }
-
-                content_type = content_type_map.get(ext, 'image/jpeg')
-                logger.debug(f"[PAGE] Page info: filename={page.filename}, extension={ext}, content_type={content_type}")
-
-                logger.info(f"[PAGE] Serving page: comic_id={comic_id}, page_num={page_num}, size={len(page_data)} bytes, type={content_type}")
-                return Response(
-                    content=page_data,
-                    media_type=content_type,
-                    headers={"Cache-Control": "public, max-age=86400"}
-                )
-        except Exception as e:
-            logger.error(f"[PAGE] Exception while processing page: {type(e).__name__}: {e}", exc_info=True)
-            raise
+    return Response(
+        content=page_data,
+        media_type=content_type,
+        headers={"Cache-Control": "public, max-age=86400"}
+    )
 
 
 # ============================================================================
@@ -801,72 +762,87 @@ async def get_cover_v2(
     """
     Get cover image for a comic (v2)
 
-    The cover_path is the hash.jpg filename
+    The cover_path is the hash.jpg / hash.webp filename.
     Covers are stored in hierarchical structure: covers/ab/abc123.jpg
 
-    Serves WebP format when available (better quality, smaller size),
-    with JPEG fallback for compatibility.
+    Serves WebP when available (WebUI), with JPEG fallback for compatibility.
     """
-    logger.info(f"[COVER] Request: library_id={library_id}, cover_path={cover_path}")
-    logger.debug(f"[COVER] Client: {request.client.host if request.client else 'unknown'}")
+    from ...cover_utils import get_cached_library_name
 
     db = request.app.state.db
+    library_name = get_cached_library_name(library_id, db)
 
-    # Get library to determine covers directory
-    with db.get_session() as session:
-        library = get_library_by_id(session, library_id)
-        library_name = library.name if library else None
+    # Extract hash and preferred format from path
+    lower_path = cover_path.lower()
+    prefer_format = None
+    if lower_path.endswith(".webp"):
+        prefer_format = "webp"
+    elif lower_path.endswith((".jpg", ".jpeg")):
+        prefer_format = "jpg"
 
-    logger.debug(f"[COVER] Library: {library_name}")
+    hash_value = (
+        cover_path
+        .replace(".jpg", "")
+        .replace(".jpeg", "")
+        .replace(".png", "")
+        .replace(".webp", "")
+        .replace(".JPG", "")
+        .replace(".JPEG", "")
+        .replace(".WEBP", "")
+    )
 
-    # Extract hash from path (e.g., "abc123.jpg" -> "abc123")
-    hash_value = cover_path.replace('.jpg', '').replace('.jpeg', '').replace('.png', '').replace('.webp', '')
-    logger.debug(f"[COVER] Extracted hash: {hash_value}")
+    cover_headers = {
+        # Hash-addressed; new content => new URL. Long cache for cold grid loads.
+        "Cache-Control": "public, max-age=31536000, immutable",
+    }
 
-    # Find cover file using utility (tries hierarchical and flat paths, WebP and JPEG)
-    result = find_cover_file(hash_value, library_name, try_webp=True)
-
-    if result:
-        cover_file, media_type = result
-        from ...error_handling import safe_file_stat
-        file_stat = safe_file_stat(cover_file, "cover file")
-        size_info = f", size={file_stat.st_size} bytes" if file_stat else ""
-        logger.info(f"[COVER] Serving cover: {cover_file}{size_info}, type={media_type}")
-        return FileResponse(
-            cover_file,
-            media_type=media_type,
-            headers={
-                "Cache-Control": "public, max-age=604800",  # 7 days
-                "Vary": "Accept-Encoding"
-            }
+    if library_name:
+        result = find_cover_file(
+            hash_value,
+            library_name,
+            try_webp=True,
+            prefer_format=prefer_format,
         )
+        if result:
+            cover_file, media_type = result
+            return FileResponse(
+                cover_file,
+                media_type=media_type,
+                stat_result=cover_file.stat(),
+                headers=cover_headers,
+            )
 
-    # Fallback: Search in other libraries for the same hash
-    # This handles cases where items from 'Browse All' might carry the wrong library_id context
-    # or if files were moved but hashes persist.
-    logger.debug(f"[COVER] Cover not found in primary library {library_name}, searching others: hash={hash_value}")
-    
+    # Fallback: Search in other libraries for the same hash (Browse All wrong library_id)
+    logger.debug(
+        "[COVER] Cover not found in primary library %s, searching others: hash=%s",
+        library_name,
+        hash_value,
+    )
+
     with db.get_session() as session:
         all_libs = get_all_libraries(session)
         for lib in all_libs:
-            if lib.id == library_id: 
-                continue # Already checked
-                
-            # Check this library
-            fallback_result = find_cover_file(hash_value, lib.name, try_webp=True)
+            if lib.id == library_id:
+                continue
+            fallback_result = find_cover_file(
+                hash_value,
+                lib.name,
+                try_webp=True,
+                prefer_format=prefer_format,
+            )
             if fallback_result:
                 cover_file, media_type = fallback_result
-                logger.info(f"[COVER] Found cover in fallback library: {lib.name} for hash {hash_value}")
-                
                 return FileResponse(
                     cover_file,
                     media_type=media_type,
-                    headers={
-                        "Cache-Control": "public, max-age=604800",
-                        "Vary": "Accept-Encoding"
-                    }
+                    stat_result=cover_file.stat(),
+                    headers=cover_headers,
                 )
 
-    # Cover not found
-    logger.error(f"[COVER] Cover not found: library_id={library_id}, cover_path={cover_path}, hash={hash_value}")
+    logger.warning(
+        "[COVER] Cover not found: library_id=%s, cover_path=%s, hash=%s",
+        library_id,
+        cover_path,
+        hash_value,
+    )
     raise HTTPException(status_code=404, detail="Cover not found")

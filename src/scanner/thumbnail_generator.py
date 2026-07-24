@@ -25,6 +25,7 @@ JPEG_SIZE = (300, 450)  # Width x Height for mobile
 WEBP_SIZE = (400, 600)  # Width x Height for web
 JPEG_QUALITY = 85
 WEBP_QUALITY = 90
+WEBP_METHOD = 4  # Faster than method=6; still good quality for cover thumbs
 
 
 def resize_image_to_fit(
@@ -133,7 +134,7 @@ def generate_thumbnail_from_image(
         if format == 'JPEG':
             thumb.save(output_path, 'JPEG', quality=quality, optimize=True)
         elif format == 'WEBP':
-            thumb.save(output_path, 'WEBP', quality=quality, method=6)
+            thumb.save(output_path, 'WEBP', quality=quality, method=WEBP_METHOD)
         else:
             logger.error(f"Unsupported format: {format}")
             return False

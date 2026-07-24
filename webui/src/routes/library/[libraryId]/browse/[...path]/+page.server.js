@@ -83,12 +83,17 @@ export const load = async ({ params, url: pageUrl, fetch, parent }) => {
                 apiUrl += `&seed=${seed}`;
             }
 
-            // Fetch browse data and per-library folder tree in parallel; base sidebar data from layout cache.
-            const [{ libraries, seriesTree: baseSeriesTree }, browseRes, libraryTreeRes] = await Promise.all([
-                parent(),
-                fetch(apiUrl),
-                fetch(API_ENDPOINTS.libraryTree(libraryId))
-            ]);
+            // Fetch browse data, folder tree, and continue-reading in parallel at root.
+            const isRootPath = !path;
+            const [{ libraries, seriesTree: baseSeriesTree }, browseRes, libraryTreeRes, continueReadingRes] =
+                await Promise.all([
+                    parent(),
+                    fetch(apiUrl),
+                    fetch(API_ENDPOINTS.libraryTree(libraryId)),
+                    isRootPath
+                        ? fetch(API_ENDPOINTS.libraryContinueReading(libraryId, 50))
+                        : Promise.resolve(null),
+                ]);
 
             if (!browseRes.ok) {
                 console.error(`Failed to browse library: ${browseRes.status} ${browseRes.statusText}`);
@@ -112,13 +117,18 @@ export const load = async ({ params, url: pageUrl, fetch, parent }) => {
                 });
             }
 
+            let continueReading = null;
+            if (continueReadingRes?.ok) {
+                continueReading = await continueReadingRes.json();
+            }
+
             return {
                 browseData,
                 libraries,
                 seriesTree,
                 libraryId: parseInt(libraryId),
                 currentPath: path || '',
-                continueReading: null,
+                continueReading,
                 searchQuery
             };
         }

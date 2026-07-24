@@ -17,6 +17,7 @@ This module has been refactored to use focused submodules:
 import time
 import logging
 import warnings
+import os
 from pathlib import Path
 from typing import Tuple, List, Optional, Dict, Any, Callable
 from concurrent.futures import ThreadPoolExecutor
@@ -39,6 +40,23 @@ from .cleanup import cleanup_missing_comics
 
 logger = logging.getLogger(__name__)
 
+DEFAULT_SCAN_WORKERS = 4
+
+
+def _resolve_scan_workers(max_workers: Optional[int] = None) -> int:
+    """Resolve scan worker count from arg, env, or default."""
+    if max_workers is not None and max_workers > 0:
+        return max_workers
+    env_val = os.environ.get("KOTTLIB_SCAN_WORKERS")
+    if env_val:
+        try:
+            parsed = int(env_val)
+            if parsed > 0:
+                return parsed
+        except ValueError:
+            logger.warning("Invalid KOTTLIB_SCAN_WORKERS=%r; using default", env_val)
+    return DEFAULT_SCAN_WORKERS
+
 
 class ThreadedScanner:
     """
@@ -56,7 +74,7 @@ class ThreadedScanner:
         self,
         db: Database,
         library_id: int,
-        max_workers: int = 4,
+        max_workers: Optional[int] = None,
         progress_callback: Optional[Callable[..., None]] = None
     ) -> None:
         """
@@ -65,12 +83,12 @@ class ThreadedScanner:
         Args:
             db: Database instance
             library_id: Library ID to scan into
-            max_workers: Number of worker threads (default: 4)
+            max_workers: Number of worker threads (default: KOTTLIB_SCAN_WORKERS or 4)
             progress_callback: Optional callback(current, total, message)
         """
         self.db: Database = db
         self.library_id: int = library_id
-        self.max_workers: int = max_workers
+        self.max_workers: int = _resolve_scan_workers(max_workers)
         self.progress_callback: Optional[Callable[..., None]] = progress_callback
 
         # Get library name for per-library data directories
@@ -210,6 +228,11 @@ class ThreadedScanner:
             )
             # Don't fail the scan if series rebuild fails
 
+        try:
+            from .series_builder import refresh_folder_content_metadata
+            refresh_folder_content_metadata(self.db, self.library_id)
+        except Exception as e:
+            logger.error(f"Failed to refresh folder content metadata: {e}", exc_info=True)
         # Build and cache the series tree for fast loading
         # Use extracted build_series_tree_cache function
         try:
@@ -253,32 +276,15 @@ class ThreadedScanner:
             root_folder_id: ID of the root folder (for comics at library root)
             total: Total number of comics (for progress)
         """
-        # Use thread pool to process comics in parallel
+        # Use thread pool to process comics in parallel.
+        # Submit in chunks so large libraries don't allocate huge Future lists.
+        chunk_size = max(self.max_workers * 8, 32)
         with ThreadPoolExecutor(max_workers=self.max_workers) as executor:
-            # Submit all tasks and keep them in order
-            futures = []
-            for comic_path, parent_folder in comic_files:
-                if parent_folder:
-                    # Comic is in a subfolder
-                    folder_id = folder_map.get(str(parent_folder))
-                else:
-                    # Comic is at library root - use root folder ID (YACReader convention)
-                    folder_id = root_folder_id
-
-                future = executor.submit(
-                    self._process_single_comic_tracked,
-                    comic_path,
-                    folder_id
-                )
-                futures.append((future, comic_path))
-
-            # Progress monitoring thread
             def monitor_progress() -> None:
                 """Update progress display with active workers."""
                 while self._comics_processed < total:
                     with self._lock:
                         if self.progress_callback:
-                            # Get list of active workers
                             running_comics = list(self._active_workers.values())
                             self.progress_callback(
                                 self._comics_processed,
@@ -288,28 +294,39 @@ class ThreadedScanner:
                                 None,
                                 running_comics
                             )
-                    time.sleep(0.3)  # Update every 300ms
+                    time.sleep(0.3)
 
-            # Start progress monitor thread
             monitor = Thread(target=monitor_progress, daemon=True)
             monitor.start()
 
-            # IMPORTANT: Process completed tasks IN ORDER (not as_completed)
-            # This ensures that if the scan is interrupted, all processed comics
-            # are fully complete (metadata + thumbnails) in the database
-            for i, (future, comic_path) in enumerate(futures, 1):
-                try:
-                    future.result()  # Wait for this specific comic to complete
-                except Exception as e:
-                    logger.error(f"Error processing comic {comic_path}: {e}")
+            for chunk_start in range(0, len(comic_files), chunk_size):
+                chunk = comic_files[chunk_start:chunk_start + chunk_size]
+                futures = []
+                for comic_path, parent_folder in chunk:
+                    if parent_folder:
+                        folder_id = folder_map.get(str(parent_folder))
+                    else:
+                        folder_id = root_folder_id
+
+                    future = executor.submit(
+                        self._process_single_comic_tracked,
+                        comic_path,
+                        folder_id
+                    )
+                    futures.append((future, comic_path))
+
+                # Wait in submission order within the chunk (interrupt-safe prefix)
+                for future, comic_path in futures:
+                    try:
+                        future.result()
+                    except Exception as e:
+                        logger.error(f"Error processing comic {comic_path}: {e}")
+                        with self._lock:
+                            self._counters['errors'] += 1
+
                     with self._lock:
-                        self._counters['errors'] += 1
+                        self._comics_processed += 1
 
-                # Update progress counter
-                with self._lock:
-                    self._comics_processed += 1
-
-            # Final progress update to clear active workers
             if self.progress_callback:
                 self.progress_callback(self._comics_processed, total, "Complete", None, None, [])
 

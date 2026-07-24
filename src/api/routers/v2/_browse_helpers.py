@@ -8,8 +8,9 @@ to improve readability and maintainability.
 from typing import Optional, List, Dict, Tuple
 import random
 
-from sqlalchemy import func, desc
+from sqlalchemy import case, func, desc, or_
 from sqlalchemy.orm import Session, Query
+from sqlalchemy.sql.elements import ColumnElement
 
 from ....database.models import (
     Folder as FolderModel,
@@ -18,6 +19,69 @@ from ....database.models import (
     ReadingProgress,
 )
 from ._item_builders import build_folder_item, build_comic_item
+
+
+def volume_progress_expr() -> ColumnElement:
+    """Per-volume progress score: 100 if completed, else progress_percent (0 if unset)."""
+    return case(
+        (ReadingProgress.is_completed.is_(True), 100.0),
+        else_=func.coalesce(ReadingProgress.progress_percent, 0.0),
+    )
+
+
+def folder_progress_subquery(
+    session: Session,
+    user_id: int,
+    library_id: Optional[int] = None,
+):
+    """
+    Subquery of folder_id -> avg volume progress for a user.
+
+    Averages direct child comics (Comic.folder_id). Completed volumes count as 100%.
+    """
+    query = (
+        session.query(
+            Comic.folder_id.label("folder_id"),
+            func.avg(volume_progress_expr()).label("avg_progress"),
+        )
+        .outerjoin(
+            ReadingProgress,
+            (ReadingProgress.comic_id == Comic.id)
+            & (ReadingProgress.user_id == user_id),
+        )
+        .filter(Comic.folder_id.isnot(None))
+    )
+    if library_id is not None:
+        query = query.filter(Comic.library_id == library_id)
+    return query.group_by(Comic.folder_id).subquery()
+
+
+def apply_progress_order_to_queries(
+    session: Session,
+    folders_query: Query,
+    comics_query: Query,
+    user_id: int,
+    library_id: Optional[int] = None,
+) -> Tuple[Query, Query]:
+    """Order folder/comic queries by reading progress (highest first)."""
+    progress_subq = folder_progress_subquery(session, user_id, library_id)
+    folders_query = folders_query.outerjoin(
+        progress_subq,
+        progress_subq.c.folder_id == FolderModel.id,
+    ).order_by(
+        progress_subq.c.avg_progress.desc().nulls_last(),
+        FolderModel.name,
+    )
+
+    volume_progress = volume_progress_expr()
+    comics_query = comics_query.outerjoin(
+        ReadingProgress,
+        (ReadingProgress.comic_id == Comic.id) & (ReadingProgress.user_id == user_id),
+    ).order_by(
+        volume_progress.desc(),
+        Comic.path,
+    )
+    return folders_query, comics_query
 
 
 def apply_random_sort(
@@ -205,25 +269,19 @@ def apply_browse_sort_queries(
         folders_query = folders_query.order_by(desc(FolderModel.created_at), FolderModel.name)
         comics_query = comics_query.order_by(desc(Comic.created_at), Comic.path)
     elif normalized_sort == "updated":
-        latest_descendant_created_subq = session.query(func.max(Comic.created_at)).filter(
-            Comic.library_id == library_id,
-            Comic.path.like(FolderModel.path + "/%"),
-        ).correlate(FolderModel).scalar_subquery()
         folders_query = folders_query.order_by(
-            desc(func.coalesce(latest_descendant_created_subq, FolderModel.created_at)),
+            desc(func.coalesce(FolderModel.last_content_at, FolderModel.created_at)),
             FolderModel.name,
         )
         comics_query = comics_query.order_by(desc(Comic.created_at), Comic.path)
     elif normalized_sort == "progress" and user:
-        comics_query = comics_query.outerjoin(
-            ReadingProgress,
-            (ReadingProgress.comic_id == Comic.id) & (ReadingProgress.user_id == user.id),
-        ).order_by(
-            ReadingProgress.last_read_at.desc().nulls_last(),
-            ReadingProgress.progress_percent.desc().nulls_last(),
-            Comic.path,
+        folders_query, comics_query = apply_progress_order_to_queries(
+            session,
+            folders_query,
+            comics_query,
+            user_id=user.id,
+            library_id=library_id,
         )
-        folders_query = folders_query.order_by(FolderModel.name)
     else:
         folders_query = folders_query.order_by(FolderModel.name)
         comics_query = comics_query.order_by(Comic.path)
@@ -243,11 +301,29 @@ def _folder_items_for_folders(
     series_map, folders_with_children = batch_fetch_folder_metadata(
         session, folders, library_id
     )
+
+    cover_by_folder_id: Dict[int, Optional[str]] = {
+        folder.id: folder.first_child_hash for folder in folders if folder.first_child_hash
+    }
+    needing_fallback = [f for f in folders if not f.first_child_hash]
+    if needing_fallback:
+        prefixes = [(f.id, f.path + "/") for f in needing_fallback if f.path]
+        if prefixes:
+            or_filters = [Comic.path.startswith(prefix) for _, prefix in prefixes]
+            path_filter = or_(*or_filters) if len(or_filters) > 1 else or_filters[0]
+            rows = session.query(Comic.hash, Comic.path).filter(
+                Comic.library_id == library_id,
+                path_filter,
+            ).order_by(Comic.path).all()
+            for folder_id, prefix in prefixes:
+                for comic_hash, comic_path in rows:
+                    if comic_path.startswith(prefix):
+                        cover_by_folder_id[folder_id] = comic_hash
+                        break
+
     items: List[dict] = []
     for folder in folders:
-        cover_hash = folder.first_child_hash
-        if not cover_hash:
-            cover_hash = get_cover_hash_fallback(session, library_id, folder)
+        cover_hash = folder.first_child_hash or cover_by_folder_id.get(folder.id)
         items.append(
             build_folder_item(
                 folder=folder,

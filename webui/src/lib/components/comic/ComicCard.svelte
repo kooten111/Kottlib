@@ -10,6 +10,8 @@
 	/** @type {string | null | undefined} */
 	export let href = null; // Optional custom href for the card
 	export let noLink = false; // If true, render as div instead of link
+	/** Prefer high priority for first-viewport cards */
+	export let fetchPriority = null;
 
 	$: hash =
 		comic.hash ||
@@ -41,8 +43,9 @@
 				src={coverUrl}
 				alt={comic.title}
 				class="cover-image"
-				loading="lazy"
+				loading={fetchPriority === "high" ? "eager" : "lazy"}
 				decoding="async"
+				fetchpriority={fetchPriority || undefined}
 			/>
 		{:else}
 			<div class="cover-placeholder">
@@ -357,8 +360,9 @@
 				src={coverUrl}
 				alt={comic.title}
 				class="cover-image"
-				loading="lazy"
+				loading={fetchPriority === "high" ? "eager" : "lazy"}
 				decoding="async"
+				fetchpriority={fetchPriority || undefined}
 			/>
 		{:else}
 			<div class="cover-placeholder">

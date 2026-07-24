@@ -1,7 +1,7 @@
 /** Infinite-scroll helpers for the library browse page. */
 
-export const INFINITE_SCROLL_MIN_PRELOAD_PX = 2500;
-export const INFINITE_SCROLL_VIEWPORT_MULTIPLIER = 3.5;
+export const INFINITE_SCROLL_MIN_PRELOAD_PX = 1200;
+export const INFINITE_SCROLL_VIEWPORT_MULTIPLIER = 1.5;
 
 export function getPreloadDistancePx(scrollContainer) {
 	const viewportHeight =
@@ -58,10 +58,8 @@ export function infiniteScroll(node, options) {
 	let observer = createObserver();
 
 	const onScroll = () => {
+		// Prefetch only from scroll; IntersectionObserver owns loadMore to avoid dual triggers.
 		onPrefetch();
-		if (isNearListEnd(scrollContainer)) {
-			onLoadMore();
-		}
 	};
 
 	const onResize = () => {

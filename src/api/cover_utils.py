@@ -6,24 +6,55 @@ storage and format fallbacks (WebP -> JPEG).
 """
 
 import logging
+import time
 from pathlib import Path
-from typing import Optional, Tuple
+from typing import Dict, Optional, Tuple
 
 from ..database import get_covers_dir
 from .error_handling import safe_path_exists
 
 logger = logging.getLogger(__name__)
 
+# library_id -> (name, cached_at). Avoids a DB round-trip per cover request.
+_LIBRARY_NAME_CACHE: Dict[int, Tuple[str, float]] = {}
+_LIBRARY_NAME_TTL_SECONDS = 300.0
+
+
+def get_cached_library_name(library_id: int, db) -> Optional[str]:
+    """Return library name from a short-lived in-memory cache."""
+    cached = _LIBRARY_NAME_CACHE.get(library_id)
+    now = time.monotonic()
+    if cached and (now - cached[1]) < _LIBRARY_NAME_TTL_SECONDS:
+        return cached[0]
+
+    from ..database import get_library_by_id
+
+    with db.get_session() as session:
+        library = get_library_by_id(session, library_id)
+        if not library:
+            return None
+        _LIBRARY_NAME_CACHE[library_id] = (library.name, now)
+        return library.name
+
+
+def invalidate_library_name_cache(library_id: Optional[int] = None) -> None:
+    """Drop cached library names (all, or one id)."""
+    if library_id is None:
+        _LIBRARY_NAME_CACHE.clear()
+    else:
+        _LIBRARY_NAME_CACHE.pop(library_id, None)
+
 
 def find_cover_file(
     hash_value: str,
     library_name: str,
-    try_webp: bool = True
+    try_webp: bool = True,
+    prefer_format: Optional[str] = None,
 ) -> Optional[Tuple[Path, str]]:
     """
     Find cover file for a given hash, trying multiple locations and formats
 
-    Searches in this order:
+    Searches in this order (unless prefer_format forces jpeg/webp first):
     1. Hierarchical WebP (covers/ab/abc123.webp) - if try_webp=True
     2. Hierarchical JPEG (covers/ab/abc123.jpg)
     3. Flat WebP (covers/abc123.webp) - if try_webp=True
@@ -33,47 +64,65 @@ def find_cover_file(
         hash_value: Comic hash (e.g., "abc123")
         library_name: Library name for covers directory
         try_webp: Whether to try WebP format (default: True)
+        prefer_format: Optional 'webp' or 'jpg' to try that format first
 
     Returns:
         Tuple of (Path, media_type) if found, None otherwise
         media_type will be either "image/webp" or "image/jpeg"
-
-    Example:
-        >>> cover_path, media_type = find_cover_file("abc123", "My Library")
-        >>> if cover_path:
-        ...     return FileResponse(cover_path, media_type=media_type)
     """
-    covers_dir = get_covers_dir(library_name)
+    # Do not mkdir on the hot path — covers should already exist after scan.
+    covers_dir = get_covers_dir(library_name, create=False)
+    if not covers_dir.exists():
+        return None
 
-    # Try hierarchical path first (covers/ab/abc123.*)
-    if len(hash_value) >= 2:
-        subdir = hash_value[:2]
+    want_webp_first = try_webp
+    if prefer_format == "jpg":
+        want_webp_first = False
+    elif prefer_format == "webp":
+        want_webp_first = True
 
-        # Try hierarchical WebP
+    def _try_hierarchical(ext: str, media_type: str) -> Optional[Tuple[Path, str]]:
+        if len(hash_value) < 2:
+            return None
+        path = covers_dir / hash_value[:2] / f"{hash_value}.{ext}"
+        if path.is_file():
+            return (path, media_type)
+        return None
+
+    def _try_flat(ext: str, media_type: str) -> Optional[Tuple[Path, str]]:
+        path = covers_dir / f"{hash_value}.{ext}"
+        if path.is_file():
+            return (path, media_type)
+        return None
+
+    if want_webp_first:
+        found = _try_hierarchical("webp", "image/webp")
+        if found:
+            return found
+        found = _try_hierarchical("jpg", "image/jpeg")
+        if found:
+            return found
+        found = _try_flat("webp", "image/webp")
+        if found:
+            return found
+        found = _try_flat("jpg", "image/jpeg")
+        if found:
+            return found
+    else:
+        found = _try_hierarchical("jpg", "image/jpeg")
+        if found:
+            return found
         if try_webp:
-            webp_path = covers_dir / subdir / f"{hash_value}.webp"
-            if safe_path_exists(webp_path, "hierarchical WebP cover"):
-                logger.debug(f"Found hierarchical WebP cover: {webp_path}")
-                return (webp_path, "image/webp")
-
-        # Try hierarchical JPEG
-        jpeg_path = covers_dir / subdir / f"{hash_value}.jpg"
-        if safe_path_exists(jpeg_path, "hierarchical JPEG cover"):
-            logger.debug(f"Found hierarchical JPEG cover: {jpeg_path}")
-            return (jpeg_path, "image/jpeg")
-
-    # Try flat path as fallback (covers/abc123.*)
-    if try_webp:
-        webp_path = covers_dir / f"{hash_value}.webp"
-        if safe_path_exists(webp_path, "flat WebP cover"):
-            logger.debug(f"Found flat WebP cover: {webp_path}")
-            return (webp_path, "image/webp")
-
-    # Try flat JPEG
-    jpeg_path = covers_dir / f"{hash_value}.jpg"
-    if safe_path_exists(jpeg_path, "flat JPEG cover"):
-        logger.debug(f"Found flat JPEG cover: {jpeg_path}")
-        return (jpeg_path, "image/jpeg")
+            found = _try_hierarchical("webp", "image/webp")
+            if found:
+                return found
+        found = _try_flat("jpg", "image/jpeg")
+        if found:
+            return found
+        if try_webp:
+            found = _try_flat("webp", "image/webp")
+            if found:
+                return found
 
     logger.debug(f"No cover found for hash: {hash_value}")
     return None
@@ -94,14 +143,6 @@ def find_cover_for_comic(
 
     Returns:
         Tuple of (Path, media_type) if found, None otherwise
-
-    Example:
-        >>> cover = get_best_cover(session, comic_id)
-        >>> result = find_cover_for_comic(
-        ...     comic.hash,
-        ...     library.name,
-        ...     cover.jpeg_path if cover else None
-        ... )
     """
     # Try custom cover first if provided
     if custom_cover_path:
